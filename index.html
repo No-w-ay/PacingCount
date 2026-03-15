@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PacingCount</title>
+    <meta name="theme-color" content="#121212">
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --blue: #2196F3;
+            --green: #4CAF50;
+            --orange: #FF9800;
+            --border: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Navigation */
+        nav {
+            display: flex;
+            justify-content: space-around;
+            background: var(--card-bg);
+            padding: 15px 0;
+            border-top: 1px solid var(--border);
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
+        nav button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+
+        nav button.active {
+            opacity: 1;
+            font-weight: bold;
+            color: var(--blue);
+        }
+
+        /* Pages */
+        .page {
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            padding-bottom: 80px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .page.active { display: flex; }
+
+        h1 { font-size: 1.5rem; text-align: center; }
+
+        /* Boutons de mesure */
+        .measure-btn {
+            width: 100%;
+            padding: 30px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .measure-btn:active { transform: scale(0.98); }
+        .btn-blue { background-color: var(--blue); }
+        .btn-green { background-color: var(--green); }
+        .btn-orange { background-color: var(--orange); }
+
+        .active-indicator {
+            border: 4px solid white;
+            box-shadow: 0 0 15px rgba(255,255,255,0.3);
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 2.5rem;
+            font-family: monospace;
+            margin: 20px 0;
+        }
+
+        /* Table & Inputs */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        
+        .settings-group {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+        }
+
+        .export-btn {
+            background: var(--blue);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="page-measure" class="page active">
+        <h1 id="title-measure">PacingCount</h1>
+        <div class="timer-display" id="main-timer">00:00:00</div>
+        
+        <button id="btn-1" class="measure-btn btn-blue" onclick="startPeriod(1)">Couché sans stimulation</button>
+        <button id="btn-2" class="measure-btn btn-green" onclick="startPeriod(2)">Couché actif</button>
+        <button id="btn-3" class="measure-btn btn-orange" onclick="startPeriod(3)">Non couché</button>
+    </div>
+
+    <div id="page-results" class="page">
+        <h1 id="title-results">Résultats</h1>
+        <div id="results-list"></div>
+        <button class="export-btn" onclick="exportCSV()" id="btn-export">Exporter en CSV</button>
+    </div>
+
+    <div id="page-settings" class="page">
+        <h1 id="title-settings">Réglages</h1>
+        
+        <div class="settings-group">
+            <label>Langue / Taal</label>
+            <select id="lang-select" onchange="changeLang()">
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+                <option value="nl">Nederlands</option>
+            </select>
+        </div>
+
+        <div class="settings-group">
+            <label id="label-custom">Noms des boutons</label>
+            <input type="text" id="custom-1" placeholder="Bouton Bleu" onchange="saveSettings()">
+            <input type="text" id="custom-2" placeholder="Bouton Vert" onchange="saveSettings()">
+            <input type="text" id="custom-3" placeholder="Bouton Orange" onchange="saveSettings()">
+        </div>
+    </div>
+
+    <nav>
+        <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
+        <button onclick="showPage('results')" id="nav-results">Résultats</button>
+        <button onclick="showPage('settings')" id="nav-settings">Réglages</button>
+    </nav>
+
+    <script>
+        // --- DATA & STATE ---
+        let state = JSON.parse(localStorage.getItem('pacingState')) || {
+            activeType: null,
+            startTime: null,
+            history: [] // {type, start, end}
+        };
+
+        let settings = JSON.parse(localStorage.getItem('pacingSettings')) || {
+            lang: 'fr',
+            labels: ["Couché sans stimulation", "Couché actif", "Non couché"]
+        };
+
+        const translations = {
+            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", custom: "Noms des boutons" },
+            en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", custom: "Button Names" },
+            nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", custom: "Knopnamen" }
+        };
+
+        // --- CORE LOGIC ---
+        function startPeriod(type) {
+            const now = new Date().getTime();
+            
+            // Fermer la période précédente si elle existe
+            if (state.activeType !== null) {
+                state.history.push({
+                    type: state.activeType,
+                    start: state.startTime,
+                    end: now
+                });
+            }
+
+            state.activeType = type;
+            state.startTime = now;
+            saveState();
+            updateUI();
+        }
+
+        function saveState() {
+            localStorage.setItem('pacingState', JSON.stringify(state));
+        }
+
+        function saveSettings() {
+            settings.labels = [
+                document.getElementById('custom-1').value || settings.labels[0],
+                document.getElementById('custom-2').value || settings.labels[1],
+                document.getElementById('custom-3').value || settings.labels[2]
+            ];
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            updateUI();
+        }
+
+        function changeLang() {
+            settings.lang = document.getElementById('lang-select').value;
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            updateUI();
+        }
+
+        // --- UI & UPDATES ---
+        function updateUI() {
+            // Textes
+            const t = translations[settings.lang];
+            document.getElementById('nav-measure').innerText = t.measure;
+            document.getElementById('nav-results').innerText = t.results;
+            document.getElementById('nav-settings').innerText = t.settings;
+            document.getElementById('btn-export').innerText = t.export;
+            document.getElementById('label-custom').innerText = t.custom;
+
+            // Labels boutons
+            document.getElementById('btn-1').innerText = settings.labels[0];
+            document.getElementById('btn-2').innerText = settings.labels[1];
+            document.getElementById('btn-3').innerText = settings.labels[2];
+
+            // Etat actif
+            [1,2,3].forEach(i => {
+                const btn = document.getElementById(`btn-${i}`);
+                btn.classList.remove('active-indicator');
+                if(state.activeType === i) btn.classList.add('active-indicator');
+            });
+
+            renderResults();
+        }
+
+        function updateTimer() {
+            if (state.startTime) {
+                const diff = Math.floor((new Date().getTime() - state.startTime) / 1000);
+                const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+                const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                const s = (diff % 60).toString().padStart(2, '0');
+                document.getElementById('main-timer').innerText = `${h}:${m}:${s}`;
+            }
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results-list');
+            container.innerHTML = "";
+            
+            // Logique simplifiée de regroupement par jour
+            const totalsByDay = {};
+            
+            // On traite l'historique + la période en cours
+            let allEntries = [...state.history];
+            if(state.activeType) {
+                allEntries.push({type: state.activeType, start: state.startTime, end: new Date().getTime()});
+            }
+
+            allEntries.forEach(entry => {
+                const date = new Date(entry.start).toLocaleDateString();
+                if(!totalsByDay[date]) totalsByDay[date] = {1:0, 2:0, 3:0, countBlue: 0};
+                
+                let duration = (entry.end - entry.start) / 1000 / 60; // minutes
+                totalsByDay[date][entry.type] += duration;
+                if(entry.type === 1) totalsByDay[date].countBlue++;
+            });
+
+            for(let date in totalsByDay) {
+                const day = totalsByDay[date];
+                const div = document.createElement('div');
+                div.className = "settings-group";
+                div.innerHTML = `<strong>${date}</strong><br>
+                    <span style="color:var(--blue)">●</span> ${Math.round(day[1])}m | 
+                    <span style="color:var(--green)">●</span> ${Math.round(day[2])}m | 
+                    <span style="color:var(--orange)">●</span> ${Math.round(day[3])}m<br>
+                    <small>Séquences bleues: ${day.countBlue}</small>`;
+                container.appendChild(div);
+            }
+        }
+
+        // --- NAVIGATION ---
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`page-${pageId}`).classList.add('active');
+            document.getElementById(`nav-${pageId}`).classList.add('active');
+        }
+
+        function exportCSV() {
+            let csv = "Date,Type,Duree_Minutes\n";
+            state.history.forEach(e => {
+                const date = new Date(e.start).toLocaleDateString();
+                const label = settings.labels[e.type-1];
+                const dur = Math.round((e.end - e.start)/60000);
+                csv += `${date},${label},${dur}\n`;
+            });
+            const blob = new Blob([csv], {type: 'text/csv'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'pacingcount_data.csv');
+            a.click();
+        }
+
+        // Init
+        setInterval(updateTimer, 1000);
+        document.getElementById('lang-select').value = settings.lang;
+        document.getElementById('custom-1').value = settings.labels[0];
+        document.getElementById('custom-2').value = settings.labels[1];
+        document.getElementById('custom-3').value = settings.labels[2];
+        updateUI();
+
+    </script>
+</body>
+</html>
