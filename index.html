@@ -307,9 +307,9 @@
         let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
 
         const translations = {
-            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique chronologique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", overlapWarning: "Cette modification chevauche {n} période(s) existante(s) (y compris celle en cours). Elles seront ajustées pour éviter les trous. Continuer ?", futureError: "Impossible d'enregistrer une période dans le futur." },
-            en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Chronological History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", overlapWarning: "This edit overlaps {n} period(s) (including the live one). They will be adjusted to prevent gaps. Continue?", futureError: "Cannot record a period in the future." },
-            nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Chronologische geschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", overlapWarning: "Deze wijziging overlapt {n} periode(s). Ze worden aangepast om gaten te voorkomen. Doorgaan?", futureError: "Kan geen periode in de toekomst opnemen." }
+            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique chronologique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", overlapWarning: "Cette modification chevauche {n} période(s) existante(s). Elles seront ajustées. Continuer ?", overlapLiveWarning: "Attention, cette modification chevauche {n} période(s) existante(s), Y COMPRIS celle en cours ! Le chrono sera ajusté. Continuer ?", futureError: "Impossible d'enregistrer une période dans le futur." },
+            en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Chronological History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", overlapWarning: "This edit overlaps {n} existing period(s). They will be adjusted. Continue?", overlapLiveWarning: "Warning, this edit overlaps {n} period(s), INCLUDING the live one! The timer will be adjusted. Continue?", futureError: "Cannot record a period in the future." },
+            nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Chronologische geschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", overlapWarning: "Deze wijziging overlapt {n} bestaande periode(s). Ze worden aangepast. Doorgaan?", overlapLiveWarning: "Let op, deze wijziging overlapt {n} periode(s), INCLUSIEF de huidige opname! De timer wordt aangepast. Doorgaan?", futureError: "Kan geen periode in de toekomst opnemen." }
         };
 
         const colors = { 1: "blue", 2: "green", 3: "orange" };
@@ -465,64 +465,90 @@
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
 
         function saveManualEdit() {
-            const t = translations[settings.lang];
-            const idx = parseInt(document.getElementById('edit-index').value);
-            const type = parseInt(document.getElementById('edit-type').value);
-            const start = new Date(document.getElementById('edit-start').value).getTime();
-            const end = new Date(document.getElementById('edit-end').value).getTime();
-            const now = Date.now();
+    const t = translations[settings.lang];
+    const idx = parseInt(document.getElementById('edit-index').value);
+    const type = parseInt(document.getElementById('edit-type').value);
+    const start = new Date(document.getElementById('edit-start').value).getTime();
+    const end = new Date(document.getElementById('edit-end').value).getTime();
+    
+    // On fige l'heure exacte du clic pour nos calculs
+    const now = Date.now();
 
-            if (end <= start) return alert("Fin après début requis.");
-            if (end > now + 1000) return alert(t.futureError);
+    if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+    if (end > now + 60000) return alert(t.futureError); // Marge d'1 minute tolérée pour la saisie manuelle
 
-            // Logique de collision incluant le Live
-            let all = [...state.history];
-            if (idx !== -1) all.splice(idx, 1);
+    // 1. Récupérer tout l'historique, sauf l'entrée qu'on est en train d'éditer
+    let allPeriods = [...state.history];
+    if (idx !== -1) allPeriods.splice(idx, 1);
+    
+    // 2. Intégrer la période en cours (Live) comme une période normale pour le calcul
+    if (state.activeType !== null) {
+        allPeriods.push({ type: state.activeType, start: state.startTime, end: now, isLive: true });
+    }
+
+    let newEntry = { type, start, end };
+    let processedPeriods = [];
+    let conflicts = 0;
+    let liveConflict = false;
+
+    // 3. Logique de collision et de découpage
+    allPeriods.forEach(p => {
+        // Si les périodes se croisent
+        if (p.start < newEntry.end && p.end > newEntry.start) {
+            conflicts++;
+            if (p.isLive) liveConflict = true;
             
-            // On ajoute virtuellement le live pour détecter les collisions
-            let liveEntry = null;
-            if (state.activeType) {
-                liveEntry = { type: state.activeType, start: state.startTime, end: now, isLive: true };
-                all.push(liveEntry);
+            // Si l'ancienne période commence AVANT la nouvelle, on garde le premier bout
+            if (p.start < newEntry.start) {
+                processedPeriods.push({ type: p.type, start: p.start, end: newEntry.start, isLive: p.isLive });
             }
-
-            let newE = { type, start, end };
-            let resulting = [];
-            let conflicts = 0;
-
-            all.forEach(E => {
-                if (E.start < newE.end && E.end > newE.start) {
-                    conflicts++;
-                    if (E.start < newE.start && E.end > newE.end) {
-                        resulting.push({ type: E.type, start: E.start, end: newE.start, isLive: E.isLive });
-                        resulting.push({ type: E.type, start: newE.end, end: E.end, isLive: E.isLive });
-                    } else if (E.start < newE.start) {
-                        resulting.push({ type: E.type, start: E.start, end: newE.start, isLive: E.isLive });
-                    } else if (E.end > newE.end) {
-                        resulting.push({ type: E.type, start: newE.end, end: E.end, isLive: E.isLive });
-                    }
-                } else resulting.push(E);
-            });
-
-            if (conflicts > 0 && !confirm(t.overlapWarning.replace('{n}', conflicts))) return;
-
-            // Séparer l'historique fixe du nouveau Live
-            state.history = resulting.filter(e => !e.isLive);
-            const updatedLive = resulting.find(e => e.isLive && e.end >= now - 1000);
-
-            // Si le live a été modifié ou s'il est resté intact
-            if (updatedLive) {
-                state.startTime = updatedLive.start;
-            } else if (end >= now - 1000) {
-                // Si l'entrée manuelle finit "maintenant", elle devient le nouveau début du live
-                state.startTime = end;
+            // Si l'ancienne période finit APRÈS la nouvelle, on garde le dernier bout
+            if (p.end > newEntry.end) {
+                processedPeriods.push({ type: p.type, start: newEntry.end, end: p.end, isLive: p.isLive });
             }
-
-            // Ré-insérer la nouvelle période (avec découpe minuit)
-            closePeriod(newE.type, newE.start, newE.end);
-            state.history.sort((a,b) => a.start - b.start);
-            saveState(); closeModal(); renderResults(); updateUI();
+        } else {
+            // Pas de collision, on garde la période intacte
+            processedPeriods.push(p);
         }
+    });
+
+    // 4. Alerte dynamique
+    if (conflicts > 0) {
+        let msg = liveConflict ? t.overlapLiveWarning : t.overlapWarning;
+        if (!confirm(msg.replace('{n}', conflicts))) return;
+    }
+
+    // 5. Reconstruction propre de la base de données
+    state.history = [];
+    state.activeType = null;
+    state.startTime = null;
+
+    // On ajoute notre nouvelle entrée dans le tas
+    processedPeriods.push(newEntry);
+    
+    // On trie tout chronologiquement
+    processedPeriods.sort((a, b) => a.start - b.start);
+
+    // 6. Distribution : Historique ou Live ?
+    processedPeriods.forEach(p => {
+        // Si le morceau provient du Live ET qu'il s'arrête exactement "maintenant"
+        if (p.isLive && p.end >= now - 1000) {
+            state.activeType = p.type;
+            state.startTime = p.start; // Ce morceau redevient le chronomètre en cours
+        } else {
+            // C'est de l'historique fini (y compris les premières moitiés de Live coupés)
+            closePeriod(p.type, p.start, p.end); // closePeriod gère aussi la coupure à minuit
+        }
+    });
+
+    // Tri de sécurité final
+    state.history.sort((a, b) => a.start - b.start);
+    
+    saveState(); 
+    closeModal(); 
+    renderResults(); 
+    updateUI();
+}
 
         function showPage(p) {
             document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
