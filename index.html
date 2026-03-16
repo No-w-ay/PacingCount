@@ -302,11 +302,11 @@
         let state = JSON.parse(localStorage.getItem('pacingState')) || { activeType: null, startTime: null, history: [] };
         let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
 
-        const translations = {
-            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique des enregistrements", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV." },
-            en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file." },
-            nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand." }
-        };
+const translations = {
+    fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique des enregistrements", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
+    en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
+    nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
+};
 
         const colors = { 1: "blue", 2: "green", 3: "orange" };
 
@@ -611,10 +611,11 @@
     };
     reader.readAsText(file);
 }
-
+        
 function processImport(mode) {
     if (mode === 'replace') {
         reconstructHistory(pendingImportData);
+        alert(translations[settings.lang].importSuccess);
     } else if (mode === 'merge') {
         let basePeriods = [...state.history];
         if (state.activeType !== null) {
@@ -622,6 +623,7 @@ function processImport(mode) {
         }
         let finalPeriods = applySteamroller(basePeriods, pendingImportData);
         reconstructHistory(finalPeriods);
+        alert(translations[settings.lang].importSuccess);
     }
     closeImportModal();
 }
@@ -645,6 +647,46 @@ function closeImportModal() {
         document.getElementById('custom-2').value = settings.labels[1];
         document.getElementById('custom-3').value = settings.labels[2];
         updateUI();
+
+        // --- GESTION DU SWIPE (GLISSEMENT) ---
+const pagesOrder = ['measure', 'results', 'settings'];
+let touchstartX = 0;
+let touchstartY = 0;
+let touchendX = 0;
+let touchendY = 0;
+
+function handleSwipe() {
+    const swipeThreshold = 50; // Distance minimum en pixels pour valider le glissement
+    let diffX = touchendX - touchstartX;
+    let diffY = touchendY - touchstartY;
+
+    // On s'assure que le mouvement est plus horizontal que vertical
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+        // Trouver la page actuelle
+        let activePageId = document.querySelector('.page.active').id.replace('page-', '');
+        let currentIndex = pagesOrder.indexOf(activePageId);
+
+        if (diffX < 0 && currentIndex < pagesOrder.length - 1) {
+            // Glissement vers la gauche -> Page suivante
+            showPage(pagesOrder[currentIndex + 1]);
+        } else if (diffX > 0 && currentIndex > 0) {
+            // Glissement vers la droite -> Page précédente
+            showPage(pagesOrder[currentIndex - 1]);
+        }
+    }
+}
+
+document.addEventListener('touchstart', e => {
+    touchstartX = e.changedTouches[0].screenX;
+    touchstartY = e.changedTouches[0].screenY;
+}, {passive: true});
+
+document.addEventListener('touchend', e => {
+    touchendX = e.changedTouches[0].screenX;
+    touchendY = e.changedTouches[0].screenY;
+    handleSwipe();
+}, {passive: true});
+        
     </script>
 </body>
 </html>
