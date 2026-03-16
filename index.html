@@ -272,6 +272,23 @@
                 <button class="export-btn" style="margin:0;" onclick="saveManualEdit()">Enregistrer</button>
             </div>
         </div>
+
+        <div id="importModal" class="modal">
+            <div class="modal-content">
+                <h3 id="import-modal-title" style="margin-top:0;">Options d'importation</h3>
+                <p id="import-text" style="font-size: 0.9rem; line-height: 1.4; opacity: 0.9;">
+                Comment souhaitez-vous gérer l'importation des données ?
+                </p>
+                <button class="export-btn" style="background: var(--red); margin-bottom: 10px;" onclick="processImport('replace')">1) Remplacer</button>
+                <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Supprime tout et remplace par le fichier.</p>
+        
+                <button class="export-btn" style="background: var(--blue); margin-bottom: 10px;" onclick="processImport('merge')">2) Fusionner</button>
+                <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Le fichier a la priorité en cas de conflit.</p>
+        
+                <button class="export-btn" style="background: #444;" onclick="closeImportModal()">3) Annuler</button>
+            </div>
+        </div>
+        
     </div>
 
     <nav>
@@ -554,57 +571,65 @@
             return NaN;
         }
 
+        let pendingImportData = null; // Stockage temporaire du CSV lu
+
         function importCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            event.target.value = ''; // Reset input
-            
-            const t = translations[settings.lang];
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const text = e.target.result;
-                    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-                    let importedPeriods = [];
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result;
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            let importedPeriods = [];
 
-                    for(let i = 1; i < lines.length; i++) { // Ignorer la ligne d'en-tête
-                        let cols = lines[i].split(',');
-                        if(cols.length >= 4) {
-                            let start = parseCSVDate(cols[0], cols[1]);
-                            let end = parseCSVDate(cols[0], cols[2]); // NB: Dans les anciens exports, la fin restait sur le même jour avant minuit
-                            
-                            // Retrouver le type selon l'étiquette (ou 1 par défaut)
-                            let type = 1;
-                            let tIndex = settings.labels.indexOf(cols[3]);
-                            if (tIndex !== -1) type = tIndex + 1;
-
-                            if(!isNaN(start) && !isNaN(end) && start < end) {
-                                importedPeriods.push({type, start, end});
-                            }
-                        }
+            for(let i = 1; i < lines.length; i++) {
+                let cols = lines[i].split(',');
+                if(cols.length >= 4) {
+                    let start = parseCSVDate(cols[0], cols[1]);
+                    let end = parseCSVDate(cols[0], cols[2]);
+                    let type = 1;
+                    let tIndex = settings.labels.indexOf(cols[3]);
+                    if (tIndex !== -1) type = tIndex + 1;
+                    if(!isNaN(start) && !isNaN(end) && start < end) {
+                        importedPeriods.push({type, start, end});
                     }
-
-                    if (importedPeriods.length === 0) throw new Error("No valid data");
-
-                    const replaceAll = confirm(t.importPrompt);
-                    
-                    let basePeriods = replaceAll ? [] : [...state.history];
-                    if (!replaceAll && state.activeType !== null) {
-                        basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
-                    }
-
-                    // Applique le rouleau compresseur
-                    let finalPeriods = applySteamroller(basePeriods, importedPeriods);
-                    reconstructHistory(finalPeriods);
-                    
-                } catch (err) {
-                    console.error(err);
-                    alert(t.importError);
                 }
-            };
-            reader.readAsText(file);
+            }
+
+            if (importedPeriods.length === 0) throw new Error("Format invalide");
+            
+            pendingImportData = importedPeriods; // On garde les données au chaud
+            document.getElementById('importModal').style.display = 'flex'; // On montre le choix
+            
+        } catch (err) {
+            alert(translations[settings.lang].importError);
         }
+        event.target.value = ''; // Reset l'input
+    };
+    reader.readAsText(file);
+}
+
+function processImport(mode) {
+    if (mode === 'replace') {
+        reconstructHistory(pendingImportData);
+    } else if (mode === 'merge') {
+        let basePeriods = [...state.history];
+        if (state.activeType !== null) {
+            basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+        }
+        let finalPeriods = applySteamroller(basePeriods, pendingImportData);
+        reconstructHistory(finalPeriods);
+    }
+    closeImportModal();
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').style.display = 'none';
+    pendingImportData = null;
+}
+        
 
         function showPage(p) {
             document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
