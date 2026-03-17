@@ -590,8 +590,8 @@
 
                     // Récupération de la couleur (adaptez si votre variable de couleurs s'appelle autrement)
                     const color = (typeof settings !== 'undefined' && settings.colors)
-                        ? settings.colors[type - 1]
-                        : defaultColors[(type - 1) % defaultColors.length];
+                        ? settings.colors[type]
+                        : defaultColors[(type) % defaultColors.length];
 
                     if (percentage > 0) {
                         html += `
