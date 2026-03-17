@@ -567,8 +567,8 @@
                 return;
             }
 
-            // Couleurs par défaut (au cas où vous n'avez pas de settings.colors défini)
-            const defaultColors = ['#4CAF50', '#FF9800', '#F44336', '#2196F3', '#9C27B0'];
+            // On remet les couleurs dans le bon ordre : Bleu, Vert, Orange, Rouge, Violet
+            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
 
             // 3. Générer le HTML des histogrammes
             sortedDates.forEach(dateKey => {
@@ -588,10 +588,9 @@
                     const minutes = day.totals[type];
                     const percentage = (minutes / totalMinutesInDay) * 100;
 
-                    // Récupération de la couleur (adaptez si votre variable de couleurs s'appelle autrement)
-                    const color = (typeof settings !== 'undefined' && settings.colors)
-                        ? settings.colors[type]
-                        : defaultColors[(type) % defaultColors.length];
+                    // On récupère la couleur correspondant au type (Type 1 = index 0, Type 2 = index 1, etc.)
+                    const typeIndex = parseInt(type) - 1;
+                    const color = defaultColors[typeIndex] || '#ccc';
 
                     if (percentage > 0) {
                         html += `
