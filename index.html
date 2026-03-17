@@ -447,13 +447,8 @@
 
             function updateUI() {
                 const t = translations[settings.lang];
-<<<<<<< HEAD
                 document.getElementById('nav-timeline').innerText = t.timeline;
                 document.getElementById('title-timeline').innerText = t.timeline;
-=======
-            document.getElementById('nav-timeline').innerText = t.timeline;
-document.getElementById('title-timeline').innerText = t.timeline;
->>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
                 document.getElementById('nav-measure').innerText = t.measure;
                 document.getElementById('nav-results').innerText = t.results;
                 document.getElementById('nav-settings').innerText = t.settings;
@@ -741,7 +736,6 @@ document.getElementById('title-timeline').innerText = t.timeline;
 
             let timelineChartInstance = null;
 
-<<<<<<< HEAD
             function renderTimelineChart() {
                 const ctx = document.getElementById('timelineChart').getContext('2d');
                 const now = new Date();
@@ -834,100 +828,6 @@ document.getElementById('title-timeline').innerText = t.timeline;
             }
 
             function showPage(p) {
-=======
-        function renderTimelineChart() {
-            const ctx = document.getElementById('timelineChart').getContext('2d');
-            const now = new Date();
-            const labels = [];
-            const daysStart = [];
-
-            // Création des 7 derniers jours
-            for (let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                labels.push(d.toLocaleDateString(settings.lang, { weekday: 'short', day: 'numeric' }));
-                daysStart.push(d.getTime());
-            }
-
-            const dataSetsByType = { 1: [], 2: [], 3: [] };
-            let allPeriods = [...state.history];
-
-            // On inclut la période en cours de chronométrage
-            if (state.activeType) {
-                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
-            }
-
-            // Répartition des périodes sur les 7 jours
-            allPeriods.forEach(p => {
-                for (let i = 0; i < 7; i++) {
-                    let dayS = daysStart[i];
-                    let dayE = dayS + 24 * 3600 * 1000;
-
-                    if (p.start >= dayS && p.start < dayE) {
-                        let sDay = new Date(p.start);
-                        let eDay = new Date(p.end);
-
-                        // Conversion en heures décimales (ex: 8h30 -> 8.5)
-                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                        if (eDay.getTime() >= dayE) endHour = 24; // Coupe à minuit
-
-                        dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
-                        break;
-                    }
-                }
-            });
-
-            const datasets = [
-                { label: settings.labels[0], data: dataSetsByType[1], backgroundColor: '#2196F3', borderRadius: 4 },
-                { label: settings.labels[1], data: dataSetsByType[2], backgroundColor: '#4CAF50', borderRadius: 4 },
-                { label: settings.labels[2], data: dataSetsByType[3], backgroundColor: '#FF9800', borderRadius: 4 }
-            ];
-
-            if (timelineChartInstance) {
-                timelineChartInstance.data.labels = labels;
-                timelineChartInstance.data.datasets = datasets;
-                timelineChartInstance.update();
-            } else {
-                timelineChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: labels, datasets: datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        grouped: false, // Force les barres d'un même jour à s'aligner verticalement
-                        scales: {
-                            y: {
-                                min: 0,
-                                max: 24,
-                                reverse: true, // 0h en haut, 24h en bas (format agenda)
-                                title: { display: false },
-                                ticks: { stepSize: 2, callback: v => v + 'h' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
-                            },
-                            x: {
-                                grid: { display: false }
-                            }
-                        },
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let raw = context.raw;
-                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0]-sH)*60);
-                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1]-eH)*60);
-                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2,'0')} - ${eH}h${eM.toString().padStart(2,'0')}`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        }
-
-      function showPage(p) {
->>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
                 document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
                 document.getElementById(`page-${p}`).classList.add('active');
                 document.getElementById(`nav-${p}`).classList.add('active');
