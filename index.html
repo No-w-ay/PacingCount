@@ -292,14 +292,14 @@
             <input type="file" id="csv-file" accept=".csv" style="display:none;" onchange="importCSV(event)">
         </div>
 
-        <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Historique des enregistrements</h3>
+        <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Historique</h3>
         <div class="history-container" id="history-list"></div>
     </div>
 
     <div id="page-settings" class="page">
         <h1 id="title-settings">Réglages</h1>
         <div class="settings-group">
-            <label>Langue / Taal</label>
+            <label>Langue</label>
             <select id="lang-select" onchange="changeLang()">
                 <option value="fr">Français</option>
                 <option value="en">English</option>
@@ -342,16 +342,16 @@
                 Comment souhaitez-vous gérer l'importation des données ?
             </p>
             <button class="export-btn" style="background: var(--red); margin-bottom: 10px;"
-                onclick="processImport('replace')">1) Remplacer</button>
+                onclick="processImport('replace')">Remplacer</button>
             <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Supprime tout et remplace par le
                 fichier.</p>
 
             <button class="export-btn" style="background: var(--blue); margin-bottom: 10px;"
-                onclick="processImport('merge')">2) Fusionner</button>
+                onclick="processImport('merge')">Fusionner</button>
             <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Le fichier a la priorité en cas de
                 conflit.</p>
 
-            <button class="export-btn" style="background: #444;" onclick="closeImportModal()">3) Annuler</button>
+            <button class="export-btn" style="background: #444;" onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
 
@@ -368,7 +368,7 @@
         let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
 
         const translations = {
-            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique des enregistrements", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
+            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
             en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
             nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
         };
