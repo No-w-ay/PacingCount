@@ -280,7 +280,7 @@
             <button class="export-btn" onclick="exportCSV()" id="btn-export">Exporter CSV</button>
             <button class="export-btn" onclick="document.getElementById('csv-file').click()"
                 style="background: var(--orange);" id="btn-import">Importer CSV</button>
-            <input type="file" id="csv-file" accept=".csv" style="display:none;" onchange="importCSV(event)">
+           <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel" style="display:none;" onchange="importCSV(event)">
         </div>
 
         <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Détails des périodes</h3>
@@ -642,7 +642,7 @@
                 });
 
                 // Création et déclenchement sécurisé du téléchargement
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
 
@@ -653,8 +653,11 @@
                 // Fix crucial pour iOS/Chrome Mobile :
                 document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+               // On laisse un petit délai avant de supprimer le lien pour les navigateurs mobiles
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
             }
 
             // Fonction d'analyse robuste pour les dates issues de CSV (FR/EN)
