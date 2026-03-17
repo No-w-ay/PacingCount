@@ -271,9 +271,20 @@
 
     <div id="page-timeline" class="page">
         <h1 id="title-timeline">Historique</h1>
-        <div class="chart-container" style="position: relative; height: 65vh; width: 100%;">
+
+        <div class="chart-container" style="position: relative; height: 50vh; width: 100%; margin-bottom: 20px;">
             <canvas id="timelineChart"></canvas>
         </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="export-btn" onclick="exportCSV()" id="btn-export">Exporter CSV</button>
+            <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                style="background: var(--orange);" id="btn-import">Importer CSV</button>
+            <input type="file" id="csv-file" accept=".csv" style="display:none;" onchange="importCSV(event)">
+        </div>
+
+        <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Détails des périodes</h3>
+        <div class="history-container" id="history-list"></div>
     </div>
 
     <div id="page-measure" class="page active">
@@ -292,16 +303,6 @@
     <div id="page-results" class="page">
         <h1 id="title-results">Résultats</h1>
         <div id="results-list"></div>
-
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button class="export-btn" onclick="exportCSV()" id="btn-export">Exporter CSV</button>
-            <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                style="background: var(--orange);" id="btn-import">Importer CSV</button>
-            <input type="file" id="csv-file" accept=".csv" style="display:none;" onchange="importCSV(event)">
-        </div>
-
-        <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Historique</h3>
-        <div class="history-container" id="history-list"></div>
     </div>
 
     <div id="page-settings" class="page">
@@ -365,455 +366,480 @@
 
 
 
-<<<<<<< HEAD
-    <nav>
+    <<<<<<< HEAD <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
-=======
-<nav>
-        <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
->>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
-        <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
-        <button onclick="showPage('results')" id="nav-results">Résultats</button>
-        <button onclick="showPage('settings')" id="nav-settings">Réglages</button>
-    </nav>
+        =======
+        <nav>
+            <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
+            >>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
+            <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
+            <button onclick="showPage('results')" id="nav-results">Résultats</button>
+            <button onclick="showPage('settings')" id="nav-settings">Réglages</button>
+        </nav>
 
-    <script>
-        let state = JSON.parse(localStorage.getItem('pacingState')) || { activeType: null, startTime: null, history: [] };
-        let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
+        <script>
+            let state = JSON.parse(localStorage.getItem('pacingState')) || { activeType: null, startTime: null, history: [] };
+            let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
 
-        const translations = {
-            fr: { timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
-            en: { timeline: "History", measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
-            nl: { timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
-        };
+            const translations = {
+                fr: { timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
+                en: { timeline: "History", measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
+                nl: { timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
+            };
 
-        const colors = { 1: "blue", 2: "green", 3: "orange" };
+            const colors = { 1: "blue", 2: "green", 3: "orange" };
 
-        function startPeriod(type) {
-            // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
-            if (state.activeType === type) return;
+            function startPeriod(type) {
+                // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
+                if (state.activeType === type) return;
 
-            const now = Date.now();
-            if (state.activeType !== null) closePeriod(state.activeType, state.startTime, now);
-            state.activeType = type;
-            state.startTime = now;
-            saveState();
-            updateUI();
-        }
-
-        function stopRecording() {
-            if (confirm(translations[settings.lang].confirmStop)) {
-                if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
-                state.activeType = null; state.startTime = null;
-                saveState(); updateUI();
+                const now = Date.now();
+                if (state.activeType !== null) closePeriod(state.activeType, state.startTime, now);
+                state.activeType = type;
+                state.startTime = now;
+                saveState();
+                updateUI();
             }
-        }
 
-        function closePeriod(type, start, end) {
-            let s = new Date(start);
-            let e = new Date(end);
-            while (s.toDateString() !== e.toDateString()) {
-                let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
-                state.history.push({ type, start: s.getTime(), end: endOfDay.getTime() });
-                s = new Date(endOfDay.getTime() + 1);
+            function stopRecording() {
+                if (confirm(translations[settings.lang].confirmStop)) {
+                    if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
+                    state.activeType = null; state.startTime = null;
+                    saveState(); updateUI();
+                }
             }
-            state.history.push({ type, start: s.getTime(), end: e.getTime() });
-        }
 
-        function saveState() { localStorage.setItem('pacingState', JSON.stringify(state)); }
+            function closePeriod(type, start, end) {
+                let s = new Date(start);
+                let e = new Date(end);
+                while (s.toDateString() !== e.toDateString()) {
+                    let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
+                    state.history.push({ type, start: s.getTime(), end: endOfDay.getTime() });
+                    s = new Date(endOfDay.getTime() + 1);
+                }
+                state.history.push({ type, start: s.getTime(), end: e.getTime() });
+            }
 
-        function saveSettings() {
-            settings.labels = [document.getElementById('custom-1').value, document.getElementById('custom-2').value, document.getElementById('custom-3').value];
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            updateUI();
-        }
+            function saveState() { localStorage.setItem('pacingState', JSON.stringify(state)); }
 
-        function changeLang() {
-            settings.lang = document.getElementById('lang-select').value;
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            updateUI(); if (document.getElementById('page-results').classList.contains('active')) renderResults();
-        }
+            function saveSettings() {
+                settings.labels = [document.getElementById('custom-1').value, document.getElementById('custom-2').value, document.getElementById('custom-3').value];
+                localStorage.setItem('pacingSettings', JSON.stringify(settings));
+                updateUI();
+            }
 
-        function formatDuration(ms) {
-            const diff = Math.floor(ms / 1000);
-            const h = Math.floor(diff / 3600).toString().padStart(2, '0');
-            const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
-            const s = (diff % 60).toString().padStart(2, '0');
-            return `${h}:${m}:${s}`;
-        }
+            function changeLang() {
+                settings.lang = document.getElementById('lang-select').value;
+                localStorage.setItem('pacingSettings', JSON.stringify(settings));
+                updateUI(); if (document.getElementById('page-results').classList.contains('active')) renderResults();
+            }
 
-        function formatTime(ms) {
-            const d = new Date(ms);
-            return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
-        }
+            function formatDuration(ms) {
+                const diff = Math.floor(ms / 1000);
+                const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+                const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+                const s = (diff % 60).toString().padStart(2, '0');
+                return `${h}:${m}:${s}`;
+            }
 
-        function toLocalISOString(ms) {
-            return new Date(ms - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-        }
+            function formatTime(ms) {
+                const d = new Date(ms);
+                return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
+            }
 
-        function updateUI() {
-            const t = translations[settings.lang];
+            function toLocalISOString(ms) {
+                return new Date(ms - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            }
+
+            function updateUI() {
+                const t = translations[settings.lang];
 <<<<<<< HEAD
-            document.getElementById('nav-timeline').innerText = t.timeline;
-            document.getElementById('title-timeline').innerText = t.timeline;
+                document.getElementById('nav-timeline').innerText = t.timeline;
+                document.getElementById('title-timeline').innerText = t.timeline;
 =======
             document.getElementById('nav-timeline').innerText = t.timeline;
 document.getElementById('title-timeline').innerText = t.timeline;
 >>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
-            document.getElementById('nav-measure').innerText = t.measure;
-            document.getElementById('nav-results').innerText = t.results;
-            document.getElementById('nav-settings').innerText = t.settings;
-            document.getElementById('btn-export').innerText = t.export;
-            document.getElementById('btn-import').innerText = t.import;
-            document.getElementById('label-custom').innerText = t.custom;
-            document.getElementById('btn-stop').innerText = t.stop;
-            document.getElementById('title-history').innerText = t.history;
-            [1, 2, 3].forEach(i => {
-                document.getElementById(`opt-${i}`).innerText = settings.labels[i - 1];
-                document.getElementById(`btn-${i}`).innerText = settings.labels[i - 1];
-                document.getElementById(`btn-${i}`).classList.toggle('active-indicator', state.activeType === i);
-            });
-            document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
-            const mainTimer = document.getElementById('main-timer');
-            mainTimer.className = 'timer-display ' + (state.activeType ? `text-${colors[state.activeType]}` : 'text-default');
-            if (!state.activeType) mainTimer.innerText = "00:00:00";
-            const prevTimer = document.getElementById('prev-timer');
-            if (state.history.length > 0) {
-                const last = state.history[state.history.length - 1];
-                prevTimer.style.display = 'block';
-                prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
-                prevTimer.className = `timer-previous text-${colors[last.type]}`;
-            } else prevTimer.style.display = 'none';
-        }
-
-        function updateTimer() {
-            if (state.startTime && state.activeType) {
-                document.getElementById('main-timer').innerText = formatDuration(Date.now() - state.startTime);
-            }
-        }
-
-        function renderResults() {
-            const container = document.getElementById('results-list');
-            container.innerHTML = "";
-            const totals = {};
-            let all = [...state.history];
-            if (state.activeType) all.push({ type: state.activeType, start: state.startTime, end: Date.now() });
-            all.sort((a, b) => a.start - b.start);
-            all.forEach(e => {
-                const d = new Date(e.start).toLocaleDateString();
-                if (!totals[d]) totals[d] = { 1: 0, 2: 0, 3: 0, count: 0 };
-                totals[d][e.type] += (e.end - e.start) / 60000;
-                if (e.type === 1) totals[d].count++;
-            });
-            Object.keys(totals).reverse().forEach(d => {
-                const day = totals[d];
-                const div = document.createElement('div');
-                div.className = "settings-group";
-                div.innerHTML = `<strong>${d}</strong><br><span class="text-blue">●</span> ${Math.round(day[1])}m | <span class="text-green">●</span> ${Math.round(day[2])}m | <span class="text-orange">●</span> ${Math.round(day[3])}m<br><small style="opacity:0.8">Séquences bleues: ${day.count}</small>`;
-                container.appendChild(div);
-            });
-            renderHistory();
-        }
-
-        function renderHistory() {
-            const t = translations[settings.lang];
-            const container = document.getElementById('history-list');
-            container.innerHTML = `<button class="add-btn" onclick="openAddModal()">${t.addManual}</button>`;
-            let all = [...state.history];
-            if (state.activeType) all.push({ type: state.activeType, start: state.startTime, inProgress: true });
-            all.reverse().forEach(e => {
-                const div = document.createElement('div');
-                div.className = "history-item";
-                let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${state.history.indexOf(e)})">✏️</button><button class="btn-icon" onclick="deleteEntry(${state.history.indexOf(e)})">🗑️</button></div>`;
-                div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type]});font-weight:bold;">${settings.labels[e.type - 1]}</span></div>${actions}`;
-                container.appendChild(div);
-            });
-        }
-
-        function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
-
-        function openEditModal(i) {
-            const e = state.history[i];
-            document.getElementById('edit-index').value = i;
-            document.getElementById('edit-type').value = e.type;
-            document.getElementById('edit-start').value = toLocalISOString(e.start);
-            document.getElementById('edit-end').value = toLocalISOString(e.end);
-            document.getElementById('editModal').style.display = 'flex';
-        }
-
-        function openAddModal() {
-            document.getElementById('edit-index').value = "-1";
-            document.getElementById('edit-start').value = toLocalISOString(Date.now() - 3600000);
-            document.getElementById('edit-end').value = toLocalISOString(Date.now());
-            document.getElementById('editModal').style.display = 'flex';
-        }
-
-        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
-
-        // MOTEUR LOGIQUE CENTRAL ("Le Rouleau Compresseur")
-        function applySteamroller(basePeriods, priorityPeriods) {
-            let resultBase = [];
-
-            // 1. Découpage de la base existante face aux priorités
-            for (let b of basePeriods) {
-                let fragments = [b];
-                for (let p of priorityPeriods) {
-                    let nextFragments = [];
-                    for (let frag of fragments) {
-                        // Si chevauchement
-                        if (frag.start < p.end && frag.end > p.start) {
-                            if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start });
-                            if (frag.end > p.end) nextFragments.push({ ...frag, start: p.end });
-                        } else {
-                            nextFragments.push(frag); // Pas touché
-                        }
-                    }
-                    fragments = nextFragments;
-                }
-                resultBase.push(...fragments);
+                document.getElementById('nav-measure').innerText = t.measure;
+                document.getElementById('nav-results').innerText = t.results;
+                document.getElementById('nav-settings').innerText = t.settings;
+                document.getElementById('btn-export').innerText = t.export;
+                document.getElementById('btn-import').innerText = t.import;
+                document.getElementById('label-custom').innerText = t.custom;
+                document.getElementById('btn-stop').innerText = t.stop;
+                document.getElementById('title-history').innerText = t.history;
+                [1, 2, 3].forEach(i => {
+                    document.getElementById(`opt-${i}`).innerText = settings.labels[i - 1];
+                    document.getElementById(`btn-${i}`).innerText = settings.labels[i - 1];
+                    document.getElementById(`btn-${i}`).classList.toggle('active-indicator', state.activeType === i);
+                });
+                document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
+                const mainTimer = document.getElementById('main-timer');
+                mainTimer.className = 'timer-display ' + (state.activeType ? `text-${colors[state.activeType]}` : 'text-default');
+                if (!state.activeType) mainTimer.innerText = "00:00:00";
+                const prevTimer = document.getElementById('prev-timer');
+                if (state.history.length > 0) {
+                    const last = state.history[state.history.length - 1];
+                    prevTimer.style.display = 'block';
+                    prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
+                    prevTimer.className = `timer-previous text-${colors[last.type]}`;
+                } else prevTimer.style.display = 'none';
             }
 
-            // 2. Assemblage et tri
-            let combined = [...resultBase, ...priorityPeriods];
-            combined.sort((a, b) => a.start - b.start);
-
-            // 3. Fusion des périodes adjacentes du même type
-            let merged = [];
-            for (let current of combined) {
-                if (merged.length === 0) { merged.push(current); continue; }
-                let last = merged[merged.length - 1];
-
-                if (last.type === current.type && current.start <= last.end) {
-                    last.end = Math.max(last.end, current.end);
-                    if (current.isLive) last.isLive = true;
-                } else {
-                    merged.push(current);
+            function updateTimer() {
+                if (state.startTime && state.activeType) {
+                    document.getElementById('main-timer').innerText = formatDuration(Date.now() - state.startTime);
                 }
             }
-            return merged;
-        }
 
-        function reconstructHistory(processedPeriods) {
-            state.history = [];
-            state.activeType = null;
-            state.startTime = null;
-            const now = Date.now();
-
-            processedPeriods.forEach(p => {
-                if (p.isLive && p.end >= now - 1000) {
-                    state.activeType = p.type;
-                    state.startTime = p.start;
-                } else {
-                    closePeriod(p.type, p.start, p.end); // Assure la coupure minuit
-                }
-            });
-            state.history.sort((a, b) => a.start - b.start);
-            saveState();
-            renderResults();
-            updateUI();
-        }
-
-        function saveManualEdit() {
-            const t = translations[settings.lang];
-            const idx = parseInt(document.getElementById('edit-index').value);
-            const type = parseInt(document.getElementById('edit-type').value);
-            const start = new Date(document.getElementById('edit-start').value).getTime();
-            const end = new Date(document.getElementById('edit-end').value).getTime();
-            const now = Date.now();
-
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-            if (end > now + 60000) return alert(t.futureError);
-
-            let basePeriods = [...state.history];
-            if (idx !== -1) basePeriods.splice(idx, 1);
-            if (state.activeType !== null) basePeriods.push({ type: state.activeType, start: state.startTime, end: now, isLive: true });
-
-            let newEntry = { type, start, end };
-            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-
-            reconstructHistory(finalPeriods);
-            closeModal();
-        }
-
-        function exportCSV() {
-            let csv = "Date,Debut,Fin,Type,Minutes\n";
-            state.history.forEach(e => csv += `${new Date(e.start).toLocaleDateString()},${formatTime(e.start)},${formatTime(e.end)},${settings.labels[e.type - 1]},${Math.round((e.end - e.start) / 60000)}\n`);
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'pacing.csv'; a.click();
-        }
-
-        // Fonction d'analyse robuste pour les dates issues de CSV (FR/EN)
-        function parseCSVDate(dateStr, timeStr) {
-            let parts = dateStr.split(/[\/\-]/);
-            if (parts.length === 3) {
-                let d, m, y;
-                if (parts[2].length === 4) { // Format européen attendu JJ/MM/AAAA
-                    d = parts[0]; m = parts[1]; y = parts[2];
-                } else { // Au cas où AAAA-MM-JJ
-                    y = parts[0]; m = parts[1]; d = parts[2];
-                }
-                let [hr, min] = timeStr.split(':');
-                return new Date(y, m - 1, d, hr, min).getTime();
+            function renderResults() {
+                const container = document.getElementById('results-list');
+                container.innerHTML = "";
+                const totals = {};
+                let all = [...state.history];
+                if (state.activeType) all.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                all.sort((a, b) => a.start - b.start);
+                all.forEach(e => {
+                    const d = new Date(e.start).toLocaleDateString();
+                    if (!totals[d]) totals[d] = { 1: 0, 2: 0, 3: 0, count: 0 };
+                    totals[d][e.type] += (e.end - e.start) / 60000;
+                    if (e.type === 1) totals[d].count++;
+                });
+                Object.keys(totals).reverse().forEach(d => {
+                    const day = totals[d];
+                    const div = document.createElement('div');
+                    div.className = "settings-group";
+                    div.innerHTML = `<strong>${d}</strong><br><span class="text-blue">●</span> ${Math.round(day[1])}m | <span class="text-green">●</span> ${Math.round(day[2])}m | <span class="text-orange">●</span> ${Math.round(day[3])}m<br><small style="opacity:0.8">Séquences bleues: ${day.count}</small>`;
+                    container.appendChild(div);
+                });
+                renderHistory();
             }
-            return NaN;
-        }
 
-        let pendingImportData = null; // Stockage temporaire du CSV lu
+            function renderHistory() {
+                const t = translations[settings.lang];
+                const container = document.getElementById('history-list');
+                container.innerHTML = `<button class="add-btn" onclick="openAddModal()">${t.addManual}</button>`;
+                let all = [...state.history];
+                if (state.activeType) all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                all.reverse().forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = "history-item";
+                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${state.history.indexOf(e)})">✏️</button><button class="btn-icon" onclick="deleteEntry(${state.history.indexOf(e)})">🗑️</button></div>`;
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type]});font-weight:bold;">${settings.labels[e.type - 1]}</span></div>${actions}`;
+                    container.appendChild(div);
+                });
+            }
 
-        function importCSV(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
+            function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
 
-            reader.onload = function (e) {
-                try {
-                    const text = e.target.result;
-                    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-                    let importedPeriods = [];
+            function openEditModal(i) {
+                const e = state.history[i];
+                document.getElementById('edit-index').value = i;
+                document.getElementById('edit-type').value = e.type;
+                document.getElementById('edit-start').value = toLocalISOString(e.start);
+                document.getElementById('edit-end').value = toLocalISOString(e.end);
+                document.getElementById('editModal').style.display = 'flex';
+            }
 
-                    for (let i = 1; i < lines.length; i++) {
-                        let cols = lines[i].split(',');
-                        if (cols.length >= 4) {
-                            let start = parseCSVDate(cols[0], cols[1]);
-                            let end = parseCSVDate(cols[0], cols[2]);
-                            let type = 1;
-                            let tIndex = settings.labels.indexOf(cols[3]);
-                            if (tIndex !== -1) type = tIndex + 1;
-                            if (!isNaN(start) && !isNaN(end) && start < end) {
-                                importedPeriods.push({ type, start, end });
+            function openAddModal() {
+                document.getElementById('edit-index').value = "-1";
+                document.getElementById('edit-start').value = toLocalISOString(Date.now() - 3600000);
+                document.getElementById('edit-end').value = toLocalISOString(Date.now());
+                document.getElementById('editModal').style.display = 'flex';
+            }
+
+            function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+            // MOTEUR LOGIQUE CENTRAL ("Le Rouleau Compresseur")
+            function applySteamroller(basePeriods, priorityPeriods) {
+                let resultBase = [];
+
+                // 1. Découpage de la base existante face aux priorités
+                for (let b of basePeriods) {
+                    let fragments = [b];
+                    for (let p of priorityPeriods) {
+                        let nextFragments = [];
+                        for (let frag of fragments) {
+                            // Si chevauchement
+                            if (frag.start < p.end && frag.end > p.start) {
+                                if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start });
+                                if (frag.end > p.end) nextFragments.push({ ...frag, start: p.end });
+                            } else {
+                                nextFragments.push(frag); // Pas touché
                             }
                         }
+                        fragments = nextFragments;
                     }
-
-                    if (importedPeriods.length === 0) throw new Error("Format invalide");
-
-                    pendingImportData = importedPeriods; // On garde les données au chaud
-                    document.getElementById('importModal').style.display = 'flex'; // On montre le choix
-
-                } catch (err) {
-                    alert(translations[settings.lang].importError);
+                    resultBase.push(...fragments);
                 }
-                event.target.value = ''; // Reset l'input
-            };
-            reader.readAsText(file);
-        }
 
-        function processImport(mode) {
-            if (mode === 'replace') {
-                reconstructHistory(pendingImportData);
-                alert(translations[settings.lang].importSuccess);
-            } else if (mode === 'merge') {
-                let basePeriods = [...state.history];
-                if (state.activeType !== null) {
-                    basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                // 2. Assemblage et tri
+                let combined = [...resultBase, ...priorityPeriods];
+                combined.sort((a, b) => a.start - b.start);
+
+                // 3. Fusion des périodes adjacentes du même type
+                let merged = [];
+                for (let current of combined) {
+                    if (merged.length === 0) { merged.push(current); continue; }
+                    let last = merged[merged.length - 1];
+
+                    if (last.type === current.type && current.start <= last.end) {
+                        last.end = Math.max(last.end, current.end);
+                        if (current.isLive) last.isLive = true;
+                    } else {
+                        merged.push(current);
+                    }
                 }
-                let finalPeriods = applySteamroller(basePeriods, pendingImportData);
-                reconstructHistory(finalPeriods);
-                alert(translations[settings.lang].importSuccess);
+                return merged;
             }
-            closeImportModal();
-        }
 
-        function closeImportModal() {
-            document.getElementById('importModal').style.display = 'none';
-            pendingImportData = null;
-        }
+            function reconstructHistory(processedPeriods) {
+                state.history = [];
+                state.activeType = null;
+                state.startTime = null;
+                const now = Date.now();
 
-        let timelineChartInstance = null;
+                processedPeriods.forEach(p => {
+                    if (p.isLive && p.end >= now - 1000) {
+                        state.activeType = p.type;
+                        state.startTime = p.start;
+                    } else {
+                        closePeriod(p.type, p.start, p.end); // Assure la coupure minuit
+                    }
+                });
+                state.history.sort((a, b) => a.start - b.start);
+                saveState();
+                renderResults();
+                updateUI();
+            }
+
+            function saveManualEdit() {
+                const t = translations[settings.lang];
+                const idx = parseInt(document.getElementById('edit-index').value);
+                const type = parseInt(document.getElementById('edit-type').value);
+                const start = new Date(document.getElementById('edit-start').value).getTime();
+                const end = new Date(document.getElementById('edit-end').value).getTime();
+                const now = Date.now();
+
+                if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+                if (end > now + 60000) return alert(t.futureError);
+
+                let basePeriods = [...state.history];
+                if (idx !== -1) basePeriods.splice(idx, 1);
+                if (state.activeType !== null) basePeriods.push({ type: state.activeType, start: state.startTime, end: now, isLive: true });
+
+                let newEntry = { type, start, end };
+                let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+
+                reconstructHistory(finalPeriods);
+                closeModal();
+            }
+
+            function exportCSV() {
+                let csv = "Date,Debut,Fin,Type,Minutes\n";
+
+                // On rassemble l'historique ET la période en cours
+                let allPeriods = [...state.history];
+                if (state.activeType) {
+                    allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                }
+
+                allPeriods.forEach(e => {
+                    // Formatage sécurisé de la date en JJ/MM/AAAA
+                    const d = new Date(e.start);
+                    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+                    csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${settings.labels[e.type - 1]},${Math.round((e.end - e.start) / 60000)}\n`;
+                });
+
+                // Création et déclenchement sécurisé du téléchargement
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+                // Fix crucial pour iOS/Chrome Mobile :
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // Fonction d'analyse robuste pour les dates issues de CSV (FR/EN)
+            function parseCSVDate(dateStr, timeStr) {
+                let parts = dateStr.split(/[\/\-]/);
+                if (parts.length === 3) {
+                    let d, m, y;
+                    if (parts[2].length === 4) { // Format européen attendu JJ/MM/AAAA
+                        d = parts[0]; m = parts[1]; y = parts[2];
+                    } else { // Au cas où AAAA-MM-JJ
+                        y = parts[0]; m = parts[1]; d = parts[2];
+                    }
+                    let [hr, min] = timeStr.split(':');
+                    return new Date(y, m - 1, d, hr, min).getTime();
+                }
+                return NaN;
+            }
+
+            let pendingImportData = null; // Stockage temporaire du CSV lu
+
+            function importCSV(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    try {
+                        const text = e.target.result;
+                        const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                        let importedPeriods = [];
+
+                        for (let i = 1; i < lines.length; i++) {
+                            let cols = lines[i].split(',');
+                            if (cols.length >= 4) {
+                                let start = parseCSVDate(cols[0], cols[1]);
+                                let end = parseCSVDate(cols[0], cols[2]);
+                                let type = 1;
+                                let tIndex = settings.labels.indexOf(cols[3]);
+                                if (tIndex !== -1) type = tIndex + 1;
+                                if (!isNaN(start) && !isNaN(end) && start < end) {
+                                    importedPeriods.push({ type, start, end });
+                                }
+                            }
+                        }
+
+                        if (importedPeriods.length === 0) throw new Error("Format invalide");
+
+                        pendingImportData = importedPeriods; // On garde les données au chaud
+                        document.getElementById('importModal').style.display = 'flex'; // On montre le choix
+
+                    } catch (err) {
+                        alert(translations[settings.lang].importError);
+                    }
+                    event.target.value = ''; // Reset l'input
+                };
+                reader.readAsText(file);
+            }
+
+            function processImport(mode) {
+                if (mode === 'replace') {
+                    reconstructHistory(pendingImportData);
+                    alert(translations[settings.lang].importSuccess);
+                } else if (mode === 'merge') {
+                    let basePeriods = [...state.history];
+                    if (state.activeType !== null) {
+                        basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                    }
+                    let finalPeriods = applySteamroller(basePeriods, pendingImportData);
+                    reconstructHistory(finalPeriods);
+                    alert(translations[settings.lang].importSuccess);
+                }
+                closeImportModal();
+            }
+
+            function closeImportModal() {
+                document.getElementById('importModal').style.display = 'none';
+                pendingImportData = null;
+            }
+
+            let timelineChartInstance = null;
 
 <<<<<<< HEAD
-        function renderTimelineChart() {
-            const ctx = document.getElementById('timelineChart').getContext('2d');
-            const now = new Date();
-            const labels = [];
-            const daysStart = [];
+            function renderTimelineChart() {
+                const ctx = document.getElementById('timelineChart').getContext('2d');
+                const now = new Date();
+                const labels = [];
+                const daysStart = [];
 
-            // Création des 7 derniers jours
-            for (let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                labels.push(d.toLocaleDateString(settings.lang, { weekday: 'short', day: 'numeric' }));
-                daysStart.push(d.getTime());
-            }
-
-            const dataSetsByType = { 1: [], 2: [], 3: [] };
-            let allPeriods = [...state.history];
-
-            // On inclut la période en cours de chronométrage
-            if (state.activeType) {
-                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
-            }
-
-            // Répartition des périodes sur les 7 jours
-            allPeriods.forEach(p => {
-                for (let i = 0; i < 7; i++) {
-                    let dayS = daysStart[i];
-                    let dayE = dayS + 24 * 3600 * 1000;
-
-                    if (p.start >= dayS && p.start < dayE) {
-                        let sDay = new Date(p.start);
-                        let eDay = new Date(p.end);
-
-                        // Conversion en heures décimales (ex: 8h30 -> 8.5)
-                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                        if (eDay.getTime() >= dayE) endHour = 24; // Coupe à minuit
-
-                        dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
-                        break;
-                    }
+                // Création des 7 derniers jours
+                for (let i = 6; i >= 0; i--) {
+                    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                    labels.push(d.toLocaleDateString(settings.lang, { weekday: 'short', day: 'numeric' }));
+                    daysStart.push(d.getTime());
                 }
-            });
 
-            const datasets = [
-                { label: settings.labels[0], data: dataSetsByType[1], backgroundColor: '#2196F3', borderRadius: 4 },
-                { label: settings.labels[1], data: dataSetsByType[2], backgroundColor: '#4CAF50', borderRadius: 4 },
-                { label: settings.labels[2], data: dataSetsByType[3], backgroundColor: '#FF9800', borderRadius: 4 }
-            ];
+                const dataSetsByType = { 1: [], 2: [], 3: [] };
+                let allPeriods = [...state.history];
 
-            if (timelineChartInstance) {
-                timelineChartInstance.data.labels = labels;
-                timelineChartInstance.data.datasets = datasets;
-                timelineChartInstance.update();
-            } else {
-                timelineChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: labels, datasets: datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        grouped: false, // Force les barres d'un même jour à s'aligner verticalement
-                        scales: {
-                            y: {
-                                min: 0,
-                                max: 24,
-                                reverse: true, // 0h en haut, 24h en bas (format agenda)
-                                title: { display: false },
-                                ticks: { stepSize: 2, callback: v => v + 'h' },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                // On inclut la période en cours de chronométrage
+                if (state.activeType) {
+                    allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                }
+
+                // Répartition des périodes sur les 7 jours
+                allPeriods.forEach(p => {
+                    for (let i = 0; i < 7; i++) {
+                        let dayS = daysStart[i];
+                        let dayE = dayS + 24 * 3600 * 1000;
+
+                        if (p.start >= dayS && p.start < dayE) {
+                            let sDay = new Date(p.start);
+                            let eDay = new Date(p.end);
+
+                            // Conversion en heures décimales (ex: 8h30 -> 8.5)
+                            let startHour = sDay.getHours() + sDay.getMinutes() / 60;
+                            let endHour = eDay.getHours() + eDay.getMinutes() / 60;
+                            if (eDay.getTime() >= dayE) endHour = 24; // Coupe à minuit
+
+                            dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
+                            break;
+                        }
+                    }
+                });
+
+                const datasets = [
+                    { label: settings.labels[0], data: dataSetsByType[1], backgroundColor: '#2196F3', borderRadius: 4 },
+                    { label: settings.labels[1], data: dataSetsByType[2], backgroundColor: '#4CAF50', borderRadius: 4 },
+                    { label: settings.labels[2], data: dataSetsByType[3], backgroundColor: '#FF9800', borderRadius: 4 }
+                ];
+
+                if (timelineChartInstance) {
+                    timelineChartInstance.data.labels = labels;
+                    timelineChartInstance.data.datasets = datasets;
+                    timelineChartInstance.update();
+                } else {
+                    timelineChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: { labels: labels, datasets: datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            grouped: false, // Force les barres d'un même jour à s'aligner verticalement
+                            scales: {
+                                y: {
+                                    min: 0,
+                                    max: 24,
+                                    reverse: true, // 0h en haut, 24h en bas (format agenda)
+                                    title: { display: false },
+                                    ticks: { stepSize: 2, callback: v => v + 'h' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                },
+                                x: {
+                                    grid: { display: false }
+                                }
                             },
-                            x: {
-                                grid: { display: false }
-                            }
-                        },
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        let raw = context.raw;
-                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
-                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
-                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '0')}`;
+                            plugins: {
+                                legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            let raw = context.raw;
+                                            let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
+                                            let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
+                                            return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '0')}`;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
+                    });
+                }
             }
-        }
 
-        function showPage(p) {
+            function showPage(p) {
 =======
         function renderTimelineChart() {
             const ctx = document.getElementById('timelineChart').getContext('2d');
@@ -830,7 +856,7 @@ document.getElementById('title-timeline').innerText = t.timeline;
 
             const dataSetsByType = { 1: [], 2: [], 3: [] };
             let allPeriods = [...state.history];
-            
+
             // On inclut la période en cours de chronométrage
             if (state.activeType) {
                 allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
@@ -841,11 +867,11 @@ document.getElementById('title-timeline').innerText = t.timeline;
                 for (let i = 0; i < 7; i++) {
                     let dayS = daysStart[i];
                     let dayE = dayS + 24 * 3600 * 1000;
-                    
+
                     if (p.start >= dayS && p.start < dayE) {
                         let sDay = new Date(p.start);
                         let eDay = new Date(p.end);
-                        
+
                         // Conversion en heures décimales (ex: 8h30 -> 8.5)
                         let startHour = sDay.getHours() + sDay.getMinutes() / 60;
                         let endHour = eDay.getHours() + eDay.getMinutes() / 60;
@@ -908,60 +934,60 @@ document.getElementById('title-timeline').innerText = t.timeline;
 
       function showPage(p) {
 >>>>>>> 22478fde4179578f5a541135d6f1ba0ed93e9e7f
-            document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
-            document.getElementById(`page-${p}`).classList.add('active');
-            document.getElementById(`nav-${p}`).classList.add('active');
-            if (p === 'results') renderResults();
-            if (p === 'timeline') renderTimelineChart();
-        }
+                document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
+                document.getElementById(`page-${p}`).classList.add('active');
+                document.getElementById(`nav-${p}`).classList.add('active');
+                if (p === 'results') renderResults();
+                if (p === 'timeline') renderTimelineChart();
+            }
 
-        setInterval(updateTimer, 1000);
-        document.getElementById('lang-select').value = settings.lang;
-        document.getElementById('custom-1').value = settings.labels[0];
-        document.getElementById('custom-2').value = settings.labels[1];
-        document.getElementById('custom-3').value = settings.labels[2];
-        updateUI();
+            setInterval(updateTimer, 1000);
+            document.getElementById('lang-select').value = settings.lang;
+            document.getElementById('custom-1').value = settings.labels[0];
+            document.getElementById('custom-2').value = settings.labels[1];
+            document.getElementById('custom-3').value = settings.labels[2];
+            updateUI();
 
-        // --- GESTION DU SWIPE (GLISSEMENT) ---
-        const pagesOrder = ['measure', 'results', 'settings'];
-        let touchstartX = 0;
-        let touchstartY = 0;
-        let touchendX = 0;
-        let touchendY = 0;
+            // --- GESTION DU SWIPE (GLISSEMENT) ---
+            const pagesOrder = ['measure', 'results', 'settings'];
+            let touchstartX = 0;
+            let touchstartY = 0;
+            let touchendX = 0;
+            let touchendY = 0;
 
-        function handleSwipe() {
-            const swipeThreshold = 50; // Distance minimum en pixels pour valider le glissement
-            let diffX = touchendX - touchstartX;
-            let diffY = touchendY - touchstartY;
+            function handleSwipe() {
+                const swipeThreshold = 50; // Distance minimum en pixels pour valider le glissement
+                let diffX = touchendX - touchstartX;
+                let diffY = touchendY - touchstartY;
 
-            // On s'assure que le mouvement est plus horizontal que vertical
-            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
-                // Trouver la page actuelle
-                let activePageId = document.querySelector('.page.active').id.replace('page-', '');
-                let currentIndex = pagesOrder.indexOf(activePageId);
+                // On s'assure que le mouvement est plus horizontal que vertical
+                if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+                    // Trouver la page actuelle
+                    let activePageId = document.querySelector('.page.active').id.replace('page-', '');
+                    let currentIndex = pagesOrder.indexOf(activePageId);
 
-                if (diffX < 0 && currentIndex < pagesOrder.length - 1) {
-                    // Glissement vers la gauche -> Page suivante
-                    showPage(pagesOrder[currentIndex + 1]);
-                } else if (diffX > 0 && currentIndex > 0) {
-                    // Glissement vers la droite -> Page précédente
-                    showPage(pagesOrder[currentIndex - 1]);
+                    if (diffX < 0 && currentIndex < pagesOrder.length - 1) {
+                        // Glissement vers la gauche -> Page suivante
+                        showPage(pagesOrder[currentIndex + 1]);
+                    } else if (diffX > 0 && currentIndex > 0) {
+                        // Glissement vers la droite -> Page précédente
+                        showPage(pagesOrder[currentIndex - 1]);
+                    }
                 }
             }
-        }
 
-        document.addEventListener('touchstart', e => {
-            touchstartX = e.changedTouches[0].screenX;
-            touchstartY = e.changedTouches[0].screenY;
-        }, { passive: true });
+            document.addEventListener('touchstart', e => {
+                touchstartX = e.changedTouches[0].screenX;
+                touchstartY = e.changedTouches[0].screenY;
+            }, { passive: true });
 
-        document.addEventListener('touchend', e => {
-            touchendX = e.changedTouches[0].screenX;
-            touchendY = e.changedTouches[0].screenY;
-            handleSwipe();
-        }, { passive: true });
+            document.addEventListener('touchend', e => {
+                touchendX = e.changedTouches[0].screenX;
+                touchendY = e.changedTouches[0].screenY;
+                handleSwipe();
+            }, { passive: true });
 
-    </script>
+        </script>
 </body>
 
 </html>
