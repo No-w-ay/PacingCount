@@ -269,6 +269,13 @@
 
 <body>
 
+<div id="page-timeline" class="page">
+        <h1 id="title-timeline">Historique</h1>
+        <div class="chart-container" style="position: relative; height: 65vh; width: 100%;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+    </div>
+
     <div id="page-measure" class="page active">
         <h1 id="title-measure">PacingCount</h1>
         <div class="timer-container">
@@ -358,7 +365,8 @@
 
 
 
-    <nav>
+<nav>
+        <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
         <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
         <button onclick="showPage('results')" id="nav-results">Résultats</button>
         <button onclick="showPage('settings')" id="nav-settings">Réglages</button>
@@ -369,9 +377,9 @@
         let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
 
         const translations = {
-            fr: { measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
-            en: { measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
-            nl: { measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
+            fr: { timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
+            en: { timeline: "History", measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
+            nl: { timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
         };
 
         const colors = { 1: "blue", 2: "green", 3: "orange" };
@@ -440,6 +448,8 @@
 
         function updateUI() {
             const t = translations[settings.lang];
+            document.getElementById('nav-timeline').innerText = t.timeline;
+document.getElementById('title-timeline').innerText = t.timeline;
             document.getElementById('nav-measure').innerText = t.measure;
             document.getElementById('nav-results').innerText = t.results;
             document.getElementById('nav-settings').innerText = t.settings;
@@ -699,12 +709,105 @@
             pendingImportData = null;
         }
 
+        let timelineChartInstance = null;
 
-        function showPage(p) {
+        function renderTimelineChart() {
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            const now = new Date();
+            const labels = [];
+            const daysStart = [];
+
+            // Création des 7 derniers jours
+            for (let i = 6; i >= 0; i--) {
+                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                labels.push(d.toLocaleDateString(settings.lang, { weekday: 'short', day: 'numeric' }));
+                daysStart.push(d.getTime());
+            }
+
+            const dataSetsByType = { 1: [], 2: [], 3: [] };
+            let allPeriods = [...state.history];
+            
+            // On inclut la période en cours de chronométrage
+            if (state.activeType) {
+                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            // Répartition des périodes sur les 7 jours
+            allPeriods.forEach(p => {
+                for (let i = 0; i < 7; i++) {
+                    let dayS = daysStart[i];
+                    let dayE = dayS + 24 * 3600 * 1000;
+                    
+                    if (p.start >= dayS && p.start < dayE) {
+                        let sDay = new Date(p.start);
+                        let eDay = new Date(p.end);
+                        
+                        // Conversion en heures décimales (ex: 8h30 -> 8.5)
+                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
+                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
+                        if (eDay.getTime() >= dayE) endHour = 24; // Coupe à minuit
+
+                        dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
+                        break;
+                    }
+                }
+            });
+
+            const datasets = [
+                { label: settings.labels[0], data: dataSetsByType[1], backgroundColor: '#2196F3', borderRadius: 4 },
+                { label: settings.labels[1], data: dataSetsByType[2], backgroundColor: '#4CAF50', borderRadius: 4 },
+                { label: settings.labels[2], data: dataSetsByType[3], backgroundColor: '#FF9800', borderRadius: 4 }
+            ];
+
+            if (timelineChartInstance) {
+                timelineChartInstance.data.labels = labels;
+                timelineChartInstance.data.datasets = datasets;
+                timelineChartInstance.update();
+            } else {
+                timelineChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        grouped: false, // Force les barres d'un même jour à s'aligner verticalement
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 24,
+                                reverse: true, // 0h en haut, 24h en bas (format agenda)
+                                title: { display: false },
+                                ticks: { stepSize: 2, callback: v => v + 'h' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let raw = context.raw;
+                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0]-sH)*60);
+                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1]-eH)*60);
+                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2,'0')} - ${eH}h${eM.toString().padStart(2,'0')}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+      function showPage(p) {
             document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
             if (p === 'results') renderResults();
+            if (p === 'timeline') renderTimelineChart();
         }
 
         setInterval(updateTimer, 1000);
