@@ -530,7 +530,7 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // --- GESTION DE LA BULLE D'INFO FLUIDE (TOOLTIP) ---
+            // --- GESTION DU TOOLTIP ---
             let tooltip = document.getElementById('custom-chart-tooltip');
             if (!tooltip) {
                 tooltip = document.createElement('div');
@@ -539,12 +539,10 @@
                 document.body.appendChild(tooltip);
             }
 
-            // Fonctions globales pour afficher/cacher la bulle
             window.showBarTooltip = function (e, text) {
                 const tt = document.getElementById('custom-chart-tooltip');
                 tt.innerHTML = text;
                 tt.style.display = 'block';
-                // Gère à la fois le tactile et la souris
                 const x = e.touches ? e.touches[0].clientX : e.clientX;
                 const y = e.touches ? e.touches[0].clientY : e.clientY;
                 tt.style.left = x + 'px';
@@ -554,14 +552,13 @@
                 const tt = document.getElementById('custom-chart-tooltip');
                 if (tt) tt.style.display = 'none';
             };
-            // ---------------------------------------------------
 
+            // --- CONFIGURATION ---
             const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
-            const labels = (typeof settings !== 'undefined' && settings.labels)
-                ? settings.labels
-                : ['Type 1', 'Type 2', 'Type 3', 'Type 4', 'Type 5'];
+            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
 
-            const darkGray = '#555555'; // Un gris plus foncé, adapté au thème sombre
+            const barGray = '#555555';   // Gris des barres (fond)
+            const textGray = '#b0b0b0';  // Gris clair pour légendes et heures
 
             const daysData = {};
             let allPeriods = [...state.history];
@@ -573,28 +570,22 @@
                 const d = new Date(p.start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-
-                if (!daysData[dateKey]) {
-                    daysData[dateKey] = { displayDate: displayDate, totals: {} };
-                }
-
+                if (!daysData[dateKey]) daysData[dateKey] = { displayDate: displayDate, totals: {} };
                 const durationMins = (p.end - p.start) / 60000;
-                if (!daysData[dateKey].totals[p.type]) {
-                    daysData[dateKey].totals[p.type] = 0;
-                }
+                if (!daysData[dateKey].totals[p.type]) daysData[dateKey].totals[p.type] = 0;
                 daysData[dateKey].totals[p.type] += durationMins;
             });
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
-
             if (sortedDates.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée enregistrée.</p>";
+                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée.</p>";
                 return;
             }
 
+            // --- CONSTRUCTION DU HTML ---
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
-                    <div style="display: flex; margin-left: 55px; position: relative; color: ${darkGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
+                    <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
                         <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
                         <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
                         <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
@@ -605,72 +596,61 @@
                     <div style="position: relative; padding-top: 5px;">
                         
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
-                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.15);"></div>
-                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.25);"></div>
-                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.15);"></div>
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
                         </div>
             `;
 
             sortedDates.forEach(dateKey => {
                 const day = daysData[dateKey];
-                const totalMinutesInDay = 1440;
-
                 html += `
                     <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
                         <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
                             ${day.displayDate}
                         </div>
-                        <div style="flex-grow: 1; display: flex; height: 26px; background-color: ${darkGray}; border-radius: 4px; overflow: hidden; cursor: pointer;">
-                `;
-
-                Object.keys(day.totals).sort().forEach(type => {
-                    const minutes = day.totals[type];
-                    const percentage = (minutes / totalMinutesInDay) * 100;
-
-                    const typeIndex = parseInt(type) - 1;
-                    const color = defaultColors[typeIndex] || '#ccc';
-                    const label = labels[typeIndex];
-
-                    if (percentage > 0) {
-                        const h = Math.floor(minutes / 60);
-                        const m = Math.round(minutes % 60);
-                        const timeText = h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m} min`;
-
-                        // Ajout des événements tactiles et souris pour afficher/cacher la bulle
-                        html += `
-                            <div style="width: ${percentage}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.3);" 
-                                 onmousemove="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
-                                 onmouseout="hideBarTooltip()"
-                                 ontouchstart="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
-                                 ontouchmove="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
-                                 ontouchend="hideBarTooltip()">
+                        
+                        <div style="flex-grow: 1; display: flex; height: 26px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
+                            
+                            <div style="position: absolute; inset: 0; display: flex; pointer-events: none;">
+                                ${Array.from({ length: 24 }).map(() => `
+                                    <div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>
+                                `).join('')}
                             </div>
-                        `;
-                    }
-                });
 
-                html += `
+                            <div style="position: absolute; inset: 0; display: flex;">
+                                ${Object.keys(day.totals).sort().map(type => {
+                    const mins = day.totals[type];
+                    const perc = (mins / 1440) * 100;
+                    const typeIdx = parseInt(type) - 1;
+                    const color = defaultColors[typeIdx] || '#ccc';
+                    const label = labels[typeIdx];
+                    const timeStr = mins >= 60 ? `${Math.floor(mins / 60)}h${Math.round(mins % 60).toString().padStart(2, '0')}` : `${Math.round(mins)} min`;
+
+                    return perc > 0 ? `
+                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.2); position: relative; z-index: 2;"
+                                             onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             onmouseout="hideBarTooltip()"
+                                             ontouchstart="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             ontouchend="hideBarTooltip()">
+                                        </div>` : '';
+                }).join('')}
+                            </div>
                         </div>
                     </div>
                 `;
             });
 
-            html += `
-                    </div>
-                </div>
-            `;
+            html += `</div></div>`;
 
-            // Légende alignée sur les barres (margin-left: 55px) avec un gris plus clair (#b0b0b0)
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 12px; margin-top: 15px; font-size: 0.85rem; color: #b0b0b0;">`;
-
+            // Légende alignée à gauche (Gris clair)
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 15px; font-size: 0.85rem; color: ${textGray};">`;
             labels.forEach((label, index) => {
-                const color = defaultColors[index] || '#ccc';
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${color};"></div>
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
                         <span>${label}</span>
-                    </div>
-                `;
+                    </div>`;
             });
             html += `</div>`;
 
