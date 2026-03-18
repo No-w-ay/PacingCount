@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PacingCount</title>
+    <meta name="theme-color" content="#121212">
+    <link rel="manifest" href="manifest.json">
+    <script src="chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --blue: #2196F3;
+            --green: #4CAF50;
+            --orange: #FF9800;
+            --red: #f44336;
+            --border: #333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-around;
+            background: var(--card-bg);
+            padding: 15px 0;
+            border-top: 1px solid var(--border);
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            z-index: 10;
+        }
+
+        nav button {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 0.9rem;
+            opacity: 0.6;
+            cursor: pointer;
+        }
+
+        nav button.active {
+            opacity: 1;
+            font-weight: bold;
+            color: var(--blue);
+        }
+
+        .page {
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            padding-bottom: 100px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .measure-btn {
+            width: 100%;
+            padding: 25px 15px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .measure-btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-blue {
+            background-color: var(--blue);
+        }
+
+        .btn-green {
+            background-color: var(--green);
+        }
+
+        .btn-orange {
+            background-color: var(--orange);
+        }
+
+        .btn-stop {
+            background-color: transparent;
+            color: var(--red);
+            border: 1px solid var(--red);
+            padding: 10px;
+            margin-top: 15px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .active-indicator {
+            border: 4px solid white;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .timer-container {
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .timer-display {
+            font-size: 3rem;
+            font-family: monospace;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+
+        .timer-previous {
+            font-size: 1.2rem;
+            font-family: monospace;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .text-default {
+            color: var(--text-color);
+        }
+
+        .text-blue {
+            color: var(--blue);
+        }
+
+        .text-green {
+            color: var(--green);
+        }
+
+        .text-orange {
+            color: var(--orange);
+        }
+
+        .settings-group {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #444;
+            border-radius: 4px;
+            box-sizing: border-box;
+            color-scheme: dark;
+        }
+
+        .export-btn {
+            background: var(--blue);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            width: 100%;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .history-container {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-time {
+            font-family: monospace;
+            color: #aaa;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .btn-icon {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 8px 12px;
+        }
+
+        .add-btn {
+            background: var(--green);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="page-timeline" class="page">
+        <h1 id="title-timeline">Historique</h1>
+
+        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 20px;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+
+        <div class="history-container" style="background: #2a2a2a; border-radius: 12px; padding: 15px; border: 1px solid #444;">
+            
+            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">Périodes enregistrées</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export" style="flex: 1; padding: 10px;">Exporter CSV</button>
+                    <button class="export-btn" onclick="document.getElementById('csv-file').click()" style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
+                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel" style="display:none;" onchange="importCSV(event)">
+                </div>
+                <button class="add-btn" onclick="openAddModal()" style="width: 100%; padding: 12px; font-weight: bold;">+ Ajouter période</button>
+            </div>
+
+            <div id="history-list"></div>
+        </div>
+    </div>
+
+    <div id="page-measure" class="page active">
+        <h1 id="title-measure">PacingCount</h1>
+        <div class="timer-container">
+            <div id="main-timer" class="timer-display text-default">00:00:00</div>
+            <div id="prev-timer" class="timer-previous" style="display: none;">Précédent: 00:00:00</div>
+        </div>
+        <button id="btn-1" class="measure-btn btn-blue" onclick="startPeriod(1)">Couché sans stimulation</button>
+        <button id="btn-2" class="measure-btn btn-green" onclick="startPeriod(2)">Couché actif</button>
+        <button id="btn-3" class="measure-btn btn-orange" onclick="startPeriod(3)">Non couché</button>
+        <button id="btn-stop" class="btn-stop" onclick="stopRecording()" style="display: none;">Arrêter
+            l'enregistrement</button>
+    </div>
+
+    <div id="page-results" class="page">
+        <h1 id="title-results">Totaux journaliers</h1>
+
+        <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
+
+        <h3 style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
+            chiffrés</h3>
+        <div id="results-list"></div>
+    </div>
+
+    <div id="page-settings" class="page">
+        <h1 id="title-settings">Réglages</h1>
+        <div class="settings-group">
+            <label>Langue</label>
+            <select id="lang-select" onchange="changeLang()">
+                <option value="fr">Français</option>
+                <option value="en">English</option>
+                <option value="nl">Nederlands</option>
+            </select>
+        </div>
+        <div class="settings-group">
+            <label id="label-custom">Noms des boutons</label>
+            <input type="text" id="custom-1" onchange="saveSettings()">
+            <input type="text" id="custom-2" onchange="saveSettings()">
+            <input type="text" id="custom-3" onchange="saveSettings()">
+        </div>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-title" style="margin-top:0;">Modifier l'entrée</h3>
+            <input type="hidden" id="edit-index">
+            <label>Type de période</label>
+            <select id="edit-type">
+                <option value="1" id="opt-1">Bleu</option>
+                <option value="2" id="opt-2">Vert</option>
+                <option value="3" id="opt-3">Orange</option>
+            </select>
+            <label style="display:block; margin-top:15px;">Début</label>
+            <input type="datetime-local" id="edit-start" step="60">
+            <label style="display:block; margin-top:15px;">Fin</label>
+            <input type="datetime-local" id="edit-end" step="60">
+            <div style="display:flex; gap:10px; margin-top:25px;">
+                <button class="export-btn" style="background:#444; margin:0;" onclick="closeModal()">Annuler</button>
+                <button class="export-btn" style="margin:0;" onclick="saveManualEdit()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <h3 id="import-modal-title" style="margin-top:0;">Options d'importation</h3>
+            <p id="import-text" style="font-size: 0.9rem; line-height: 1.4; opacity: 0.9;">
+                Comment souhaitez-vous gérer l'importation des données ?
+            </p>
+            <button class="export-btn" style="background: var(--red); margin-bottom: 10px;"
+                onclick="processImport('replace')">Remplacer</button>
+            <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Supprime tout et remplace par le
+                fichier.</p>
+
+            <button class="export-btn" style="background: var(--blue); margin-bottom: 10px;"
+                onclick="processImport('merge')">Fusionner</button>
+            <p style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">Le fichier a la priorité en cas de
+                conflit.</p>
+
+            <button class="export-btn" style="background: #444;" onclick="closeImportModal()">Annuler</button>
+        </div>
+    </div>
+
+    <nav>
+        <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
+        <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
+        <button onclick="showPage('results')" id="nav-results">Résultats</button>
+        <button onclick="showPage('settings')" id="nav-settings">Réglages</button>
+    </nav>
+
+    <script>
+        let state = JSON.parse(localStorage.getItem('pacingState')) || { activeType: null, startTime: null, history: [] };
+        let settings = JSON.parse(localStorage.getItem('pacingSettings')) || { lang: 'fr', labels: ["Couché sans stimulation", "Couché actif", "Non couché"] };
+
+        const translations = {
+            fr: { timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages", export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons", stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?", history: "Historique", prev: "Précédent: ", inProgress: "(En cours)", addManual: "+ Ajouter une période", futureError: "Impossible d'enregistrer une période dans le futur.", importPrompt: "Voulez-vous REMPLACER toutes les données existantes par ce fichier ?\n\nOK = Remplacer tout\nAnnuler = Fusionner (Priorité au fichier importé)", importError: "Erreur lors de la lecture du fichier CSV.", importSuccess: "Importation réussie !" },
+            en: { timeline: "History", measure: "Measure", results: "Results", settings: "Settings", export: "Export CSV", import: "Import CSV", custom: "Button Names", stop: "Stop recording", confirmStop: "Stop current recording?", history: "Recording History", prev: "Previous: ", inProgress: "(In progress)", addManual: "+ Add a period", futureError: "Cannot record a period in the future.", importPrompt: "Do you want to REPLACE all existing data with this file?\n\nOK = Replace all\nCancel = Merge (Imported file takes priority)", importError: "Error reading CSV file.", importSuccess: "Import successful!" },
+            nl: { timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen", export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen", stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?", history: "Opnamegeschiedenis", prev: "Vorige: ", inProgress: "(Bezig)", addManual: "+ Periode toevoegen", futureError: "Kan geen periode in de toekomst opnemen.", importPrompt: "Wilt u alle bestaande gegevens VERVANGEN door dit bestand?\n\nOK = Alles vervangen\nAnnuleren = Samenvoegen (Geïmporteerd bestand heeft prioriteit)", importError: "Fout bij het lezen van het CSV-bestand.", importSuccess: "Importeren geslaagd!" }
+        };
+
+        const colors = { 1: "blue", 2: "green", 3: "orange" };
+
+        function startPeriod(type) {
+            // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
+            if (state.activeType === type) return;
+
+            const now = Date.now();
+            if (state.activeType !== null) closePeriod(state.activeType, state.startTime, now);
+            state.activeType = type;
+            state.startTime = now;
+            saveState();
+            updateUI();
+        }
+
+        function stopRecording() {
+            if (confirm(translations[settings.lang].confirmStop)) {
+                if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
+                state.activeType = null; state.startTime = null;
+                saveState(); updateUI();
+            }
+        }
+
+        function closePeriod(type, start, end) {
+            let s = new Date(start);
+            let e = new Date(end);
+            while (s.toDateString() !== e.toDateString()) {
+                let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
+                state.history.push({ type, start: s.getTime(), end: endOfDay.getTime() });
+                s = new Date(endOfDay.getTime() + 1);
+            }
+            state.history.push({ type, start: s.getTime(), end: e.getTime() });
+        }
+
+        function saveState() { localStorage.setItem('pacingState', JSON.stringify(state)); }
+
+        function saveSettings() {
+            settings.labels = [document.getElementById('custom-1').value, document.getElementById('custom-2').value, document.getElementById('custom-3').value];
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            updateUI();
+        }
+
+        function changeLang() {
+            settings.lang = document.getElementById('lang-select').value;
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            updateUI(); if (document.getElementById('page-results').classList.contains('active')) renderResults();
+        }
+
+        function formatDuration(ms) {
+            const diff = Math.floor(ms / 1000);
+            const h = Math.floor(diff / 3600).toString().padStart(2, '0');
+            const m = Math.floor((diff % 3600) / 60).toString().padStart(2, '0');
+            const s = (diff % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        function formatTime(ms) {
+            const d = new Date(ms);
+            return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0');
+        }
+
+        function toLocalISOString(ms) {
+            return new Date(ms - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+        }
+
+        function updateUI() {
+            const t = translations[settings.lang];
+            document.getElementById('nav-timeline').innerText = t.timeline;
+            document.getElementById('title-timeline').innerText = t.timeline;
+            document.getElementById('nav-measure').innerText = t.measure;
+            document.getElementById('nav-results').innerText = t.results;
+            document.getElementById('nav-settings').innerText = t.settings;
+            document.getElementById('btn-export').innerText = t.export;
+            document.getElementById('btn-import').innerText = t.import;
+            document.getElementById('label-custom').innerText = t.custom;
+            document.getElementById('btn-stop').innerText = t.stop;
+            document.getElementById('title-history').innerText = t.history;
+            [1, 2, 3].forEach(i => {
+                document.getElementById(`opt-${i}`).innerText = settings.labels[i - 1];
+                document.getElementById(`btn-${i}`).innerText = settings.labels[i - 1];
+                document.getElementById(`btn-${i}`).classList.toggle('active-indicator', state.activeType === i);
+            });
+            document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
+            const mainTimer = document.getElementById('main-timer');
+            mainTimer.className = 'timer-display ' + (state.activeType ? `text-${colors[state.activeType]}` : 'text-default');
+            if (!state.activeType) mainTimer.innerText = "00:00:00";
+            const prevTimer = document.getElementById('prev-timer');
+            if (state.history.length > 0) {
+                const last = state.history[state.history.length - 1];
+                prevTimer.style.display = 'block';
+                prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
+                prevTimer.className = `timer-previous text-${colors[last.type]}`;
+            } else prevTimer.style.display = 'none';
+        }
+
+        function updateTimer() {
+            if (state.startTime && state.activeType) {
+                document.getElementById('main-timer').innerText = formatDuration(Date.now() - state.startTime);
+            }
+        }
+
+        function renderResults() {
+            const container = document.getElementById('results-list');
+            container.innerHTML = "";
+            const totals = {};
+            let all = [...state.history];
+            if (state.activeType) all.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+            all.sort((a, b) => a.start - b.start);
+            all.forEach(e => {
+                const d = new Date(e.start).toLocaleDateString();
+                if (!totals[d]) totals[d] = { 1: 0, 2: 0, 3: 0, count: 0 };
+                totals[d][e.type] += (e.end - e.start) / 60000;
+                if (e.type === 1) totals[d].count++;
+            });
+            Object.keys(totals).reverse().forEach(d => {
+                const day = totals[d];
+                const div = document.createElement('div');
+                div.className = "settings-group";
+                div.innerHTML = `<strong>${d}</strong><br><span class="text-blue">●</span> ${Math.round(day[1])}m | <span class="text-green">●</span> ${Math.round(day[2])}m | <span class="text-orange">●</span> ${Math.round(day[3])}m<br><small style="opacity:0.8">Séquences bleues: ${day.count}</small>`;
+                container.appendChild(div);
+            });
+            renderHistory();
+        }
+
+function renderHistory() {
+            try {
+                const t = translations[settings.lang] || { inProgress: "En cours" };
+                const container = document.getElementById('history-list');
+                
+                // Si la boîte n'est pas trouvée (ex: on est sur un autre onglet), on stoppe sans planter
+                if (!container) return; 
+                
+                container.innerHTML = ''; 
+
+                let all = [...state.history];
+                if (state.activeType) {
+                    all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                }
+                
+                all.reverse().forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = "history-item";
+                    
+                    let originalIndex = state.history.indexOf(e);
+                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+                    
+                    // Sécurisation au cas où un type n'aurait pas de label défini
+                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
+                    
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type] || 'gray'});font-weight:bold;">${labelText}</span></div>${actions}`;
+                    
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Erreur isolée dans renderHistory :", err);
+            }
+        }
+
+
+        function renderDailyCharts() {
+            const container = document.getElementById('daily-charts-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            // --- GESTION DU TOOLTIP ---
+            let tooltip = document.getElementById('custom-chart-tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'custom-chart-tooltip';
+                tooltip.style.cssText = 'position: fixed; background: rgba(30, 30, 30, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; pointer-events: none; z-index: 9999; display: none; transform: translate(-50%, -120%); white-space: nowrap; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #444;';
+                document.body.appendChild(tooltip);
+            }
+
+            window.showBarTooltip = function (e, text) {
+                const tt = document.getElementById('custom-chart-tooltip');
+                tt.innerHTML = text;
+                tt.style.display = 'block';
+                const x = e.touches ? e.touches[0].clientX : e.clientX;
+                const y = e.touches ? e.touches[0].clientY : e.clientY;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            };
+            window.hideBarTooltip = function () {
+                const tt = document.getElementById('custom-chart-tooltip');
+                if (tt) tt.style.display = 'none';
+            };
+
+            // --- CONFIGURATION ---
+            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+
+            const barGray = '#555555';
+            const textGray = '#b0b0b0';
+
+            const daysData = {};
+            let allPeriods = [...state.history];
+            if (state.activeType) {
+                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(p => {
+                const d = new Date(p.start);
+                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                if (!daysData[dateKey]) daysData[dateKey] = { displayDate: displayDate, totals: {} };
+                const durationMins = (p.end - p.start) / 60000;
+                if (!daysData[dateKey].totals[p.type]) daysData[dateKey].totals[p.type] = 0;
+                daysData[dateKey].totals[p.type] += durationMins;
+            });
+
+            const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
+            if (sortedDates.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée.</p>";
+                return;
+            }
+
+            // --- CONSTRUCTION DU HTML ---
+            let html = `
+                <div style="position: relative; margin-bottom: 20px;">
+                    <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                    </div>
+
+                    <div style="position: relative; padding-top: 8px; padding-bottom: 8px;">
+                        
+                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                        </div>
+            `;
+
+            sortedDates.forEach(dateKey => {
+                const day = daysData[dateKey];
+                html += `
+                    <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
+                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
+                            ${day.displayDate}
+                        </div>
+                        
+                        <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
+                            
+                            <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
+                                ${Object.keys(day.totals).sort().map(type => {
+                    const mins = day.totals[type];
+                    const perc = (mins / 1440) * 100;
+                    const typeIdx = parseInt(type) - 1;
+                    const color = defaultColors[typeIdx] || '#ccc';
+                    const label = labels[typeIdx];
+                    const timeStr = mins >= 60 ? `${Math.floor(mins / 60)}h${Math.round(mins % 60).toString().padStart(2, '0')}` : `${Math.round(mins)} min`;
+
+                    return perc > 0 ? `
+                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%; position: relative;"
+                                             onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             onmouseout="hideBarTooltip()"
+                                             ontouchstart="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             ontouchend="hideBarTooltip()">
+                                        </div>` : '';
+                }).join('')}
+                            </div>
+
+                            <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
+                                ${Array.from({ length: 24 }).map(() => `
+                                    <div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>
+                                `).join('')}
+                            </div>
+
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+
+            // Légende alignée à gauche
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            labels.forEach((label, index) => {
+                html += `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
+                        <span>${label}</span>
+                    </div>`;
+            });
+            html += `</div>`;
+
+            container.innerHTML = html;
+        }
+
+        function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
+
+        function openEditModal(i) {
+            const e = state.history[i];
+            document.getElementById('edit-index').value = i;
+            document.getElementById('edit-type').value = e.type;
+            document.getElementById('edit-start').value = toLocalISOString(e.start);
+            document.getElementById('edit-end').value = toLocalISOString(e.end);
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function openAddModal() {
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('edit-start').value = toLocalISOString(Date.now() - 3600000);
+            document.getElementById('edit-end').value = toLocalISOString(Date.now());
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+        // MOTEUR LOGIQUE CENTRAL ("Le Rouleau Compresseur")
+        function applySteamroller(basePeriods, priorityPeriods) {
+            let resultBase = [];
+
+            // 1. Découpage de la base existante face aux priorités
+            for (let b of basePeriods) {
+                let fragments = [b];
+                for (let p of priorityPeriods) {
+                    let nextFragments = [];
+                    for (let frag of fragments) {
+                        // Si chevauchement
+                        if (frag.start < p.end && frag.end > p.start) {
+                            if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start });
+                            if (frag.end > p.end) nextFragments.push({ ...frag, start: p.end });
+                        } else {
+                            nextFragments.push(frag); // Pas touché
+                        }
+                    }
+                    fragments = nextFragments;
+                }
+                resultBase.push(...fragments);
+            }
+
+            // 2. Assemblage et tri
+            let combined = [...resultBase, ...priorityPeriods];
+            combined.sort((a, b) => a.start - b.start);
+
+            // 3. Fusion des périodes adjacentes du même type
+            let merged = [];
+            for (let current of combined) {
+                if (merged.length === 0) { merged.push(current); continue; }
+                let last = merged[merged.length - 1];
+
+                if (last.type === current.type && current.start <= last.end) {
+                    last.end = Math.max(last.end, current.end);
+                    if (current.isLive) last.isLive = true;
+                } else {
+                    merged.push(current);
+                }
+            }
+            return merged;
+        }
+
+        function reconstructHistory(processedPeriods) {
+            state.history = [];
+            state.activeType = null;
+            state.startTime = null;
+            const now = Date.now();
+
+            processedPeriods.forEach(p => {
+                if (p.isLive && p.end >= now - 1000) {
+                    state.activeType = p.type;
+                    state.startTime = p.start;
+                } else {
+                    closePeriod(p.type, p.start, p.end); // Assure la coupure minuit
+                }
+            });
+            state.history.sort((a, b) => a.start - b.start);
+            saveState();
+            renderResults();
+            updateUI();
+        }
+
+        function saveManualEdit() {
+            const t = translations[settings.lang];
+            const idx = parseInt(document.getElementById('edit-index').value);
+            const type = parseInt(document.getElementById('edit-type').value);
+            const start = new Date(document.getElementById('edit-start').value).getTime();
+            const end = new Date(document.getElementById('edit-end').value).getTime();
+            const now = Date.now();
+
+            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+            if (end > now + 60000) return alert(t.futureError);
+
+            let basePeriods = [...state.history];
+            if (idx !== -1) basePeriods.splice(idx, 1);
+            if (state.activeType !== null) basePeriods.push({ type: state.activeType, start: state.startTime, end: now, isLive: true });
+
+            let newEntry = { type, start, end };
+            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+
+            reconstructHistory(finalPeriods);
+            closeModal();
+        }
+
+        function exportCSV() {
+            let csv = "Date,Debut,Fin,Type,Minutes\n";
+
+            // On rassemble l'historique ET la période en cours
+            let allPeriods = [...state.history];
+            if (state.activeType) {
+                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(e => {
+                // Formatage sécurisé de la date en JJ/MM/AAAA
+                const d = new Date(e.start);
+                const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+                csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${settings.labels[e.type - 1]},${Math.round((e.end - e.start) / 60000)}\n`;
+            });
+
+            // Création et déclenchement sécurisé du téléchargement
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+            // Fix crucial pour iOS/Chrome Mobile :
+            document.body.appendChild(a);
+            a.click();
+            // On laisse un petit délai avant de supprimer le lien pour les navigateurs mobiles
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+
+        // Fonction d'analyse robuste pour les dates issues de CSV (FR/EN)
+        function parseCSVDate(dateStr, timeStr) {
+            let parts = dateStr.split(/[\/\-]/);
+            if (parts.length === 3) {
+                let d, m, y;
+                if (parts[2].length === 4) { // Format européen attendu JJ/MM/AAAA
+                    d = parts[0]; m = parts[1]; y = parts[2];
+                } else { // Au cas où AAAA-MM-JJ
+                    y = parts[0]; m = parts[1]; d = parts[2];
+                }
+                let [hr, min] = timeStr.split(':');
+                return new Date(y, m - 1, d, hr, min).getTime();
+            }
+            return NaN;
+        }
+
+        let pendingImportData = null; // Stockage temporaire du CSV lu
+
+        function importCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                    let importedPeriods = [];
+
+                    for (let i = 1; i < lines.length; i++) {
+                        let cols = lines[i].split(',');
+                        if (cols.length >= 4) {
+                            let start = parseCSVDate(cols[0], cols[1]);
+                            let end = parseCSVDate(cols[0], cols[2]);
+                            let type = 1;
+                            let tIndex = settings.labels.indexOf(cols[3]);
+                            if (tIndex !== -1) type = tIndex + 1;
+                            if (!isNaN(start) && !isNaN(end) && start < end) {
+                                importedPeriods.push({ type, start, end });
+                            }
+                        }
+                    }
+
+                    if (importedPeriods.length === 0) throw new Error("Format invalide");
+
+                    pendingImportData = importedPeriods; // On garde les données au chaud
+                    document.getElementById('importModal').style.display = 'flex'; // On montre le choix
+
+                } catch (err) {
+                    alert(translations[settings.lang].importError);
+                }
+                event.target.value = ''; // Reset l'input
+            };
+            reader.readAsText(file);
+        }
+
+        function processImport(mode) {
+            if (mode === 'replace') {
+                reconstructHistory(pendingImportData);
+                alert(translations[settings.lang].importSuccess);
+            } else if (mode === 'merge') {
+                let basePeriods = [...state.history];
+                if (state.activeType !== null) {
+                    basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                }
+                let finalPeriods = applySteamroller(basePeriods, pendingImportData);
+                reconstructHistory(finalPeriods);
+                alert(translations[settings.lang].importSuccess);
+            }
+            closeImportModal();
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').style.display = 'none';
+            pendingImportData = null;
+        }
+
+        let timelineChartInstance = null;
+
+        function renderTimelineChart() {
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            const now = new Date();
+            const labels = [];
+            const daysStart = [];
+            const textGray = '#b0b0b0'; // Même gris que l'autre onglet
+
+            // Création des 7 derniers jours avec format sur 2 lignes
+            for (let i = 6; i >= 0; i--) {
+                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+                const dayNum = d.getDate().toString().padStart(2, '0');
+
+                // Chart.js interprète un tableau de chaînes comme un label multi-ligne
+                labels.push([dayName, dayNum]);
+                daysStart.push(d.getTime());
+            }
+
+            const dataSetsByType = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+            let allPeriods = [...state.history];
+
+            if (state.activeType) {
+                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(p => {
+                for (let i = 0; i < 7; i++) {
+                    let dayS = daysStart[i];
+                    let dayE = dayS + 24 * 3600 * 1000;
+                    if (p.start >= dayS && p.start < dayE) {
+                        let sDay = new Date(p.start);
+                        let eDay = new Date(p.end);
+                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
+                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
+                        if (eDay.getTime() >= dayE) endHour = 24;
+                        dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
+                        break;
+                    }
+                }
+            });
+
+            // Couleurs harmonisées
+            const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            const datasets = [1, 2, 3, 4, 5].map(type => ({
+                label: settings.labels[type - 1] || `Type ${type}`,
+                data: dataSetsByType[type],
+                backgroundColor: colors[type - 1],
+                borderRadius: 4,
+                borderSkipped: false
+            }));
+
+            if (window.timelineChartInstance) {
+                window.timelineChartInstance.data.labels = labels;
+                window.timelineChartInstance.data.datasets = datasets;
+                window.timelineChartInstance.update();
+            } else {
+                window.timelineChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: labels, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        grouped: false,
+                        scales: {
+                            y: {
+                                min: 0,
+                                max: 24,
+                                reverse: true,
+                                ticks: {
+                                    stepSize: 2,
+                                    color: textGray, // Gris harmonisé
+                                    callback: v => v + 'h'
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            x: {
+                                ticks: {
+                                    color: textGray, // Gris harmonisé
+                                    font: { weight: 'bold' }
+                                },
+                                grid: { display: false }
+                            }
+                        },
+                        plugins: {
+                            // On cache la légende Chart.js pour mettre la nôtre
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        let raw = context.raw;
+                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
+                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
+                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '0')}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // AJOUT DE LA LÉGENDE STYLE HISTOGRAMME EN DESSOUS
+            renderTimelineLegend(colors, textGray);
+        }
+
+        // Petite fonction pour générer la légende au propre
+        function renderTimelineLegend(colors, textColor) {
+            const chartContainer = document.querySelector('#page-timeline .chart-container');
+            let existingLegend = document.getElementById('timeline-custom-legend');
+            if (existingLegend) existingLegend.remove();
+
+            const legend = document.createElement('div');
+            legend.id = 'timeline-custom-legend';
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; padding-left: 10px;`;
+
+            settings.labels.forEach((label, index) => {
+                legend.innerHTML += `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colors[index]};"></div>
+                <span>${label}</span>
+            </div>`;
+            });
+            chartContainer.after(legend);
+        }
+
+        function showPage(p) {
+            document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById(`page-${p}`).classList.add('active');
+            document.getElementById(`nav-${p}`).classList.add('active');
+            if (p === 'results') {
+                renderDailyCharts();
+                renderResults();
+            }
+            if (p === 'timeline') renderTimelineChart();
+        }
+
+        setInterval(updateTimer, 1000);
+        document.getElementById('lang-select').value = settings.lang;
+        document.getElementById('custom-1').value = settings.labels[0];
+        document.getElementById('custom-2').value = settings.labels[1];
+        document.getElementById('custom-3').value = settings.labels[2];
+        updateUI();
+
+        // --- GESTION DU SWIPE (GLISSEMENT) ---
+        const pagesOrder = ['timeline', 'measure', 'results', 'settings'];
+        let touchstartX = 0;
+        let touchstartY = 0;
+        let touchendX = 0;
+        let touchendY = 0;
+
+        function handleSwipe() {
+            const swipeThreshold = 50; // Distance minimum en pixels pour valider le glissement
+            let diffX = touchendX - touchstartX;
+            let diffY = touchendY - touchstartY;
+
+            // On s'assure que le mouvement est plus horizontal que vertical
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > swipeThreshold) {
+                // Trouver la page actuelle
+                let activePageId = document.querySelector('.page.active').id.replace('page-', '');
+                let currentIndex = pagesOrder.indexOf(activePageId);
+
+                if (diffX < 0 && currentIndex < pagesOrder.length - 1) {
+                    // Glissement vers la gauche -> Page suivante
+                    showPage(pagesOrder[currentIndex + 1]);
+                } else if (diffX > 0 && currentIndex > 0) {
+                    // Glissement vers la droite -> Page précédente
+                    showPage(pagesOrder[currentIndex - 1]);
+                }
+            }
+        }
+
+        document.addEventListener('touchstart', e => {
+            touchstartX = e.changedTouches[0].screenX;
+            touchstartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', e => {
+            touchendX = e.changedTouches[0].screenX;
+            touchendY = e.changedTouches[0].screenY;
+            handleSwipe();
+        }, { passive: true });
+
+    </script>
+</body>
+
+</html>
