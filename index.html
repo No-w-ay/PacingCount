@@ -530,16 +530,39 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // 1. Paramètres de couleurs et labels (sécurisés avec des valeurs par défaut)
+            // --- GESTION DE LA BULLE D'INFO FLUIDE (TOOLTIP) ---
+            let tooltip = document.getElementById('custom-chart-tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'custom-chart-tooltip';
+                tooltip.style.cssText = 'position: fixed; background: rgba(30, 30, 30, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; pointer-events: none; z-index: 9999; display: none; transform: translate(-50%, -120%); white-space: nowrap; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #444;';
+                document.body.appendChild(tooltip);
+            }
+
+            // Fonctions globales pour afficher/cacher la bulle
+            window.showBarTooltip = function (e, text) {
+                const tt = document.getElementById('custom-chart-tooltip');
+                tt.innerHTML = text;
+                tt.style.display = 'block';
+                // Gère à la fois le tactile et la souris
+                const x = e.touches ? e.touches[0].clientX : e.clientX;
+                const y = e.touches ? e.touches[0].clientY : e.clientY;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            };
+            window.hideBarTooltip = function () {
+                const tt = document.getElementById('custom-chart-tooltip');
+                if (tt) tt.style.display = 'none';
+            };
+            // ---------------------------------------------------
+
             const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
             const labels = (typeof settings !== 'undefined' && settings.labels)
                 ? settings.labels
                 : ['Type 1', 'Type 2', 'Type 3', 'Type 4', 'Type 5'];
 
-            // Le gris foncé pour le texte et le fond des barres (vide)
-            const darkGray = '#777777';
+            const darkGray = '#555555'; // Un gris plus foncé, adapté au thème sombre
 
-            // 2. Grouper les données par jour
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
@@ -549,7 +572,6 @@
             allPeriods.forEach(p => {
                 const d = new Date(p.start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                // FORMAT MODIFIÉ : Juste Jour/Mois (ex: 18/03)
                 const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
 
                 if (!daysData[dateKey]) {
@@ -570,8 +592,6 @@
                 return;
             }
 
-            // 3. Construction de l'en-tête (Graduations uniques en haut)
-            // L'espace à gauche pour la date est fixé à 45px + 10px de marge = 55px
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${darkGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
@@ -584,26 +604,23 @@
 
                     <div style="position: relative; padding-top: 5px;">
                         
-                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; display: flex; pointer-events: none; z-index: 2;">
-                            ${Array.from({ length: 24 }).map(() => `
-                                <div style="flex: 1; border-left: 1px solid rgba(0,0,0,0.2); box-sizing: border-box;"></div>
-                            `).join('')}
-                            <div style="border-right: 1px solid rgba(0,0,0,0.2);"></div>
+                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.15);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px dashed rgba(255,255,255,0.15);"></div>
                         </div>
             `;
 
-            // 4. Génération des barres pour chaque jour
             sortedDates.forEach(dateKey => {
                 const day = daysData[dateKey];
                 const totalMinutesInDay = 1440;
 
-                // Date alignée à gauche, barre à droite
                 html += `
-                    <div style="display: flex; align-items: center; margin-bottom: 12px; position: relative; z-index: 1;">
-                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: ${darkGray}; text-align: right; margin-right: 10px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
+                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
                             ${day.displayDate}
                         </div>
-                        <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${darkGray}; border-radius: 4px; overflow: hidden; cursor: pointer;">
+                        <div style="flex-grow: 1; display: flex; height: 26px; background-color: ${darkGray}; border-radius: 4px; overflow: hidden; cursor: pointer;">
                 `;
 
                 Object.keys(day.totals).sort().forEach(type => {
@@ -615,11 +632,18 @@
                     const label = labels[typeIndex];
 
                     if (percentage > 0) {
-                        // Ajout du onclick pour afficher la valeur au toucher
+                        const h = Math.floor(minutes / 60);
+                        const m = Math.round(minutes % 60);
+                        const timeText = h > 0 ? `${h}h${m.toString().padStart(2, '0')}` : `${m} min`;
+
+                        // Ajout des événements tactiles et souris pour afficher/cacher la bulle
                         html += `
                             <div style="width: ${percentage}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.3);" 
-                                 onclick="alert('${label} : ${Math.round(minutes)} min')"
-                                 title="${label} : ${Math.round(minutes)} min">
+                                 onmousemove="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
+                                 onmouseout="hideBarTooltip()"
+                                 ontouchstart="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
+                                 ontouchmove="showBarTooltip(event, '${label} : <b>${timeText}</b>')"
+                                 ontouchend="hideBarTooltip()">
                             </div>
                         `;
                     }
@@ -632,17 +656,18 @@
             });
 
             html += `
-                    </div> </div> `;
+                    </div>
+                </div>
+            `;
 
-            // 5. Génération de la légende dynamique en bas
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 25px; font-size: 0.85rem; color: #333;">`;
+            // Légende alignée sur les barres (margin-left: 55px) avec un gris plus clair (#b0b0b0)
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 12px; margin-top: 15px; font-size: 0.85rem; color: #b0b0b0;">`;
 
-            // On crée un rond de légende pour chaque type configuré
             labels.forEach((label, index) => {
                 const color = defaultColors[index] || '#ccc';
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 14px; height: 14px; border-radius: 50%; background-color: ${color}; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${color};"></div>
                         <span>${label}</span>
                     </div>
                 `;
