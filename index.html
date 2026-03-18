@@ -269,23 +269,37 @@
 
 <body>
 
+
     <div id="page-timeline" class="page">
         <h1 id="title-timeline">Historique</h1>
 
-        <div class="chart-container" style="position: relative; height: 50vh; width: 100%; margin-bottom: 20px;">
+        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 10px;">
             <canvas id="timelineChart"></canvas>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-top: 10px;">
-            <button class="export-btn" onclick="exportCSV()" id="btn-export">Exporter CSV</button>
-            <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                style="background: var(--orange);" id="btn-import">Importer CSV</button>
-            <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                style="display:none;" onchange="importCSV(event)">
-        </div>
+        <div class="history-card"
+            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
+            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
+                Périodes enregistrées</h3>
 
-        <h3 id="title-history" style="margin-bottom: 10px; font-size: 1.1rem;">Détails des périodes</h3>
-        <div class="history-container" id="history-list"></div>
+            <div class="history-container" id="history-list" style="margin-bottom: 20px;"></div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                        style="flex: 1; padding: 10px;">Exporter CSV</button>
+                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
+                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                        style="display:none;" onchange="importCSV(event)">
+                </div>
+
+                <button onclick="openAddModal()"
+                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold;">
+                    Ajouter une période
+                </button>
+            </div>
+        </div>
     </div>
 
     <div id="page-measure" class="page active">
@@ -530,10 +544,37 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // 1. Grouper les données par jour
-            const daysData = {};
+            // --- GESTION DU TOOLTIP ---
+            let tooltip = document.getElementById('custom-chart-tooltip');
+            if (!tooltip) {
+                tooltip = document.createElement('div');
+                tooltip.id = 'custom-chart-tooltip';
+                tooltip.style.cssText = 'position: fixed; background: rgba(30, 30, 30, 0.95); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; pointer-events: none; z-index: 9999; display: none; transform: translate(-50%, -120%); white-space: nowrap; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border: 1px solid #444;';
+                document.body.appendChild(tooltip);
+            }
 
-            // On inclut la période en cours si le chrono tourne
+            window.showBarTooltip = function (e, text) {
+                const tt = document.getElementById('custom-chart-tooltip');
+                tt.innerHTML = text;
+                tt.style.display = 'block';
+                const x = e.touches ? e.touches[0].clientX : e.clientX;
+                const y = e.touches ? e.touches[0].clientY : e.clientY;
+                tt.style.left = x + 'px';
+                tt.style.top = y + 'px';
+            };
+            window.hideBarTooltip = function () {
+                const tt = document.getElementById('custom-chart-tooltip');
+                if (tt) tt.style.display = 'none';
+            };
+
+            // --- CONFIGURATION ---
+            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+
+            const barGray = '#555555';
+            const textGray = '#b0b0b0';
+
+            const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
                 allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
@@ -541,77 +582,94 @@
 
             allPeriods.forEach(p => {
                 const d = new Date(p.start);
-                // Format YYYY-MM-DD pour un tri facile et sans faille
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-
-                if (!daysData[dateKey]) {
-                    daysData[dateKey] = {
-                        displayDate: displayDate,
-                        totals: {}
-                    };
-                }
-
+                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                if (!daysData[dateKey]) daysData[dateKey] = { displayDate: displayDate, totals: {} };
                 const durationMins = (p.end - p.start) / 60000;
-                if (!daysData[dateKey].totals[p.type]) {
-                    daysData[dateKey].totals[p.type] = 0;
-                }
+                if (!daysData[dateKey].totals[p.type]) daysData[dateKey].totals[p.type] = 0;
                 daysData[dateKey].totals[p.type] += durationMins;
             });
 
-            // 2. Trier les jours du plus récent au plus ancien
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
-
             if (sortedDates.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée enregistrée.</p>";
+                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée.</p>";
                 return;
             }
 
-            // On remet les couleurs dans le bon ordre : Bleu, Vert, Orange, Rouge, Violet
-            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            // --- CONSTRUCTION DU HTML ---
+            let html = `
+                <div style="position: relative; margin-bottom: 20px;">
+                    <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                    </div>
 
-            // 3. Générer le HTML des histogrammes
+                    <div style="position: relative; padding-top: 8px; padding-bottom: 8px;">
+                        
+                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                        </div>
+            `;
+
             sortedDates.forEach(dateKey => {
                 const day = daysData[dateKey];
-                const totalMinutesInDay = 1440; // 24 heures * 60 minutes
-
-                let html = `
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 0.95rem; margin-bottom: 5px; font-weight: bold;">
+                html += `
+                    <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
+                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
                             ${day.displayDate}
                         </div>
-                        <div style="display: flex; height: 24px; background-color: #e0e0e0; border-radius: 6px; overflow: hidden; width: 100%;">
-                `;
+                        
+                        <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
+                            
+                            <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
+                                ${Object.keys(day.totals).sort().map(type => {
+                    const mins = day.totals[type];
+                    const perc = (mins / 1440) * 100;
+                    const typeIdx = parseInt(type) - 1;
+                    const color = defaultColors[typeIdx] || '#ccc';
+                    const label = labels[typeIdx];
+                    const timeStr = mins >= 60 ? `${Math.floor(mins / 60)}h${Math.round(mins % 60).toString().padStart(2, '0')}` : `${Math.round(mins)} min`;
 
-                // Création d'un segment coloré pour chaque type d'activité de la journée
-                Object.keys(day.totals).sort().forEach(type => {
-                    const minutes = day.totals[type];
-                    const percentage = (minutes / totalMinutesInDay) * 100;
-
-                    // On récupère la couleur correspondant au type (Type 1 = index 0, Type 2 = index 1, etc.)
-                    const typeIndex = parseInt(type) - 1;
-                    const color = defaultColors[typeIndex] || '#ccc';
-
-                    if (percentage > 0) {
-                        html += `
-                            <div style="width: ${percentage}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.4);" 
-                                 title="${settings.labels[type - 1]} : ${Math.round(minutes)} min">
+                    return perc > 0 ? `
+                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%; position: relative;"
+                                             onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             onmouseout="hideBarTooltip()"
+                                             ontouchstart="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             ontouchend="hideBarTooltip()">
+                                        </div>` : '';
+                }).join('')}
                             </div>
-                        `;
-                    }
-                });
 
-                html += `
-                        </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 4px;">
-                            <span>0h</span>
-                            <span>12h</span>
-                            <span>24h</span>
+                            <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
+                                ${Array.from({ length: 24 }).map(() => `
+                                    <div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>
+                                `).join('')}
+                            </div>
+
                         </div>
                     </div>
                 `;
-                container.innerHTML += html;
             });
+
+            html += `</div></div>`;
+
+            // Légende alignée à gauche
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            labels.forEach((label, index) => {
+                html += `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
+                        <span>${label}</span>
+                    </div>`;
+            });
+            html += `</div>`;
+
+            container.innerHTML = html;
         }
 
         function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
@@ -839,76 +897,87 @@
             const now = new Date();
             const labels = [];
             const daysStart = [];
+            const textGray = '#b0b0b0'; // Même gris que l'autre onglet
 
-            // Création des 7 derniers jours
+            // Création des 7 derniers jours avec format sur 2 lignes
             for (let i = 6; i >= 0; i--) {
                 let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                labels.push(d.toLocaleDateString(settings.lang, { weekday: 'short', day: 'numeric' }));
+                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+                const dayNum = d.getDate().toString().padStart(2, '0');
+
+                // Chart.js interprète un tableau de chaînes comme un label multi-ligne
+                labels.push([dayName, dayNum]);
                 daysStart.push(d.getTime());
             }
 
-            const dataSetsByType = { 1: [], 2: [], 3: [] };
+            const dataSetsByType = { 1: [], 2: [], 3: [], 4: [], 5: [] };
             let allPeriods = [...state.history];
 
-            // On inclut la période en cours de chronométrage
             if (state.activeType) {
                 allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
             }
 
-            // Répartition des périodes sur les 7 jours
             allPeriods.forEach(p => {
                 for (let i = 0; i < 7; i++) {
                     let dayS = daysStart[i];
                     let dayE = dayS + 24 * 3600 * 1000;
-
                     if (p.start >= dayS && p.start < dayE) {
                         let sDay = new Date(p.start);
                         let eDay = new Date(p.end);
-
-                        // Conversion en heures décimales (ex: 8h30 -> 8.5)
                         let startHour = sDay.getHours() + sDay.getMinutes() / 60;
                         let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                        if (eDay.getTime() >= dayE) endHour = 24; // Coupe à minuit
-
+                        if (eDay.getTime() >= dayE) endHour = 24;
                         dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
                         break;
                     }
                 }
             });
 
-            const datasets = [
-                { label: settings.labels[0], data: dataSetsByType[1], backgroundColor: '#2196F3', borderRadius: 4 },
-                { label: settings.labels[1], data: dataSetsByType[2], backgroundColor: '#4CAF50', borderRadius: 4 },
-                { label: settings.labels[2], data: dataSetsByType[3], backgroundColor: '#FF9800', borderRadius: 4 }
-            ];
+            // Couleurs harmonisées
+            const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            const datasets = [1, 2, 3, 4, 5].map(type => ({
+                label: settings.labels[type - 1] || `Type ${type}`,
+                data: dataSetsByType[type],
+                backgroundColor: colors[type - 1],
+                borderRadius: 4,
+                borderSkipped: false
+            }));
 
-            if (timelineChartInstance) {
-                timelineChartInstance.data.labels = labels;
-                timelineChartInstance.data.datasets = datasets;
-                timelineChartInstance.update();
+            if (window.timelineChartInstance) {
+                window.timelineChartInstance.data.labels = labels;
+                window.timelineChartInstance.data.datasets = datasets;
+                window.timelineChartInstance.update();
             } else {
-                timelineChartInstance = new Chart(ctx, {
+                window.timelineChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: { labels: labels, datasets: datasets },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        grouped: false, // Force les barres d'un même jour à s'aligner verticalement
+                        grouped: false,
                         scales: {
                             y: {
                                 min: 0,
                                 max: 24,
-                                reverse: true, // 0h en haut, 24h en bas (format agenda)
-                                title: { display: false },
-                                ticks: { stepSize: 2, callback: v => v + 'h' },
+                                reverse: true,
+                                ticks: {
+                                    stepSize: 2,
+                                    color: textGray, // Gris harmonisé
+                                    callback: v => v + 'h'
+                                },
                                 grid: { color: 'rgba(255, 255, 255, 0.1)' }
                             },
                             x: {
+                                ticks: {
+                                    color: textGray, // Gris harmonisé
+                                    font: { weight: 'bold' }
+                                },
                                 grid: { display: false }
                             }
                         },
                         plugins: {
-                            legend: { position: 'bottom', labels: { color: '#e0e0e0' } },
+                            // On cache la légende Chart.js pour mettre la nôtre
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
                                     label: function (context) {
@@ -923,6 +992,29 @@
                     }
                 });
             }
+
+            // AJOUT DE LA LÉGENDE STYLE HISTOGRAMME EN DESSOUS
+            renderTimelineLegend(colors, textGray);
+        }
+
+        // Petite fonction pour générer la légende au propre
+        function renderTimelineLegend(colors, textColor) {
+            const chartContainer = document.querySelector('#page-timeline .chart-container');
+            let existingLegend = document.getElementById('timeline-custom-legend');
+            if (existingLegend) existingLegend.remove();
+
+            const legend = document.createElement('div');
+            legend.id = 'timeline-custom-legend';
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; padding-left: 10px;`;
+
+            settings.labels.forEach((label, index) => {
+                legend.innerHTML += `
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colors[index]};"></div>
+                <span>${label}</span>
+            </div>`;
+            });
+            chartContainer.after(legend);
         }
 
         function showPage(p) {
