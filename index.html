@@ -269,36 +269,27 @@
 
 <body>
 
-
     <div id="page-timeline" class="page">
         <h1 id="title-timeline">Historique</h1>
 
-        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 10px;">
+        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 20px;">
             <canvas id="timelineChart"></canvas>
         </div>
 
-        <div class="history-card"
-            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
-            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
-                Périodes enregistrées</h3>
-
-            <div class="history-container" id="history-list" style="margin-bottom: 20px;"></div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="history-container" style="background: #2a2a2a; border-radius: 12px; padding: 15px; border: 1px solid #444;">
+            
+            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">Périodes enregistrées</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                        style="flex: 1; padding: 10px;">Exporter CSV</button>
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                        style="display:none;" onchange="importCSV(event)">
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export" style="flex: 1; padding: 10px;">Exporter CSV</button>
+                    <button class="export-btn" onclick="document.getElementById('csv-file').click()" style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
+                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel" style="display:none;" onchange="importCSV(event)">
                 </div>
-
-                <button onclick="openAddModal()"
-                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold;">
-                    Ajouter une période
-                </button>
+                <button class="add-btn" onclick="openAddModal()" style="width: 100%; padding: 12px; font-weight: bold;">+ Ajouter période</button>
             </div>
+
+            <div id="history-list"></div>
         </div>
     </div>
 
@@ -527,9 +518,15 @@
         function renderHistory() {
             const t = translations[settings.lang];
             const container = document.getElementById('history-list');
-            container.innerHTML = `<button class="add-btn" onclick="openAddModal()">${t.addManual}</button>`;
+            
+            // On vide simplement la liste des données
+            container.innerHTML = ''; 
+
             let all = [...state.history];
-            if (state.activeType) all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+            if (state.activeType) {
+                all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+            }
+            
             all.reverse().forEach(e => {
                 const div = document.createElement('div');
                 div.className = "history-item";
