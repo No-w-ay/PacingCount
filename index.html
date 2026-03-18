@@ -515,26 +515,40 @@
             renderHistory();
         }
 
-        function renderHistory() {
-            const t = translations[settings.lang];
-            const container = document.getElementById('history-list');
-            
-            // On vide simplement la liste des données
-            container.innerHTML = ''; 
+function renderHistory() {
+            try {
+                const t = translations[settings.lang] || { inProgress: "En cours" };
+                const container = document.getElementById('history-list');
+                
+                // Si la boîte n'est pas trouvée (ex: on est sur un autre onglet), on stoppe sans planter
+                if (!container) return; 
+                
+                container.innerHTML = ''; 
 
-            let all = [...state.history];
-            if (state.activeType) {
-                all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                let all = [...state.history];
+                if (state.activeType) {
+                    all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                }
+                
+                all.reverse().forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = "history-item";
+                    
+                    let originalIndex = state.history.indexOf(e);
+                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+                    
+                    // Sécurisation au cas où un type n'aurait pas de label défini
+                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
+                    
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type] || 'gray'});font-weight:bold;">${labelText}</span></div>${actions}`;
+                    
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Erreur isolée dans renderHistory :", err);
             }
-            
-            all.reverse().forEach(e => {
-                const div = document.createElement('div');
-                div.className = "history-item";
-                let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${state.history.indexOf(e)})">✏️</button><button class="btn-icon" onclick="deleteEntry(${state.history.indexOf(e)})">🗑️</button></div>`;
-                div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type]});font-weight:bold;">${settings.labels[e.type - 1]}</span></div>${actions}`;
-                container.appendChild(div);
-            });
         }
+
 
         function renderDailyCharts() {
             const container = document.getElementById('daily-charts-container');
