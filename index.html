@@ -276,17 +276,23 @@
             <canvas id="timelineChart"></canvas>
         </div>
 
-        <div class="history-container" style="background: #2a2a2a; border-radius: 12px; padding: 15px; border: 1px solid #444;">
-            
-            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">Périodes enregistrées</h3>
-            
+        <div class="history-container"
+            style="background: #2a2a2a; border-radius: 12px; padding: 15px; border: 1px solid #444;">
+
+            <h3 style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">Périodes enregistrées
+            </h3>
+
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                 <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export" style="flex: 1; padding: 10px;">Exporter CSV</button>
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()" style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel" style="display:none;" onchange="importCSV(event)">
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                        style="flex: 1; padding: 10px;">Exporter CSV</button>
+                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
+                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                        style="display:none;" onchange="importCSV(event)">
                 </div>
-                <button class="add-btn" onclick="openAddModal()" style="width: 100%; padding: 12px; font-weight: bold;">+ Ajouter période</button>
+                <button class="add-btn" onclick="openAddModal()"
+                    style="width: 100%; padding: 12px; font-weight: bold;">+ Ajouter période</button>
             </div>
 
             <div id="history-list"></div>
@@ -515,33 +521,33 @@
             renderHistory();
         }
 
-function renderHistory() {
+        function renderHistory() {
             try {
                 const t = translations[settings.lang] || { inProgress: "En cours" };
                 const container = document.getElementById('history-list');
-                
+
                 // Si la boîte n'est pas trouvée (ex: on est sur un autre onglet), on stoppe sans planter
-                if (!container) return; 
-                
-                container.innerHTML = ''; 
+                if (!container) return;
+
+                container.innerHTML = '';
 
                 let all = [...state.history];
                 if (state.activeType) {
                     all.push({ type: state.activeType, start: state.startTime, inProgress: true });
                 }
-                
+
                 all.reverse().forEach(e => {
                     const div = document.createElement('div');
                     div.className = "history-item";
-                    
+
                     let originalIndex = state.history.indexOf(e);
                     let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
-                    
+
                     // Sécurisation au cas où un type n'aurait pas de label défini
                     let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
-                    
+
                     div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type] || 'gray'});font-weight:bold;">${labelText}</span></div>${actions}`;
-                    
+
                     container.appendChild(div);
                 });
             } catch (err) {
@@ -904,128 +910,134 @@ function renderHistory() {
         let timelineChartInstance = null;
 
         function renderTimelineChart() {
-            const ctx = document.getElementById('timelineChart').getContext('2d');
-            const now = new Date();
-            const labels = [];
-            const daysStart = [];
-            const textGray = '#b0b0b0'; // Même gris que l'autre onglet
+            try {
+                const canvas = document.getElementById('timelineChart');
+                if (!canvas) return; // Protection vitale
+                const ctx = canvas.getContext('2d');
 
-            // Création des 7 derniers jours avec format sur 2 lignes
-            for (let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
-                const dayNum = d.getDate().toString().padStart(2, '0');
+                const now = new Date();
+                const labels = [];
+                const daysStart = [];
+                const textGray = '#b0b0b0';
 
-                // Chart.js interprète un tableau de chaînes comme un label multi-ligne
-                labels.push([dayName, dayNum]);
-                daysStart.push(d.getTime());
-            }
-
-            const dataSetsByType = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-            let allPeriods = [...state.history];
-
-            if (state.activeType) {
-                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
-            }
-
-            allPeriods.forEach(p => {
-                for (let i = 0; i < 7; i++) {
-                    let dayS = daysStart[i];
-                    let dayE = dayS + 24 * 3600 * 1000;
-                    if (p.start >= dayS && p.start < dayE) {
-                        let sDay = new Date(p.start);
-                        let eDay = new Date(p.end);
-                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                        if (eDay.getTime() >= dayE) endHour = 24;
-                        dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
-                        break;
-                    }
+                // Génération des jours sur 2 lignes
+                for (let i = 6; i >= 0; i--) {
+                    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                    const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+                    const dayNum = d.getDate().toString().padStart(2, '0');
+                    labels.push([dayName, dayNum]);
+                    daysStart.push(d.getTime());
                 }
-            });
 
-            // Couleurs harmonisées
-            const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
-            const datasets = [1, 2, 3, 4, 5].map(type => ({
-                label: settings.labels[type - 1] || `Type ${type}`,
-                data: dataSetsByType[type],
-                backgroundColor: colors[type - 1],
-                borderRadius: 4,
-                borderSkipped: false
-            }));
+                // Initialisation dynamique pour éviter les erreurs si un "type" inconnu existe
+                const dataSetsByType = { 1: [], 2: [], 3: [], 4: [], 5: [] };
 
-            if (window.timelineChartInstance) {
-                window.timelineChartInstance.data.labels = labels;
-                window.timelineChartInstance.data.datasets = datasets;
-                window.timelineChartInstance.update();
-            } else {
-                window.timelineChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: labels, datasets: datasets },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        grouped: false,
-                        scales: {
-                            y: {
-                                min: 0,
-                                max: 24,
-                                reverse: true,
-                                ticks: {
-                                    stepSize: 2,
-                                    color: textGray, // Gris harmonisé
-                                    callback: v => v + 'h'
+                let allPeriods = [...state.history];
+                if (state.activeType) {
+                    allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                }
+
+                allPeriods.forEach(p => {
+                    if (!dataSetsByType[p.type]) dataSetsByType[p.type] = []; // Sécurité
+
+                    for (let i = 0; i < 7; i++) {
+                        let dayS = daysStart[i];
+                        let dayE = dayS + 24 * 3600 * 1000;
+                        if (p.start >= dayS && p.start < dayE) {
+                            let sDay = new Date(p.start);
+                            let eDay = new Date(p.end);
+                            let startHour = sDay.getHours() + sDay.getMinutes() / 60;
+                            let endHour = eDay.getHours() + eDay.getMinutes() / 60;
+                            if (eDay.getTime() >= dayE) endHour = 24;
+                            dataSetsByType[p.type].push({ x: labels[i], y: [startHour, endHour] });
+                            break;
+                        }
+                    }
+                });
+
+                const chartColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+                const datasets = [1, 2, 3, 4, 5].map(type => ({
+                    label: (settings.labels && settings.labels[type - 1]) ? settings.labels[type - 1] : `Type ${type}`,
+                    data: dataSetsByType[type],
+                    backgroundColor: chartColors[type - 1] || '#ccc',
+                    borderRadius: 4,
+                    borderSkipped: false
+                }));
+
+                // Mise à jour ou création du graphique
+                if (window.timelineChartInstance) {
+                    window.timelineChartInstance.data.labels = labels;
+                    window.timelineChartInstance.data.datasets = datasets;
+                    window.timelineChartInstance.update();
+                } else {
+                    window.timelineChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: { labels: labels, datasets: datasets },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            grouped: false,
+                            scales: {
+                                y: {
+                                    min: 0, max: 24, reverse: true,
+                                    ticks: { stepSize: 2, color: textGray, callback: v => v + 'h' },
+                                    grid: { color: 'rgba(255, 255, 255, 0.1)' }
                                 },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                x: {
+                                    ticks: { color: textGray, font: { weight: 'bold' } },
+                                    grid: { display: false }
+                                }
                             },
-                            x: {
-                                ticks: {
-                                    color: textGray, // Gris harmonisé
-                                    font: { weight: 'bold' }
-                                },
-                                grid: { display: false }
-                            }
-                        },
-                        plugins: {
-                            // On cache la légende Chart.js pour mettre la nôtre
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        let raw = context.raw;
-                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
-                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
-                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '0')}`;
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            let raw = context.raw;
+                                            let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
+                                            let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
+                                            return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '0')}`;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-            }
+                    });
+                }
 
-            // AJOUT DE LA LÉGENDE STYLE HISTOGRAMME EN DESSOUS
-            renderTimelineLegend(colors, textGray);
+                renderTimelineLegend(chartColors, textGray);
+
+            } catch (error) {
+                console.error("Erreur isolée dans renderTimelineChart :", error);
+            }
         }
 
         // Petite fonction pour générer la légende au propre
-        function renderTimelineLegend(colors, textColor) {
-            const chartContainer = document.querySelector('#page-timeline .chart-container');
-            let existingLegend = document.getElementById('timeline-custom-legend');
-            if (existingLegend) existingLegend.remove();
+        function renderTimelineLegend(chartColors, textColor) {
+            try {
+                const chartContainer = document.querySelector('#page-timeline .chart-container');
+                if (!chartContainer) return; // Protection si le HTML est absent
 
-            const legend = document.createElement('div');
-            legend.id = 'timeline-custom-legend';
-            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; padding-left: 10px;`;
+                let existingLegend = document.getElementById('timeline-custom-legend');
+                if (existingLegend) existingLegend.remove();
 
-            settings.labels.forEach((label, index) => {
-                legend.innerHTML += `
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colors[index]};"></div>
-                <span>${label}</span>
-            </div>`;
-            });
-            chartContainer.after(legend);
+                const legend = document.createElement('div');
+                legend.id = 'timeline-custom-legend';
+                legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; padding-left: 10px;`;
+
+                if (settings.labels) {
+                    settings.labels.forEach((label, index) => {
+                        legend.innerHTML += `
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${chartColors[index] || '#ccc'};"></div>
+                                <span>${label}</span>
+                            </div>`;
+                    });
+                }
+                chartContainer.after(legend);
+            } catch (err) {
+                console.error("Erreur isolée dans la légende :", err);
+            }
         }
 
         function showPage(p) {
