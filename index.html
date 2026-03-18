@@ -530,10 +530,17 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // 1. Grouper les données par jour
-            const daysData = {};
+            // 1. Paramètres de couleurs et labels (sécurisés avec des valeurs par défaut)
+            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            const labels = (typeof settings !== 'undefined' && settings.labels)
+                ? settings.labels
+                : ['Type 1', 'Type 2', 'Type 3', 'Type 4', 'Type 5'];
 
-            // On inclut la période en cours si le chrono tourne
+            // Le gris foncé pour le texte et le fond des barres (vide)
+            const darkGray = '#777777';
+
+            // 2. Grouper les données par jour
+            const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
                 allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
@@ -541,15 +548,12 @@
 
             allPeriods.forEach(p => {
                 const d = new Date(p.start);
-                // Format YYYY-MM-DD pour un tri facile et sans faille
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+                // FORMAT MODIFIÉ : Juste Jour/Mois (ex: 18/03)
+                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
 
                 if (!daysData[dateKey]) {
-                    daysData[dateKey] = {
-                        displayDate: displayDate,
-                        totals: {}
-                    };
+                    daysData[dateKey] = { displayDate: displayDate, totals: {} };
                 }
 
                 const durationMins = (p.end - p.start) / 60000;
@@ -559,7 +563,6 @@
                 daysData[dateKey].totals[p.type] += durationMins;
             });
 
-            // 2. Trier les jours du plus récent au plus ancien
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
 
             if (sortedDates.length === 0) {
@@ -567,35 +570,56 @@
                 return;
             }
 
-            // On remet les couleurs dans le bon ordre : Bleu, Vert, Orange, Rouge, Violet
-            const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            // 3. Construction de l'en-tête (Graduations uniques en haut)
+            // L'espace à gauche pour la date est fixé à 45px + 10px de marge = 55px
+            let html = `
+                <div style="position: relative; margin-bottom: 20px;">
+                    <div style="display: flex; margin-left: 55px; position: relative; color: ${darkGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                    </div>
 
-            // 3. Générer le HTML des histogrammes
+                    <div style="position: relative; padding-top: 5px;">
+                        
+                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; display: flex; pointer-events: none; z-index: 2;">
+                            ${Array.from({ length: 24 }).map(() => `
+                                <div style="flex: 1; border-left: 1px solid rgba(0,0,0,0.2); box-sizing: border-box;"></div>
+                            `).join('')}
+                            <div style="border-right: 1px solid rgba(0,0,0,0.2);"></div>
+                        </div>
+            `;
+
+            // 4. Génération des barres pour chaque jour
             sortedDates.forEach(dateKey => {
                 const day = daysData[dateKey];
-                const totalMinutesInDay = 1440; // 24 heures * 60 minutes
+                const totalMinutesInDay = 1440;
 
-                let html = `
-                    <div style="margin-bottom: 20px;">
-                        <div style="font-size: 0.95rem; margin-bottom: 5px; font-weight: bold;">
+                // Date alignée à gauche, barre à droite
+                html += `
+                    <div style="display: flex; align-items: center; margin-bottom: 12px; position: relative; z-index: 1;">
+                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: ${darkGray}; text-align: right; margin-right: 10px;">
                             ${day.displayDate}
                         </div>
-                        <div style="display: flex; height: 24px; background-color: #e0e0e0; border-radius: 6px; overflow: hidden; width: 100%;">
+                        <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${darkGray}; border-radius: 4px; overflow: hidden; cursor: pointer;">
                 `;
 
-                // Création d'un segment coloré pour chaque type d'activité de la journée
                 Object.keys(day.totals).sort().forEach(type => {
                     const minutes = day.totals[type];
                     const percentage = (minutes / totalMinutesInDay) * 100;
 
-                    // On récupère la couleur correspondant au type (Type 1 = index 0, Type 2 = index 1, etc.)
                     const typeIndex = parseInt(type) - 1;
                     const color = defaultColors[typeIndex] || '#ccc';
+                    const label = labels[typeIndex];
 
                     if (percentage > 0) {
+                        // Ajout du onclick pour afficher la valeur au toucher
                         html += `
-                            <div style="width: ${percentage}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.4);" 
-                                 title="${settings.labels[type - 1]} : ${Math.round(minutes)} min">
+                            <div style="width: ${percentage}%; background-color: ${color}; height: 100%; border-right: 1px solid rgba(255,255,255,0.3);" 
+                                 onclick="alert('${label} : ${Math.round(minutes)} min')"
+                                 title="${label} : ${Math.round(minutes)} min">
                             </div>
                         `;
                     }
@@ -603,15 +627,29 @@
 
                 html += `
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #888; margin-top: 4px;">
-                            <span>0h</span>
-                            <span>12h</span>
-                            <span>24h</span>
-                        </div>
                     </div>
                 `;
-                container.innerHTML += html;
             });
+
+            html += `
+                    </div> </div> `;
+
+            // 5. Génération de la légende dynamique en bas
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 25px; font-size: 0.85rem; color: #333;">`;
+
+            // On crée un rond de légende pour chaque type configuré
+            labels.forEach((label, index) => {
+                const color = defaultColors[index] || '#ccc';
+                html += `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 14px; height: 14px; border-radius: 50%; background-color: ${color}; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+                        <span>${label}</span>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+
+            container.innerHTML = html;
         }
 
         function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
