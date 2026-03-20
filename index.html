@@ -269,39 +269,6 @@
 
 <body>
 
-
-    <div id="page-timeline" class="page">
-        <h1 id="title-timeline">Historique</h1>
-
-        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 10px;">
-            <canvas id="timelineChart"></canvas>
-        </div>
-
-        <div class="history-card"
-            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
-            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
-                Périodes enregistrées</h3>
-
-            <div class="history-container" id="history-list" style="margin-bottom: 20px;"></div>
-
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                        style="flex: 1; padding: 10px;">Exporter CSV</button>
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">Importer CSV</button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                        style="display:none;" onchange="importCSV(event)">
-                </div>
-
-                <button onclick="openAddModal()"
-                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold;">
-                    Ajouter une période
-                </button>
-            </div>
-        </div>
-    </div>
-
     <div id="page-measure" class="page active">
         <h1 id="title-measure">PacingCount</h1>
         <div class="timer-container">
@@ -340,6 +307,46 @@
             <input type="text" id="custom-1" onchange="saveSettings()">
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
+        </div>
+    </div>
+
+
+    <div id="page-timeline" class="page">
+        <h1 id="title-timeline">Historique</h1>
+
+        <div class="chart-container" style="position: relative; height: 52.5vh; width: 100%; margin-bottom: 20px;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+
+        <div class="history-card"
+            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
+
+            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
+                Périodes enregistrées
+            </h3>
+
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px;">
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export" style="flex: 1; padding: 10px;">
+                        Exporter CSV
+                    </button>
+
+                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">
+                        Importer CSV
+                    </button>
+                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                        style="display:none;" onchange="importCSV(event)">
+                </div>
+
+                <button class="add-btn" onclick="openAddModal()"
+                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold;">
+                    + Ajouter une période
+                </button>
+            </div>
+
+            <div class="history-container" id="history-list"></div>
+
         </div>
     </div>
 
@@ -383,6 +390,7 @@
             <button class="export-btn" style="background: #444;" onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
+
 
     <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
@@ -524,21 +532,6 @@
             renderHistory();
         }
 
-        function renderHistory() {
-            const t = translations[settings.lang];
-            const container = document.getElementById('history-list');
-            container.innerHTML = `<button class="add-btn" onclick="openAddModal()">${t.addManual}</button>`;
-            let all = [...state.history];
-            if (state.activeType) all.push({ type: state.activeType, start: state.startTime, inProgress: true });
-            all.reverse().forEach(e => {
-                const div = document.createElement('div');
-                div.className = "history-item";
-                let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${state.history.indexOf(e)})">✏️</button><button class="btn-icon" onclick="deleteEntry(${state.history.indexOf(e)})">🗑️</button></div>`;
-                div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${t.inProgress}</i>` : formatTime(e.end)}</span><span style="color:var(--${colors[e.type]});font-weight:bold;">${settings.labels[e.type - 1]}</span></div>${actions}`;
-                container.appendChild(div);
-            });
-        }
-
         function renderDailyCharts() {
             const container = document.getElementById('daily-charts-container');
             if (!container) return;
@@ -672,7 +665,50 @@
             container.innerHTML = html;
         }
 
-        function deleteEntry(i) { if (confirm("Supprimer ?")) { state.history.splice(i, 1); saveState(); renderResults(); } }
+        function renderHistory() {
+            try {
+                // Sécurité sur les traductions
+                const t = translations[settings.lang] || {};
+                const container = document.getElementById('history-list');
+
+                if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
+
+                // On vide le conteneur de données. On n'injecte PLUS le bouton d'ajout ici.
+                container.innerHTML = '';
+
+                let all = [...state.history];
+                if (state.activeType) {
+                    all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                }
+
+                all.reverse().forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = "history-item";
+
+                    let originalIndex = state.history.indexOf(e);
+                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+
+                    // Sécurité sur les labels et les couleurs
+                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
+                    let colorVar = colors[e.type] ? `var(--${colors[e.type]})` : 'gray';
+                    let inProgressText = t.inProgress || "En cours";
+
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
+
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Erreur bloquée dans renderHistory :", err);
+            }
+        }
+
+        function deleteEntry(i) {
+            if (confirm("Supprimer ?")) {
+                state.history.splice(i, 1);
+                saveState();
+                renderResults();
+            }
+        }
 
         function openEditModal(i) {
             const e = state.history[i];
@@ -746,7 +782,11 @@
                     state.activeType = p.type;
                     state.startTime = p.start;
                 } else {
-                    closePeriod(p.type, p.start, p.end); // Assure la coupure minuit
+                    if (typeof closePeriod === "function") {
+                        closePeriod(p.type, p.start, p.end); // Assure la coupure minuit
+                    } else {
+                        state.history.push({ type: p.type, start: p.start, end: p.end });
+                    }
                 }
             });
             state.history.sort((a, b) => a.start - b.start);
@@ -756,7 +796,7 @@
         }
 
         function saveManualEdit() {
-            const t = translations[settings.lang];
+            const t = translations[settings.lang] || {};
             const idx = parseInt(document.getElementById('edit-index').value);
             const type = parseInt(document.getElementById('edit-type').value);
             const start = new Date(document.getElementById('edit-start').value).getTime();
@@ -764,7 +804,7 @@
             const now = Date.now();
 
             if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-            if (end > now + 60000) return alert(t.futureError);
+            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
 
             let basePeriods = [...state.history];
             if (idx !== -1) basePeriods.splice(idx, 1);
@@ -778,49 +818,48 @@
         }
 
         function exportCSV() {
-            let csv = "Date,Debut,Fin,Type,Minutes\n";
+            try {
+                let csv = "Date,Debut,Fin,Type,Minutes\n";
 
-            // On rassemble l'historique ET la période en cours
-            let allPeriods = [...state.history];
-            if (state.activeType) {
-                allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                let allPeriods = [...state.history];
+                if (state.activeType) {
+                    allPeriods.push({ type: state.activeType, start: state.startTime, end: Date.now() });
+                }
+
+                allPeriods.forEach(e => {
+                    const d = new Date(e.start);
+                    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+
+                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
+                    csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${labelText},${Math.round((e.end - e.start) / 60000)}\n`;
+                });
+
+                const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+            } catch (err) {
+                console.error("Erreur lors de l'export CSV :", err);
             }
-
-            allPeriods.forEach(e => {
-                // Formatage sécurisé de la date en JJ/MM/AAAA
-                const d = new Date(e.start);
-                const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-
-                csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${settings.labels[e.type - 1]},${Math.round((e.end - e.start) / 60000)}\n`;
-            });
-
-            // Création et déclenchement sécurisé du téléchargement
-            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
-
-            // Fix crucial pour iOS/Chrome Mobile :
-            document.body.appendChild(a);
-            a.click();
-            // On laisse un petit délai avant de supprimer le lien pour les navigateurs mobiles
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 100);
         }
 
-        // Fonction d'analyse robuste pour les dates issues de CSV (FR/EN)
         function parseCSVDate(dateStr, timeStr) {
             let parts = dateStr.split(/[\/\-]/);
             if (parts.length === 3) {
                 let d, m, y;
-                if (parts[2].length === 4) { // Format européen attendu JJ/MM/AAAA
+                if (parts[2].length === 4) {
                     d = parts[0]; m = parts[1]; y = parts[2];
-                } else { // Au cas où AAAA-MM-JJ
+                } else {
                     y = parts[0]; m = parts[1]; d = parts[2];
                 }
                 let [hr, min] = timeStr.split(':');
@@ -829,7 +868,7 @@
             return NaN;
         }
 
-        let pendingImportData = null; // Stockage temporaire du CSV lu
+        let pendingImportData = null;
 
         function importCSV(event) {
             const file = event.target.files[0];
@@ -848,45 +887,57 @@
                             let start = parseCSVDate(cols[0], cols[1]);
                             let end = parseCSVDate(cols[0], cols[2]);
                             let type = 1;
-                            let tIndex = settings.labels.indexOf(cols[3]);
+                            let tIndex = settings.labels ? settings.labels.indexOf(cols[3]) : -1;
                             if (tIndex !== -1) type = tIndex + 1;
+
                             if (!isNaN(start) && !isNaN(end) && start < end) {
                                 importedPeriods.push({ type, start, end });
                             }
                         }
                     }
 
-                    if (importedPeriods.length === 0) throw new Error("Format invalide");
+                    if (importedPeriods.length === 0) throw new Error("Format invalide ou fichier vide");
 
-                    pendingImportData = importedPeriods; // On garde les données au chaud
-                    document.getElementById('importModal').style.display = 'flex'; // On montre le choix
+                    pendingImportData = importedPeriods;
+                    document.getElementById('importModal').style.display = 'flex';
 
                 } catch (err) {
-                    alert(translations[settings.lang].importError);
+                    const t = translations[settings.lang] || {};
+                    alert(t.importError || "Erreur lors de l'importation. Vérifiez le format du fichier.");
+                    console.error("Erreur d'importation :", err);
                 }
-                event.target.value = ''; // Reset l'input
+                event.target.value = '';
             };
             reader.readAsText(file);
         }
 
         function processImport(mode) {
-            if (mode === 'replace') {
-                reconstructHistory(pendingImportData);
-                alert(translations[settings.lang].importSuccess);
-            } else if (mode === 'merge') {
-                let basePeriods = [...state.history];
-                if (state.activeType !== null) {
-                    basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+            try {
+                const t = translations[settings.lang] || {};
+                let successMessage = t.importSuccess || "Importation réussie !";
+
+                if (mode === 'replace') {
+                    reconstructHistory(pendingImportData);
+                    alert(successMessage);
+                } else if (mode === 'merge') {
+                    let basePeriods = [...state.history];
+                    if (state.activeType !== null) {
+                        basePeriods.push({ type: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                    }
+                    let finalPeriods = applySteamroller(basePeriods, pendingImportData);
+                    reconstructHistory(finalPeriods);
+                    alert(successMessage);
                 }
-                let finalPeriods = applySteamroller(basePeriods, pendingImportData);
-                reconstructHistory(finalPeriods);
-                alert(translations[settings.lang].importSuccess);
+            } catch (err) {
+                console.error("Erreur lors du traitement de l'import :", err);
+            } finally {
+                closeImportModal();
             }
-            closeImportModal();
         }
 
         function closeImportModal() {
-            document.getElementById('importModal').style.display = 'none';
+            const modal = document.getElementById('importModal');
+            if (modal) modal.style.display = 'none';
             pendingImportData = null;
         }
 
