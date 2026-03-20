@@ -324,14 +324,14 @@
 
             <h3 id="title-history">Périodes enregistrées</h3>
 
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                 <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export" style="flex: 1; padding: 10px;">
-                        Exporter CSV
+                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                        style="flex: 1; padding: 10px; margin: 0;"> Exporter CSV
                     </button>
 
                     <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 10px;" id="btn-import">
+                        style="background: var(--orange); flex: 1; padding: 10px; margin: 0;" id="btn-import">
                         Importer CSV
                     </button>
                     <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
@@ -339,12 +339,12 @@
                 </div>
 
                 <button class="add-btn" onclick="openAddModal()"
-                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold;">
+                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin: 0;">
                     + Ajouter une période
                 </button>
             </div>
 
-            <div class="history-container" id="history-list"></div>
+            <div class="history-container" id="history-list" style="margin-top: 0;"></div>
 
         </div>
     </div>
