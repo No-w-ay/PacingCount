@@ -529,7 +529,6 @@
                 div.innerHTML = `<strong>${d}</strong><br><span class="text-blue">●</span> ${Math.round(day[1])}m | <span class="text-green">●</span> ${Math.round(day[2])}m | <span class="text-orange">●</span> ${Math.round(day[3])}m<br><small style="opacity:0.8">Séquences bleues: ${day.count}</small>`;
                 container.appendChild(div);
             });
-            renderHistory();
         }
 
         function renderDailyCharts() {
@@ -673,6 +672,63 @@
 
                 if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
 
+                // On vide le conteneur de données
+                container.innerHTML = '';
+
+                // On rassemble toutes les données (historique + période en cours éventuelle)
+                let all = [...state.history];
+                if (state.activeType) {
+                    all.push({ type: state.activeType, start: state.startTime, inProgress: true });
+                }
+
+                // --- NOUVEAU : MISE À JOUR DU TITRE AVEC LE COMPTEUR ---
+                // On cible le titre h3 de la boîte
+                const titleElement = document.getElementById('title-history');
+                if (titleElement) {
+                    // On récupère le texte traduit (ex: "Périodes enregistrées")
+                    let baseText = t.history || "Périodes enregistrées";
+                    // On compte la taille de notre tableau 'all'
+                    let count = all.length;
+                    // On modifie le texte du HTML
+                    titleElement.innerText = `${baseText} (${count})`;
+                }
+                // -------------------------------------------------------
+
+                // On parcourt les données à l'envers (les plus récentes en premier)
+                all.reverse().forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = "history-item";
+
+                    // On retrouve l'index d'origine pour les boutons Modifier/Supprimer
+                    let originalIndex = state.history.indexOf(e);
+                    
+                    // Si c'est en cours, pas de boutons d'action. Sinon, on ajoute les boutons.
+                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+
+                    // Sécurité sur les labels et les couleurs
+                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
+                    let colorVar = colors[e.type] ? `var(--${colors[e.type]})` : 'gray';
+                    let inProgressText = t.inProgress || "En cours";
+
+                    // On construit la ligne HTML
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
+
+                    // On ajoute la ligne au conteneur
+                    container.appendChild(div);
+                });
+            } catch (err) {
+                console.error("Erreur bloquée dans renderHistory :", err);
+            }
+        }
+
+ /*       function renderHistory() {
+            try {
+                // Sécurité sur les traductions
+                const t = translations[settings.lang] || {};
+                const container = document.getElementById('history-list');
+
+                if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
+
                 // On vide le conteneur de données. On n'injecte PLUS le bouton d'ajout ici.
                 container.innerHTML = '';
 
@@ -701,7 +757,8 @@
                 console.error("Erreur bloquée dans renderHistory :", err);
             }
         }
-
+*/
+   
         function deleteEntry(i) {
             if (confirm("Supprimer ?")) {
                 state.history.splice(i, 1);
@@ -1076,7 +1133,10 @@
                 renderDailyCharts();
                 renderResults();
             }
-            if (p === 'timeline') renderTimelineChart();
+            if (p === 'timeline') {
+                renderTimelineChart();
+                renderHistory();
+            }
         }
 
         setInterval(updateTimer, 1000);
