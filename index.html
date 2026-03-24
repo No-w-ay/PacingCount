@@ -7,7 +7,10 @@
     <title>PacingCount</title>
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
-    <script src="chart.js"></script>
+    <script
+        const APP_VERSION = "0.906 Beta";
+        src="chart.js">;
+    </script>
     <style>
         :root {
             --bg-color: #121212;
@@ -264,6 +267,17 @@
             width: 90%;
             max-width: 400px;
         }
+
+        .version-display {
+            text-align: center;
+            /* On utilise vos variables pour la cohérence */
+            color: var(--text-color); 
+            opacity: 0.5; /* Rend le texte discret sans changer la couleur */
+            font-size: 0.8rem;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-family: monospace; /* Rappelle le côté "technique/version" */
+        }
     </style>
 </head>
 
@@ -308,6 +322,7 @@
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
         </div>
+        <div id="app-version" class="version-display"></div>
     </div>
 
 
@@ -484,7 +499,10 @@
             document.getElementById('btn-import').innerText = t.import;
             document.getElementById('label-custom').innerText = t.custom;
             document.getElementById('btn-stop').innerText = t.stop;
-            document.getElementById('title-history').innerText = t.history;
+            // Note: attention ici, si vous modifiez le title-history, vous écrasez 
+            // le compteur (12) que nous avons mis dans renderHistory(). 
+            // Je vous conseille d'enlever cette ligne ou de la gérer autrement si le compteur disparaît !
+            // document.getElementById('title-history').innerText = t.history;
             [1, 2, 3].forEach(i => {
                 document.getElementById(`opt-${i}`).innerText = settings.labels[i - 1];
                 document.getElementById(`btn-${i}`).innerText = settings.labels[i - 1];
@@ -501,6 +519,12 @@
                 prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
                 prevTimer.className = `timer-previous text-${colors[last.type]}`;
             } else prevTimer.style.display = 'none';
+
+            // Affichage de la version
+            const versionEl = document.getElementById('app-version');
+            if (versionEl) {
+                versionEl.innerText = `Version ${APP_VERSION}`;
+            }
         }
 
         function updateTimer() {
@@ -721,44 +745,6 @@
             }
         }
 
- /*       function renderHistory() {
-            try {
-                // Sécurité sur les traductions
-                const t = translations[settings.lang] || {};
-                const container = document.getElementById('history-list');
-
-                if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
-
-                // On vide le conteneur de données. On n'injecte PLUS le bouton d'ajout ici.
-                container.innerHTML = '';
-
-                let all = [...state.history];
-                if (state.activeType) {
-                    all.push({ type: state.activeType, start: state.startTime, inProgress: true });
-                }
-
-                all.reverse().forEach(e => {
-                    const div = document.createElement('div');
-                    div.className = "history-item";
-
-                    let originalIndex = state.history.indexOf(e);
-                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
-
-                    // Sécurité sur les labels et les couleurs
-                    let labelText = (settings.labels && settings.labels[e.type - 1]) ? settings.labels[e.type - 1] : `Type ${e.type}`;
-                    let colorVar = colors[e.type] ? `var(--${colors[e.type]})` : 'gray';
-                    let inProgressText = t.inProgress || "En cours";
-
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
-
-                    container.appendChild(div);
-                });
-            } catch (err) {
-                console.error("Erreur bloquée dans renderHistory :", err);
-            }
-        }
-*/
-   
         function deleteEntry(i) {
             if (confirm("Supprimer ?")) {
                 state.history.splice(i, 1);
