@@ -489,6 +489,11 @@
         }
 
         function updateUI() {
+            
+            // Sécurité : si settings ou lang n'existent pas encore, on évite le crash
+            // if (!translations || !settings) return; 
+            // const t = translations[settings.lang] || translations['fr']; // Fallback sur le français
+
             const t = translations[settings.lang];
             document.getElementById('nav-timeline').innerText = t.timeline;
             document.getElementById('title-timeline').innerText = t.timeline;
@@ -521,6 +526,7 @@
             } else prevTimer.style.display = 'none';
 
             // Affichage de la version
+            console.log("Mise à jour de la version :", APP_VERSION); // Pour vérifier dans la console F12
             const versionEl = document.getElementById('app-version');
             if (versionEl) {
                 versionEl.innerText = `Version ${APP_VERSION}`;
