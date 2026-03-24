@@ -4,15 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <!-- APP INFORMATION --> 
+
+    <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script> const APP_VERSION = "0.906 Beta"; </script>
     <!-- (c) 2026 Noé Lecocq -->
 
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
-    
+
     <script src="chart.js"></script>
 
     <style>
@@ -20,9 +20,12 @@
             --bg-color: #121212;
             --card-bg: #1e1e1e;
             --text-color: #e0e0e0;
-            --blue: hsl(207, 90%, 45%);   /* hsl(207, 90%, 54%); #2196F3; */
-            --green: hsl(122, 30%, 49%);  /* hsl(122, 39%, 49%); #2196F3; */
-            --orange: hsl(36, 90%, 50%);  /* hsl(36, 100%, 50%); #2196F3; */
+            --blue: hsl(207, 90%, 45%);
+            /* hsl(207, 90%, 54%); #2196F3; */
+            --green: hsl(122, 30%, 49%);
+            /* hsl(122, 39%, 49%); #2196F3; */
+            --orange: hsl(36, 90%, 50%);
+            /* hsl(36, 100%, 50%); #2196F3; */
             --red: #f44336;
             --border: #333;
         }
@@ -275,12 +278,14 @@
         .version-display {
             text-align: center;
             /* On utilise vos variables pour la cohérence */
-            color: var(--text-color); 
-            opacity: 0.5; /* Rend le texte discret sans changer la couleur */
+            color: var(--text-color);
+            opacity: 0.5;
+            /* Rend le texte discret sans changer la couleur */
             font-size: 0.8rem;
             margin-top: 30px;
             margin-bottom: 10px;
-            font-family: monospace; /* Rappelle le côté "technique/version" */
+            font-family: monospace;
+            /* Rappelle le côté "technique/version" */
         }
     </style>
 </head>
@@ -330,19 +335,20 @@
     </div>
 
 
-<div id="page-timeline" class="page" style="padding-top: 10px;"> <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
+    <div id="page-timeline" class="page" style="padding-top: 10px;">
+        <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
 
-    <div class="chart-container" 
-         style="position: relative; height: 48vh; width: 100%; margin-bottom: 10px; flex-shrink: 0;">
-        <canvas id="timelineChart"></canvas>
-    </div>
+        <div class="chart-container"
+            style="position: relative; height: 48vh; width: 100%; margin-bottom: 10px; flex-shrink: 0;">
+            <canvas id="timelineChart"></canvas>
+        </div>
 
-    <div class="history-card" 
-         style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
+        <div class="history-card"
+            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
 
-        <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
-            Périodes enregistrées
-        </h3>
+            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
+                Périodes enregistrées
+            </h3>
 
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                 <div style="display: flex; gap: 10px;">
@@ -493,7 +499,7 @@
         }
 
         function updateUI() {
-            
+
             // Sécurité : si settings ou lang n'existent pas encore, on évite le crash
             // if (!translations || !settings) return; 
             // const t = translations[settings.lang] || translations['fr']; // Fallback sur le français
@@ -735,7 +741,7 @@
 
                     // On retrouve l'index d'origine pour les boutons Modifier/Supprimer
                     let originalIndex = state.history.indexOf(e);
-                    
+
                     // Si c'est en cours, pas de boutons d'action. Sinon, on ajoute les boutons.
                     let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
 
@@ -1038,7 +1044,19 @@
             });
 
             // Couleurs harmonisées
-            const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+            // Fonction utilitaire pour lire le CSS
+            const getCSSVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            // Ta nouvelle liste de couleurs synchronisée
+            const colors = [
+                getCSSVar('--blue'),
+                getCSSVar('--green'),
+                getCSSVar('--orange'),
+                getCSSVar('--red'),
+                '#9C27B0' // Tu peux ajouter --purple dans ton CSS si tu veux aussi le lier
+            ];
+            //const colors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
+
+
             const datasets = [1, 2, 3, 4, 5].map(type => ({
                 label: settings.labels[type - 1] || `Type ${type}`,
                 data: dataSetsByType[type],
