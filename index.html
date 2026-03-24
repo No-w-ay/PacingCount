@@ -29,11 +29,16 @@
             /* hsl(36, 100%, 50%); #2196F3; */
             --red: #f44336;
             --border: #333;
-            --purple: hsl(291, 64%, 42%); /* Équivalent de #9C27B0 */
+            --purple: hsl(291, 64%, 42%);
+            /* Équivalent de #9C27B0 */
 
             /* Gris spécifiques pour le graphique Chart.js */
-            --chart-gray-bar:  hsl(0, 0%, 33%); /* Équivalent de #555555 */
-            --chart-gray-text: hsl(0, 0%, 69%); /* Équivalent de #b0b0b0 */
+            --chart-gray-bar: hsl(0, 0%, 33%);
+            /* Équivalent de #555555 */
+            --chart-gray-text: hsl(0, 0%, 69%);
+            /* Équivalent de #b0b0b0 */
+            --grid-color: rgba(255, 255, 255, 0.2);
+            --grid-line: hsl(0, 0%, 25%);
 
         }
 
@@ -615,12 +620,28 @@
                 if (tt) tt.style.display = 'none';
             };
 
-            // --- CONFIGURATION ---
+            // --- CONFIGURATION DYNAMIQUE ---
+            const defaultColors = [
+                getCSSColor('--blue'),
+                getCSSColor('--green'),
+                getCSSColor('--orange'),
+                getCSSColor('--red'),
+                getCSSColor('--purple')
+            ];
+            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+
+            // On récupère les gris depuis le CSS
+            const barGray = getCSSColor('--chart-gray-bar');
+            const textGray = getCSSColor('--chart-gray-text');
+            const gridColor = getCSSColor('--grid-color');
+
+            /* --- CONFIGURATION ---
             const defaultColors = ['#2196F3', '#4CAF50', '#FF9800', '#F44336', '#9C27B0'];
             const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
 
             const barGray = '#555555';
             const textGray = '#b0b0b0';
+            */
 
             const daysData = {};
             let allPeriods = [...state.history];
@@ -658,9 +679,9 @@
                     <div style="position: relative; padding-top: 8px; padding-bottom: 8px;">
                         
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
-                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
-                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
-                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid rgba(255,255,255,0.25);"></div>
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
                         </div>
             `;
 
@@ -1026,6 +1047,7 @@
 
             // On récupère le gris depuis le CSS !
             const textGray = getCSSColor('--chart-gray-text');
+            const gridColor = getCSSColor('--border') || '#333';
 
             // Création des 7 derniers jours avec format sur 2 lignes
             for (let i = 6; i >= 0; i--) {
@@ -1102,14 +1124,14 @@
                                 reverse: true,
                                 ticks: {
                                     stepSize: 2,
-                                    color: textGray, // Gris harmonisé
+                                    color: textGray, // Couleur des heures
                                     callback: v => v + 'h'
                                 },
-                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                                grid: { color: gridColor } // Lignes de fond
                             },
                             x: {
                                 ticks: {
-                                    color: textGray, // Gris harmonisé
+                                    color: textGray, // Couleur des jours
                                     font: { weight: 'bold' }
                                 },
                                 grid: { display: false }
