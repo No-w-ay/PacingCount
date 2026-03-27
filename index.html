@@ -1062,9 +1062,17 @@
             // Même règle que renderResults : journée incomplète exclue du triplet.
             // La valeur stockée est le % de position horizontale sur la barre (0-100).
             const chronoDates = [...sortedDates].reverse();
+            /*   const isIncomplete = (key) => {
+                   return new Date(key).toLocaleDateString() !== today && daysData[key].totalMins < 23 * 60;
+               };
+               */
+
             const isIncomplete = (key) => {
-                return new Date(key).toLocaleDateString() !== daysData[key].totalMins < 23 * 60;
+                // Un jour est incomplet dès qu'il a moins de 23h enregistrées, 
+                // y compris pour "aujourd'hui".
+                return daysData[key].totalMins < 23 * 60;
             };
+
             const moyMobileChart = {};
             chronoDates.forEach((key, idx) => {
                 if (idx === 0 || idx === chronoDates.length - 1) { moyMobileChart[key] = null; return; }
@@ -1194,13 +1202,13 @@
                         <span>${label}</span>
                     </div>`;
             });
-      /*      html += `
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
-                    <span>~ ${tLegend.resMoy3j}</span>
-                </div>`;
-            html += `</div>`;
-*/
+            /*      html += `
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                          <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
+                          <span>~ ${tLegend.resMoy3j}</span>
+                      </div>`;
+                  html += `</div>`;
+      */
             // NOUVEAU : La légende cliquable avec l'œil barré dynamique
             const eyeSlash = window.showMoyDots ? '' : `<span style="position: absolute; top: 50%; left: -2px; right: -2px; height: 2px; background: var(--text-color); transform: rotate(-45deg);"></span>`;
             const opacity = window.showMoyDots ? '1' : '0.5'; // Rend le texte un peu grisé si c'est masqué
