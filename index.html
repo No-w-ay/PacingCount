@@ -353,23 +353,23 @@
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
         </div>
+        <div id="app-version" class="version-display"></div>
         <div class="settings-group"
-            style="font-size: 0.88rem; line-height: 1.6; color: var(--text-color); opacity: 0.85;">
+            style="font-size: 0.8rem; color: var(--text-color); opacity: 0.75;">
             <p style="margin: 0 0 10px 0;">
                 Une application à destination des personnes qui souhaitent mesurer leur niveau d'activité
                 et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par
-                une personne touchée par l'EM/SFC. Une petite note : n'utilisez pas cette app de façon
+                une personne touchée par l'EM/SFC. <i>Une invitation : n'utilisez pas cette app de façon
                 trop perfectionniste ou obsessionnelle — le pacing est avant tout une stratégie de repos
-                et de récupération, dans un cadre de bienveillance envers soi-même.
+                et de récupération, dans un cadre de bienveillance envers soi-même.</i>
             </p>
-            <p style="margin: 0; font-size: 0.8rem; opacity: 0.75; font-style: italic;">
-                Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
+            <p style="margin: 0 0 10px 0;">
+                Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
                 substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes
                 de vie ou de traitement, consultez votre médecin en tenant compte de votre situation
                 personnelle.
             </p>
         </div>
-        <div id="app-version" class="version-display"></div>
     </div>
 
     <div id="page-timeline" class="page" style="padding-top: 10px;">
@@ -946,7 +946,7 @@
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
-                    ? `&nbsp;&nbsp;~ ${t.resMoy3j} : ${formatMins(moy3j)}`
+                    ? `&nbsp;&nbsp; ${t.resMoy3j} : ${formatMins(moy3j)}`
                     : '';
                 html += `<span style="${grayText}">${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}</span><br>`;
 
