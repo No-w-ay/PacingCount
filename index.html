@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.910 Beta C4"; </script>
+    <script> const APP_VERSION = "0.911 Beta C5"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -353,9 +353,24 @@
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
         </div>
+        <div class="settings-group"
+            style="font-size: 0.88rem; line-height: 1.6; color: var(--text-color); opacity: 0.85;">
+            <p style="margin: 0 0 10px 0;">
+                Une application à destination des personnes qui souhaitent mesurer leur niveau d'activité
+                et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par
+                une personne touchée par l'EM/SFC. Une petite note : n'utilisez pas cette app de façon
+                trop perfectionniste ou obsessionnelle — le pacing est avant tout une stratégie de repos
+                et de récupération, dans un cadre de bienveillance envers soi-même.
+            </p>
+            <p style="margin: 0; font-size: 0.8rem; opacity: 0.75; font-style: italic;">
+                Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
+                substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes
+                de vie ou de traitement, consultez votre médecin en tenant compte de votre situation
+                personnelle.
+            </p>
+        </div>
         <div id="app-version" class="version-display"></div>
     </div>
-
 
     <div id="page-timeline" class="page" style="padding-top: 10px;">
         <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
@@ -465,8 +480,8 @@
 
         const STANDARD_TYPES = {
             1: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" },
-            2: { fr: "Couché actif",            en: "Active rest",               nl: "Actief rusten" },
-            3: { fr: "Non couché",              en: "Upright / Active",          nl: "Rechtop" }
+            2: { fr: "Couché actif", en: "Active rest", nl: "Actief rusten" },
+            3: { fr: "Non couché", en: "Upright / Active", nl: "Rechtop" }
             // Ajouter de nouveaux types standards ici à l'avenir
         };
 
@@ -534,16 +549,16 @@
 
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
-                lang: 'fr',
-                types: Array.from({ length: 6 }, (_, i) => ({
-                    id: i + 1,
-                    label: i === 0 ? "Couché sans stimulation"
-                         : i === 1 ? "Couché actif"
-                         : i === 2 ? "Non couché"
-                         : "",
-                    active: i < 3
-                }))
-            };
+            lang: 'fr',
+            types: Array.from({ length: 6 }, (_, i) => ({
+                id: i + 1,
+                label: i === 0 ? "Couché sans stimulation"
+                    : i === 1 ? "Couché actif"
+                        : i === 2 ? "Non couché"
+                            : "",
+                active: i < 3
+            }))
+        };
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -824,12 +839,11 @@
         // Ces paramètres seront externalisés dans la définition de profil à l'avenir.
         // ============================================================
 
-        // Formate une durée en minutes → "1h20" ou "45min"
+        // Formate une durée en minutes → toujours "0h00"
         function formatMins(mins) {
-            if (mins < 60) return `${Math.round(mins)}min`;
             const h = Math.floor(mins / 60);
             const m = Math.round(mins % 60);
-            return m === 0 ? `${h}h` : `${h}h${m.toString().padStart(2, '0')}`;
+            return `${h}h${m.toString().padStart(2, '0')}`;
         }
 
         function renderResults() {
@@ -841,9 +855,10 @@
 
             // Profil par défaut : types "repos" = ids 1 et 2, type "actif" = id 3
             // À externaliser dans la définition de profil quand les profils seront implémentés
-            const reposIds  = [1, 2];
-            const actifId   = 3;
+            const reposIds = [1, 2];
+            const actifId = 3;
             const today = new Date().toLocaleDateString();
+            const grayText = `color: var(--text-color); opacity: 0.7;`;
 
             // --- ÉTAPE 1 : collecter toutes les périodes ---
             let all = [...state.history];
@@ -853,19 +868,17 @@
             all.sort((a, b) => a.start - b.start);
 
             // --- ÉTAPE 2 : agréger par jour ---
-            // daysData[dateKey] = { displayDate, totals{}, reposMins, actifPeriods[], totalMins }
             const daysData = {};
-
             all.forEach(e => {
-                const d     = new Date(e.start).toLocaleDateString();
-                const mins  = (e.end - e.start) / 60000;
+                const d = new Date(e.start).toLocaleDateString();
+                const mins = (e.end - e.start) / 60000;
                 if (!daysData[d]) {
                     daysData[d] = {
                         displayDate: d,
-                        totals:      {},
-                        reposMins:   0,
-                        actifPeriods: [],  // liste des durées des périodes actives
-                        totalMins:   0
+                        totals: {},
+                        reposMins: 0,
+                        actifPeriods: [],
+                        totalMins: 0
                     };
                     active.forEach(tp => { daysData[d].totals[tp.id] = 0; });
                 }
@@ -873,37 +886,33 @@
                     daysData[d].totals[e.typeId] += mins;
                 }
                 daysData[d].totalMins += mins;
-                if (reposIds.includes(e.typeId)) {
-                    daysData[d].reposMins += mins;
-                }
-                if (e.typeId === actifId) {
-                    daysData[d].actifPeriods.push(mins);
-                }
+                if (reposIds.includes(e.typeId)) daysData[d].reposMins += mins;
+                if (e.typeId === actifId) daysData[d].actifPeriods.push(mins);
             });
 
             // --- ÉTAPE 3 : calcul de la moyenne mobile centrée sur 3 jours ---
-            // Pour chaque jour J, moyenne de reposMins sur J-1, J, J+1
-            // N'est affichée que si les 3 jours ont des données ET que J+1 existe
-            const dateKeys   = Object.keys(daysData).sort((a, b) => {
-                // Tri chronologique pour le calcul de la moyenne (les clés sont des dates locales)
-                return new Date(a) - new Date(b);
-            });
+            // Une journée est "incomplète" si elle est terminée et < 23h enregistrées.
+            // Si J-1, J ou J+1 est incomplet, la moyenne n'est pas calculée pour ce triplet.
+            const isIncomplete = (key) => {
+                const day = daysData[key];
+                return key !== today && day.totalMins < 23 * 60;
+            };
 
-            const moyMobile = {}; // dateKey → valeur en minutes (ou null)
+            const dateKeys = Object.keys(daysData).sort((a, b) => new Date(a) - new Date(b));
+            const moyMobile = {};
             dateKeys.forEach((key, idx) => {
                 if (idx === 0 || idx === dateKeys.length - 1) {
-                    moyMobile[key] = null; // pas de J-1 ou pas de J+1
+                    moyMobile[key] = null;
                     return;
                 }
-                const prev = daysData[dateKeys[idx - 1]];
-                const curr = daysData[key];
-                const next = daysData[dateKeys[idx + 1]];
-                // On n'affiche la moyenne que si les 3 jours ont des données
-                if (prev && curr && next) {
-                    moyMobile[key] = (prev.reposMins + curr.reposMins + next.reposMins) / 3;
-                } else {
+                const kPrev = dateKeys[idx - 1];
+                const kNext = dateKeys[idx + 1];
+                // Exclure le triplet si l'un des 3 jours est incomplet
+                if (isIncomplete(kPrev) || isIncomplete(key) || isIncomplete(kNext)) {
                     moyMobile[key] = null;
+                    return;
                 }
+                moyMobile[key] = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
             });
 
             // --- ÉTAPE 4 : rendu, du plus récent au plus ancien ---
@@ -913,44 +922,63 @@
                 div.className = "settings-group";
                 let html = '';
 
-                // Ligne 1 : date
+                // Ligne 1 : date (couleur normale)
                 html += `<strong>${day.displayDate}</strong><br>`;
 
-                // Ligne 2 : totaux par type
-                let ligne2 = '';
+                // Ligne 2 : totaux par type (atténué)
+                let ligne2 = `<span style="${grayText}">`;
                 active.forEach((tp, idx) => {
                     const colorName = TYPE_COLORS[idx] || 'gray';
                     ligne2 += `<span class="text-${colorName}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
                 });
+                ligne2 += `</span>`;
                 html += `${ligne2}<br>`;
 
-                // Ligne 3 : sous-total repos + moyenne mobile
-                const reposStr = formatMins(day.reposMins);
-                const moy3j    = moyMobile[d];
-                const moy3jStr = moy3j !== null ? `&nbsp;&nbsp;~ ${t.resMoy3j} : ${formatMins(moy3j)}` : '';
-                html += `⬤ ${t.resCouche} : ${reposStr}${moy3jStr}<br>`;
+                // Ligne 3 : sous-total repos (puces colorées collées) + moyenne mobile
+                // Les puces correspondent aux types qui composent le sous-total
+                let reposBullets = '';
+                reposIds.forEach(id => {
+                    const idx = active.findIndex(tp => tp.id === id);
+                    if (idx !== -1) {
+                        const colorName = TYPE_COLORS[idx] || 'gray';
+                        reposBullets += `<span class="text-${colorName}">●</span>`;
+                    }
+                });
+                const moy3j = moyMobile[d];
+                const moy3jStr = moy3j !== null
+                    ? `&nbsp;&nbsp;~ ${t.resMoy3j} : ${formatMins(moy3j)}`
+                    : '';
+                html += `<span style="${grayText}">${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}</span><br>`;
 
-                // Ligne 4 : métriques périodes actives (si au moins une)
+                // Ligne 4 : métriques périodes actives
                 const periods = day.actifPeriods;
                 if (periods.length > 0) {
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
+                    // Trouver la couleur du type actif
+                    const actifIdx = active.findIndex(tp => tp.id === actifId);
+                    const actifColor = actifIdx !== -1 ? TYPE_COLORS[actifIdx] : 'gray';
                     const label = periods.length === 1 ? t.resActif : t.resActifP;
-                    html += `↔ ${periods.length} ${label} · ${t.resMoy} ${formatMins(moy)} · ${t.resMax} ${formatMins(max)} · ${t.resMin} ${formatMins(min)}<br>`;
+                    html += `<span style="${grayText} font-size:0.82rem;">`;
+                    html += `${periods.length} ${label} <span class="text-${actifColor}">●</span> : `;
+                    html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
+                    html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
+                    html += `<i>${t.resMin} ${formatMins(min)}</i>`;
+                    html += `</span><br>`;
                 }
 
-                // Ligne 5 : avertissement données incomplètes
-                // Uniquement si la journée est terminée (pas aujourd'hui) et < 23h enregistrées
+                // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
                 if (d !== today && day.totalMins < 23 * 60) {
                     const enregistrees = formatMins(day.totalMins);
-                    html += `<span style="color:var(--orange); font-size:0.85rem;">⚠ ${t.resIncomplet} (${enregistrees})</span>`;
+                    html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t.resIncomplet} (${enregistrees})</span>`;
                 }
 
                 div.innerHTML = html;
                 container.appendChild(div);
             });
         }
+
 
         // ============================================================
         // 14. GRAPHIQUE JOURNALIER (onglet Résultats)
@@ -1231,7 +1259,7 @@
                 if (merged.length === 0) { merged.push(current); continue; }
                 let last = merged[merged.length - 1];
                 // Utilise typeId avec fallback sur type pour la transition
-                const lastType    = last.typeId    !== undefined ? last.typeId    : last.type;
+                const lastType = last.typeId !== undefined ? last.typeId : last.type;
                 const currentType = current.typeId !== undefined ? current.typeId : current.type;
                 if (lastType === currentType && current.start <= last.end) {
                     last.end = Math.max(last.end, current.end);
@@ -1376,7 +1404,7 @@
         }
 
         // Stockage temporaire des données en attente de confirmation utilisateur
-        let pendingImportData    = null; // tableau de périodes parsées { key, start, end }
+        let pendingImportData = null; // tableau de périodes parsées { key, start, end }
         let pendingImportMapping = null; // correspondance clé → résolution de type
 
         function importCSV(event) {
@@ -1395,11 +1423,11 @@
                     if (lines.length < 2) throw new Error("Fichier vide");
 
                     // Lecture des en-têtes pour déterminer le format (robuste à l'ordre des colonnes)
-                    const header     = lines[0].split(',').map(h => h.trim().toLowerCase());
-                    const iDate      = header.indexOf('date');
-                    const iDebut     = header.indexOf('debut');
-                    const iFin       = header.indexOf('fin');
-                    const iTypeId    = header.indexOf('typeid');
+                    const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+                    const iDate = header.indexOf('date');
+                    const iDebut = header.indexOf('debut');
+                    const iFin = header.indexOf('fin');
+                    const iTypeId = header.indexOf('typeid');
                     // 'typelabel' (nouveau format) ou 'type' (ancien format)
                     const iTypeLabel = header.indexOf('typelabel') !== -1
                         ? header.indexOf('typelabel')
@@ -1413,16 +1441,16 @@
                         if (cols.length < 3) continue;
 
                         // Lecture des colonnes (avec fallback sur position fixe si en-têtes absents)
-                        const dateStr  = cols[iDate  !== -1 ? iDate  : 0].trim();
+                        const dateStr = cols[iDate !== -1 ? iDate : 0].trim();
                         const debutStr = cols[iDebut !== -1 ? iDebut : 1].trim();
-                        const finStr   = cols[iFin   !== -1 ? iFin   : 2].trim();
+                        const finStr = cols[iFin !== -1 ? iFin : 2].trim();
 
                         const start = parseCSVDate(dateStr, debutStr);
-                        const end   = parseCSVDate(dateStr, finStr);
+                        const end = parseCSVDate(dateStr, finStr);
                         if (isNaN(start) || isNaN(end) || start >= end) continue;
 
                         let csvTypeId = null;
-                        let csvLabel  = null;
+                        let csvLabel = null;
 
                         if (iTypeId !== -1 && cols[iTypeId]) {
                             const parsed = parseInt(cols[iTypeId].trim());
@@ -1451,10 +1479,10 @@
 
                             typesSeen[key] = {
                                 csvTypeId,
-                                csvLabel:      csvLabel || `Type ${csvTypeId}`,
-                                resolvedId:    resolved ? resolved.id    : null,
+                                csvLabel: csvLabel || `Type ${csvTypeId}`,
+                                resolvedId: resolved ? resolved.id : null,
                                 resolvedLabel: resolved ? resolved.label : null,
-                                isNew:         !resolved
+                                isNew: !resolved
                             };
                         }
 
@@ -1465,7 +1493,7 @@
 
                     console.log(`[importCSV] ${importedPeriods.length} périodes parsées, ${Object.keys(typesSeen).length} types détectés`);
 
-                    pendingImportData    = importedPeriods;
+                    pendingImportData = importedPeriods;
                     pendingImportMapping = typesSeen;
                     showImportModal();
 
@@ -1488,7 +1516,7 @@
             // Construction du tableau de correspondance
             let tableRows = '';
             Object.values(pendingImportMapping).forEach(m => {
-                const icon    = m.isNew ? '⚠️' : '✅';
+                const icon = m.isNew ? '⚠️' : '✅';
                 const appSide = m.isNew
                     ? `<em style="opacity:0.6">${t.importUnknown || 'Type inconnu — sera ignoré'}</em>`
                     : `Type ${m.resolvedId} — "${m.resolvedLabel}"`;
@@ -1520,11 +1548,11 @@
                 ${hasWarnings ? `<p style="font-size:0.8rem; color:var(--orange); margin-top:10px;">⚠️ ${t.importWarning || "Les types inconnus ne seront pas importés."}</p>` : ''}`;
 
             // Traduction des boutons (mis à jour selon la langue courante)
-            document.getElementById('btn-import-replace').innerText  = t.importReplace     || "Remplacer";
+            document.getElementById('btn-import-replace').innerText = t.importReplace || "Remplacer";
             document.getElementById('import-replace-desc').innerText = t.importReplaceDesc || "Supprime tout et remplace par le fichier.";
-            document.getElementById('btn-import-merge').innerText    = t.importMerge       || "Fusionner";
-            document.getElementById('import-merge-desc').innerText   = t.importMergeDesc   || "Le fichier a la priorité en cas de conflit.";
-            document.getElementById('btn-import-cancel').innerText   = t.importCancel      || "Annuler";
+            document.getElementById('btn-import-merge').innerText = t.importMerge || "Fusionner";
+            document.getElementById('import-merge-desc').innerText = t.importMergeDesc || "Le fichier a la priorité en cas de conflit.";
+            document.getElementById('btn-import-cancel').innerText = t.importCancel || "Annuler";
 
             document.getElementById('importModal').style.display = 'flex';
         }
@@ -1575,7 +1603,7 @@
             console.log("[closeImportModal] Fermeture du modal d'import");
             const modal = document.getElementById('importModal');
             if (modal) modal.style.display = 'none';
-            pendingImportData    = null;
+            pendingImportData = null;
             pendingImportMapping = null;
         }
 
