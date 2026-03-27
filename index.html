@@ -1063,7 +1063,7 @@
             // La valeur stockée est le % de position horizontale sur la barre (0-100).
             const chronoDates = [...sortedDates].reverse();
             const isIncomplete = (key) => {
-                return new Date(key).toLocaleDateString() !== today && daysData[key].totalMins < 23 * 60;
+                return new Date(key).toLocaleDateString() !== daysData[key].totalMins < 23 * 60;
             };
             const moyMobileChart = {};
             chronoDates.forEach((key, idx) => {
