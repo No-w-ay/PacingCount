@@ -1096,7 +1096,8 @@
                 // les divs de barres, en position absolute sur le conteneur flex principal.
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
                 const avgLabel = avgPc !== null ? `~ ${tLang.resMoy3j} : ${formatMins(avgMins)}` : '';
-                const avgDot = avgPc !== null ? `
+
+                /*      const avgDot = avgPc !== null ? `
                     <div style="position: absolute; left: calc(${avgPc.toFixed(2)}% + 55px + 10px);
                                 top: 50%; transform: translate(-50%, -50%);
                                 width: 9px; height: 9px; background: white; border-radius: 50%;
@@ -1104,6 +1105,21 @@
                          onmousemove="showBarTooltip(event, '<b>${avgLabel}</b>')"
                          ontouchstart="showBarTooltip(event, '<b>${avgLabel}</b>')"
                          onmouseout="hideBarTooltip()" ontouchend="hideBarTooltip()">
+                    </div>` : '';
+                */
+
+                const avgDot = avgPc !== null ? `
+                    <div style="position: absolute; left: 55px; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 3;">
+                        
+                        <div style="position: absolute; left: ${avgPc.toFixed(2)}%;
+                                    top: 50%; transform: translate(-50%, -50%);
+                                    width: 9px; height: 9px; background: white; border-radius: 50%;
+                                    box-shadow: 0 0 4px rgba(0,0,0,0.7); pointer-events: auto; cursor: default;"
+                             onmousemove="showBarTooltip(event, '<b>${avgLabel}</b>')"
+                             ontouchstart="showBarTooltip(event, '<b>${avgLabel}</b>')"
+                             onmouseout="hideBarTooltip()" ontouchend="hideBarTooltip()">
+                        </div>
+                        
                     </div>` : '';
 
                 html += `
