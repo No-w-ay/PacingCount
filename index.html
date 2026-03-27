@@ -954,8 +954,8 @@
                     const min = Math.min(...periods);
                     const actifIdx = active.findIndex(tp => tp.id === actifId);
                     const actifColor = actifIdx !== -1 ? TYPE_COLORS[actifIdx] : 'gray';
-                    html += `<span style="font-size:0.82rem;">`;
-                    html += `${periods.length} <span class="text-${actifColor}">●</span> : `;
+                    html += `<span style="font-size:1rem;">`;
+                    html += `${periods.length} période(s) <span class="text-${actifColor}">●</span> : `;
                     html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
                     html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
                     html += `<i>${t.resMin} ${formatMins(min)}</i>`;
