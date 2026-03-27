@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.911 Beta C5"; </script>
+    <script> const APP_VERSION = "0.912 Beta C6"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -354,14 +354,14 @@
             <input type="text" id="custom-3" onchange="saveSettings()">
         </div>
         <div id="app-version" class="version-display"></div>
-        <div class="settings-group"
-            style="font-size: 0.8rem; color: var(--text-color); opacity: 0.75;">
+        <div class="settings-group" style="font-size: 0.8rem; color: var(--text-color); opacity: 0.75;">
             <p style="margin: 0 0 10px 0;">
-                (A propos) PacinCount : Une application à destination des personnes qui souhaitent mesurer leur niveau d'activité
+                (A propos) PacinCount : Une application à destination des personnes qui souhaitent mesurer leur niveau
+                d'activité
                 et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par
                 une personne concernée par l'EM/SFC. <i>Une invitation : n'utilisez pas cette app de façon
-                trop perfectionniste ou obsessionnelle — le pacing est avant tout une stratégie de repos
-                et de récupération, dans un cadre de bienveillance envers soi-même.</i>
+                    trop perfectionniste ou obsessionnelle — le pacing est avant tout une stratégie de repos
+                    et de récupération, dans un cadre de bienveillance envers soi-même.</i>
             </p>
             <p style="margin: 0 0 10px 0;">
                 Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
@@ -858,7 +858,6 @@
             const reposIds = [1, 2];
             const actifId = 3;
             const today = new Date().toLocaleDateString();
-            const grayText = `color: var(--text-color); opacity: 0.7;`;
 
             // --- ÉTAPE 1 : collecter toutes les périodes ---
             let all = [...state.history];
@@ -907,7 +906,6 @@
                 }
                 const kPrev = dateKeys[idx - 1];
                 const kNext = dateKeys[idx + 1];
-                // Exclure le triplet si l'un des 3 jours est incomplet
                 if (isIncomplete(kPrev) || isIncomplete(key) || isIncomplete(kNext)) {
                     moyMobile[key] = null;
                     return;
@@ -922,20 +920,18 @@
                 div.className = "settings-group";
                 let html = '';
 
-                // Ligne 1 : date (couleur normale)
+                // Ligne 1 : date
                 html += `<strong>${day.displayDate}</strong><br>`;
 
-                // Ligne 2 : totaux par type (atténué)
-                let ligne2 = `<span style="${grayText}">`;
+                // Ligne 2 : totaux par type
+                let ligne2 = '';
                 active.forEach((tp, idx) => {
                     const colorName = TYPE_COLORS[idx] || 'gray';
                     ligne2 += `<span class="text-${colorName}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
                 });
-                ligne2 += `</span>`;
                 html += `${ligne2}<br>`;
 
-                // Ligne 3 : sous-total repos (puces colorées collées) + moyenne mobile
-                // Les puces correspondent aux types qui composent le sous-total
+                // Ligne 3 : sous-total repos (puces colorées) + moyenne mobile
                 let reposBullets = '';
                 reposIds.forEach(id => {
                     const idx = active.findIndex(tp => tp.id === id);
@@ -946,9 +942,9 @@
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
-                    ? `&nbsp;&nbsp; ${t.resMoy3j} : ${formatMins(moy3j)}`
+                    ? `&nbsp;&nbsp;${t.resMoy3j} : ${formatMins(moy3j)}`
                     : '';
-                html += `<span style="${grayText}">${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}</span><br>`;
+                html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
 
                 // Ligne 4 : métriques périodes actives
                 const periods = day.actifPeriods;
@@ -956,12 +952,10 @@
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    // Trouver la couleur du type actif
                     const actifIdx = active.findIndex(tp => tp.id === actifId);
                     const actifColor = actifIdx !== -1 ? TYPE_COLORS[actifIdx] : 'gray';
-                    const label = periods.length === 1 ? t.resActif : t.resActifP;
-                    html += `<span style="${grayText} font-size:0.82rem;">`;
-                    html += `${periods.length} ${label} <span class="text-${actifColor}">●</span> : `;
+                    html += `<span style="font-size:0.82rem;">`;
+                    html += `${periods.length} <span class="text-${actifColor}">●</span> : `;
                     html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
                     html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
                     html += `<i>${t.resMin} ${formatMins(min)}</i>`;
@@ -979,11 +973,11 @@
             });
         }
 
-
         // ============================================================
         // 14. GRAPHIQUE JOURNALIER (onglet Résultats)
         // Barres horizontales représentant le temps passé par type et par jour.
         // ============================================================
+
         function renderDailyCharts() {
             console.log("[renderDailyCharts] Rendu du graphique journalier");
             const container = document.getElementById('daily-charts-container');
@@ -1013,7 +1007,7 @@
                 if (tt) tt.style.display = 'none';
             };
 
-            // --- CONFIGURATION DYNAMIQUE ---
+            // --- CONFIGURATION ---
             const defaultColors = [
                 getCSSColor('--blue'),
                 getCSSColor('--green'),
@@ -1022,12 +1016,15 @@
                 getCSSColor('--purple')
             ];
             const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
-
-            // On récupère les gris depuis le CSS
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
-            const gridColor = getCSSColor('--grid-color');
+            const tLang = translations[settings.lang] || translations['fr'];
 
+            // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
+            const reposIds = [1, 2];
+            const today = new Date().toLocaleDateString();
+
+            // --- AGRÉGATION ---
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
@@ -1038,12 +1035,13 @@
                 const d = new Date(p.start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-                if (!daysData[dateKey]) daysData[dateKey] = { displayDate: displayDate, totals: {} };
+                if (!daysData[dateKey]) daysData[dateKey] = { displayDate, totals: {}, reposMins: 0, totalMins: 0 };
                 const durationMins = (p.end - p.start) / 60000;
-                // Utilise p.typeId (nouveau) avec fallback sur p.type (ancien, sécurité pendant la transition)
                 const typeKey = p.typeId !== undefined ? p.typeId : p.type;
                 if (!daysData[dateKey].totals[typeKey]) daysData[dateKey].totals[typeKey] = 0;
                 daysData[dateKey].totals[typeKey] += durationMins;
+                daysData[dateKey].totalMins += durationMins;
+                if (reposIds.includes(typeKey)) daysData[dateKey].reposMins += durationMins;
             });
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
@@ -1052,7 +1050,24 @@
                 return;
             }
 
-            // --- CONSTRUCTION DU HTML (identique à l'original) ---
+            // --- MOYENNE MOBILE CENTRÉE SUR 3 JOURS ---
+            // Même règle que renderResults : journée incomplète exclue du triplet.
+            // La valeur stockée est le % de position horizontale sur la barre (0-100).
+            const chronoDates = [...sortedDates].reverse();
+            const isIncomplete = (key) => {
+                return new Date(key).toLocaleDateString() !== today && daysData[key].totalMins < 23 * 60;
+            };
+            const moyMobileChart = {};
+            chronoDates.forEach((key, idx) => {
+                if (idx === 0 || idx === chronoDates.length - 1) { moyMobileChart[key] = null; return; }
+                const kPrev = chronoDates[idx - 1];
+                const kNext = chronoDates[idx + 1];
+                if (isIncomplete(kPrev) || isIncomplete(key) || isIncomplete(kNext)) { moyMobileChart[key] = null; return; }
+                const avg = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
+                moyMobileChart[key] = (avg / 1440) * 100;
+            });
+
+            // --- CONSTRUCTION DU HTML ---
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
@@ -1062,9 +1077,7 @@
                         <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
                         <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
                     </div>
-
                     <div style="position: relative; padding-top: 8px; padding-bottom: 8px;">
-                        
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
                             <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
                             <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
@@ -1074,14 +1087,31 @@
 
             sortedDates.forEach(dateKey => {
                 const day = daysData[dateKey];
+                const avgPc = moyMobileChart[dateKey]; // % ou null
+
+                // Point blanc de moyenne mobile centré verticalement sur la barre.
+                // Positionné à avgPc% de la largeur. Tooltip au survol/touch.
+                // overflow:visible sur le conteneur parent est nécessaire pour que le point
+                // ne soit pas coupé par overflow:hidden des barres — on le place donc APRÈS
+                // les divs de barres, en position absolute sur le conteneur flex principal.
+                const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
+                const avgLabel = avgPc !== null ? `~ ${tLang.resMoy3j} : ${formatMins(avgMins)}` : '';
+                const avgDot = avgPc !== null ? `
+                    <div style="position: absolute; left: calc(${avgPc.toFixed(2)}% + 55px + 10px);
+                                top: 50%; transform: translate(-50%, -50%);
+                                width: 9px; height: 9px; background: white; border-radius: 50%;
+                                box-shadow: 0 0 4px rgba(0,0,0,0.7); z-index: 3; pointer-events: auto; cursor: default;"
+                         onmousemove="showBarTooltip(event, '<b>${avgLabel}</b>')"
+                         ontouchstart="showBarTooltip(event, '<b>${avgLabel}</b>')"
+                         onmouseout="hideBarTooltip()" ontouchend="hideBarTooltip()">
+                    </div>` : '';
+
                 html += `
                     <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
                         <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
                             ${day.displayDate}
                         </div>
-                        
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
-                            
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(day.totals).sort().map(type => {
                     const mins = day.totals[type];
@@ -1089,10 +1119,11 @@
                     const typeIdx = parseInt(type) - 1;
                     const color = defaultColors[typeIdx] || '#ccc';
                     const label = labels[typeIdx];
-                    const timeStr = mins >= 60 ? `${Math.floor(mins / 60)}h${Math.round(mins % 60).toString().padStart(2, '0')}` : `${Math.round(mins)} min`;
-
+                    const h = Math.floor(mins / 60);
+                    const m = Math.round(mins % 60);
+                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
                     return perc > 0 ? `
-                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%; position: relative;"
+                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
                                              onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
                                              onmouseout="hideBarTooltip()"
                                              ontouchstart="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
@@ -1100,21 +1131,21 @@
                                         </div>` : '';
                 }).join('')}
                             </div>
-
                             <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
-                                ${Array.from({ length: 24 }).map(() => `
-                                    <div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>
-                                `).join('')}
+                                ${Array.from({ length: 24 }).map(() =>
+                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
+                ).join('')}
                             </div>
-
                         </div>
+                        ${avgDot}
                     </div>
                 `;
             });
 
             html += `</div></div>`;
 
-            // Légende alignée à gauche
+            // Légende — avec entrée pour la moyenne mobile
+            const tLegend = translations[settings.lang] || translations['fr'];
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             labels.forEach((label, index) => {
                 html += `
@@ -1123,6 +1154,11 @@
                         <span>${label}</span>
                     </div>`;
             });
+            html += `
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
+                    <span>~ ${tLegend.resMoy3j}</span>
+                </div>`;
             html += `</div>`;
 
             container.innerHTML = html;
