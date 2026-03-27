@@ -894,7 +894,7 @@
             // Si J-1, J ou J+1 est incomplet, la moyenne n'est pas calculée pour ce triplet.
             const isIncomplete = (key) => {
                 const day = daysData[key];
-                return key !== today && day.totalMins < 23 * 60;
+                return day.totalMins < 23 * 60;
             };
 
             const dateKeys = Object.keys(daysData).sort((a, b) => new Date(a) - new Date(b));
