@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.913 Beta"; </script>
+    <script> const APP_VERSION = "0.913 Beta 3e"; </script> 
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1502,7 +1502,7 @@
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // ============================================================
-        function saveManualEdit() {
+ /*       function saveManualEdit() {
             const t = translations[settings.lang] || {};
             const idx = parseInt(document.getElementById('edit-index').value);
             const typeId = parseInt(document.getElementById('edit-type').value);
@@ -1525,7 +1525,7 @@
             reconstructHistory(finalPeriods);
             closeModal();
         }
-
+*/
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // Réintègre les alertes de chevauchement de l'ancienne version.
@@ -1603,8 +1603,8 @@
                 // Remplacement des balises
                 let finalMsg = msgTemplate
                    // .replace('{date}', dateStartDisplay)
-                    .replace('{start}', dateStartDisplay + hourStartDisplay)
-                    .replace('{end}', dateEndDisplay + hourEndDisplay)
+                    .replace('{start}', dateStartDisplay + " " + hourStartDisplay)
+                    .replace('{end}', dateEndDisplay + " " + hourEndDisplay)
                     .replace('{n}', overlapCount);
 
                 // On demande confirmation. Si refus, on arrête tout.
