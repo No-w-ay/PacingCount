@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.912 Beta"; </script>
+    <script> const APP_VERSION = "0.913 Beta"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -572,6 +572,75 @@
         // Les labels des types (boutons) sont dans settings.types, pas ici.
         // Nouvelles clés ajoutées pour le modal d'import avec tableau de correspondance.
         // ============================================================
+
+        /*      
+              
+              const translations = {
+                  fr: {
+                      timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
+                      export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
+                      stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
+                      history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "(En cours)",
+                      addManual: "+ Ajouter une période",
+                      futureError: "Impossible d'enregistrer une période dans le futur.",
+                      importError: "Erreur lors de la lecture du fichier CSV.",
+                      importSuccess: "Importation réussie !",
+                      importUnknown: "Type inconnu — sera ignoré",
+                      importWarning: "Les types inconnus ne seront pas importés.",
+                      importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
+                      importReplace: "Remplacer", importReplaceDesc: "Supprime tout et remplace par le fichier.",
+                      importMerge: "Fusionner", importMergeDesc: "Le fichier a la priorité en cas de conflit.",
+                      importCancel: "Annuler",
+                      resCouche: "Couché", resMoy3j: "moy.3j",
+                      resActif: "période active", resActifP: "périodes actives",
+                      resMoy: "moy", resMax: "max", resMin: "min",
+                      resIncomplet: "Journée incomplète"
+                  },
+                  en: {
+                      timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
+                      export: "Export CSV", import: "Import CSV", custom: "Button Names",
+                      stop: "Stop recording", confirmStop: "Stop current recording?",
+                      history: "Recorded periods", prev: "Previous: ", inProgress: "(In progress)",
+                      addManual: "+ Add a period",
+                      futureError: "Cannot record a period in the future.",
+                      importError: "Error reading CSV file.",
+                      importSuccess: "Import successful!",
+                      importUnknown: "Unknown type — will be ignored",
+                      importWarning: "Unknown types will not be imported.",
+                      importFileHeader: "In the file", importAppHeader: "In the app",
+                      importReplace: "Replace", importReplaceDesc: "Deletes everything and replaces with the file.",
+                      importMerge: "Merge", importMergeDesc: "File takes priority in case of conflict.",
+                      importCancel: "Cancel",
+                      resCouche: "Lying", resMoy3j: "3d avg",
+                      resActif: "active period", resActifP: "active periods",
+                      resMoy: "avg", resMax: "max", resMin: "min",
+                      resIncomplet: "Incomplete day"
+                  },
+                  nl: {
+                      timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
+                      export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
+                      stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
+                      history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "(Bezig)",
+                      addManual: "+ Periode toevoegen",
+                      futureError: "Kan geen periode in de toekomst opnemen.",
+                      importError: "Fout bij het lezen van het CSV-bestand.",
+                      importSuccess: "Importeren geslaagd!",
+                      importUnknown: "Onbekend type — wordt genegeerd",
+                      importWarning: "Onbekende types worden niet geïmporteerd.",
+                      importFileHeader: "In het bestand", importAppHeader: "In de app",
+                      importReplace: "Vervangen", importReplaceDesc: "Verwijdert alles en vervangt met het bestand.",
+                      importMerge: "Samenvoegen", importMergeDesc: "Bestand heeft prioriteit bij conflict.",
+                      importCancel: "Annuleren",
+                      resCouche: "Liggend", resMoy3j: "3d gem",
+                      resActif: "actieve periode", resActifP: "actieve periodes",
+                      resMoy: "gem", resMax: "max", resMin: "min",
+                      resIncomplet: "Onvolledige dag"
+                  }
+              };
+      
+      */
+
+
         const translations = {
             fr: {
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
@@ -580,6 +649,8 @@
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "(En cours)",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
+                overlapWarning: "Cette modification chevauche {n} période(s) existante(s). Elles seront ajustées. Continuer ?",
+                overlapLiveWarning: "Attention, cette modification chevauche {n} période(s), Y COMPRIS la période en cours ! Le chrono sera ajusté. Continuer ?",
                 importError: "Erreur lors de la lecture du fichier CSV.",
                 importSuccess: "Importation réussie !",
                 importUnknown: "Type inconnu — sera ignoré",
@@ -600,6 +671,8 @@
                 history: "Recorded periods", prev: "Previous: ", inProgress: "(In progress)",
                 addManual: "+ Add a period",
                 futureError: "Cannot record a period in the future.",
+                overlapWarning: "This edit overlaps {n} existing period(s). They will be adjusted. Continue?",
+                overlapLiveWarning: "Warning, this edit overlaps {n} period(s), INCLUDING the current recording! The timer will be adjusted. Continue?",
                 importError: "Error reading CSV file.",
                 importSuccess: "Import successful!",
                 importUnknown: "Unknown type — will be ignored",
@@ -620,6 +693,8 @@
                 history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "(Bezig)",
                 addManual: "+ Periode toevoegen",
                 futureError: "Kan geen periode in de toekomst opnemen.",
+                overlapWarning: "Deze wijziging overlapt {n} bestaande periode(s). Ze worden aangepast. Doorgaan?",
+                overlapLiveWarning: "Let op, deze wijziging overlapt {n} periode(s), INCLUSIEF de huidige opname! De timer wordt aangepast. Doorgaan?",
                 importError: "Fout bij het lezen van het CSV-bestand.",
                 importSuccess: "Importeren geslaagd!",
                 importUnknown: "Onbekend type — wordt genegeerd",
@@ -667,6 +742,20 @@
         // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
         // ============================================================
 
+        /*      function startPeriod(typeId) {
+                  console.log(`[startPeriod] typeId=${typeId}`);
+                  // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
+                  if (state.activeType === typeId) return;
+      
+                  const now = Date.now();
+                  if (state.activeType !== null) closePeriod(state.activeType, state.startTime, now);
+                  state.activeType = typeId;
+                  state.startTime = now;
+                  saveState();
+                  updateUI();
+              }
+         */
+
         function startPeriod(typeId) {
             console.log(`[startPeriod] typeId=${typeId}`);
             // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
@@ -677,6 +766,14 @@
             state.activeType = typeId;
             state.startTime = now;
             saveState();
+
+            // Correction affichage transitoire : on remet le timer à 00:00:00 et on
+            // applique la nouvelle couleur en une seule opération avant le prochain tick.
+            const mainTimer = document.getElementById('main-timer');
+            const newColor = getColorNameForId(typeId);
+            mainTimer.className = 'timer-display text-' + newColor;
+            mainTimer.innerText = '00:00:00';
+
             updateUI();
         }
 
@@ -1428,6 +1525,63 @@
             reconstructHistory(finalPeriods);
             closeModal();
         }
+
+        // ============================================================
+        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
+        // Réintègre les alertes de chevauchement de l'ancienne version.
+        // Corrige le bug de duplication de la période active lors d'une édition adjacente.
+        // ============================================================
+        function saveManualEdit() {
+            const t = translations[settings.lang] || {};
+            const idx = parseInt(document.getElementById('edit-index').value);
+            const typeId = parseInt(document.getElementById('edit-type').value);
+            const start = new Date(document.getElementById('edit-start').value).getTime();
+            const end = new Date(document.getElementById('edit-end').value).getTime();
+            const now = Date.now();
+
+            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
+
+            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+
+            // Construction de la base : historique sans l'entrée éditée
+            let basePeriods = [...state.history];
+            if (idx !== -1) basePeriods.splice(idx, 1);
+
+            // Inclusion de la période active avec isLive, représentée jusqu'à maintenant
+            if (state.activeType !== null) {
+                basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+            }
+
+            const newEntry = { typeId, start, end };
+
+            // --- Détection des chevauchements avant modification ---
+            // On compte combien de périodes de la base chevauchent la nouvelle entrée,
+            // et si la période live est parmi elles.
+            let conflicts = 0;
+            let liveConflict = false;
+            basePeriods.forEach(p => {
+                if (p.start < newEntry.end && p.end > newEntry.start) {
+                    conflicts++;
+                    if (p.isLive) liveConflict = true;
+                }
+            });
+
+            if (conflicts > 0) {
+                const msgTemplate = liveConflict
+                    ? (t.overlapLiveWarning || "Cette modification chevauche {n} période(s), dont la période en cours. Continuer ?")
+                    : (t.overlapWarning || "Cette modification chevauche {n} période(s). Elles seront ajustées. Continuer ?");
+                const msg = msgTemplate.replace('{n}', conflicts);
+                if (!confirm(msg)) return;
+            }
+
+            // --- Application via le Rouleau Compresseur ---
+            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+
+            reconstructHistory(finalPeriods);
+            closeModal();
+        }
+
 
         // ============================================================
         // 19. EXPORT CSV
