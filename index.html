@@ -649,8 +649,8 @@
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "(En cours)",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
-                overlapWarning: "Cette opération va modifier {n} période(s) enregistrée(s). Continuer ?",
-                overlapLiveWarning: "Cette opération va modifier {n} période(s) enregistrée(s), dont la période en cours. Continuer ?",
+                overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
+                overlapLiveWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s), dont celle EN COURS, qui seront ajustées. Continuer ?",
                 importError: "Erreur lors de la lecture du fichier CSV.",
                 importSuccess: "Importation réussie !",
                 importUnknown: "Type inconnu — sera ignoré",
@@ -1531,7 +1531,97 @@
         // Réintègre les alertes de chevauchement de l'ancienne version.
         // Corrige le bug de duplication de la période active lors d'une édition adjacente.
         // ============================================================
+
+        // ============================================================
+        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
+        // ============================================================
         function saveManualEdit() {
+            const t = translations[settings.lang] || {};
+            const idx = parseInt(document.getElementById('edit-index').value);
+            const typeId = parseInt(document.getElementById('edit-type').value);
+            const startStrValue = document.getElementById('edit-start').value;
+            const endStrValue = document.getElementById('edit-end').value;
+
+            const start = new Date(startStrValue).getTime();
+            const end = new Date(endStrValue).getTime();
+            const now = Date.now();
+
+            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
+
+            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+
+            // Préparation de la base de périodes (sans celle qu'on édite)
+            let basePeriods = [...state.history];
+            if (idx !== -1) basePeriods.splice(idx, 1);
+
+            let isLiveActive = false;
+            if (state.activeType !== null) {
+                basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+                isLiveActive = true;
+            }
+
+            let newEntry = { typeId, start, end };
+
+            // --- NOUVEAU : DÉTECTION DES CHEVAUCHEMENTS ---
+            let overlapCount = 0;
+            let overlapLive = false;
+
+            for (let b of basePeriods) {
+                if (b.start < newEntry.end && b.end > newEntry.start) {
+                    overlapCount++;
+                    if (b.isLive) overlapLive = true;
+                }
+            }
+
+            // --- NOUVEAU : AFFICHAGE DE L'AVERTISSEMENT SI NÉCESSAIRE ---
+            if (overlapCount > 0) {
+                // Fonction de formatage (ex: "29/03" et "14h30")
+                const formatDateStr = (ts) => {
+                    const d = new Date(ts);
+                    const day = d.getDate().toString().padStart(2, '0');
+                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                    return `${day}/${month}`;
+                };
+                const formatTimeStr = (ts) => {
+                    const d = new Date(ts);
+                    const h = d.getHours();
+                    const m = d.getMinutes().toString().padStart(2, '0');
+                    return `${h}h${m}`;
+                };
+
+                const dateStartDisplay = formatDateStr(start);
+                const hourStartDisplay = formatTimeStr(start);
+                const dateEndDisplay = formatDateStr(end);
+                const hourEndDisplay = formatTimeStr(end);
+
+                // Choix du message
+                let msgTemplate = overlapLive ?
+                    (t.overlapLiveWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s), dont le chrono en cours. Continuer et ajuster les anciens créneaux ?") :
+                    (t.overlapWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s). Continuer et ajuster les anciens créneaux ?");
+
+                // Remplacement des balises
+                let finalMsg = msgTemplate
+                   // .replace('{date}', dateStartDisplay)
+                    .replace('{start}', dateStartDisplay + hourStartDisplay)
+                    .replace('{end}', dateEndDisplay + hourEndDisplay)
+                    .replace('{n}', overlapCount);
+
+                // On demande confirmation. Si refus, on arrête tout.
+                if (!confirm(finalMsg)) {
+                    return;
+                }
+            }
+            // --- FIN DÉTECTION ET AVERTISSEMENT ---
+
+            // Si on arrive ici, c'est qu'il n'y a pas de chevauchement OU que l'utilisateur a accepté
+            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+
+            reconstructHistory(finalPeriods);
+            closeModal();
+        }
+
+   /*     function saveManualEdit() {
             const t = translations[settings.lang] || {};
             const idx = parseInt(document.getElementById('edit-index').value);
             const typeId = parseInt(document.getElementById('edit-type').value);
@@ -1581,7 +1671,7 @@
             reconstructHistory(finalPeriods);
             closeModal();
         }
-
+*/
 
         // ============================================================
         // 19. EXPORT CSV
