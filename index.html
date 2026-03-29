@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.913 Beta 3e"; </script> 
+    <script> const APP_VERSION = "0.913 Beta 4e"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1502,30 +1502,30 @@
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // ============================================================
- /*       function saveManualEdit() {
-            const t = translations[settings.lang] || {};
-            const idx = parseInt(document.getElementById('edit-index').value);
-            const typeId = parseInt(document.getElementById('edit-type').value);
-            const start = new Date(document.getElementById('edit-start').value).getTime();
-            const end = new Date(document.getElementById('edit-end').value).getTime();
-            const now = Date.now();
-
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-
-            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-
-            let basePeriods = [...state.history];
-            if (idx !== -1) basePeriods.splice(idx, 1);
-            if (state.activeType !== null) basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-
-            let newEntry = { typeId, start, end };
-            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-
-            reconstructHistory(finalPeriods);
-            closeModal();
-        }
-*/
+        /*       function saveManualEdit() {
+                   const t = translations[settings.lang] || {};
+                   const idx = parseInt(document.getElementById('edit-index').value);
+                   const typeId = parseInt(document.getElementById('edit-type').value);
+                   const start = new Date(document.getElementById('edit-start').value).getTime();
+                   const end = new Date(document.getElementById('edit-end').value).getTime();
+                   const now = Date.now();
+       
+                   if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+                   if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
+       
+                   console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+       
+                   let basePeriods = [...state.history];
+                   if (idx !== -1) basePeriods.splice(idx, 1);
+                   if (state.activeType !== null) basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+       
+                   let newEntry = { typeId, start, end };
+                   let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+       
+                   reconstructHistory(finalPeriods);
+                   closeModal();
+               }
+       */
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // Réintègre les alertes de chevauchement de l'ancienne version.
@@ -1602,7 +1602,7 @@
 
                 // Remplacement des balises
                 let finalMsg = msgTemplate
-                   // .replace('{date}', dateStartDisplay)
+                    // .replace('{date}', dateStartDisplay)
                     .replace('{start}', dateStartDisplay + " " + hourStartDisplay)
                     .replace('{end}', dateEndDisplay + " " + hourEndDisplay)
                     .replace('{n}', overlapCount);
@@ -1612,6 +1612,19 @@
                     return;
                 }
             }
+            // ============================================================
+            // 🚀 CORRECTIF : MISE À JOUR DU CHRONO EN COURS
+            // Si l'utilisateur a mis du temps à cliquer, on actualise la fin du chrono
+            // pour ne pas qu'il passe sous la barre des "now - 1000ms" dans reconstructHistory.
+            // ============================================================
+            if (state.activeType !== null) {
+                const livePeriod = basePeriods.find(p => p.isLive);
+                if (livePeriod) {
+                    livePeriod.end = Date.now(); // On prend l'heure VRAIE de maintenant
+                }
+            }
+            // ============================================================
+
             // --- FIN DÉTECTION ET AVERTISSEMENT ---
 
             // Si on arrive ici, c'est qu'il n'y a pas de chevauchement OU que l'utilisateur a accepté
@@ -1621,57 +1634,57 @@
             closeModal();
         }
 
-   /*     function saveManualEdit() {
-            const t = translations[settings.lang] || {};
-            const idx = parseInt(document.getElementById('edit-index').value);
-            const typeId = parseInt(document.getElementById('edit-type').value);
-            const start = new Date(document.getElementById('edit-start').value).getTime();
-            const end = new Date(document.getElementById('edit-end').value).getTime();
-            const now = Date.now();
-
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-
-            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-
-            // Construction de la base : historique sans l'entrée éditée
-            let basePeriods = [...state.history];
-            if (idx !== -1) basePeriods.splice(idx, 1);
-
-            // Inclusion de la période active avec isLive, représentée jusqu'à maintenant
-            if (state.activeType !== null) {
-                basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-            }
-
-            const newEntry = { typeId, start, end };
-
-            // --- Détection des chevauchements avant modification ---
-            // On compte combien de périodes de la base chevauchent la nouvelle entrée,
-            // et si la période live est parmi elles.
-            let conflicts = 0;
-            let liveConflict = false;
-            basePeriods.forEach(p => {
-                if (p.start < newEntry.end && p.end > newEntry.start) {
-                    conflicts++;
-                    if (p.isLive) liveConflict = true;
-                }
-            });
-
-            if (conflicts > 0) {
-                const msgTemplate = liveConflict
-                    ? (t.overlapLiveWarning || "Cette modification chevauche {n} période(s), dont la période en cours. Continuer ?")
-                    : (t.overlapWarning || "Cette modification chevauche {n} période(s). Elles seront ajustées. Continuer ?");
-                const msg = msgTemplate.replace('{n}', conflicts);
-                if (!confirm(msg)) return;
-            }
-
-            // --- Application via le Rouleau Compresseur ---
-            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-
-            reconstructHistory(finalPeriods);
-            closeModal();
-        }
-*/
+        /*     function saveManualEdit() {
+                 const t = translations[settings.lang] || {};
+                 const idx = parseInt(document.getElementById('edit-index').value);
+                 const typeId = parseInt(document.getElementById('edit-type').value);
+                 const start = new Date(document.getElementById('edit-start').value).getTime();
+                 const end = new Date(document.getElementById('edit-end').value).getTime();
+                 const now = Date.now();
+     
+                 if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+                 if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
+     
+                 console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+     
+                 // Construction de la base : historique sans l'entrée éditée
+                 let basePeriods = [...state.history];
+                 if (idx !== -1) basePeriods.splice(idx, 1);
+     
+                 // Inclusion de la période active avec isLive, représentée jusqu'à maintenant
+                 if (state.activeType !== null) {
+                     basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+                 }
+     
+                 const newEntry = { typeId, start, end };
+     
+                 // --- Détection des chevauchements avant modification ---
+                 // On compte combien de périodes de la base chevauchent la nouvelle entrée,
+                 // et si la période live est parmi elles.
+                 let conflicts = 0;
+                 let liveConflict = false;
+                 basePeriods.forEach(p => {
+                     if (p.start < newEntry.end && p.end > newEntry.start) {
+                         conflicts++;
+                         if (p.isLive) liveConflict = true;
+                     }
+                 });
+     
+                 if (conflicts > 0) {
+                     const msgTemplate = liveConflict
+                         ? (t.overlapLiveWarning || "Cette modification chevauche {n} période(s), dont la période en cours. Continuer ?")
+                         : (t.overlapWarning || "Cette modification chevauche {n} période(s). Elles seront ajustées. Continuer ?");
+                     const msg = msgTemplate.replace('{n}', conflicts);
+                     if (!confirm(msg)) return;
+                 }
+     
+                 // --- Application via le Rouleau Compresseur ---
+                 let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+     
+                 reconstructHistory(finalPeriods);
+                 closeModal();
+             }
+     */
 
         // ============================================================
         // 19. EXPORT CSV
