@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.914 Beta e2"; </script>
+    <script> const APP_VERSION = "0.914 Beta e3"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -646,7 +646,7 @@
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
-                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "(En cours)",
+                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "En cours...",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
@@ -868,11 +868,12 @@
         // ============================================================
         function updateUI() {
 
+            //const t = translations[settings.lang];
+
             // Sécurité : si settings ou lang n'existent pas encore, on évite le crash
             // if (!translations || !settings) return;
             // const t = translations[settings.lang] || translations['fr']; // Fallback sur le français
-
-            const t = translations[settings.lang];
+            const t = (translations && settings) ? (translations[settings.lang] || translations['fr']) : {};
             document.getElementById('nav-timeline').innerText = t.timeline;
             document.getElementById('title-timeline').innerText = t.timeline;
             document.getElementById('nav-measure').innerText = t.measure;
@@ -1362,7 +1363,17 @@
                     let originalIndex = state.history.indexOf(e);
 
                     // Si c'est en cours, pas de boutons d'action. Sinon, on ajoute les boutons.
-                    let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+                    //  let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+
+                    // boutons d'action pout toutes les périodes enregistrées
+                    let actions = "";
+                    if (e.inProgress) {
+                        // Boutons pour le chrono en cours (on passe 'live' entre guillemets)
+                        actions = `<div class="history-actions"><button class="btn-icon" onclick="openEditModal('live')">✏️</button><button class="btn-icon" onclick="deleteEntry('live')">🗑️</button></div>`;
+                    } else {
+                        // Boutons normaux
+                        actions = `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
+                    }
 
                     // Récupération du label et de la couleur via les nouvelles fonctions utilitaires
                     let labelText = getLabelForId(e.typeId);
@@ -1383,26 +1394,72 @@
         // 16. SUPPRESSION ET ÉDITION D'UNE PÉRIODE
         // ============================================================
 
+        /*       function deleteEntry(i) {
+                   if (confirm("Supprimer ?")) {
+                       console.log(`[deleteEntry] Suppression de l'entrée index ${i}`);
+                       state.history.splice(i, 1);
+                       saveState();
+                       // On rafraîchit les deux vues qui dépendent de l'historique
+                       renderHistory();
+                       renderResults();
+                   }
+               }
+                   */
+
+
         function deleteEntry(i) {
             if (confirm("Supprimer ?")) {
-                console.log(`[deleteEntry] Suppression de l'entrée index ${i}`);
-                state.history.splice(i, 1);
+                console.log(`[deleteEntry] Suppression de l'entrée : ${i}`);
+
+                if (i === 'live') {
+                    // On annule purement et simplement le chrono en cours
+                    state.activeType = null;
+                    state.startTime = null;
+                } else {
+                    // Suppression normale dans l'historique
+                    state.history.splice(i, 1);
+                }
+
                 saveState();
-                // On rafraîchit les deux vues qui dépendent de l'historique
                 renderHistory();
                 renderResults();
+                if (typeof updateUI === "function") updateUI(); // Pour stopper l'interface du chrono si nécessaire
             }
         }
 
         function openEditModal(i) {
-            console.log(`[openEditModal] Ouverture pour index ${i}`);
-            const e = state.history[i];
+            console.log(`[openEditModal] Ouverture pour index/statut : ${i}`);
             document.getElementById('edit-index').value = i;
+
+            let e;
+            if (i === 'live') {
+                // Si c'est le chrono en cours, on simule l'objet
+                e = {
+                    typeId: state.activeType,
+                    start: state.startTime,
+                    end: Date.now() // La fin affichée sera "maintenant"
+                };
+            } else {
+                // Sinon, on prend l'historique normal
+                e = state.history[i];
+            }
+
             document.getElementById('edit-type').value = e.typeId;
             document.getElementById('edit-start').value = toLocalISOString(e.start);
             document.getElementById('edit-end').value = toLocalISOString(e.end);
             document.getElementById('editModal').style.display = 'flex';
         }
+
+        /*     function openEditModal(i) {
+                 console.log(`[openEditModal] Ouverture pour index ${i}`);
+                 const e = state.history[i];
+                 document.getElementById('edit-index').value = i;
+                 document.getElementById('edit-type').value = e.typeId;
+                 document.getElementById('edit-start').value = toLocalISOString(e.start);
+                 document.getElementById('edit-end').value = toLocalISOString(e.end);
+                 document.getElementById('editModal').style.display = 'flex';
+             }
+     */
 
         function openAddModal() {
             console.log("[openAddModal] Ouverture du modal d'ajout");
@@ -1508,116 +1565,116 @@
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // ============================================================
-  /*      function saveManualEdit() {
-            const t = translations[settings.lang] || {};
-            const idx = parseInt(document.getElementById('edit-index').value);
-            const typeId = parseInt(document.getElementById('edit-type').value);
-            const startStrValue = document.getElementById('edit-start').value;
-            const endStrValue = document.getElementById('edit-end').value;
-
-            const start = new Date(startStrValue).getTime();
-            const end = new Date(endStrValue).getTime();
-            const now = Date.now();
-
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-            if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-
-            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-
-            // Préparation de la base de périodes (sans celle qu'on édite)
-            let basePeriods = [...state.history];
-            if (idx !== -1) basePeriods.splice(idx, 1);
-
-            let isLiveActive = false;
-            if (state.activeType !== null) {
-                basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-                isLiveActive = true;
-            }
-
-            let newEntry = { typeId, start, end };
-
-            // --- NOUVEAU : DÉTECTION DES CHEVAUCHEMENTS ---
-            let overlapCount = 0;
-            let overlapLive = false;
-
-            for (let b of basePeriods) {
-                if (b.start < newEntry.end && b.end > newEntry.start) {
-                    overlapCount++;
-                    if (b.isLive) overlapLive = true;
-                }
-            }
-
-            // --- NOUVEAU : AFFICHAGE DE L'AVERTISSEMENT SI NÉCESSAIRE ---
-            if (overlapCount > 0) {
-                // Fonction de formatage (ex: "29/03" et "14h30")
-                const formatDateStr = (ts) => {
-                    const d = new Date(ts);
-                    const day = d.getDate().toString().padStart(2, '0');
-                    const month = (d.getMonth() + 1).toString().padStart(2, '0');
-                    return `${day}/${month}`;
-                };
-                const formatTimeStr = (ts) => {
-                    const d = new Date(ts);
-                    const h = d.getHours();
-                    const m = d.getMinutes().toString().padStart(2, '0');
-                    return `${h}h${m}`;
-                };
-
-                const dateStartDisplay = formatDateStr(start);
-                const hourStartDisplay = formatTimeStr(start);
-                const dateEndDisplay = formatDateStr(end);
-                const hourEndDisplay = formatTimeStr(end);
-
-                // Choix du message
-                let msgTemplate = overlapLive ?
-                    (t.overlapLiveWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s), dont le chrono en cours. Continuer et ajuster les anciens créneaux ?") :
-                    (t.overlapWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s). Continuer et ajuster les anciens créneaux ?");
-
-                // Remplacement des balises
-                let finalMsg = msgTemplate
-                    // .replace('{date}', dateStartDisplay)
-                    .replace('{start}', dateStartDisplay + " " + hourStartDisplay)
-                    .replace('{end}', dateEndDisplay + " " + hourEndDisplay)
-                    .replace('{n}', overlapCount);
-
-                // On demande confirmation. Si refus, on arrête tout.
-                if (!confirm(finalMsg)) {
-                    return;
-                }
-            }
-            // ============================================================
-            // 🚀 CORRECTIF : MISE À JOUR DU CHRONO EN COURS
-            // Si l'utilisateur a mis du temps à cliquer, on actualise la fin du chrono
-            // pour ne pas qu'il passe sous la barre des "now - 1000ms" dans reconstructHistory.
-            // ============================================================
-            if (state.activeType !== null) {
-                const livePeriod = basePeriods.find(p => p.isLive);
-                if (livePeriod) {
-                    livePeriod.end = Date.now(); // On prend l'heure VRAIE de maintenant
-                }
-            }
-            // ============================================================
-
-            // --- FIN DÉTECTION ET AVERTISSEMENT ---
-
-            // Si on arrive ici, c'est qu'il n'y a pas de chevauchement OU que l'utilisateur a accepté
-            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-
-            reconstructHistory(finalPeriods);
-            closeModal();
-        }
-*/
+        /*      function saveManualEdit() {
+                  const t = translations[settings.lang] || {};
+                  const idx = parseInt(document.getElementById('edit-index').value);
+                  const typeId = parseInt(document.getElementById('edit-type').value);
+                  const startStrValue = document.getElementById('edit-start').value;
+                  const endStrValue = document.getElementById('edit-end').value;
+      
+                  const start = new Date(startStrValue).getTime();
+                  const end = new Date(endStrValue).getTime();
+                  const now = Date.now();
+      
+                  if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+                  if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
+      
+                  console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+      
+                  // Préparation de la base de périodes (sans celle qu'on édite)
+                  let basePeriods = [...state.history];
+                  if (idx !== -1) basePeriods.splice(idx, 1);
+      
+                  let isLiveActive = false;
+                  if (state.activeType !== null) {
+                      basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+                      isLiveActive = true;
+                  }
+      
+                  let newEntry = { typeId, start, end };
+      
+                  // --- NOUVEAU : DÉTECTION DES CHEVAUCHEMENTS ---
+                  let overlapCount = 0;
+                  let overlapLive = false;
+      
+                  for (let b of basePeriods) {
+                      if (b.start < newEntry.end && b.end > newEntry.start) {
+                          overlapCount++;
+                          if (b.isLive) overlapLive = true;
+                      }
+                  }
+      
+                  // --- NOUVEAU : AFFICHAGE DE L'AVERTISSEMENT SI NÉCESSAIRE ---
+                  if (overlapCount > 0) {
+                      // Fonction de formatage (ex: "29/03" et "14h30")
+                      const formatDateStr = (ts) => {
+                          const d = new Date(ts);
+                          const day = d.getDate().toString().padStart(2, '0');
+                          const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                          return `${day}/${month}`;
+                      };
+                      const formatTimeStr = (ts) => {
+                          const d = new Date(ts);
+                          const h = d.getHours();
+                          const m = d.getMinutes().toString().padStart(2, '0');
+                          return `${h}h${m}`;
+                      };
+      
+                      const dateStartDisplay = formatDateStr(start);
+                      const hourStartDisplay = formatTimeStr(start);
+                      const dateEndDisplay = formatDateStr(end);
+                      const hourEndDisplay = formatTimeStr(end);
+      
+                      // Choix du message
+                      let msgTemplate = overlapLive ?
+                          (t.overlapLiveWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s), dont le chrono en cours. Continuer et ajuster les anciens créneaux ?") :
+                          (t.overlapWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s). Continuer et ajuster les anciens créneaux ?");
+      
+                      // Remplacement des balises
+                      let finalMsg = msgTemplate
+                          // .replace('{date}', dateStartDisplay)
+                          .replace('{start}', dateStartDisplay + " " + hourStartDisplay)
+                          .replace('{end}', dateEndDisplay + " " + hourEndDisplay)
+                          .replace('{n}', overlapCount);
+      
+                      // On demande confirmation. Si refus, on arrête tout.
+                      if (!confirm(finalMsg)) {
+                          return;
+                      }
+                  }
+                  // ============================================================
+                  // 🚀 CORRECTIF : MISE À JOUR DU CHRONO EN COURS
+                  // Si l'utilisateur a mis du temps à cliquer, on actualise la fin du chrono
+                  // pour ne pas qu'il passe sous la barre des "now - 1000ms" dans reconstructHistory.
+                  // ============================================================
+                  if (state.activeType !== null) {
+                      const livePeriod = basePeriods.find(p => p.isLive);
+                      if (livePeriod) {
+                          livePeriod.end = Date.now(); // On prend l'heure VRAIE de maintenant
+                      }
+                  }
+                  // ============================================================
+      
+                  // --- FIN DÉTECTION ET AVERTISSEMENT ---
+      
+                  // Si on arrive ici, c'est qu'il n'y a pas de chevauchement OU que l'utilisateur a accepté
+                  let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+      
+                  reconstructHistory(finalPeriods);
+                  closeModal();
+              }
+      */
 
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // ============================================================
         function saveManualEdit() {
             const t = translations[settings.lang] || {};
-            
+
             // On récupère l'index brut (peut être un nombre, ou "live" si on édite le chrono en cours)
             const rawIdx = document.getElementById('edit-index').value;
             const idx = rawIdx === 'live' ? 'live' : parseInt(rawIdx);
-            
+
             const typeId = parseInt(document.getElementById('edit-type').value);
             const startStrValue = document.getElementById('edit-start').value;
             const endStrValue = document.getElementById('edit-end').value;
@@ -1644,7 +1701,7 @@
 
             // Préparation de la base de périodes
             let basePeriods = [...state.history];
-            
+
             // Si on édite une ancienne période existante, on la retire de la base
             if (typeof idx === 'number' && idx !== -1 && idx < basePeriods.length) {
                 basePeriods.splice(idx, 1);
@@ -1690,7 +1747,7 @@
 
             if (isEndInFuture) {
                 finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n";
-                finalMsg += `${dateS} ${hourS} → en cours...\n\n`; 
+                finalMsg += `${dateS} ${hourS} → en cours...\n\n`;
             } else {
                 finalMsg += "Nouvelle période :\n";
                 finalMsg += `${dateS} ${hourS} → ${dateE} ${hourE}\n\n`;
@@ -1710,12 +1767,12 @@
             // --- MISE À JOUR DU TEMPS ÉCOULÉ PENDANT LE POPUP ---
             // Le temps a passé pendant que la boîte de dialogue était ouverte, on actualise "now"
             now = Date.now();
-            
+
             if (isLiveActive) {
                 const livePeriod = basePeriods.find(p => p.isLive);
                 if (livePeriod) livePeriod.end = now;
             }
-            
+
             if (isEndInFuture) {
                 newEntry.end = now; // La nouvelle période "en cours" se termine exactement à la validation
                 newEntry.isLive = true; // 🚀 CORRECTIF ICI : On indique au système que cette période est le chrono actif !
@@ -2047,26 +2104,26 @@
                 allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
 
-  /*        allPeriods.forEach(p => {
-                // Normalisation : accepte typeId (nouveau) ou type (ancien)
-                const typeId = p.typeId !== undefined ? p.typeId : p.type;
-                for (let i = 0; i < 7; i++) {
-                    let dayS = daysStart[i];
-                    let dayE = dayS + 24 * 3600 * 1000;
-                    if (p.start >= dayS && p.start < dayE) {
-                        let sDay = new Date(p.start);
-                        let eDay = new Date(p.end);
-                        let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                        if (eDay.getTime() >= dayE) endHour = 24;
-                        if (dataSetsByType[typeId] !== undefined) {
-                            dataSetsByType[typeId].push({ x: labels[i], y: [startHour, endHour] });
-                        }
-                        break;
-                    }
-                }
-            });
-*/
+            /*        allPeriods.forEach(p => {
+                          // Normalisation : accepte typeId (nouveau) ou type (ancien)
+                          const typeId = p.typeId !== undefined ? p.typeId : p.type;
+                          for (let i = 0; i < 7; i++) {
+                              let dayS = daysStart[i];
+                              let dayE = dayS + 24 * 3600 * 1000;
+                              if (p.start >= dayS && p.start < dayE) {
+                                  let sDay = new Date(p.start);
+                                  let eDay = new Date(p.end);
+                                  let startHour = sDay.getHours() + sDay.getMinutes() / 60;
+                                  let endHour = eDay.getHours() + eDay.getMinutes() / 60;
+                                  if (eDay.getTime() >= dayE) endHour = 24;
+                                  if (dataSetsByType[typeId] !== undefined) {
+                                      dataSetsByType[typeId].push({ x: labels[i], y: [startHour, endHour] });
+                                  }
+                                  break;
+                              }
+                          }
+                      });
+          */
 
             allPeriods.forEach(p => {
                 // Normalisation : accepte typeId (nouveau) ou type (ancien)
@@ -2085,7 +2142,7 @@
                         let sDay = new Date(p.start);
                         let eDay = new Date(p.end);
                         let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                        let endHour   = eDay.getHours() + eDay.getMinutes() / 60;
+                        let endHour = eDay.getHours() + eDay.getMinutes() / 60;
                         // Si la fin dépasse minuit du jour suivant, on plafonne à 24h
                         if (p.end >= dayE) endHour = 24;
                         if (dataSetsByType[typeId] !== undefined) {
