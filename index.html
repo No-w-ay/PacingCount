@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.914 Beta e1"; </script>
+    <script> const APP_VERSION = "0.914 Beta e2"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1718,6 +1718,15 @@
             
             if (isEndInFuture) {
                 newEntry.end = now; // La nouvelle période "en cours" se termine exactement à la validation
+                newEntry.isLive = true; // 🚀 CORRECTIF ICI : On indique au système que cette période est le chrono actif !
+            } else if (idx === 'live' && end >= now - 120000) {
+                // 💡 Petite sécurité UX en plus : 
+                // Si l'utilisateur édite le chrono en cours (idx='live'), 
+                // mais qu'il ne touche pas à l'heure de fin, cette dernière a "vieilli" 
+                // pendant qu'il tapait, et n'est plus dans le futur.
+                // On s'assure qu'il ne se ferme pas tout seul.
+                newEntry.end = now;
+                newEntry.isLive = true;
             }
 
             // --- APPLICATION DU ROULEAU COMPRESSEUR ---
