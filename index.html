@@ -1501,33 +1501,6 @@
 
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
-        // ============================================================
-        /*       function saveManualEdit() {
-                   const t = translations[settings.lang] || {};
-                   const idx = parseInt(document.getElementById('edit-index').value);
-                   const typeId = parseInt(document.getElementById('edit-type').value);
-                   const start = new Date(document.getElementById('edit-start').value).getTime();
-                   const end = new Date(document.getElementById('edit-end').value).getTime();
-                   const now = Date.now();
-       
-                   if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-                   if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-       
-                   console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-       
-                   let basePeriods = [...state.history];
-                   if (idx !== -1) basePeriods.splice(idx, 1);
-                   if (state.activeType !== null) basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-       
-                   let newEntry = { typeId, start, end };
-                   let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-       
-                   reconstructHistory(finalPeriods);
-                   closeModal();
-               }
-       */
-        // ============================================================
-        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // Réintègre les alertes de chevauchement de l'ancienne version.
         // Corrige le bug de duplication de la période active lors d'une édition adjacente.
         // ============================================================
