@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.914 Beta e3"; </script>
+    <script> const APP_VERSION = "0.914 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -646,7 +646,7 @@
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
-                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "En cours...",
+                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours...",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
@@ -1381,7 +1381,7 @@
                     let inProgressText = t.inProgress || "En cours";
 
                     // Construction de la ligne HTML
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} - ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
