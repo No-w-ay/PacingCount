@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.914 Beta e4"; </script>
+    <script> const APP_VERSION = "0.914 Beta e5"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1422,7 +1422,8 @@
 
                 saveState();
                 renderHistory();
-                renderResults();
+                renderTimelineChart();
+              //  renderResults();
                 if (typeof updateUI === "function") updateUI(); // Pour stopper l'interface du chrono si nécessaire
             }
         }
@@ -1546,7 +1547,7 @@
             });
             state.history.sort((a, b) => a.start - b.start);
             saveState();
-            renderResults();
+    //      renderResults();
             updateUI();
             // Rafraîchit l'historique seulement si la page timeline est déjà visible
             // (évite un appel inutile à Chart.js si on est sur une autre page)
