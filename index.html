@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.913 Beta 7e"; </script>
+    <script> const APP_VERSION = "0.914 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1508,7 +1508,7 @@
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
         // ============================================================
-        function saveManualEdit() {
+  /*      function saveManualEdit() {
             const t = translations[settings.lang] || {};
             const idx = parseInt(document.getElementById('edit-index').value);
             const typeId = parseInt(document.getElementById('edit-type').value);
@@ -1606,58 +1606,126 @@
             reconstructHistory(finalPeriods);
             closeModal();
         }
+*/
 
-        /*     function saveManualEdit() {
-                 const t = translations[settings.lang] || {};
-                 const idx = parseInt(document.getElementById('edit-index').value);
-                 const typeId = parseInt(document.getElementById('edit-type').value);
-                 const start = new Date(document.getElementById('edit-start').value).getTime();
-                 const end = new Date(document.getElementById('edit-end').value).getTime();
-                 const now = Date.now();
-     
-                 if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-                 if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-     
-                 console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-     
-                 // Construction de la base : historique sans l'entrée éditée
-                 let basePeriods = [...state.history];
-                 if (idx !== -1) basePeriods.splice(idx, 1);
-     
-                 // Inclusion de la période active avec isLive, représentée jusqu'à maintenant
-                 if (state.activeType !== null) {
-                     basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-                 }
-     
-                 const newEntry = { typeId, start, end };
-     
-                 // --- Détection des chevauchements avant modification ---
-                 // On compte combien de périodes de la base chevauchent la nouvelle entrée,
-                 // et si la période live est parmi elles.
-                 let conflicts = 0;
-                 let liveConflict = false;
-                 basePeriods.forEach(p => {
-                     if (p.start < newEntry.end && p.end > newEntry.start) {
-                         conflicts++;
-                         if (p.isLive) liveConflict = true;
-                     }
-                 });
-     
-                 if (conflicts > 0) {
-                     const msgTemplate = liveConflict
-                         ? (t.overlapLiveWarning || "Cette modification chevauche {n} période(s), dont la période en cours. Continuer ?")
-                         : (t.overlapWarning || "Cette modification chevauche {n} période(s). Elles seront ajustées. Continuer ?");
-                     const msg = msgTemplate.replace('{n}', conflicts);
-                     if (!confirm(msg)) return;
-                 }
-     
-                 // --- Application via le Rouleau Compresseur ---
-                 let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-     
-                 reconstructHistory(finalPeriods);
-                 closeModal();
-             }
-     */
+        // ============================================================
+        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
+        // ============================================================
+        function saveManualEdit() {
+            const t = translations[settings.lang] || {};
+            
+            // On récupère l'index brut (peut être un nombre, ou "live" si on édite le chrono en cours)
+            const rawIdx = document.getElementById('edit-index').value;
+            const idx = rawIdx === 'live' ? 'live' : parseInt(rawIdx);
+            
+            const typeId = parseInt(document.getElementById('edit-type').value);
+            const startStrValue = document.getElementById('edit-start').value;
+            const endStrValue = document.getElementById('edit-end').value;
+
+            const start = new Date(startStrValue).getTime();
+            let end = new Date(endStrValue).getTime(); // 'let' car on peut le modifier
+            let now = Date.now();
+
+            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+
+            // --- TEST 1 : Toute la période est dans le futur ---
+            if (start > now) {
+                return alert("Impossible d'enregistrer une période dans le futur.");
+            }
+
+            // --- TEST 2 : Uniquement la fin est dans le futur ---
+            let isEndInFuture = false;
+            if (end > now) {
+                isEndInFuture = true;
+                end = now; // On ramène la fin à "maintenant" pour que reconstructHistory relance le chrono
+            }
+
+            console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
+
+            // Préparation de la base de périodes
+            let basePeriods = [...state.history];
+            
+            // Si on édite une ancienne période existante, on la retire de la base
+            if (typeof idx === 'number' && idx !== -1 && idx < basePeriods.length) {
+                basePeriods.splice(idx, 1);
+            }
+
+            // Si un chrono est en cours ET qu'on n'est pas en train de l'éditer LUI, on l'ajoute pour le traiter
+            let isLiveActive = false;
+            if (state.activeType !== null && idx !== 'live') {
+                basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+                isLiveActive = true;
+            }
+
+            let newEntry = { typeId, start, end };
+
+            // --- DÉTECTION DES CHEVAUCHEMENTS ---
+            let overlapCount = 0;
+            for (let b of basePeriods) {
+                if (b.start < newEntry.end && b.end > newEntry.start) {
+                    overlapCount++;
+                }
+            }
+
+            // --- CRÉATION DU MESSAGE DE CONFIRMATION ---
+            const formatDateStr = (ts) => {
+                const d = new Date(ts);
+                const day = d.getDate().toString().padStart(2, '0');
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                return `${day}/${month}`;
+            };
+            const formatTimeStr = (ts) => {
+                const d = new Date(ts);
+                const h = d.getHours();
+                const m = d.getMinutes().toString().padStart(2, '0');
+                return `${h}h${m}`;
+            };
+
+            const dateS = formatDateStr(start);
+            const hourS = formatTimeStr(start);
+            const dateE = formatDateStr(end);
+            const hourE = formatTimeStr(end);
+
+            let finalMsg = "";
+
+            if (isEndInFuture) {
+                finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n";
+                finalMsg += `${dateS} ${hourS} → en cours...\n\n`; 
+            } else {
+                finalMsg += "Nouvelle période :\n";
+                finalMsg += `${dateS} ${hourS} → ${dateE} ${hourE}\n\n`;
+            }
+
+            if (overlapCount > 0) {
+                finalMsg += `Cette période empiète sur ${overlapCount} autre(s) période(s) qui seront ajustées.\n\n`;
+            }
+
+            finalMsg += "Continuer ?";
+
+            // On demande confirmation à l'utilisateur
+            if (!confirm(finalMsg)) {
+                return;
+            }
+
+            // --- MISE À JOUR DU TEMPS ÉCOULÉ PENDANT LE POPUP ---
+            // Le temps a passé pendant que la boîte de dialogue était ouverte, on actualise "now"
+            now = Date.now();
+            
+            if (isLiveActive) {
+                const livePeriod = basePeriods.find(p => p.isLive);
+                if (livePeriod) livePeriod.end = now;
+            }
+            
+            if (isEndInFuture) {
+                newEntry.end = now; // La nouvelle période "en cours" se termine exactement à la validation
+            }
+
+            // --- APPLICATION DU ROULEAU COMPRESSEUR ---
+            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+
+            reconstructHistory(finalPeriods);
+            closeModal();
+        }
 
         // ============================================================
         // 19. EXPORT CSV
