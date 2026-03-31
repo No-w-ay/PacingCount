@@ -1390,15 +1390,16 @@
                     // ------------------------------------
 
                     // Construction de la ligne HTML (utilisation de flex pour séparer label et durée)
+                    // --- Le HTML minimal avec Flex ---
                     div.innerHTML = `
-                        <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
-                            <span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span>
-                            <div style="display:flex; justify-content:space-between; align-items:center; padding-right:15px;">
-                                <span style="color:${colorVar};font-weight:bold;">${labelText}</span>
-                                <span style="color:${colorVar};font-weight:bold;">${durationText}</span>
-                            </div>
-                        </div>
-                        ${actions}`;
+<div style="flex: 1;">
+    <span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span>
+    <div style="display: flex; justify-content: space-between; font-weight: bold; color: ${colorVar}; padding-right: 15px;">
+        <span>${labelText}</span>
+        <span>${durationText}</span>
+    </div>
+</div>
+${actions}`;
 
                     // Construction de la ligne HTML
                     div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
