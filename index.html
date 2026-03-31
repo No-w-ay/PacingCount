@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.915 Beta e2"; </script>
+    <script> const APP_VERSION = "0.915 Beta e3"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1379,6 +1379,26 @@
                     let labelText = getLabelForId(e.typeId);
                     let colorVar = `var(--${getColorNameForId(e.typeId)})`;
                     let inProgressText = t.inProgress || "En cours";
+
+                    // --- NOUVEAU : Calcul de la durée ---
+                    // Si en cours, on calcule jusqu'à maintenant. Sinon, différence entre fin et début.
+                    let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
+                    let totalMin = Math.floor(durationMs / 60000); // Conversion en minutes
+                    let hours = Math.floor(totalMin / 60);
+                    let mins = (totalMin % 60).toString().padStart(2, '0');
+                    let durationText = `${hours}h${mins}`;
+                    // ------------------------------------
+
+                    // Construction de la ligne HTML (utilisation de flex pour séparer label et durée)
+                    div.innerHTML = `
+                        <div style="flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                            <span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding-right:15px;">
+                                <span style="color:${colorVar};font-weight:bold;">${labelText}</span>
+                                <span style="color:${colorVar};font-weight:bold;">${durationText}</span>
+                            </div>
+                        </div>
+                        ${actions}`;
 
                     // Construction de la ligne HTML
                     div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
