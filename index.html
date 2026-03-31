@@ -238,11 +238,21 @@
             border-bottom: none;
         }
 
-        .history-time {
+        /*     .history-time {
             font-family: monospace;
             color: #aaa;
             margin-bottom: 4px;
             display: block;
+        }
+    */
+        .history-time {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 4px;
+            display: block;
+
+            /* Magie : force les chiffres à avoir la même largeur */
+            font-variant-numeric: tabular-nums;
         }
 
         .history-actions {
@@ -1380,7 +1390,7 @@
                     let colorVar = `var(--${getColorNameForId(e.typeId)})`;
                     let inProgressText = t.inProgress || "En cours";
 
-                  // --- CALCUL DE LA DURÉE ---
+                    // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
                     let totalMin = Math.floor(durationMs / 60000);
                     let hours = Math.floor(totalMin / 60);
