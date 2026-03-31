@@ -1380,38 +1380,16 @@
                     let colorVar = `var(--${getColorNameForId(e.typeId)})`;
                     let inProgressText = t.inProgress || "En cours";
 
-                    // --- NOUVEAU : Calcul de la durée ---
-                    // Si en cours, on calcule jusqu'à maintenant. Sinon, différence entre fin et début.
+                  // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
-                    let totalMin = Math.floor(durationMs / 60000); // Conversion en minutes
+                    let totalMin = Math.floor(durationMs / 60000);
                     let hours = Math.floor(totalMin / 60);
                     let mins = (totalMin % 60).toString().padStart(2, '0');
                     let durationText = `${hours}h${mins}`;
-                    // ------------------------------------
 
-                    // Construction de la ligne HTML (utilisation de flex pour séparer label et durée)
-                    // --- CONSTRUCTION DU HTML ---
-                    // J'ai ajouté 'width: 100%' et vérifié le flex-grow
-                    div.innerHTML = `
-    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
-        <span class="history-time">
-            ${new Date(start).toLocaleDateString()} ${formatTime(start)} → 
-            ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(end)}
-        </span>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 15px;">
-            <span style="color:${colorVar}; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${labelText}
-            </span>
-            <span style="color:${colorVar}; font-weight: bold; margin-left: 10px; flex-shrink: 0;">
-                ${durationText}
-            </span>
-        </div>
-    </div>
-    ${actions}
-`;
-
-                    // Construction de la ligne HTML
-           //         div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
+                    // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    // div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
