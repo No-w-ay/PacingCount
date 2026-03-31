@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.915 Beta e1"; </script>
+    <script> const APP_VERSION = "0.915 Beta e2"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -2210,9 +2210,26 @@
                                 callbacks: {
                                     label: function (context) {
                                         let raw = context.raw;
-                                        let sH = Math.floor(raw.y[0]); let sM = Math.round((raw.y[0] - sH) * 60);
-                                        let eH = Math.floor(raw.y[1]); let eM = Math.round((raw.y[1] - eH) * 60);
-                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} - ${eH}h${eM.toString().padStart(2, '00')}`;
+
+                                        // Calcul de l'heure de début et de fin
+                                        let sH = Math.floor(raw.y[0]);
+                                        let sM = Math.round((raw.y[0] - sH) * 60);
+                                        let eH = Math.floor(raw.y[1]);
+                                        let eM = Math.round((raw.y[1] - eH) * 60);
+
+                                        // Arrondis de sécurité (si .round() donne 60)
+                                        if (sM === 60) { sH += 1; sM = 0; }
+                                        if (eM === 60) { eH += 1; eM = 0; }
+
+                                        // --- NOUVEAU : Calcul de la durée ---
+                                        let duration = raw.y[1] - raw.y[0]; // Différence en heures décimales
+                                        let dH = Math.floor(duration);
+                                        let dM = Math.round((duration - dH) * 60);
+                                        if (dM === 60) { dH += 1; dM = 0; }
+                                        // ------------------------------------
+
+                                        // Format final : "Label : 10h30 - 12h15 (1h45)"
+                                        return `${context.dataset.label} : ${sH}h${sM.toString().padStart(2, '0')} → ${eH}h${eM.toString().padStart(2, '0')} (${dH}h${dM.toString().padStart(2, '0')})`;
                                     }
                                 }
                             }
@@ -2256,7 +2273,12 @@
             if (document.getElementById('editModal').style.display === 'flex') return;
             if (document.getElementById('importModal').style.display === 'flex') return;
 
-            document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
+            //   document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
+            // On cible uniquement les boutons de changement de page (bonne pratique)
+            document.querySelectorAll('.page, nav button[id^="nav-"]').forEach(el => {
+                el.classList.remove('active');
+            });
+
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
             if (p === 'results') {
