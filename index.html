@@ -1390,16 +1390,25 @@
                     // ------------------------------------
 
                     // Construction de la ligne HTML (utilisation de flex pour séparer label et durée)
-                    // --- Le HTML minimal avec Flex ---
+                    // --- CONSTRUCTION DU HTML ---
+                    // J'ai ajouté 'width: 100%' et vérifié le flex-grow
                     div.innerHTML = `
-<div style="flex: 1;">
-    <span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span>
-    <div style="display: flex; justify-content: space-between; font-weight: bold; color: ${colorVar}; padding-right: 15px;">
-        <span>${labelText}</span>
-        <span>${durationText}</span>
+    <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column;">
+        <span class="history-time">
+            ${new Date(start).toLocaleDateString()} ${formatTime(start)} → 
+            ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(end)}
+        </span>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-right: 15px;">
+            <span style="color:${colorVar}; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${labelText}
+            </span>
+            <span style="color:${colorVar}; font-weight: bold; margin-left: 10px; flex-shrink: 0;">
+                ${durationText}
+            </span>
+        </div>
     </div>
-</div>
-${actions}`;
+    ${actions}
+`;
 
                     // Construction de la ligne HTML
                     div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
