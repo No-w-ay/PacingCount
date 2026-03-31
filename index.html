@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.915 Beta e3"; </script>
+    <script> const APP_VERSION = "0.915 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -582,74 +582,6 @@
         // Les labels des types (boutons) sont dans settings.types, pas ici.
         // Nouvelles clés ajoutées pour le modal d'import avec tableau de correspondance.
         // ============================================================
-
-        /*      
-              
-              const translations = {
-                  fr: {
-                      timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
-                      export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
-                      stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
-                      history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "(En cours)",
-                      addManual: "+ Ajouter une période",
-                      futureError: "Impossible d'enregistrer une période dans le futur.",
-                      importError: "Erreur lors de la lecture du fichier CSV.",
-                      importSuccess: "Importation réussie !",
-                      importUnknown: "Type inconnu — sera ignoré",
-                      importWarning: "Les types inconnus ne seront pas importés.",
-                      importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
-                      importReplace: "Remplacer", importReplaceDesc: "Supprime tout et remplace par le fichier.",
-                      importMerge: "Fusionner", importMergeDesc: "Le fichier a la priorité en cas de conflit.",
-                      importCancel: "Annuler",
-                      resCouche: "Couché", resMoy3j: "moy.3j",
-                      resActif: "période active", resActifP: "périodes actives",
-                      resMoy: "moy", resMax: "max", resMin: "min",
-                      resIncomplet: "Journée incomplète"
-                  },
-                  en: {
-                      timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
-                      export: "Export CSV", import: "Import CSV", custom: "Button Names",
-                      stop: "Stop recording", confirmStop: "Stop current recording?",
-                      history: "Recorded periods", prev: "Previous: ", inProgress: "(In progress)",
-                      addManual: "+ Add a period",
-                      futureError: "Cannot record a period in the future.",
-                      importError: "Error reading CSV file.",
-                      importSuccess: "Import successful!",
-                      importUnknown: "Unknown type — will be ignored",
-                      importWarning: "Unknown types will not be imported.",
-                      importFileHeader: "In the file", importAppHeader: "In the app",
-                      importReplace: "Replace", importReplaceDesc: "Deletes everything and replaces with the file.",
-                      importMerge: "Merge", importMergeDesc: "File takes priority in case of conflict.",
-                      importCancel: "Cancel",
-                      resCouche: "Lying", resMoy3j: "3d avg",
-                      resActif: "active period", resActifP: "active periods",
-                      resMoy: "avg", resMax: "max", resMin: "min",
-                      resIncomplet: "Incomplete day"
-                  },
-                  nl: {
-                      timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
-                      export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
-                      stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
-                      history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "(Bezig)",
-                      addManual: "+ Periode toevoegen",
-                      futureError: "Kan geen periode in de toekomst opnemen.",
-                      importError: "Fout bij het lezen van het CSV-bestand.",
-                      importSuccess: "Importeren geslaagd!",
-                      importUnknown: "Onbekend type — wordt genegeerd",
-                      importWarning: "Onbekende types worden niet geïmporteerd.",
-                      importFileHeader: "In het bestand", importAppHeader: "In de app",
-                      importReplace: "Vervangen", importReplaceDesc: "Verwijdert alles en vervangt met het bestand.",
-                      importMerge: "Samenvoegen", importMergeDesc: "Bestand heeft prioriteit bij conflict.",
-                      importCancel: "Annuleren",
-                      resCouche: "Liggend", resMoy3j: "3d gem",
-                      resActif: "actieve periode", resActifP: "actieve periodes",
-                      resMoy: "gem", resMax: "max", resMin: "min",
-                      resIncomplet: "Onvolledige dag"
-                  }
-              };
-      
-      */
-
 
         const translations = {
             fr: {
@@ -1412,19 +1344,6 @@
         // 16. SUPPRESSION ET ÉDITION D'UNE PÉRIODE
         // ============================================================
 
-        /*       function deleteEntry(i) {
-                   if (confirm("Supprimer ?")) {
-                       console.log(`[deleteEntry] Suppression de l'entrée index ${i}`);
-                       state.history.splice(i, 1);
-                       saveState();
-                       // On rafraîchit les deux vues qui dépendent de l'historique
-                       renderHistory();
-                       renderResults();
-                   }
-               }
-                   */
-
-
         function deleteEntry(i) {
             if (confirm("Supprimer ?")) {
                 console.log(`[deleteEntry] Suppression de l'entrée : ${i}`);
@@ -1468,17 +1387,6 @@
             document.getElementById('edit-end').value = toLocalISOString(e.end);
             document.getElementById('editModal').style.display = 'flex';
         }
-
-        /*     function openEditModal(i) {
-                 console.log(`[openEditModal] Ouverture pour index ${i}`);
-                 const e = state.history[i];
-                 document.getElementById('edit-index').value = i;
-                 document.getElementById('edit-type').value = e.typeId;
-                 document.getElementById('edit-start').value = toLocalISOString(e.start);
-                 document.getElementById('edit-end').value = toLocalISOString(e.end);
-                 document.getElementById('editModal').style.display = 'flex';
-             }
-     */
 
         function openAddModal() {
             console.log("[openAddModal] Ouverture du modal d'ajout");
@@ -1580,109 +1488,6 @@
         // Réintègre les alertes de chevauchement de l'ancienne version.
         // Corrige le bug de duplication de la période active lors d'une édition adjacente.
         // ============================================================
-
-        // ============================================================
-        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
-        // ============================================================
-        /*      function saveManualEdit() {
-                  const t = translations[settings.lang] || {};
-                  const idx = parseInt(document.getElementById('edit-index').value);
-                  const typeId = parseInt(document.getElementById('edit-type').value);
-                  const startStrValue = document.getElementById('edit-start').value;
-                  const endStrValue = document.getElementById('edit-end').value;
-      
-                  const start = new Date(startStrValue).getTime();
-                  const end = new Date(endStrValue).getTime();
-                  const now = Date.now();
-      
-                  if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
-                  if (end > now + 60000) return alert(t.futureError || "Impossible d'enregistrer dans le futur.");
-      
-                  console.log(`[saveManualEdit] Sauvegarde : idx=${idx}, typeId=${typeId}`);
-      
-                  // Préparation de la base de périodes (sans celle qu'on édite)
-                  let basePeriods = [...state.history];
-                  if (idx !== -1) basePeriods.splice(idx, 1);
-      
-                  let isLiveActive = false;
-                  if (state.activeType !== null) {
-                      basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-                      isLiveActive = true;
-                  }
-      
-                  let newEntry = { typeId, start, end };
-      
-                  // --- NOUVEAU : DÉTECTION DES CHEVAUCHEMENTS ---
-                  let overlapCount = 0;
-                  let overlapLive = false;
-      
-                  for (let b of basePeriods) {
-                      if (b.start < newEntry.end && b.end > newEntry.start) {
-                          overlapCount++;
-                          if (b.isLive) overlapLive = true;
-                      }
-                  }
-      
-                  // --- NOUVEAU : AFFICHAGE DE L'AVERTISSEMENT SI NÉCESSAIRE ---
-                  if (overlapCount > 0) {
-                      // Fonction de formatage (ex: "29/03" et "14h30")
-                      const formatDateStr = (ts) => {
-                          const d = new Date(ts);
-                          const day = d.getDate().toString().padStart(2, '0');
-                          const month = (d.getMonth() + 1).toString().padStart(2, '0');
-                          return `${day}/${month}`;
-                      };
-                      const formatTimeStr = (ts) => {
-                          const d = new Date(ts);
-                          const h = d.getHours();
-                          const m = d.getMinutes().toString().padStart(2, '0');
-                          return `${h}h${m}`;
-                      };
-      
-                      const dateStartDisplay = formatDateStr(start);
-                      const hourStartDisplay = formatTimeStr(start);
-                      const dateEndDisplay = formatDateStr(end);
-                      const hourEndDisplay = formatTimeStr(end);
-      
-                      // Choix du message
-                      let msgTemplate = overlapLive ?
-                          (t.overlapLiveWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s), dont le chrono en cours. Continuer et ajuster les anciens créneaux ?") :
-                          (t.overlapWarning || "Nouvelle période : le {date} de {start} à {end}\n\nCette modification empiète sur {n} période(s). Continuer et ajuster les anciens créneaux ?");
-      
-                      // Remplacement des balises
-                      let finalMsg = msgTemplate
-                          // .replace('{date}', dateStartDisplay)
-                          .replace('{start}', dateStartDisplay + " " + hourStartDisplay)
-                          .replace('{end}', dateEndDisplay + " " + hourEndDisplay)
-                          .replace('{n}', overlapCount);
-      
-                      // On demande confirmation. Si refus, on arrête tout.
-                      if (!confirm(finalMsg)) {
-                          return;
-                      }
-                  }
-                  // ============================================================
-                  // 🚀 CORRECTIF : MISE À JOUR DU CHRONO EN COURS
-                  // Si l'utilisateur a mis du temps à cliquer, on actualise la fin du chrono
-                  // pour ne pas qu'il passe sous la barre des "now - 1000ms" dans reconstructHistory.
-                  // ============================================================
-                  if (state.activeType !== null) {
-                      const livePeriod = basePeriods.find(p => p.isLive);
-                      if (livePeriod) {
-                          livePeriod.end = Date.now(); // On prend l'heure VRAIE de maintenant
-                      }
-                  }
-                  // ============================================================
-      
-                  // --- FIN DÉTECTION ET AVERTISSEMENT ---
-      
-                  // Si on arrive ici, c'est qu'il n'y a pas de chevauchement OU que l'utilisateur a accepté
-                  let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-      
-                  reconstructHistory(finalPeriods);
-                  closeModal();
-              }
-      */
 
         // ============================================================
         // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
@@ -1789,7 +1594,16 @@
 
             if (isLiveActive) {
                 const livePeriod = basePeriods.find(p => p.isLive);
-                if (livePeriod) livePeriod.end = now;
+                if (livePeriod) {
+                    livePeriod.end = now;
+                    // --- CORRECTION CHIRURGICALE ANTI-MICRO-FRAGMENT ---
+                    // Si on édite la période juste avant la période 'live' et qu'on la fait se terminer 
+                    // pile au moment (ou après) où la 'live' a commencé, 
+                    // on décale le début de la 'live' pour qu'il s'aligne parfaitement sur la fin de l'édition.
+                    if (newEntry.end >= livePeriod.start) {
+                        livePeriod.start = newEntry.end;
+                    }
+                }
             }
 
             if (isEndInFuture) {
