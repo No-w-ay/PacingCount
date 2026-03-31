@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.914 Beta e5"; </script>
+    <script> const APP_VERSION = "0.915 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -988,11 +988,11 @@
             });
 
             // --- ÉTAPE 3 : calcul de la moyenne mobile centrée sur 3 jours ---
-            // Une journée est "incomplète" si elle est terminée et < 23h enregistrées.
             // Si J-1, J ou J+1 est incomplet, la moyenne n'est pas calculée pour ce triplet.
+            // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
+            // y compris pour "aujourd'hui".
             const isIncomplete = (key) => {
-                const day = daysData[key];
-                return day.totalMins < 23 * 60;
+                return daysData[key].totalMins < 23 * 60 - 1;
             };
 
             const dateKeys = Object.keys(daysData).sort((a, b) => new Date(a) - new Date(b));
@@ -1166,9 +1166,9 @@
                */
 
             const isIncomplete = (key) => {
-                // Un jour est incomplet dès qu'il a moins de 23h enregistrées, 
+                // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
                 // y compris pour "aujourd'hui".
-                return daysData[key].totalMins < 23 * 60;
+                return daysData[key].totalMins < 23 * 60 - 1;;
             };
 
             const moyMobileChart = {};
@@ -1423,7 +1423,7 @@
                 saveState();
                 renderHistory();
                 renderTimelineChart();
-              //  renderResults();
+                //  renderResults();
                 if (typeof updateUI === "function") updateUI(); // Pour stopper l'interface du chrono si nécessaire
             }
         }
@@ -1547,7 +1547,7 @@
             });
             state.history.sort((a, b) => a.start - b.start);
             saveState();
-    //      renderResults();
+            //      renderResults();
             updateUI();
             // Rafraîchit l'historique seulement si la page timeline est déjà visible
             // (évite un appel inutile à Chart.js si on est sur une autre page)
