@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.915 Beta e4"; </script>
+    <script> const APP_VERSION = "0.916 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -363,6 +363,20 @@
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
         </div>
+
+        <!-- Section alertes de périodes -->
+        <div class="settings-group">
+            <label id="label-alerts" style="display:block; margin-bottom:10px; font-weight:bold;">Alertes de
+                périodes</label>
+            <div id="alerts-list"></div>
+            <button id="btn-add-alert" onclick="openAlertModal(-1)" style="width:100%; padding:10px; margin-top:8px; background:var(--green); color:white;
+                       border:none; border-radius:6px; font-weight:bold; font-size:0.95rem; cursor:pointer;">
+                + Ajouter une alerte
+            </button>
+        </div>
+
+        <!-- Section à propos -->
+
         <div id="app-version" class="version-display"></div>
         <div class="settings-group" style="font-size: 0.8rem; color: var(--text-color); opacity: 0.75;">
             <p style="margin: 0 0 10px 0;">
@@ -422,6 +436,7 @@
         </div>
     </div>
 
+    <!-- Modal d'édition des périodes -->
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title" style="margin-top:0;">Modifier l'entrée</h3>
@@ -443,7 +458,7 @@
         </div>
     </div>
 
-    <!-- Modal d'import : restructuré pour afficher le tableau de correspondance des types -->
+    <!-- Modal d'import CSV : restructuré pour afficher le tableau de correspondance des types -->
     <div id="importModal" class="modal">
         <div class="modal-content">
             <h3 id="import-modal-title" style="margin-top:0;">Options d'importation</h3>
@@ -466,6 +481,49 @@
         </div>
     </div>
 
+    <!-- Modal édition/ajout d'alerte de période -->
+    <div id="alertModal" class="modal">
+        <div class="modal-content">
+            <h3 id="alert-modal-title" style="margin-top:0;">Nouvelle alerte</h3>
+            <input type="hidden" id="alert-edit-index">
+
+            <label for="alert-type" style="display:block; margin-top:10px;">Type de période</label>
+            <select id="alert-type"></select>
+
+            <label for="alert-threshold" style="display:block; margin-top:15px;">
+                1re alerte après (min)
+            </label>
+            <input type="number" id="alert-threshold" min="5" max="480" step="5" value="40">
+
+            <label for="alert-interval" style="display:block; margin-top:15px;">
+                Intervalle entre rappels (min)
+            </label>
+            <input type="number" id="alert-interval" min="5" max="120" step="5" value="20">
+
+            <label for="alert-maxcount" style="display:block; margin-top:15px;">
+                Nombre total de notifications
+            </label>
+            <input type="number" id="alert-maxcount" min="1" max="5" step="1" value="3">
+
+            <label style="display:block; margin-top:15px;">Mode</label>
+            <div style="display:flex; gap:10px; margin-top:6px;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="radio" name="alert-wave" id="alert-wave-single" value="false">
+                    <span>1 notification par rappel</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="radio" name="alert-wave" id="alert-wave-multi" value="true" checked>
+                    <span>Vagues croissantes (1, 2, 3…)</span>
+                </label>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:25px;">
+                <button class="export-btn" style="background:#444; margin:0;"
+                    onclick="closeAlertModal()">Annuler</button>
+                <button class="export-btn" style="margin:0;" onclick="saveAlert()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
 
     <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
@@ -541,6 +599,17 @@
                 }
             }
 
+            // --- Initialisation de settings.alerts si absent ---
+            // (nouveau champ, pas encore présent dans les anciens settings)
+            if (rawSettings) {
+                const s2 = JSON.parse(localStorage.getItem('pacingSettings'));
+                if (!s2.alerts) {
+                    s2.alerts = [];
+                    localStorage.setItem('pacingSettings', JSON.stringify(s2));
+                    console.log("[Migration] settings.alerts initialisé à []");
+                }
+            }
+
             console.log("[Migration] Terminée.");
         }
 
@@ -560,6 +629,7 @@
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
             lang: 'fr',
+            alerts: [],   // ← ajouter cette ligne
             types: Array.from({ length: 6 }, (_, i) => ({
                 id: i + 1,
                 label: i === 0 ? "Couché sans stimulation"
@@ -569,6 +639,9 @@
                 active: i < 3
             }))
         };
+
+        // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
+        if (!settings.alerts) settings.alerts = [];
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -604,7 +677,20 @@
                 resCouche: "Couché", resMoy3j: "moy.3j",
                 resActif: "période active", resActifP: "périodes actives",
                 resMoy: "moy", resMax: "max", resMin: "min",
-                resIncomplet: "Journée incomplète"
+                resIncomplet: "Journée incomplète",
+                // NOUVEAU pour alertes
+                alertsTitle: "Alertes de périodes",
+                alertAdd: "+ Ajouter une alerte",
+                alertEditTitle: "Modifier l'alerte",
+                alertNewTitle: "Nouvelle alerte",
+                alertType: "Type de période",
+                alertThreshold: "1re alerte après (min)",
+                alertInterval: "Intervalle entre rappels (min)",
+                alertMaxCount: "Nombre total de notifications",
+                alertModeSingle: "1 notification par rappel",
+                alertModeWave: "Vagues croissantes (1, 2, 3…)",
+                alertEnabled: "Active",
+                alertNoAlerts: "Aucune alerte configurée."
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -681,22 +767,164 @@
         }
 
         // ============================================================
-        // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
+        // 7. GESTION DES ALERTES DE PÉRIODES (réglages)
+        // Lecture/écriture dans settings.alerts[].
+        // Le fonctionnement effectif (notifications SW) sera implémenté séparément.
+        // Structure d'une alerte :
+        //   { typeId, enabled, threshold, interval, maxCount, wave }
         // ============================================================
 
-        /*      function startPeriod(typeId) {
-                  console.log(`[startPeriod] typeId=${typeId}`);
-                  // SÉCURITÉ : Ignore le clic si le même type est déjà en cours
-                  if (state.activeType === typeId) return;
-      
-                  const now = Date.now();
-                  if (state.activeType !== null) closePeriod(state.activeType, state.startTime, now);
-                  state.activeType = typeId;
-                  state.startTime = now;
-                  saveState();
-                  updateUI();
-              }
-         */
+        // Rendu de la liste des alertes dans l'onglet réglages
+        function renderAlertsList() {
+            const container = document.getElementById('alerts-list');
+            if (!container) return;
+            const t = translations[settings.lang] || translations['fr'];
+            const active = getActiveTypes();
+
+            if (!settings.alerts || settings.alerts.length === 0) {
+                container.innerHTML = `<p style="opacity:0.5; font-size:0.85rem; margin:0 0 6px 0;">
+                    ${t.alertNoAlerts || 'Aucune alerte configurée.'}</p>`;
+                return;
+            }
+
+            container.innerHTML = settings.alerts.map((alert, idx) => {
+                const colorName = getColorNameForId(alert.typeId);
+                const label = getLabelForId(alert.typeId);
+                const waveLabel = alert.wave
+                    ? (t.alertModeWave || 'Vagues croissantes')
+                    : (t.alertModeSingle || '1 notif/rappel');
+                const toggleBg = alert.enabled ? 'var(--green)' : '#555';
+                const togglePos = alert.enabled ? '22px' : '2px';
+
+                return `
+                <div style="display:flex; align-items:center; justify-content:space-between;
+                            padding:10px 0; border-bottom:1px solid var(--border);">
+                    <div style="flex-grow:1;">
+                        <span style="color:var(--${colorName}); font-weight:bold;">●</span>
+                        <span style="font-weight:bold; margin-left:4px;">${label}</span>
+                        <br>
+                        <span style="font-size:0.8rem; opacity:0.7;">
+                            ${t.alertThreshold || 'Après'} ${alert.threshold} min ·
+                            +${alert.interval} min · ${alert.maxCount}x · ${waveLabel}
+                        </span>
+                    </div>
+                    <!-- Toggle ON/OFF -->
+                    <div onclick="toggleAlert(${idx})"
+                         style="position:relative; width:44px; height:24px; border-radius:12px;
+                                background:${toggleBg}; cursor:pointer; flex-shrink:0;
+                                margin:0 8px; transition:background 0.2s;">
+                        <div style="position:absolute; top:2px; left:${togglePos}; width:20px; height:20px;
+                                    border-radius:50%; background:white;
+                                    transition:left 0.2s;"></div>
+                    </div>
+                    <!-- Boutons édition / suppression -->
+                    <div style="display:flex; gap:4px;">
+                        <button class="btn-icon" onclick="openAlertModal(${idx})">✏️</button>
+                        <button class="btn-icon" onclick="deleteAlert(${idx})">🗑️</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
+        function openAlertModal(idx) {
+            const t = translations[settings.lang] || translations['fr'];
+            const active = getActiveTypes();
+
+            // Rempli le select des types
+            const sel = document.getElementById('alert-type');
+            sel.innerHTML = active.map(tp => {
+                const colorName = getColorNameForId(tp.id);
+                return `<option value="${tp.id}">${tp.label}</option>`;
+            }).join('');
+
+            // Valeurs par défaut ou existantes
+            if (idx === -1) {
+                document.getElementById('alert-modal-title').innerText = t.alertNewTitle || 'Nouvelle alerte';
+                document.getElementById('alert-edit-index').value = -1;
+                document.getElementById('alert-type').value = active[0]?.id || 1;
+                document.getElementById('alert-threshold').value = 40;
+                document.getElementById('alert-interval').value = 20;
+                document.getElementById('alert-maxcount').value = 3;
+                document.getElementById('alert-wave-multi').checked = true;
+            } else {
+                const a = settings.alerts[idx];
+                document.getElementById('alert-modal-title').innerText = t.alertEditTitle || 'Modifier l\'alerte';
+                document.getElementById('alert-edit-index').value = idx;
+                document.getElementById('alert-type').value = a.typeId;
+                document.getElementById('alert-threshold').value = a.threshold;
+                document.getElementById('alert-interval').value = a.interval;
+                document.getElementById('alert-maxcount').value = a.maxCount;
+                if (a.wave) {
+                    document.getElementById('alert-wave-multi').checked = true;
+                } else {
+                    document.getElementById('alert-wave-single').checked = true;
+                }
+            }
+
+            document.getElementById('alertModal').style.display = 'flex';
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
+        // Sauvegarde une alerte (nouvelle ou éditée)
+        function saveAlert() {
+            const idx = parseInt(document.getElementById('alert-edit-index').value);
+            const typeId = parseInt(document.getElementById('alert-type').value);
+            const threshold = parseInt(document.getElementById('alert-threshold').value);
+            const interval = parseInt(document.getElementById('alert-interval').value);
+            const maxCount = parseInt(document.getElementById('alert-maxcount').value);
+            const wave = document.getElementById('alert-wave-multi').checked;
+
+            // Validation minimale
+            if (isNaN(threshold) || threshold < 5) return alert('Seuil minimum : 5 min.');
+            if (isNaN(interval) || interval < 5) return alert('Intervalle minimum : 5 min.');
+            if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
+                return alert('Nombre de notifications : 1 à 5.');
+
+            const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
+
+            if (idx === -1) {
+                // Ajout — vérifie si une alerte pour ce type existe déjà et la remplace
+                const existing = settings.alerts.findIndex(a => a.typeId === typeId);
+                if (existing !== -1) {
+                    settings.alerts[existing] = newAlert;
+                } else {
+                    settings.alerts.push(newAlert);
+                }
+            } else {
+                // Édition
+                settings.alerts[idx] = newAlert;
+            }
+
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            closeAlertModal();
+            renderAlertsList();
+            console.log(`[saveAlert] Alerte sauvegardée pour typeId=${typeId}`);
+        }
+
+        // Supprime une alerte
+        function deleteAlert(idx) {
+            if (!confirm('Supprimer cette alerte ?')) return;
+            settings.alerts.splice(idx, 1);
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            renderAlertsList();
+            console.log(`[deleteAlert] Alerte supprimée (index ${idx})`);
+        }
+
+        // Active/désactive une alerte via le toggle
+        function toggleAlert(idx) {
+            settings.alerts[idx].enabled = !settings.alerts[idx].enabled;
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            renderAlertsList();
+            console.log(`[toggleAlert] Alerte ${idx} : enabled=${settings.alerts[idx].enabled}`);
+        }
+
+        // ============================================================
+        // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
+        // ============================================================
 
         function startPeriod(typeId) {
             console.log(`[startPeriod] typeId=${typeId}`);
@@ -855,6 +1083,11 @@
             const versionEl = document.getElementById('app-version');
             if (versionEl) {
                 versionEl.innerText = `Version ${APP_VERSION}`;
+            }
+
+            // Rafraîchit la liste des alertes si l'onglet réglages est visible
+            if (document.getElementById('page-settings').classList.contains('active')) {
+                renderAlertsList();
             }
         }
 
@@ -2113,13 +2346,17 @@
 
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
+
+            if (p === 'timeline') {
+                renderTimelineChart();
+                renderHistory();
+            }
             if (p === 'results') {
                 renderDailyCharts();
                 renderResults();
             }
-            if (p === 'timeline') {
-                renderTimelineChart();
-                renderHistory();
+            if (p === 'settings') {
+                renderAlertsList();
             }
         }
 
