@@ -128,9 +128,9 @@ self.addEventListener('notificationclick', event => {
 // BONUS : détection notification push serveur
 self.addEventListener('push', function(event) {
   const options = {
-    body: 'Ceci est une notification de test !',
-    icon: 'icon.png',
-    badge: 'badge.png'
+    body: 'Ceci est une notification de test push !',
+ //   icon: 'icon.png',
+  //  badge: 'badge.png'
   };
 
   // On demande au système d'afficher la bulle
