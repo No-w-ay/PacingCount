@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.916 Beta e1"; </script>
+    <script> const APP_VERSION = "0.916 Beta e2"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -690,7 +690,8 @@
                 alertModeSingle: "1 notification par rappel",
                 alertModeWave: "Vagues croissantes (1, 2, 3…)",
                 alertEnabled: "Active",
-                alertNoAlerts: "Aucune alerte configurée."
+                alertNoAlerts: "Aucune alerte configurée.",
+                alertBody: '{n} min en période active.'
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -923,6 +924,82 @@
         }
 
         // ============================================================
+        // 8b. NOTIFICATIONS — Enregistrement SW et gestion des alertes
+        // Fonctions indépendantes du reste : si les notifications ne
+        // sont pas supportées ou refusées, tout continue normalement.
+        // ============================================================
+
+        // Enregistrement du Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('[SW] Enregistré :', reg.scope))
+                .catch(err => console.error('[SW] Erreur enregistrement :', err));
+        }
+
+        // Demande la permission notifications (appelée au démarrage)
+        async function requestNotificationPermission() {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'default') {
+                const perm = await Notification.requestPermission();
+                console.log('[Notif] Permission :', perm);
+            }
+        }
+
+        // Construit et envoie au SW la liste des vagues à programmer
+        // selon la config de settings.alerts pour ce typeId
+        async function scheduleAlerts(typeId, startTime) {
+            if (!('serviceWorker' in navigator)) return;
+            if (Notification.permission !== 'granted') return;
+
+            // Cherche la config d'alerte pour ce type (doit être enabled)
+            const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
+            if (!config) return;
+
+            const sw = await navigator.serviceWorker.ready;
+            if (!sw.active) return;
+
+            const t = translations[settings.lang] || translations['fr'];
+            const label = getLabelForId(typeId);
+
+            // Construit les vagues selon la config
+            // wave=true  → nombre croissant de notifs (1, 2, 3...)
+            // wave=false → toujours 1 notif par rappel
+            const waves = [];
+            for (let i = 0; i < config.maxCount; i++) {
+                const fireAt = startTime
+                    + config.threshold * 60000          // seuil initial
+                    + i * config.interval * 60000;      // intervalle entre rappels
+                const count  = config.wave ? (i + 1) : 1;
+
+                // Texte graduel selon le numéro de rappel
+                const bells = '🔔'.repeat(i + 1);
+                const title  = `${bells} ${label}`;
+                const mins   = config.threshold + i * config.interval;
+                const body   = (t.alertBody || '{n} min en période active.')
+                    .replace('{n}', mins);
+
+                waves.push({ fireAt, count, title, body });
+            }
+
+            sw.active.postMessage({
+                type:      'SCHEDULE_ALERTS',
+                startTime: startTime,
+                alerts:    waves
+            });
+
+            console.log(`[Notif] ${waves.length} vague(s) programmée(s) pour typeId=${typeId}`);
+        }
+
+        // Annule toutes les alertes en cours dans le SW
+        async function cancelAlerts() {
+            if (!('serviceWorker' in navigator)) return;
+            const sw = await navigator.serviceWorker.ready;
+            if (!sw.active) return;
+            sw.active.postMessage({ type: 'CANCEL_ALERTS' });
+        }
+
+
+        // ============================================================
         // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
         // ============================================================
 
@@ -936,6 +1013,10 @@
             state.activeType = typeId;
             state.startTime = now;
             saveState();
+
+            // Annule les alertes du type précédent, programme celles du nouveau
+            cancelAlerts();
+            scheduleAlerts(typeId, now);
 
             // Correction affichage transitoire : on remet le timer à 00:00:00 et on
             // applique la nouvelle couleur en une seule opération avant le prochain tick.
@@ -951,8 +1032,11 @@
             if (confirm(translations[settings.lang].confirmStop)) {
                 console.log("[stopRecording] Arrêt de l'enregistrement");
                 if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
-                state.activeType = null; state.startTime = null;
-                saveState(); updateUI();
+                state.activeType = null;
+                state.startTime = null;
+                cancelAlerts(); // Plus de période active → plus d'alertes
+                saveState();
+                updateUI();
             }
         }
 
@@ -1696,6 +1780,9 @@
                 if (p.isLive && p.end >= now - 1000) {
                     state.activeType = typeId;
                     state.startTime = p.start;
+                    // Reprogramme les alertes depuis le vrai début de la période active
+                    cancelAlerts();
+                    scheduleAlerts(typeId, p.start);
                 } else {
                     if (typeof closePeriod === "function") {
                         closePeriod(typeId, p.start, p.end); // Assure la coupure minuit
@@ -2369,6 +2456,16 @@
         document.getElementById('custom-2').value = settings.labels[1];
         document.getElementById('custom-3').value = settings.labels[2];
         updateUI();
+        
+        // Demande la permission notifications au 1er lancement
+        requestNotificationPermission();
+
+        // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
+        // reprogramme les alertes depuis son heure de début réelle.
+        // Le SW ignorera les vagues dont le moment est déjà passé.
+        if (state.activeType !== null && state.startTime !== null) {
+            scheduleAlerts(state.activeType, state.startTime);
+        }
 
         // ============================================================
         // 24. GESTION DU SWIPE (glissement horizontal entre pages)
