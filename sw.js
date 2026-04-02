@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'pacingcount-v1';
+const CACHE_NAME = 'pacingcount-v0.916';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
