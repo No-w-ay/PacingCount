@@ -128,7 +128,7 @@ self.addEventListener('notificationclick', event => {
 // BONUS : détection notification push serveur
 self.addEventListener('push', function(event) {
   const options = {
-    body: 'Ceci est une notification de test push !',
+    body: 'Ceci est une notification de test push !'   // ,
  //   icon: 'icon.png',
   //  badge: 'badge.png'
   };
