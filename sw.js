@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'pacingcount-v0.916';
+const CACHE_NAME = 'PacingCount-v0.916-2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS_TO_CACHE = [
 
 // Installation du service worker et mise en cache
 self.addEventListener('install', event => {
+  console.log(`[SW] ⬇️ Installation de la version : ${CACHE_NAME}`);
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
   );
@@ -28,6 +29,7 @@ self.addEventListener('fetch', event => {
 
 // Nettoyage des anciens caches si on met à jour la version
 self.addEventListener('activate', event => {
+  console.log(`[SW] 🚀 Activation réussie : ${CACHE_NAME} est maintenant aux commandes !`);
   event.waitUntil(
     caches.keys().then(cacheNames =>
       Promise.all(
@@ -80,7 +82,7 @@ self.addEventListener('message', event => {
 
       // Si le moment est déjà passé (ex: redémarrage app en cours de période), on ignore
       if (delay <= 0) {
-        console.log(`[SW] Vague ${waveIdx + 1} ignorée (délai déjà écoulé)`);
+        console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} ignorée (délai déjà écoulé)`);
         return;
       }
 
@@ -98,19 +100,19 @@ self.addEventListener('message', event => {
               { action: 'dismiss', title: "J'ai compris" }
             ]
           });
-          console.log(`[SW] Notification envoyée : ${tag}`);
+          console.log(`[SW] ${CACHE_NAME} - Notification envoyée : ${tag}`);
         }, notifDelay);
 
         alertTimers.push(timerId);
       }
 
-      console.log(`[SW] Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
+      console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
     });
   }
 
   if (data.type === 'CANCEL_ALERTS') {
     cancelAllTimers();
-    console.log('[SW] Toutes les alertes annulées');
+    console.log(`[SW] ${CACHE_NAME} - Toutes les alertes annulées`);
   }
 });
 
@@ -140,5 +142,5 @@ self.addEventListener('push', function(event) {
     self.registration.showNotification('Ma PWA', options)
   );
   
-  console.log("Push reçu !");
+  console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
 });
