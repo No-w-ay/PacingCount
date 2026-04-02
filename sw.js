@@ -124,3 +124,19 @@ self.addEventListener('notificationclick', event => {
   // Pas d'ouverture forcée de l'app — l'utilisateur décide
   console.log('[SW] Notification fermée par l\'utilisateur');
 });
+
+// BONUS : détection notification push serveur
+self.addEventListener('push', function(event) {
+  const options = {
+    body: 'Ceci est une notification de test !',
+    icon: 'icon.png',
+    badge: 'badge.png'
+  };
+
+  // On demande au système d'afficher la bulle
+  event.waitUntil(
+    self.registration.showNotification('Ma PWA', options)
+  );
+  
+  console.log("Push reçu !");
+});
