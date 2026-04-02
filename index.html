@@ -880,8 +880,8 @@
             const wave = document.getElementById('alert-wave-multi').checked;
 
             // Validation minimale
-            if (isNaN(threshold) || threshold < 5) return alert('Seuil minimum : 5 min.');
-            if (isNaN(interval) || interval < 5) return alert('Intervalle minimum : 5 min.');
+            if (isNaN(threshold) || threshold < 0,1) return alert('Seuil minimum : 0,1 min.');
+            if (isNaN(interval) || interval < 0,1) return alert('Intervalle minimum : 0,1 min.');
             if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
                 return alert('Nombre de notifications : 1 à 5.');
 
