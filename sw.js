@@ -5,7 +5,7 @@ const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
-  './chart.js'  // Ajout : nécessaire pour le mode hors-ligne
+  './chart.js',  // Ajout : nécessaire pour le mode hors-ligne
   './icon-192.png', // Ajout indispensable idem
   './icon-512.png'  // Ajout indispensable
 ];
