@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.916 Beta e3"; </script>
+    <script> const APP_VERSION = "0.916 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -536,6 +536,18 @@
     </nav>
 
     <script>
+
+
+        // Pour afficher dans la console liée à index.html les logs du SW (celui-ci les transmet)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data && event.data.type === 'SW_LOG') {
+                    console.log("LOG DU SW :", event.data.message);
+                    // Si tu utilises Eruda, ça apparaîtra maintenant dedans !
+                }
+            });
+        }
+
         // ============================================================
         // 1. OUTIL DE LECTURE CSS
         // Permet de lire les variables CSS définies dans :root depuis JS.
@@ -882,6 +894,7 @@
             const maxCount = parseInt(document.getElementById('alert-maxcount').value);
             const wave = document.getElementById('alert-wave-multi').checked;
 
+
             // Validation minimale
             if (isNaN(threshold) || threshold < 1) return alert('Seuil minimum : 1 min');
             if (isNaN(interval) || interval < 1) return alert('Intervalle minimum : 1 min');
@@ -972,22 +985,22 @@
                 const fireAt = startTime
                     + config.threshold * 60000          // seuil initial
                     + i * config.interval * 60000;      // intervalle entre rappels
-                const count  = config.wave ? (i + 1) : 1;
+                const count = config.wave ? (i + 1) : 1;
 
                 // Texte graduel selon le numéro de rappel
                 const bells = '🔔'.repeat(i + 1);
-                const title  = `${bells} ${label}`;
-                const mins   = config.threshold + i * config.interval;
-                const body   = (t.alertBody || '{n} min en période active.')
+                const title = `${bells} ${label}`;
+                const mins = config.threshold + i * config.interval;
+                const body = (t.alertBody || '{n} min en période active.')
                     .replace('{n}', mins);
 
                 waves.push({ fireAt, count, title, body });
             }
 
             sw.active.postMessage({
-                type:      'SCHEDULE_ALERTS',
+                type: 'SCHEDULE_ALERTS',
                 startTime: startTime,
-                alerts:    waves
+                alerts: waves
             });
 
             console.log(`[Notif] ${waves.length} vague(s) programmée(s) pour typeId=${typeId}`);
@@ -2459,7 +2472,7 @@
         document.getElementById('custom-2').value = settings.labels[1];
         document.getElementById('custom-3').value = settings.labels[2];
         updateUI();
-        
+
         // Demande la permission notifications au 1er lancement
         requestNotificationPermission();
 

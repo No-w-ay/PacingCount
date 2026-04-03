@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'PacingCount-v0.916-2';
+const CACHE_NAME = 'PacingCount-v0.916-3';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -42,6 +42,21 @@ self.addEventListener('activate', event => {
   // Prend le contrôle immédiatement de tous les clients ouverts
   self.clients.claim();
 });
+
+//Petite fonction pour envoyer des Log du SW à index.html
+function sendLogToPage(message) {
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'SW_LOG',
+        message: message
+      });
+    });
+  });
+}
+
+// Utilisation :
+sendLogToPage(`[SW-SLTP] Version ${CACHE_NAME} active !`);
 
 // ============================================================
 // ALERTES DE PACING
@@ -101,18 +116,22 @@ self.addEventListener('message', event => {
             ]
           });
           console.log(`[SW] ${CACHE_NAME} - Notification envoyée : ${tag}`);
+          sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification envoyée : ${tag}`);
         }, notifDelay);
 
         alertTimers.push(timerId);
       }
 
       console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
+      sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
     });
   }
 
   if (data.type === 'CANCEL_ALERTS') {
     cancelAllTimers();
     console.log(`[SW] ${CACHE_NAME} - Toutes les alertes annulées`);
+    sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Toutes les alertes annulées`);
+
   }
 });
 
