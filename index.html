@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.916 Beta e4"; </script>
+    <script> const APP_VERSION = "0.916 Beta e5"; </script>
     <!-- PacingCount — (c) 2026 Noé Lecocq -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -338,6 +338,10 @@
         <button id="btn-3" class="measure-btn btn-orange" onclick="startPeriod(3)">Non couché</button>
         <button id="btn-stop" class="btn-stop" onclick="stopRecording()" style="display: none;">Arrêter
             l'enregistrement</button>
+
+        <!--bouton test de notification en direct -->
+        <button id="test-notif" style="padding: 20px; background: red; color: white;">Test Notif Immédiate</button>
+
     </div>
 
     <div id="page-results" class="page">
@@ -938,6 +942,20 @@
             renderAlertsList();
             console.log(`[toggleAlert] Alerte ${idx} : enabled=${settings.alerts[idx].enabled}`);
         }
+
+        // ================================
+        // 7b. Test notifications en direct
+        // ================================
+        document.getElementById('test-notif').addEventListener('click', () => {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(registration => {
+                    registration.showNotification('Test Android', {
+                        body: 'Si tu vois ça, le bouton de notification en direct marche !'
+                    });
+                });
+            }
+        });
+
 
         // ============================================================
         // 8b. NOTIFICATIONS — Enregistrement SW et gestion des alertes
