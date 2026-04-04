@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'PacingCount-v0.916-3';
+const CACHE_NAME = 'PacingCount-v0.916-4';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -102,24 +102,64 @@ self.addEventListener('message', event => {
       }
 
       // Programme chaque notification de la vague avec 1 seconde d'écart
+      /*   for (let i = 0; i < wave.count; i++) {
+             const notifDelay = delay + (i * 1000);
+             const tag = `pacing-w${waveIdx}-n${i}`;
+     
+             const timerId = setTimeout(() => {
+               self.registration.showNotification(wave.title, {
+                 body: wave.body,
+                 tag: tag,
+                 requireInteraction: true,   // reste visible jusqu'au tap
+                 actions: [
+                   { action: 'dismiss', title: "J'ai compris" }
+                 ]
+               });
+               console.log(`[SW] ${CACHE_NAME} - Notification envoyée : ${tag}`);
+               sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification envoyée : ${tag}`);
+             }, notifDelay);
+     
+             alertTimers.push(timerId);
+           }
+           */
+
+      // Programme chaque notification de la vague avec 1 seconde d'écart
       for (let i = 0; i < wave.count; i++) {
-        const notifDelay = delay + (i * 1000);
+        const triggerTime = wave.fireAt + (i * 1000); // Heure exacte en millisecondes
         const tag = `pacing-w${waveIdx}-n${i}`;
 
-        const timerId = setTimeout(() => {
-          self.registration.showNotification(wave.title, {
-            body:               wave.body,
-            tag:                tag,
-            requireInteraction: true,   // reste visible jusqu'au tap
-            actions: [
-              { action: 'dismiss', title: "J'ai compris" }
-            ]
-          });
-          console.log(`[SW] ${CACHE_NAME} - Notification envoyée : ${tag}`);
-          sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification envoyée : ${tag}`);
-        }, notifDelay);
+        const notifOptions = {
+          body: wave.body,
+          tag: tag,
+          requireInteraction: true,
+          actions: [
+            { action: 'dismiss', title: "J'ai compris" }
+          ]
+        };
 
-        alertTimers.push(timerId);
+        // 🌟 LE MIRACLE : Détection de l'API Notification Triggers
+        if ('showTrigger' in Notification.prototype) {
+          // On confie le réveil directement à Android !
+          notifOptions.showTrigger = new TimestampTrigger(triggerTime);
+
+          self.registration.showNotification(wave.title, notifOptions);
+
+          console.log(`[SW] 🕰️ Notification confiée à l'OS Android pour : ${new Date(triggerTime).toLocaleTimeString()}`);
+          sendLogToPage(`[SW] Programmé (OS) : ${tag}`);
+
+        } else {
+          // 🛟 PLAN B : Méthode classique (setTimeout) pour Windows/PC
+          const notifDelay = triggerTime - Date.now();
+
+          if (notifDelay > 0) {
+            const timerId = setTimeout(() => {
+              self.registration.showNotification(wave.title, notifOptions);
+              console.log(`[SW] 💻 Notification envoyée (setTimeout) : ${tag}`);
+            }, notifDelay);
+
+            alertTimers.push(timerId); // On garde la trace du timer local
+          }
+        }
       }
 
       console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
@@ -136,10 +176,27 @@ self.addEventListener('message', event => {
 });
 
 // Annule tous les timers en cours et vide le tableau
+/*
 function cancelAllTimers() {
   alertTimers.forEach(id => clearTimeout(id));
   alertTimers = [];
 }
+*/
+
+async function cancelAllTimers() {
+  // 1. Annulation du plan B (setTimeout classiques)
+  alertTimers.forEach(id => clearTimeout(id));
+  alertTimers = [];
+  console.log('[SW] Timers locaux annulés.');
+
+  // 2. Annulation des notifications programmées dans l'OS Android
+  if ('showTrigger' in Notification.prototype) {
+    const pendingNotifs = await self.registration.getNotifications({ includeScheduled: true });
+    pendingNotifs.forEach(notification => notification.close());
+    console.log(`[SW] ${pendingNotifs.length} notifications OS annulées.`);
+  }
+}
+
 
 // Fermeture de la notification au tap (bouton "J'ai compris" ou tap direct)
 self.addEventListener('notificationclick', event => {
@@ -149,17 +206,17 @@ self.addEventListener('notificationclick', event => {
 });
 
 // BONUS : détection notification push serveur
-self.addEventListener('push', function(event) {
+self.addEventListener('push', function (event) {
   const options = {
     body: 'Ceci est une notification de test push !'   // ,
- //   icon: 'icon.png',
-  //  badge: 'badge.png'
+    //   icon: 'icon.png',
+    //  badge: 'badge.png'
   };
 
   // On demande au système d'afficher la bulle
   event.waitUntil(
     self.registration.showNotification('Ma PWA', options)
   );
-  
+
   console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
 });
