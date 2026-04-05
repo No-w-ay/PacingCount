@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.916 Beta e6"; </script>
+    <script> const APP_VERSION = "0.917 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -340,7 +340,7 @@
             l'enregistrement</button>
 
         <!--bouton test de notification en direct -->
-        <button id="test-notif" style="border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 15px ; padding: 10px; background: rgb(8, 83, 95); color: rgb(202, 202, 202);">Test Notif Immédiate</button>
+        <button id="test-notif" style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px ; padding: 10px;">Test Notif Immédiate</button>
 
     </div>
 
@@ -979,8 +979,17 @@
             }
         }
 
-        // Construit et envoie au SW la liste des vagues à programmer
-        // selon la config de settings.alerts pour ce typeId
+        // Tableau pour stocker les IDs des setTimeout() locaux
+        let localAlertTimers = [];
+
+        // Annule toutes les alertes en cours dans l'index (page locale)
+        function cancelAlerts() {
+            localAlertTimers.forEach(id => clearTimeout(id));
+            localAlertTimers = [];
+            console.log('[Index] 🛑 Toutes les alertes locales annulées.');
+        }
+
+        // Construit et programme les setTimeout en local
         async function scheduleAlerts(typeId, startTime) {
             if (!('serviceWorker' in navigator)) return;
             if (Notification.permission !== 'granted') return;
@@ -989,49 +998,69 @@
             const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
             if (!config) return;
 
-            const sw = await navigator.serviceWorker.ready;
-            if (!sw.active) return;
-
             const t = translations[settings.lang] || translations['fr'];
             const label = getLabelForId(typeId);
 
-            // Construit les vagues selon la config
-            // wave=true  → nombre croissant de notifs (1, 2, 3...)
-            // wave=false → toujours 1 notif par rappel
-            const waves = [];
+            // Annule les potentiels anciens chronomètres avant d'en créer de nouveaux
+            cancelAlerts();
+
+            const now = Date.now();
+            let programmedCount = 0;
+
+            // Construit et lance les timers pour chaque vague
             for (let i = 0; i < config.maxCount; i++) {
-                const fireAt = startTime
+                const fireAt = startTime 
                     + config.threshold * 60000          // seuil initial
                     + i * config.interval * 60000;      // intervalle entre rappels
+                
                 const count = config.wave ? (i + 1) : 1;
+                const delay = fireAt - now;
 
-                // Texte graduel selon le numéro de rappel
-                const bells = '🔔'.repeat(i + 1);
-                const title = `${bells} ${label}`;
-                const mins = config.threshold + i * config.interval;
-                const body = (t.alertBody || '{n} min en période active.')
-                    .replace('{n}', mins);
+                // Si le moment est déjà passé (ex: reprise après fermeture), on ignore
+                if (delay <= 0) {
+                    console.log(`[Index] ⏳ Vague ${i + 1} ignorée (délai déjà écoulé)`);
+                    continue;
+                }
 
-                waves.push({ fireAt, count, title, body });
+                // Programme chaque notification de la vague avec 1 seconde d'écart
+                for (let j = 0; j < count; j++) {
+                    const notifDelay = delay + (j * 1000);
+                    const tag = `pacing-w${i}-n${j}`;
+
+                    const timerId = setTimeout(async () => {
+                        const bells = '🔔'.repeat(count);
+                        const mins = config.threshold + i * config.interval;
+                        const title = `${bells} ${label}`;
+                        const body = (t.alertBody || '{n} min en période active.').replace('{n}', mins);
+
+                        // 1. On résout le Service Worker pile au moment du déclenchement
+                        const registration = await navigator.serviceWorker.ready;
+                        
+                        // 2. On cible l'instance aux commandes
+                        const worker = navigator.serviceWorker.controller || registration.active;
+
+                        if (worker) {
+                            worker.postMessage({
+                                type: 'DISPLAY_NOW',
+                                title: title,
+                                body: body,
+                                tag: tag
+                            });
+                            console.log(`[Index] 🔔 Message envoyé au SW actif : ${tag}`);
+                        } else {
+                            console.error("[Index] ❌ Impossible de trouver un SW actif pour la notif.");
+                        }
+                    }, notifDelay);
+
+                    localAlertTimers.push(timerId);
+                }
+
+                programmedCount++;
+                console.log(`[Index] ⏱️ Vague ${i + 1} (${count}x) programmée dans ${Math.round(delay / 60000)} min`);
             }
 
-            sw.active.postMessage({
-                type: 'SCHEDULE_ALERTS',
-                startTime: startTime,
-                alerts: waves
-            });
-
-            console.log(`[Notif] ${waves.length} vague(s) programmée(s) pour typeId=${typeId}`);
+            console.log(`[Notif] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
         }
-
-        // Annule toutes les alertes en cours dans le SW
-        async function cancelAlerts() {
-            if (!('serviceWorker' in navigator)) return;
-            const sw = await navigator.serviceWorker.ready;
-            if (!sw.active) return;
-            sw.active.postMessage({ type: 'CANCEL_ALERTS' });
-        }
-
 
         // ============================================================
         // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes

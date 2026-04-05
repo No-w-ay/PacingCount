@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'PacingCount-v0.916-5'; //retour au 916-3 avant modif
+const CACHE_NAME = 'PacingCount-v0.917'; //gestion timer alertes par index, SW ne fait qu'afficher
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -59,94 +59,34 @@ function sendLogToPage(message) {
 sendLogToPage(`[SW-SLTP] Version ${CACHE_NAME} active !`);
 
 // ============================================================
-// ALERTES DE PACING
-// Reçoit SCHEDULE_ALERTS depuis index.html et programme
-// les notifications différées via setTimeout.
-// Reçoit CANCEL_ALERTS pour tout annuler proprement.
-//
-// Structure d'un message SCHEDULE_ALERTS :
-// {
-//   type: 'SCHEDULE_ALERTS',
-//   startTime: <timestamp ms>,   // début de la période active
-//   alerts: [                    // tableau des vagues à programmer
-//     {
-//       fireAt: <timestamp ms>,  // moment exact de la vague
-//       count:  <1|2|3...>,      // nombre de notifications dans cette vague
-//       title:  <string>,        // titre de la notification
-//       body:   <string>         // corps de la notification
-//     }, ...
-//   ]
-// }
+// ALERTES DE PACING (Version simplifiée)
+// Ne gère plus le temps. Reçoit DISPLAY_NOW depuis index.html 
+// et affiche immédiatement la notification.
 // ============================================================
-
-// Stockage des identifiants de timers actifs
-let alertTimers = [];
 
 self.addEventListener('message', event => {
   const data = event.data;
   if (!data || !data.type) return;
 
-  if (data.type === 'SCHEDULE_ALERTS') {
-    // Annule toutes les alertes précédentes avant d'en programmer de nouvelles
-    cancelAllTimers();
-
-    const now = Date.now();
-
-    data.alerts.forEach((wave, waveIdx) => {
-      const delay = wave.fireAt - now;
-
-      // Si le moment est déjà passé (ex: redémarrage app en cours de période), on ignore
-      if (delay <= 0) {
-        console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} ignorée (délai déjà écoulé)`);
-        return;
-      }
-
-      // Programme chaque notification de la vague avec 1 seconde d'écart
-      for (let i = 0; i < wave.count; i++) {
-        const notifDelay = delay + (i * 1000);
-        const tag = `pacing-w${waveIdx}-n${i}`;
-
-        const timerId = setTimeout(() => {
-          self.registration.showNotification(wave.title, {
-            body:               wave.body,
-            tag:                tag,
-            requireInteraction: true,   // reste visible jusqu'au tap
-            actions: [
-              { action: 'dismiss', title: "J'ai compris" }
-            ]
-          });
-          console.log(`[SW] ${CACHE_NAME} - Notification envoyée : ${tag}`);
-          sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification envoyée : ${tag}`);
-        }, notifDelay);
-
-        alertTimers.push(timerId);
-      }
-
-      console.log(`[SW] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
-      sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Vague ${waveIdx + 1} (${wave.count}x) programmée dans ${Math.round(delay / 60000)} min`);
+  if (data.type === 'DISPLAY_NOW') {
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      tag: data.tag,
+      requireInteraction: true, // reste visible jusqu'au tap
+      actions: [
+        { action: 'dismiss', title: "J'ai compris" }
+      ]
     });
-  }
-
-  if (data.type === 'CANCEL_ALERTS') {
-    cancelAllTimers();
-    console.log(`[SW] ${CACHE_NAME} - Toutes les alertes annulées`);
-    sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Toutes les alertes annulées`);
-
+    
+    console.log(`[SW] ${CACHE_NAME} - Notification affichée immédiatement : ${data.tag}`);
+    
+    // Essayer d'envoyer le log à la page (si sendLogToPage existe)
+    if (typeof sendLogToPage === "function") {
+        sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification affichée : ${data.tag}`);
+    }
   }
 });
 
-// Annule tous les timers en cours et vide le tableau
-function cancelAllTimers() {
-  alertTimers.forEach(id => clearTimeout(id));
-  alertTimers = [];
-}
-
-// Fermeture de la notification au tap (bouton "J'ai compris" ou tap direct)
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  // Pas d'ouverture forcée de l'app — l'utilisateur décide
-  console.log('[SW] Notification fermée par l\'utilisateur');
-});
 
 // BONUS : détection notification push serveur
 self.addEventListener('push', function(event) {
