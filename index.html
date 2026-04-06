@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e3"; </script>
+    <script> const APP_VERSION = "0.917 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -326,6 +326,13 @@
             background-color: #000000;
             z-index: 9999;
             transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        #sleep-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            /* Crucial : laisse passer tes clics quand l'écran est caché */
         }
 
         #sleep-timer {
