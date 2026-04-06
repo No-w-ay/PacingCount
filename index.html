@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e4"; </script>
+    <script> const APP_VERSION = "0.917 Beta e5"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -335,25 +335,6 @@
             /* Crucial : laisse passer tes clics quand l'écran est caché */
         }
 
-        #sleep-timer {
-            position: absolute;
-            /* ⚠️ À AJUSTER : Modifie cette valeur pour que ça tombe PILE sur ton vrai chrono */
-            top: 150px;
-            left: 0;
-            width: 100%;
-            text-align: center;
-
-            /* On force l'héritage de la police de ton application */
-            font-family: inherit;
-            /* ⚠️ À AJUSTER : Mets la MÊME taille que ton .timer-display */
-            font-size: 5rem;
-            font-weight: bold;
-            font-variant-numeric: tabular-nums;
-
-            opacity: 0.5;
-            transition: color 0.3s ease;
-        }
-
         #sleep-overlay .swipe-hint {
             position: absolute;
             /* On remonte la flèche pour éviter les éléments du bas d'écran */
@@ -395,21 +376,16 @@
 
     <!-- mode pseudo veille (au démarrage et après inactivité) -->
     <div id="sleep-overlay" class="hidden">
-        <div id="sleep-timer">00:00:00</div>
+        <div style="padding: 20px; opacity: 0.5;">
+            <h1>PacingCount</h1>
+            <div class="timer-container">
+                <div id="sleep-timer" class="timer-display text-default">00:00:00</div>
+            </div>
+        </div>
         <div class="swipe-hint">
             <span class="arrow">⌃</span>
         </div>
     </div>
-
-    <!--
-    <div id="sleep-overlay" style="display: flex;">
-        <div id="sleep-timer">00:00</div>
-        <div class="swipe-hint">
-            <span class="arrow">⌃</span>
-            <span>Glisser vers le haut pour déverrouiller</span>
-        </div>
-    </div>
--->
 
     <div id="page-measure" class="page active">
         <h1 id="title-measure">PacingCount</h1>
@@ -2689,6 +2665,7 @@
         }, { passive: true });
 
         // --- GESTION DU SWIPE POUR L'ÉCRAN DE VEILLE ---
+
         const sleepOverlay = document.getElementById('sleep-overlay');
         let sleepTouchStartY = 0;
 
@@ -2700,28 +2677,17 @@
             const sleepTouchEndY = e.changedTouches[0].screenY;
             const diffY = sleepTouchEndY - sleepTouchStartY;
 
-            // Si on a glissé vers le haut d'au moins 50 pixels
             if (diffY < -50) {
                 sleepOverlay.classList.add('hidden');
                 console.log("[Veille] Écran déverrouillé");
             }
         }, { passive: true });
 
-        // Fonction utilitaire si tu veux pouvoir le réactiver manuellement via un bouton plus tard
+        // Fonction utilitaire
         function enableSleepMode() {
             const sleepOverlay = document.getElementById('sleep-overlay');
-            const sleepTimer = document.getElementById('sleep-timer');
-
-            // On met à jour la couleur juste avant d'afficher l'écran noir
-            if (state.activeType !== null) {
-                const typeConfig = settings.types.find(t => t.id === state.activeType);
-                if (typeConfig) {
-                    sleepTimer.style.color = typeConfig.color;
-                }
-            } else {
-                sleepTimer.style.color = "#555555"; // Gris si aucune période en cours
-            }
-
+            // PLUS BESOIN de manipuler sleepTimer.style.color ici !
+            // L'observateur s'occupe de copier la classe CSS (la couleur) automatiquement.
             sleepOverlay.classList.remove('hidden');
         }
 
@@ -2729,35 +2695,41 @@
         // --- GESTION DE L'AUTO-VEILLE PAR INACTIVITÉ ---
 
         let inactivityTimer;
-        const INACTIVITY_DELAY = 20000; // 60000 ms = 1 minute (à régler selon tes souhaits)
+        const INACTIVITY_DELAY = 20000; // 20 secondes (super pour tes tests !)
 
         function resetInactivityTimer() {
-            // 1. On annule le compte à rebours précédent
             clearTimeout(inactivityTimer);
 
-            // 2. On n'enclenche l'auto-veille que si l'écran noir n'est pas DÉJÀ affiché
             const sleepOverlay = document.getElementById('sleep-overlay');
             if (sleepOverlay && sleepOverlay.classList.contains('hidden')) {
 
                 inactivityTimer = setTimeout(() => {
-                    // L'utilisateur n'a rien fait pendant le délai imparti
                     enableSleepMode();
-                    console.log("[Veille] Activation automatique après 1 min d'inactivité.");
+                    console.log("[Veille] Activation automatique après inactivité.");
                 }, INACTIVITY_DELAY);
             }
         }
 
-        // Liste des événements qui prouvent que l'utilisateur est actif
         const activities = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'scroll'];
 
-        // On écoute ces événements sur toute la page
         activities.forEach(eventType => {
             document.addEventListener(eventType, resetInactivityTimer, { passive: true });
         });
 
-        // On lance le timer une première fois au démarrage
         resetInactivityTimer();
 
+        // Synchronisation automatique du minuteur de veille avec le minuteur principal
+        const mainTimer = document.getElementById('main-timer');
+        const sleepTimer = document.getElementById('sleep-timer');
+
+        if (mainTimer && sleepTimer) {
+            const observer = new MutationObserver(() => {
+                sleepTimer.innerText = mainTimer.innerText;
+                sleepTimer.className = mainTimer.className;
+            });
+
+            observer.observe(mainTimer, { attributes: true, childList: true, characterData: true });
+        }
 
     </script>
 </body>
