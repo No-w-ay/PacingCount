@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e2"; </script>
+    <script> const APP_VERSION = "0.917 Beta e3"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -324,45 +324,43 @@
             width: 100vw;
             height: 100vh;
             background-color: #000000;
-            /* Noir pur pour OLED */
             z-index: 9999;
-            /* Toujours au-dessus du reste */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
             transition: opacity 0.3s ease, visibility 0.3s ease;
         }
 
-        #sleep-overlay.hidden {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            /* Laisse passer les clics quand il est caché */
-        }
-
         #sleep-timer {
+            position: absolute;
+            /* ⚠️ À AJUSTER : Modifie cette valeur pour que ça tombe PILE sur ton vrai chrono */
+            top: 150px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+
+            /* On force l'héritage de la police de ton application */
+            font-family: inherit;
+            /* ⚠️ À AJUSTER : Mets la MÊME taille que ton .timer-display */
             font-size: 5rem;
             font-weight: bold;
             font-variant-numeric: tabular-nums;
+
             opacity: 0.5;
-            /* Demande : Opacité 50% */
             transition: color 0.3s ease;
         }
 
         #sleep-overlay .swipe-hint {
             position: absolute;
-            bottom: 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            /* On remonte la flèche pour éviter les éléments du bas d'écran */
+            bottom: 120px;
+            left: 0;
+            width: 100%;
+            text-align: center;
             color: #555;
-            font-size: 0.9rem;
             animation: bounce 2s infinite;
         }
 
         #sleep-overlay .swipe-hint .arrow {
-            font-size: 2rem;
-            margin-bottom: -10px;
+            font-size: 3rem;
+            /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
         }
 
         @keyframes bounce {
@@ -376,11 +374,11 @@
             }
 
             40% {
-                transform: translateY(-10px);
+                transform: translateY(-15px);
             }
 
             60% {
-                transform: translateY(-5px);
+                transform: translateY(-7px);
             }
         }
     </style>
@@ -389,6 +387,14 @@
 <body>
 
     <!-- mode pseudo veille (au démarrage et après inactivité) -->
+    <div id="sleep-overlay" class="hidden">
+        <div id="sleep-timer">00:00:00</div>
+        <div class="swipe-hint">
+            <span class="arrow">⌃</span>
+        </div>
+    </div>
+
+    <!--
     <div id="sleep-overlay" style="display: flex;">
         <div id="sleep-timer">00:00</div>
         <div class="swipe-hint">
@@ -396,6 +402,7 @@
             <span>Glisser vers le haut pour déverrouiller</span>
         </div>
     </div>
+-->
 
     <div id="page-measure" class="page active">
         <h1 id="title-measure">PacingCount</h1>
@@ -2695,6 +2702,19 @@
 
         // Fonction utilitaire si tu veux pouvoir le réactiver manuellement via un bouton plus tard
         function enableSleepMode() {
+            const sleepOverlay = document.getElementById('sleep-overlay');
+            const sleepTimer = document.getElementById('sleep-timer');
+
+            // On met à jour la couleur juste avant d'afficher l'écran noir
+            if (state.activeType !== null) {
+                const typeConfig = settings.types.find(t => t.id === state.activeType);
+                if (typeConfig) {
+                    sleepTimer.style.color = typeConfig.color;
+                }
+            } else {
+                sleepTimer.style.color = "#555555"; // Gris si aucune période en cours
+            }
+
             sleepOverlay.classList.remove('hidden');
         }
 
