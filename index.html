@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e6"; </script>
+    <script> const APP_VERSION = "0.917 Beta e7"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -986,15 +986,31 @@
             closeAlertModal();
             renderAlertsList();
             console.log(`[saveAlert] Alerte sauvegardée pour typeId=${typeId}`);
+
+            // NOUVEAU : Si on modifie une alerte qui concerne la période EN COURS
+            if (state.activeType === typeId) {
+                cancelAlerts();
+                scheduleAlerts(state.activeType, state.startTime); // Met à jour le programme des notifs
+                requestWakeLock(); // Demande ou relâche le Wake Lock selon le nouvel état
+            }
         }
 
         // Supprime une alerte
         function deleteAlert(idx) {
             if (!confirm('Supprimer cette alerte ?')) return;
+
+            const typeId = settings.alerts[idx].typeId; // On mémorise le type avant suppression
             settings.alerts.splice(idx, 1);
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             renderAlertsList();
             console.log(`[deleteAlert] Alerte supprimée (index ${idx})`);
+
+            // NOUVEAU : Réagir si on supprime l'alerte de la période en cours
+            if (state.activeType === typeId) {
+                cancelAlerts();
+                scheduleAlerts(state.activeType, state.startTime);
+                requestWakeLock();
+            }
         }
 
         // Active/désactive une alerte via le toggle
@@ -1003,6 +1019,12 @@
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             renderAlertsList();
             console.log(`[toggleAlert] Alerte ${idx} : enabled=${settings.alerts[idx].enabled}`);
+            // NOUVEAU : Réagir si on désactive/réactive l'alerte de la période en cours
+            if (state.activeType === settings.alerts[idx].typeId) {
+                cancelAlerts();
+                scheduleAlerts(state.activeType, state.startTime);
+                requestWakeLock();
+            }
         }
 
         // ================================
@@ -1150,22 +1172,22 @@
             mainTimer.className = 'timer-display text-' + newColor;
             mainTimer.innerText = '00:00:00';
 
-      /*      // ============================================================
-            // 😴 AJOUT POUR L'ÉCRAN DE VEILLE (Initialisation)
-            // ============================================================
-            const sleepTimer = document.getElementById('sleep-timer');
-            if (sleepTimer) {
-                // On remet aussi le chrono de l'écran noir à zéro
-                sleepTimer.innerText = '00:00:00';
-
-                // On lui applique la couleur du type actif (ex: Rouge, Jaune...)
-                const typeConfig = settings.types.find(t => t.id === typeId);
-                if (typeConfig) {
-                    sleepTimer.style.color = typeConfig.color;
-                }
-            }
-            // ============================================================
-*/
+            /*      // ============================================================
+                  // 😴 AJOUT POUR L'ÉCRAN DE VEILLE (Initialisation)
+                  // ============================================================
+                  const sleepTimer = document.getElementById('sleep-timer');
+                  if (sleepTimer) {
+                      // On remet aussi le chrono de l'écran noir à zéro
+                      sleepTimer.innerText = '00:00:00';
+      
+                      // On lui applique la couleur du type actif (ex: Rouge, Jaune...)
+                      const typeConfig = settings.types.find(t => t.id === typeId);
+                      if (typeConfig) {
+                          sleepTimer.style.color = typeConfig.color;
+                      }
+                  }
+                  // ============================================================
+      */
             updateUI();
             requestWakeLock();
         }
@@ -2743,13 +2765,12 @@
 
         // 1. Fonction pour demander le Wake Lock
         async function requestWakeLock() {
-            // On ne demande le Wake Lock que si une période avec alarme active est lancée
-            const currentType = settings.types.find(t => t.id === state.activeType);
-            const hasActiveAlarms = currentType && currentType.alarms && currentType.alarms.some(a => a.active);
+            // CORRECTION : On cherche correctement dans settings.alerts
+            const hasActiveAlarms = settings.alerts.some(a => a.typeId === state.activeType && a.enabled);
 
             if (!hasActiveAlarms) {
                 console.log("[WakeLock] Aucune alarme active, Wake Lock inutile.");
-                releaseWakeLock();
+                releaseWakeLock(); // On relâche au cas où une alarme vient d'être désactivée en cours de route
                 return;
             }
 
@@ -2771,7 +2792,6 @@
                 console.error(`[WakeLock] Erreur : ${err.name}, ${err.message}`);
             }
         }
-
         // 2. Fonction pour relâcher le Wake Lock
         function releaseWakeLock() {
             if (wakeLock !== null) {
