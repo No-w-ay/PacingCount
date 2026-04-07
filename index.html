@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e7"; </script>
+    <script> const APP_VERSION = "0.917 Beta e8"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1065,11 +1065,13 @@
 
         // Tableau pour stocker les IDs des setTimeout() locaux
         let localAlertTimers = [];
+        let autoReleaseWakeLockTimer = null; // NOUVEAU : Pour relâcher le Wake Lock
 
         // Annule toutes les alertes en cours dans l'index (page locale)
         function cancelAlerts() {
             localAlertTimers.forEach(id => clearTimeout(id));
             localAlertTimers = [];
+            clearTimeout(autoReleaseWakeLockTimer); // NOUVEAU : On annule aussi le relâchement antérieurement programmé du Wake Lock
             console.log('[Index] 🛑 Toutes les alertes locales annulées.');
         }
 
@@ -1090,6 +1092,7 @@
 
             const now = Date.now();
             let programmedCount = 0;
+            let maxDelayMs = 0; // NOUVEAU : Va mémoriser le moment de la toute dernière alerte
 
             // Construit et lance les timers pour chaque vague
             for (let i = 0; i < config.maxCount; i++) {
@@ -1111,11 +1114,19 @@
                     const notifDelay = delay + (j * 1000);
                     const tag = `pacing-w${i}-n${j}`;
 
+                    // On enregistre le délai le plus lointain
+                    if (notifDelay > maxDelayMs) {
+                        maxDelayMs = notifDelay;
+                    }
+
                     const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
                         const title = `${bells} ${label}`;
-                        const body = (t.alertBody || '{n} min en période active.').replace('{n}', mins);
+
+                        // NOUVEAU : Texte personnalisé avec le nom de la période et le numéro du rappel
+                        const rappelNumero = i + 1;
+                        const body = `${mins} min en période ${label} (rappel ${rappelNumero})`;
 
                         // 1. On résout le Service Worker pile au moment du déclenchement
                         const registration = await navigator.serviceWorker.ready;
@@ -1144,6 +1155,14 @@
             }
 
             console.log(`[Notif] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
+
+            // NOUVEAU : Relâchement automatique du Wake Lock après la dernière alerte
+            if (maxDelayMs > 0) {
+                autoReleaseWakeLockTimer = setTimeout(() => {
+                    console.log("[WakeLock] Dernière alerte terminée, relâchement automatique pour économiser la batterie.");
+                    releaseWakeLock(); // Cette fonction s'occupe aussi d'éteindre la pseudo-veille
+                }, maxDelayMs + 10000); // Se déclenche 10 secondes après la toute dernière notification
+            }
         }
 
         // ============================================================
