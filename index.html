@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e8"; </script>
+    <script> const APP_VERSION = "0.917 Beta e9"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -924,8 +924,7 @@
             if (idx === -1) {
                 document.getElementById('alert-modal-title').innerText = t.alertNewTitle || 'Nouvelle alerte';
                 document.getElementById('alert-edit-index').value = -1;
-                document.getElementById('alert-type').value = active[0]?.id || 1;
-                document.getElementById('alert-threshold').value = 40;
+                document.getElementById('alert-type').value = active.some(t => t.id === 3) ? 3 : (active[0]?.id || 1); document.getElementById('alert-threshold').value = 40;
                 document.getElementById('alert-interval').value = 20;
                 document.getElementById('alert-maxcount').value = 3;
                 document.getElementById('alert-wave-multi').checked = true;
@@ -1161,7 +1160,7 @@
                 autoReleaseWakeLockTimer = setTimeout(() => {
                     console.log("[WakeLock] Dernière alerte terminée, relâchement automatique pour économiser la batterie.");
                     releaseWakeLock(); // Cette fonction s'occupe aussi d'éteindre la pseudo-veille
-                }, maxDelayMs + 10000); // Se déclenche 10 secondes après la toute dernière notification
+                }, maxDelayMs + 60000); // Se déclenche 60 secondes après la toute dernière notification
             }
         }
 
