@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e9"; </script>
+    <script> const APP_VERSION = "0.917 Beta e10"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -927,7 +927,7 @@
                 document.getElementById('alert-type').value = active.some(t => t.id === 3) ? 3 : (active[0]?.id || 1); document.getElementById('alert-threshold').value = 40;
                 document.getElementById('alert-interval').value = 20;
                 document.getElementById('alert-maxcount').value = 3;
-                document.getElementById('alert-wave-multi').checked = true;
+                document.getElementById('alert-wave-single').checked = true;
             } else {
                 const a = settings.alerts[idx];
                 document.getElementById('alert-modal-title').innerText = t.alertEditTitle || 'Modifier l\'alerte';
