@@ -7,13 +7,13 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e10"; </script>
+    <script> const APP_VERSION = "0.917 Beta e11"; </script>
     <!-- PacingCount — (c) 2026 Name -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
          nécessite l'autorisation explicite de l'auteur.    -->
     <!-- https://github.com/No-w-ay/PacingCount/    -->
-    <!-- Future copyright notice : Unless otherwise stated in a later version of this program, prior to the following date, this code will become open source under the GPL-3.0-or-later licence starting on March 31st 2027. Check latest version on GitHub. -->
+    <!-- Future copyright notice : Unless otherwise stated in a later version of this program, prior to the following date, this code and all previous versions of it will become open source under the GPL-3.0-or-later licence starting on October 31st 2027. Check latest version on GitHub. -->
 
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
@@ -1190,22 +1190,6 @@
             mainTimer.className = 'timer-display text-' + newColor;
             mainTimer.innerText = '00:00:00';
 
-            /*      // ============================================================
-                  // 😴 AJOUT POUR L'ÉCRAN DE VEILLE (Initialisation)
-                  // ============================================================
-                  const sleepTimer = document.getElementById('sleep-timer');
-                  if (sleepTimer) {
-                      // On remet aussi le chrono de l'écran noir à zéro
-                      sleepTimer.innerText = '00:00:00';
-      
-                      // On lui applique la couleur du type actif (ex: Rouge, Jaune...)
-                      const typeConfig = settings.types.find(t => t.id === typeId);
-                      if (typeConfig) {
-                          sleepTimer.style.color = typeConfig.color;
-                      }
-                  }
-                  // ============================================================
-      */
             updateUI();
             requestWakeLock();
         }
@@ -1612,10 +1596,6 @@
             // Même règle que renderResults : journée incomplète exclue du triplet.
             // La valeur stockée est le % de position horizontale sur la barre (0-100).
             const chronoDates = [...sortedDates].reverse();
-            /*   const isIncomplete = (key) => {
-                   return new Date(key).toLocaleDateString() !== today && daysData[key].totalMins < 23 * 60;
-               };
-               */
 
             const isIncomplete = (key) => {
                 // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
@@ -1662,32 +1642,6 @@
                 // les divs de barres, en position absolute sur le conteneur flex principal.
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
                 const avgLabel = avgPc !== null ? `~ ${tLang.resMoy3j} : ${formatMins(avgMins)}` : '';
-
-                /*      const avgDot = avgPc !== null ? `
-                    <div style="position: absolute; left: calc(${avgPc.toFixed(2)}% + 55px + 10px);
-                                top: 50%; transform: translate(-50%, -50%);
-                                width: 9px; height: 9px; background: white; border-radius: 50%;
-                                box-shadow: 0 0 4px rgba(0,0,0,0.7); z-index: 3; pointer-events: auto; cursor: default;"
-                         onmousemove="showBarTooltip(event, '<b>${avgLabel}</b>')"
-                         ontouchstart="showBarTooltip(event, '<b>${avgLabel}</b>')"
-                         onmouseout="hideBarTooltip()" ontouchend="hideBarTooltip()">
-                    </div>` : '';
-                
-                // Version 2 OK :
-                const avgDot = avgPc !== null ? `
-                    <div style="position: absolute; left: 55px; right: 0; top: 0; bottom: 0; pointer-events: none; z-index: 3;">
-                        
-                        <div style="position: absolute; left: ${avgPc.toFixed(2)}%;
-                                    top: 50%; transform: translate(-50%, -50%);
-                                    width: 9px; height: 9px; background: white; border-radius: 50%;
-                                    box-shadow: 0 0 4px rgba(0,0,0,0.7); pointer-events: auto; cursor: default;"
-                             onmousemove="showBarTooltip(event, '<b>${avgLabel}</b>')"
-                             ontouchstart="showBarTooltip(event, '<b>${avgLabel}</b>')"
-                             onmouseout="hideBarTooltip()" ontouchend="hideBarTooltip()">
-                        </div>
-                        
-                    </div>` : '';
-                */
 
                 // NOUVEAU : On gère l'affichage (block ou none)
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
@@ -1752,13 +1706,7 @@
                         <span>${label}</span>
                     </div>`;
             });
-            /*      html += `
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                          <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
-                          <span>~ ${tLegend.resMoy3j}</span>
-                      </div>`;
-                  html += `</div>`;
-      */
+
             // NOUVEAU : La légende cliquable avec l'œil barré dynamique
             const eyeSlash = window.showMoyDots ? '' : `<span style="position: absolute; top: 50%; left: -2px; right: -2px; height: 2px; background: var(--text-color); transform: rotate(-45deg);"></span>`;
             const opacity = window.showMoyDots ? '1' : '0.5'; // Rend le texte un peu grisé si c'est masqué
@@ -2450,27 +2398,6 @@
                 allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
 
-            /*        allPeriods.forEach(p => {
-                          // Normalisation : accepte typeId (nouveau) ou type (ancien)
-                          const typeId = p.typeId !== undefined ? p.typeId : p.type;
-                          for (let i = 0; i < 7; i++) {
-                              let dayS = daysStart[i];
-                              let dayE = dayS + 24 * 3600 * 1000;
-                              if (p.start >= dayS && p.start < dayE) {
-                                  let sDay = new Date(p.start);
-                                  let eDay = new Date(p.end);
-                                  let startHour = sDay.getHours() + sDay.getMinutes() / 60;
-                                  let endHour = eDay.getHours() + eDay.getMinutes() / 60;
-                                  if (eDay.getTime() >= dayE) endHour = 24;
-                                  if (dataSetsByType[typeId] !== undefined) {
-                                      dataSetsByType[typeId].push({ x: labels[i], y: [startHour, endHour] });
-                                  }
-                                  break;
-                              }
-                          }
-                      });
-          */
-
             allPeriods.forEach(p => {
                 // Normalisation : accepte typeId (nouveau) ou type (ancien)
                 const typeId = p.typeId !== undefined ? p.typeId : p.type;
@@ -2725,41 +2652,6 @@
             }
         }, { passive: true });
 
-        /*   // Fonction utilitaire
-           function enableSleepMode() {
-               const sleepOverlay = document.getElementById('sleep-overlay');
-               // PLUS BESOIN de manipuler sleepTimer.style.color ici !
-               // L'observateur s'occupe de copier la classe CSS (la couleur) automatiquement.
-               sleepOverlay.classList.remove('hidden');
-           }
-   
-   
-         /*  // --- GESTION DE L'AUTO-VEILLE PAR INACTIVITÉ ---
-   
-           let inactivityTimer;
-           const INACTIVITY_DELAY = 20000; // 20 secondes (super pour tes tests !)
-   
-           function resetInactivityTimer() {
-               clearTimeout(inactivityTimer);
-   
-               const sleepOverlay = document.getElementById('sleep-overlay');
-               if (sleepOverlay && sleepOverlay.classList.contains('hidden')) {
-   
-                   inactivityTimer = setTimeout(() => {
-                       enableSleepMode();
-                       console.log("[Veille] Activation automatique après inactivité.");
-                   }, INACTIVITY_DELAY);
-               }
-           }
-   
-           const activities = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'scroll'];
-   
-           activities.forEach(eventType => {
-               document.addEventListener(eventType, resetInactivityTimer, { passive: true });
-           });
-   
-           resetInactivityTimer();
-   */
         // Synchronisation automatique du minuteur de veille avec le minuteur principal
         const mainTimer = document.getElementById('main-timer');
         const sleepTimer = document.getElementById('sleep-timer');
