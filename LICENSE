@@ -4,13 +4,13 @@ AUTEUR : No-w-ay
 DATE DE DERNIÈRE MISE À JOUR DE CE DOCUMENT : 9 avril 2026
 
 ===============================================================================
-SECTION 0 : PRIMAUTÉ DES MENTIONS DANS LE CODE
+SECTION 0 : HIÉRARCHIE ET INTERPRÉTATION
 ===============================================================================
 
-En cas de contradiction ou de différence entre les termes du présent fichier 
-et les en-têtes de copyright présents dans le fichier "index.html" de la 
-version la plus récente du logiciel, ce sont les mentions contenues dans le 
-fichier "index.html" qui font autorité et prévalent.
+Le présent document définit les conditions globales de licence. En cas de
+doute sur la version du logiciel ou la date de dernière publication, les
+mentions contenues dans les en-têtes du fichier index.html ou les métadonnées
+du dépôt GitHub officiel font foi pour le calcul de la date de transition.
 
 ===============================================================================
 SECTION 1 : LICENCE ACTUELLE (PROPRIÉTAIRE)
@@ -32,7 +32,7 @@ SECTION 2 : CLAUSE DE TRANSITION (SUNSET CLAUSE)
 ===============================================================================
 
 Sauf indication contraire dans une version ultérieure de ce programme publiée 
-par l'auteur avant la date butoir, ce logiciel et toutes ses versions 
+par l'auteur avant la date de transition, ce logiciel et toutes ses versions 
 antérieures basculeront automatiquement sous la licence :
 GNU General Public License v3.0 (ou ultérieure).
 
@@ -40,7 +40,7 @@ DATE DE TRANSITION : 2 ans après la dernière publication (commit ou tag) sur
 le dépôt GitHub officiel, sauf mention contraire dans une version plus récente.
 
 À compter de cette date, les droits de copie, de modification et de 
-distribution seront régis par les termes de la licence GPL-3.0.
+distribution seront régis par les termes de la licence GPL-3.0-or-later.
 
 ===============================================================================
 SECTION 3 : INFORMATIONS COMPLÉMENTAIRES
