@@ -1,0 +1,51 @@
+PROJET : PacingCount
+VERSION ACTUELLE : 0.917 Beta
+AUTEUR : No-w-ay
+DATE DE DERNIÈRE MISE À JOUR DE CE DOCUMENT : 9 avril 2026
+
+===============================================================================
+SECTION 0 : PRIMAUTÉ DES MENTIONS DANS LE CODE
+===============================================================================
+
+En cas de contradiction ou de différence entre les termes du présent fichier 
+et les en-têtes de copyright présents dans le fichier "index.html" de la 
+version la plus récente du logiciel, ce sont les mentions contenues dans le 
+fichier "index.html" qui font autorité et prévalent.
+
+===============================================================================
+SECTION 1 : LICENCE ACTUELLE (PROPRIÉTAIRE)
+===============================================================================
+
+Jusqu'à la date de transition définie en Section 2, ce logiciel est fourni sous 
+un régime de licence propriétaire "Tous droits réservés" :
+
+1. PROPRIÉTÉ : Le code source, l'interface et les ressources de PacingCount 
+   sont la propriété exclusive de l'auteur susnommé.
+2. RESTRICTIONS : Toute utilisation, copie, modification, fusion, publication 
+   ou distribution du logiciel, à titre gratuit ou onéreux, est strictement 
+   interdite sans l'autorisation écrite préalable de l'auteur.
+3. ABSENCE DE GARANTIE : Le logiciel est fourni "en l'état", sans aucune 
+   garantie d'aucune sorte.
+
+===============================================================================
+SECTION 2 : CLAUSE DE TRANSITION (SUNSET CLAUSE)
+===============================================================================
+
+Sauf indication contraire dans une version ultérieure de ce programme publiée 
+par l'auteur avant la date butoir, ce logiciel et toutes ses versions 
+antérieures basculeront automatiquement sous la licence :
+GNU General Public License v3.0 (ou ultérieure).
+
+DATE DE TRANSITION : 31 octobre 2027
+
+À compter de cette date, les droits de copie, de modification et de 
+distribution seront régis par les termes de la licence GPL-3.0.
+
+===============================================================================
+SECTION 3 : INFORMATIONS COMPLÉMENTAIRES
+===============================================================================
+
+Pour toute demande d'autorisation ou question concernant ce projet, veuillez 
+consulter le dépôt officiel sur GitHub ou contacter l'auteur.
+
+Dépôt officiel : https://github.com/No-w-ay/PacingCount
