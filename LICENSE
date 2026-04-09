@@ -34,7 +34,7 @@ SECTION 2 : CLAUSE DE TRANSITION (SUNSET CLAUSE)
 Sauf indication contraire dans une version ultérieure de ce programme publiée 
 par l'auteur avant la date de transition, ce logiciel et toutes ses versions 
 antérieures basculeront automatiquement sous la licence :
-GNU General Public License v3.0 (ou ultérieure).
+GNU General Public License v3.0 (ou ultérieure) à la date de transition.
 
 DATE DE TRANSITION : 2 ans après la dernière publication (commit ou tag) sur
 le dépôt GitHub officiel, sauf mention contraire dans une version plus récente.
