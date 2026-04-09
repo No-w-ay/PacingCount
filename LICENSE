@@ -36,7 +36,8 @@ par l'auteur avant la date butoir, ce logiciel et toutes ses versions
 antérieures basculeront automatiquement sous la licence :
 GNU General Public License v3.0 (ou ultérieure).
 
-DATE DE TRANSITION : 31 octobre 2027
+DATE DE TRANSITION : 2 ans après la dernière publication (commit ou tag) sur
+le dépôt GitHub officiel, sauf mention contraire dans une version plus récente.
 
 À compter de cette date, les droits de copie, de modification et de 
 distribution seront régis par les termes de la licence GPL-3.0.
