@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e3"; </script>
+    <script> const APP_VERSION = "0.918 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -608,6 +608,13 @@
 
     <script>
 
+        // Pour que tous les console.log existants affichent automatiquement l'heure
+        const _log = console.log.bind(console);
+        console.log = (...args) => {
+            const d = new Date();
+            const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+            _log(`[${hms}]`, ...args);
+        };
 
         // Pour afficher dans la console liée à index.html les logs du SW (celui-ci les transmet)
         if ('serviceWorker' in navigator) {
@@ -1076,7 +1083,7 @@
             localAlertTimers.forEach(id => clearTimeout(id));
             localAlertTimers = [];
             clearTimeout(autoReleaseWakeLockTimer); // NOUVEAU : On annule aussi le relâchement antérieurement programmé du Wake Lock
-            console.log('[Index] 🛑 Toutes les alertes locales annulées.');
+            console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
         }
 
         // Construit et programme les setTimeout en local
