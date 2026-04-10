@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e4"; </script>
+    <script> const APP_VERSION = "0.918 Beta e5"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1974,7 +1974,7 @@
             processedPeriods.forEach(p => {
                 // Normalisation : accepte typeId ou type (compatibilité import)
                 const typeId = p.typeId !== undefined ? p.typeId : p.type;
-                if (p.isLive && p.end >= now - 1000) {
+                if (p.isLive) {
                     state.activeType = typeId;
                     state.startTime = p.start;
                     // Reprogramme les alertes depuis le vrai début de la période active
