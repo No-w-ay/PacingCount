@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e2"; </script>
+    <script> const APP_VERSION = "0.918 Beta e3"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -513,6 +513,8 @@
         <div class="modal-content">
             <h3 id="modal-title" style="margin-top:0;">Modifier l'entrée</h3>
             <input type="hidden" id="edit-index">
+            <input type="hidden" id="edit-start-original"> <!-- champs cachés : valeur originale -->
+            <input type="hidden" id="edit-end-original"> <!-- champs cachés : valeur originale -->
             <label for="edit-type">Type de période</label>
             <select id="edit-type">
                 <option value="1" id="opt-1">Bleu</option>
@@ -1852,14 +1854,21 @@
             document.getElementById('edit-type').value = e.typeId;
             document.getElementById('edit-start').value = toLocalISOString(e.start);
             document.getElementById('edit-end').value = toLocalISOString(e.end);
+            document.getElementById('edit-start-original').value = e.start; // stocker les timestamps originaux
+            document.getElementById('edit-end-original').value = e.end;     // stocker les timestamps originaux
+
             document.getElementById('editModal').style.display = 'flex';
         }
 
         function openAddModal() {
             console.log("[openAddModal] Ouverture du modal d'ajout");
+
             document.getElementById('edit-index').value = "-1";
+            document.getElementById('edit-start-original').value = "-1";    // initialiser les champs cachés à -1
+            document.getElementById('edit-end-original').value = "-1";      // initialiser les champs cachés à -1
             document.getElementById('edit-start').value = toLocalISOString(Date.now() - 3600000);
             document.getElementById('edit-end').value = toLocalISOString(Date.now());
+
             document.getElementById('editModal').style.display = 'flex';
         }
 
@@ -2004,10 +2013,17 @@
             const startStrValue = document.getElementById('edit-start').value;
             const endStrValue = document.getElementById('edit-end').value;
 
-            const start = new Date(startStrValue).getTime();
-            let end = new Date(endStrValue).getTime(); // 'let' car on peut le modifier
-            //const start = Math.floor(new Date(startStrValue).getTime() / 1000) * 1000;
-            //let end = Math.floor(new Date(endStrValue).getTime() / 1000) * 1000; // 'let' car on peut le modifier
+            //const start = new Date(startStrValue).getTime();
+            //let end = new Date(endStrValue).getTime(); // 'let' car on peut le modifier
+            // Utiliser timestamp original si non modifié :
+            const originalStart = parseInt(document.getElementById('edit-start-original').value);
+            const originalEnd = parseInt(document.getElementById('edit-end-original').value);
+            const start = toLocalISOString(originalStart) === startStrValue
+                ? originalStart
+                : new Date(startStrValue).getTime();
+            let end = toLocalISOString(originalEnd) === endStrValue
+                ? originalEnd
+                : new Date(endStrValue).getTime();
 
             let now = Date.now();
 
