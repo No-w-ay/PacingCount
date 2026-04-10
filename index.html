@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e1"; </script>
+    <script> const APP_VERSION = "0.918 Beta e2"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1272,9 +1272,15 @@
             return `${h}:${m}:${s}`;
         }
 
+        /*  function formatTime(ms) {
+              const d = new Date(ms);
+              return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '00');
+          }
+  */
+
         function formatTime(ms) {
             const d = new Date(ms);
-            return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '00');
+            return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0') + ":" + d.getSeconds().toString().padStart(2, '0');
         }
 
         // Convertit un timestamp en chaîne compatible avec <input type="datetime-local">
@@ -2135,7 +2141,8 @@
         function exportCSV() {
             console.log("[exportCSV] Début de l'export");
             try {
-                let csv = "Date,Debut,Fin,TypeId,TypeLabel,Minutes\n";
+                //let csv = "Date,Debut,Fin,TypeId,TypeLabel,Minutes\n";
+                let csv = "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
 
                 let allPeriods = [...state.history];
                 if (state.activeType) {
@@ -2193,9 +2200,15 @@
                 // Ancien format JJ/MM/AAAA : le jour est en premier
                 [d, m, y] = parts;
             }
-            const [hr, min] = timeStr.split(':');
+
+            /* const [hr, min] = timeStr.split(':');
+             return new Date(parseInt(y), parseInt(m) - 1, parseInt(d),
+                 parseInt(hr), parseInt(min)).getTime();
+             */
+            const [hr, min, sec = '0'] = timeStr.split(':');
             return new Date(parseInt(y), parseInt(m) - 1, parseInt(d),
-                parseInt(hr), parseInt(min)).getTime();
+                parseInt(hr), parseInt(min), parseInt(sec)).getTime();
+
         }
 
         // Stockage temporaire des données en attente de confirmation utilisateur
@@ -2220,8 +2233,12 @@
                     // Lecture des en-têtes pour déterminer le format (robuste à l'ordre des colonnes)
                     const header = lines[0].split(',').map(h => h.trim().toLowerCase());
                     const iDate = header.indexOf('date');
-                    const iDebut = header.indexOf('debut');
-                    const iFin = header.indexOf('fin');
+
+                    //const iDebut = header.indexOf('debut');
+                    //const iFin = header.indexOf('fin');
+                    const iDebut = header.indexOf('start hour') !== -1 ? header.indexOf('start hour') : header.indexOf('debut');
+                    const iFin = header.indexOf('end hour') !== -1 ? header.indexOf('end hour') : header.indexOf('fin');
+
                     const iTypeId = header.indexOf('typeid');
                     // 'typelabel' (nouveau format) ou 'type' (ancien format)
                     const iTypeLabel = header.indexOf('typelabel') !== -1
