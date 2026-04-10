@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.917 Beta e13"; </script>
+    <script> const APP_VERSION = "0.918 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1911,6 +1911,37 @@
             return merged;
         }
 
+        // ============================================================
+        // 17b. RACCORDEMENT DES BORNES ADJACENTES
+        // Après applySteamroller, si une borne d'une période existante
+        // est à moins de 60s d'une borne de la nouvelle période,
+        // on redéfinit la borne existante pour qu'elle coïncide exactement.
+        // Évite tout trou ou fragment entre périodes de précisions différentes.
+        // ============================================================
+        function snapAdjacentBorders(periods, newEntries, threshold = 60000) {
+            const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
+
+            for (const entry of newEntries) {
+                for (const p of result) {
+                    // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
+                    if (p.start === entry.start && p.end === entry.end) continue;
+
+                    // Borne end d'une période existante proche du start de la nouvelle → on la colle
+                    if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
+                        p.end = entry.start;
+                    }
+
+                    // Borne start d'une période existante proche du end de la nouvelle → on la colle
+                    if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
+                        p.start = entry.end;
+                    }
+                }
+            }
+
+            // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
+            return result.filter(p => p.end > p.start);
+        }
+
         function reconstructHistory(processedPeriods) {
             console.log(`[reconstructHistory] Reconstruction avec ${processedPeriods.length} périodes`);
             state.history = [];
@@ -1969,6 +2000,9 @@
 
             const start = new Date(startStrValue).getTime();
             let end = new Date(endStrValue).getTime(); // 'let' car on peut le modifier
+            //const start = Math.floor(new Date(startStrValue).getTime() / 1000) * 1000;
+            //let end = Math.floor(new Date(endStrValue).getTime() / 1000) * 1000; // 'let' car on peut le modifier
+
             let now = Date.now();
 
             if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
@@ -1999,6 +2033,7 @@
             let isLiveActive = false;
             if (state.activeType !== null && idx !== 'live') {
                 basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
+                //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: now, isLive: true });
                 isLiveActive = true;
             }
 
@@ -2084,7 +2119,8 @@
             }
 
             // --- APPLICATION DU ROULEAU COMPRESSEUR ---
-            let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+            //let finalPeriods = applySteamroller(basePeriods, [newEntry]);
+            let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, [newEntry]), [newEntry]);
 
             reconstructHistory(finalPeriods);
             closeModal();
@@ -2346,8 +2382,10 @@
                     let basePeriods = [...state.history];
                     if (state.activeType !== null) {
                         basePeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                        //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: Date.now(), isLive: true });
                     }
-                    let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
+                    //let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
+                    let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
                     reconstructHistory(finalPeriods);
                     alert(successMessage);
                 }
