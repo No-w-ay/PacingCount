@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e8"; </script>
+    <script> const APP_VERSION = "0.918 Beta e9"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1909,6 +1909,9 @@
                     merged.push(current);
                 }
             }
+
+            console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => p.typeId === 1).slice(-3)));
+
             return merged;
         }
 
@@ -1956,6 +1959,9 @@
               }
               return merged;
               */
+
+            console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => p.typeId === 1).slice(-3)));
+
             return combined; // mis à la place de l'étape 3 qui sera prise en charge par la nouvelle fonction mergeAdjacentPeriods()
         }
 
@@ -1985,6 +1991,8 @@
                     }
                 }
             }
+
+            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => p.typeId === 1).slice(-3)));
 
             // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
             return result.filter(p => p.end > p.start);
@@ -2173,6 +2181,10 @@
                 newEntry.end = now;
                 newEntry.isLive = true;
             }
+
+            // Debug log
+            console.log('[Debug saveManualEdit] basePeriods avant steamroller:', JSON.stringify(basePeriods.slice(-3)));
+            console.log('[Debug saveManualEdit] newEntry:', JSON.stringify(newEntry));
 
             // --- APPLICATION DU ROULEAU COMPRESSEUR ---
             // steamroller → snap → merge
