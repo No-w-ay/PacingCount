@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e7"; </script>
+    <script> const APP_VERSION = "0.918 Beta e8"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -2154,9 +2154,10 @@
                     // Si on édite la période juste avant la période 'live' et qu'on la fait se terminer 
                     // pile au moment (ou après) où la 'live' a commencé, 
                     // on décale le début de la 'live' pour qu'il s'aligne parfaitement sur la fin de l'édition.
-                    if (newEntry.end >= livePeriod.start) {
+                    /* if (newEntry.end >= livePeriod.start) {
                         livePeriod.start = newEntry.end;
                     }
+                        */
                 }
             }
 
