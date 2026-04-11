@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e11"; </script>
+    <script> const APP_VERSION = "0.918 Beta e12"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -645,6 +645,8 @@
             3: { fr: "Non couché", en: "Upright / Active", nl: "Rechtop" }
             // Ajouter de nouveaux types standards ici à l'avenir
         };
+
+        const SNAP_THRESHOLD = 60000; // 60 secondes — seuil de raccordement des bornes adjacentes
 
         // ============================================================
         // 3. MIGRATION DU LOCALSTORAGE
@@ -1969,11 +1971,11 @@
         // ============================================================
         // 17b. RACCORDEMENT DES BORNES ADJACENTES
         // Après applySteamroller, si une borne d'une période existante
-        // est à moins de 60s d'une borne de la nouvelle période,
+        // est à moins de SNAP_THRESHOLD (60s) d'une borne de la nouvelle période,
         // on redéfinit la borne existante pour qu'elle coïncide exactement.
         // Évite tout trou ou fragment entre périodes de précisions différentes.
         // ============================================================
-        function snapAdjacentBorders(periods, newEntries, threshold = 60000) {
+        function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
 
             for (const entry of newEntries) {
@@ -2469,11 +2471,23 @@
                         //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: Date.now(), isLive: true });
                     }
 
-                    // steamroller → snap → merge
+                    // steamroller → snap (close to live only avec SNAP_THRESHOLD) → merge
+
                     //let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
                     //let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
-                    let finalPeriods = mergeAdjacentPeriods(
+                    /*let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
+                    );
+                    */
+
+                    let finalPeriods = mergeAdjacentPeriods(
+                        snapAdjacentBorders(
+                            applySteamroller(basePeriods, resolvedPeriods),
+                            resolvedPeriods.filter(p =>
+                                Math.abs(p.end - state.startTime) < SNAP_THRESHOLD ||
+                                Math.abs(p.start - state.startTime) < SNAP_THRESHOLD
+                            )
+                        )
                     );
 
                     reconstructHistory(finalPeriods);
