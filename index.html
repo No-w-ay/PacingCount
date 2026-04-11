@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e6"; </script>
+    <script> const APP_VERSION = "0.918 Beta e7"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1903,7 +1903,8 @@
 
                 if (lastType === currentType && current.start <= last.end) {
                     last.end = Math.max(last.end, current.end);
-                    if (current.isLive) last.isLive = true;
+                    // if (current.isLive) last.isLive = true;
+                    if (current.isLive || last.isLive) last.isLive = true; // correctif de perte du live lors de certaines importations CSV
                 } else {
                     merged.push(current);
                 }
