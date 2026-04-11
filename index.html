@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e10"; </script>
+    <script> const APP_VERSION = "0.918 Beta e11"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1910,7 +1910,7 @@
                 }
             }
 
-            console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => [1,2,3].includes(p.typeId))));
+            console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => [1, 2, 3].includes(p.typeId))));
 
             return merged;
         }
@@ -1927,7 +1927,8 @@
                     for (let frag of fragments) {
                         // Si chevauchement entre frag et p
                         if (frag.start < p.end && frag.end > p.start) {
-                            if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start });
+                            //if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start });
+                            if (frag.start < p.start) nextFragments.push({ ...frag, end: p.start, isLive: false }); // correctif du bug de disparition du premier bout d'un live découpé par un insert manuel. Ce premier bout ne doit plus être live.
                             if (frag.end > p.end) nextFragments.push({ ...frag, start: p.end });
                         } else {
                             nextFragments.push(frag); // Pas touché
@@ -1960,7 +1961,7 @@
               return merged;
               */
 
-            console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => [1,2,3].includes(p.typeId))));
+            console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => [1, 2, 3].includes(p.typeId))));
 
             return combined; // mis à la place de l'étape 3 qui sera prise en charge par la nouvelle fonction mergeAdjacentPeriods()
         }
@@ -1992,7 +1993,7 @@
                 }
             }
 
-            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1,2,3].includes(p.typeId))));
+            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
 
             // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
             return result.filter(p => p.end > p.start);
@@ -2183,7 +2184,7 @@
             }
 
             // Debug log
-            console.log('[Debug saveManualEdit] basePeriods avant steamroller:', JSON.stringify(basePeriods.filter(p => [1,2,3].includes(p.typeId)).slice(-5)));
+            console.log('[Debug saveManualEdit] basePeriods avant steamroller:', JSON.stringify(basePeriods.filter(p => [1, 2, 3].includes(p.typeId)).slice(-5)));
             console.log('[Debug saveManualEdit] newEntry:', JSON.stringify(newEntry));
 
             // --- APPLICATION DU ROULEAU COMPRESSEUR ---
