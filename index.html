@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e5"; </script>
+    <script> const APP_VERSION = "0.918 Beta e6"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1889,6 +1889,29 @@
         // Gère les chevauchements entre périodes lors d'une édition ou d'un import.
         // La période prioritaire "écrase" les fragments de la base qui chevauchent.
         // ============================================================
+
+        // 17a. Fusion des périodes adjacentes de même type
+        function mergeAdjacentPeriods(periods) {
+            const sorted = [...periods].sort((a, b) => a.start - b.start);
+            const merged = [];
+
+            for (const current of sorted) {
+                if (merged.length === 0) { merged.push(current); continue; }
+                const last = merged[merged.length - 1];
+                const lastType = last.typeId !== undefined ? last.typeId : last.type;
+                const currentType = current.typeId !== undefined ? current.typeId : current.type;
+
+                if (lastType === currentType && current.start <= last.end) {
+                    last.end = Math.max(last.end, current.end);
+                    if (current.isLive) last.isLive = true;
+                } else {
+                    merged.push(current);
+                }
+            }
+            return merged;
+        }
+
+        // Rouleau compresseur
         function applySteamroller(basePeriods, priorityPeriods) {
             let resultBase = [];
 
@@ -1915,22 +1938,24 @@
             let combined = [...resultBase, ...priorityPeriods];
             combined.sort((a, b) => a.start - b.start);
 
-            // 3. Fusion des périodes adjacentes du même type
-            let merged = [];
-            for (let current of combined) {
-                if (merged.length === 0) { merged.push(current); continue; }
-                let last = merged[merged.length - 1];
-                // Utilise typeId avec fallback sur type pour la transition
-                const lastType = last.typeId !== undefined ? last.typeId : last.type;
-                const currentType = current.typeId !== undefined ? current.typeId : current.type;
-                if (lastType === currentType && current.start <= last.end) {
-                    last.end = Math.max(last.end, current.end);
-                    if (current.isLive) last.isLive = true;
-                } else {
-                    merged.push(current);
-                }
-            }
-            return merged;
+            /*  // 3. Fusion des périodes adjacentes du même type
+              let merged = [];
+              for (let current of combined) {
+                  if (merged.length === 0) { merged.push(current); continue; }
+                  let last = merged[merged.length - 1];
+                  // Utilise typeId avec fallback sur type pour la transition
+                  const lastType = last.typeId !== undefined ? last.typeId : last.type;
+                  const currentType = current.typeId !== undefined ? current.typeId : current.type;
+                  if (lastType === currentType && current.start <= last.end) {
+                      last.end = Math.max(last.end, current.end);
+                      if (current.isLive) last.isLive = true;
+                  } else {
+                      merged.push(current);
+                  }
+              }
+              return merged;
+              */
+            return combined; // mis à la place de l'étape 3 qui sera prise en charge par la nouvelle fonction mergeAdjacentPeriods()
         }
 
         // ============================================================
@@ -2148,8 +2173,12 @@
             }
 
             // --- APPLICATION DU ROULEAU COMPRESSEUR ---
+            // steamroller → snap → merge
             //let finalPeriods = applySteamroller(basePeriods, [newEntry]);
-            let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, [newEntry]), [newEntry]);
+            //let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, [newEntry]), [newEntry]);
+            let finalPeriods = mergeAdjacentPeriods(
+                snapAdjacentBorders(applySteamroller(basePeriods, [newEntry]), [newEntry])
+            );
 
             reconstructHistory(finalPeriods);
             closeModal();
@@ -2424,8 +2453,14 @@
                         basePeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
                         //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: Date.now(), isLive: true });
                     }
+
+                    // steamroller → snap → merge
                     //let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
-                    let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
+                    //let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
+                    let finalPeriods = mergeAdjacentPeriods(
+                        snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
+                    );
+
                     reconstructHistory(finalPeriods);
                     alert(successMessage);
                 }
