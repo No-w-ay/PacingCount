@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e15"; </script>
+    <script> const APP_VERSION = "0.918 Beta e16"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -2008,7 +2008,7 @@
                 return result.filter(p => p.end > p.start);
             }
                 */
-
+/*
         function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
 
@@ -2038,7 +2038,50 @@
 
             return result.filter(p => p.end > p.start);
         }
+            */
 
+        function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
+            const result = periods.map(p => ({ ...p }));
+
+            for (const entry of newEntries) {
+                // Trouver la période immédiatement avant : end < entry.start, la plus proche
+                let closestBefore = null;
+                let minGapBefore = threshold;
+                for (const p of result) {
+                    // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
+                    if (p.start === entry.start && p.end === entry.end) continue;
+                    if (p.end < entry.start) {
+                        const gap = entry.start - p.end;
+                        if (gap < minGapBefore) {
+                            minGapBefore = gap;
+                            closestBefore = p;
+                        }
+                    }
+                }
+                // application de l'effet magnétique sur le end qui précède
+                if (closestBefore && minGapBefore > 0) closestBefore.end = entry.start;
+
+                // Trouver la période immédiatement après : start > entry.end, la plus proche
+                let closestAfter = null;
+                let minGapAfter = threshold;
+                for (const p of result) {
+                    if (p.start === entry.start && p.end === entry.end) continue;
+                    if (p.start > entry.end) {
+                        const gap = p.start - entry.end;
+                        if (gap < minGapAfter) {
+                            minGapAfter = gap;
+                            closestAfter = p;
+                        }
+                    }
+                }
+                if (closestAfter && minGapAfter > 0) closestAfter.start = entry.end;
+            }
+
+            // affiche les 5 dernières périodes seulement :
+            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
+
+            return result.filter(p => p.end > p.start);
+        }
 
         function reconstructHistory(processedPeriods) {
             console.log(`[reconstructHistory] Reconstruction avec ${processedPeriods.length} périodes`);
@@ -2517,7 +2560,7 @@
                     let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
                     );
-                      
+
                     /*
                     let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(
