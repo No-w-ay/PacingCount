@@ -2986,6 +2986,8 @@
         // Gestion du retour au premier plan
         // Sur mobile, les setTimeout sont throttlés en arrière-plan.
         // Au retour en visible : rattrapage des alertes manquées + reprogrammation des futures.
+        // NOTE : missed compte toutes les vagues dont fireAt < now depuis le début de la période — pas seulement celles manquées pendant cette absence. Si l'utilisateur était présent et a reçu les vraies notifications, puis quitte et revient, missed sera surestimé.
+        // A TERME : noter dans le LOcalSotrage quelles alertes ont été envoyées.       
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState !== 'visible') return;
 
