@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e16"; </script>
+    <script> const APP_VERSION = "0.919 Beta e1"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -579,17 +579,20 @@
             </label>
             <input type="number" id="alert-maxcount" min="1" max="5" step="1" value="3">
 
-            <label style="display:block; margin-top:15px;">Mode</label>
+            <!-- Désactivation silencieuse du mode vague croissante 1,2,3 ...
+
+                      <label style="display:block; margin-top:15px;">Mode</label>
             <div style="display:flex; gap:10px; margin-top:6px;">
                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="radio" name="alert-wave" id="alert-wave-single" value="false">
+                    <input type="radio" name="alert-wave" id="alert-wave-single" value="true" checked>
                     <span>1 notification par rappel</span>
                 </label>
                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="radio" name="alert-wave" id="alert-wave-multi" value="true" checked>
+                    <input type="radio" name="alert-wave" id="alert-wave-multi" value="false">
                     <span>Vagues croissantes (1, 2, 3…)</span>
                 </label>
             </div>
+ -->
 
             <div style="display:flex; gap:10px; margin-top:25px;">
                 <button class="export-btn" style="background:#444; margin:0;"
@@ -941,7 +944,7 @@
                 document.getElementById('alert-type').value = active.some(t => t.id === 3) ? 3 : (active[0]?.id || 1); document.getElementById('alert-threshold').value = 40;
                 document.getElementById('alert-interval').value = 20;
                 document.getElementById('alert-maxcount').value = 3;
-                document.getElementById('alert-wave-single').checked = true;
+                // document.getElementById('alert-wave-single').checked = true;
             } else {
                 const a = settings.alerts[idx];
                 document.getElementById('alert-modal-title').innerText = t.alertEditTitle || 'Modifier l\'alerte';
@@ -950,11 +953,12 @@
                 document.getElementById('alert-threshold').value = a.threshold;
                 document.getElementById('alert-interval').value = a.interval;
                 document.getElementById('alert-maxcount').value = a.maxCount;
-                if (a.wave) {
-                    document.getElementById('alert-wave-multi').checked = true;
-                } else {
-                    document.getElementById('alert-wave-single').checked = true;
-                }
+                /*  if (a.wave) {
+                      document.getElementById('alert-wave-multi').checked = true;
+                  } else {
+                      document.getElementById('alert-wave-single').checked = true;
+                  }
+                      */
             }
 
             document.getElementById('alertModal').style.display = 'flex';
@@ -971,7 +975,8 @@
             const threshold = parseInt(document.getElementById('alert-threshold').value);
             const interval = parseInt(document.getElementById('alert-interval').value);
             const maxCount = parseInt(document.getElementById('alert-maxcount').value);
-            const wave = document.getElementById('alert-wave-multi').checked;
+            //const wave = document.getElementById('alert-wave-multi').checked;
+            const wave = false; //désactivation du mode
 
 
             // Validation minimale
@@ -2008,37 +2013,37 @@
                 return result.filter(p => p.end > p.start);
             }
                 */
-/*
-        function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
-            const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
-
-            for (const entry of newEntries) {
-                for (const p of result) {
-                    // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
-                    if (p.start === entry.start && p.end === entry.end) continue;
-
-                    // Période AVANT l'insert : on ne touche qu'à sa borne end
-                    if (p.end < entry.start) {
-                        if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
-                            p.end = entry.start;
+        /*
+                function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
+                    const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
+        
+                    for (const entry of newEntries) {
+                        for (const p of result) {
+                            // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
+                            if (p.start === entry.start && p.end === entry.end) continue;
+        
+                            // Période AVANT l'insert : on ne touche qu'à sa borne end
+                            if (p.end < entry.start) {
+                                if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
+                                    p.end = entry.start;
+                                }
+                            }
+        
+                            // Période APRÈS l'insert : on ne touche qu'à sa borne start
+                            if (p.start > entry.end) {
+                                if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
+                                    p.start = entry.end;
+                                }
+                            }
                         }
                     }
-
-                    // Période APRÈS l'insert : on ne touche qu'à sa borne start
-                    if (p.start > entry.end) {
-                        if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
-                            p.start = entry.end;
-                        }
-                    }
+        
+                    // affiche les 5 dernières périodes seulement :
+                    console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
+        
+                    return result.filter(p => p.end > p.start);
                 }
-            }
-
-            // affiche les 5 dernières périodes seulement :
-            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
-
-            return result.filter(p => p.end > p.start);
-        }
-            */
+                    */
 
         function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p }));
@@ -2969,11 +2974,63 @@
             document.getElementById('sleep-overlay').classList.add('hidden');
         }
 
-        // 4. Gestion du retour d'arrière-plan (Re-fixer le Wake Lock)
+    /*    // 4. Gestion du retour d'arrière-plan (Re-fixer le Wake Lock)
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 await requestWakeLock();
             }
+        });
+
+     */   
+
+        // Gestion du retour au premier plan
+        // Sur mobile, les setTimeout sont throttlés en arrière-plan.
+        // Au retour en visible : rattrapage des alertes manquées + reprogrammation des futures.
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState !== 'visible') return;
+
+            // 1. Re-acquérir le Wake Lock si besoin
+            if (wakeLock !== null) await requestWakeLock();
+
+            // 2. Reprogrammer les alertes futures dans tous les cas
+            if (state.activeType === null || state.startTime === null) return;
+            const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
+            if (!config) return;
+
+            // 3. Compter les vagues qui auraient dû sonner pendant l'absence
+            const now = Date.now();
+            let missed = 0;
+            for (let i = 0; i < config.maxCount; i++) {
+                const fireAt = state.startTime
+                    + config.threshold * 60000
+                    + i * config.interval * 60000;
+                if (fireAt < now) missed++;
+            }
+
+            // 4. Si des vagues ont été manquées, envoyer UNE notification de rattrapage
+            if (missed > 0) {
+                const label = getLabelForId(state.activeType);
+                const elapsed = formatDuration(now - state.startTime);
+                const title = `🔔 ${label}`;
+                const body = missed === 1
+                    ? `${elapsed} en cours. 1 rappel manqué pendant l'absence.`
+                    : `${elapsed} en cours. ${missed} rappels manqués pendant l'absence.`;
+
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const worker = navigator.serviceWorker.controller || registration.active;
+                    if (worker) {
+                        worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
+                        console.log(`[VisibilityChange] 🔔 Rattrapage : ${missed} vague(s) manquée(s)`);
+                    }
+                } catch (e) {
+                    console.error('[VisibilityChange] ❌ Erreur rattrapage :', e);
+                }
+            }
+
+            // 5. Reprogrammer les vagues futures (scheduleAlerts ignore automatiquement les passées)
+            scheduleAlerts(state.activeType, state.startTime);
+            console.log(`[VisibilityChange] ✅ Retour visible — ${missed} manquée(s), futures reprogrammées`);
         });
 
     </script>
