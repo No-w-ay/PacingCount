@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e12"; </script>
+    <script> const APP_VERSION = "0.918 Beta e13"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -633,7 +633,7 @@
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 
         // ============================================================
-        // 2. CONSTANTES GLOBALES
+        // 2. CONSTANTES ET VARIALBES GLOBALES
         // TYPE_COLORS : palette des 6 couleurs possibles, indexée par position (1→6).
         // STANDARD_TYPES : types prédéfinis avec leurs traductions. Extensible à l'avenir.
         // ============================================================
@@ -1912,7 +1912,9 @@
                 }
             }
 
-            console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => [1, 2, 3].includes(p.typeId))));
+            //console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => [1, 2, 3].includes(p.typeId))));
+            // affiche les 5 dernières périodes seulement :
+            console.log('[Debug Merge] résultat:', JSON.stringify(merged.slice(-5)));
 
             return merged;
         }
@@ -1945,6 +1947,7 @@
             let combined = [...resultBase, ...priorityPeriods];
             combined.sort((a, b) => a.start - b.start);
 
+                // déplacé dans mergeAdjacentPeriods()
             /*  // 3. Fusion des périodes adjacentes du même type
               let merged = [];
               for (let current of combined) {
@@ -1963,7 +1966,9 @@
               return merged;
               */
 
-            console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => [1, 2, 3].includes(p.typeId))));
+            // console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => [1, 2, 3].includes(p.typeId))));
+            // affiche les 5 dernières périodes seulement :
+            console.log('[Debug Roller] combined:', JSON.stringify(combined.slice(-5)));
 
             return combined; // mis à la place de l'étape 3 qui sera prise en charge par la nouvelle fonction mergeAdjacentPeriods()
         }
@@ -1995,7 +2000,9 @@
                 }
             }
 
-            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
+            //console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
+            // affiche les 5 dernières périodes seulement :
+            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
 
             // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
             return result.filter(p => p.end > p.start);
@@ -2811,7 +2818,7 @@
         }
 
         // ============================================================
-        // GESTION WAKE LOCK & PSEUDO-VEILLE
+        // GESTION WAKE LOCK & PSEUDO-VEILLE (après INACTIVITY_DELAY)
         // ============================================================
 
         let wakeLock = null;
