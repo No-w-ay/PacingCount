@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.918 Beta e14"; </script>
+    <script> const APP_VERSION = "0.918 Beta e15"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1980,34 +1980,34 @@
         // on redéfinit la borne existante pour qu'elle coïncide exactement.
         // Évite tout trou ou fragment entre périodes de précisions différentes.
         // ============================================================
-    /*    function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
-            const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
-
-            for (const entry of newEntries) {
-                for (const p of result) {
-                    // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
-                    if (p.start === entry.start && p.end === entry.end) continue;
-
-                    // Borne end d'une période existante proche du start de la nouvelle → on la colle
-                    if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
-                        p.end = entry.start;
-                    }
-
-                    // Borne start d'une période existante proche du end de la nouvelle → on la colle
-                    if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
-                        p.start = entry.end;
+        /*    function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
+                const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
+    
+                for (const entry of newEntries) {
+                    for (const p of result) {
+                        // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
+                        if (p.start === entry.start && p.end === entry.end) continue;
+    
+                        // Borne end d'une période existante proche du start de la nouvelle → on la colle
+                        if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
+                            p.end = entry.start;
+                        }
+    
+                        // Borne start d'une période existante proche du end de la nouvelle → on la colle
+                        if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
+                            p.start = entry.end;
+                        }
                     }
                 }
+    
+                //console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
+                // affiche les 5 dernières périodes seulement :
+                console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
+    
+                // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
+                return result.filter(p => p.end > p.start);
             }
-
-            //console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
-            // affiche les 5 dernières périodes seulement :
-            console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
-
-            // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
-            return result.filter(p => p.end > p.start);
-        }
-            */
+                */
 
         function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
@@ -2514,11 +2514,11 @@
 
                     //let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
                     //let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
-                    /*let finalPeriods = mergeAdjacentPeriods(
+                    let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
                     );
-                    */
-
+                      
+                    /*
                     let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(
                             applySteamroller(basePeriods, resolvedPeriods),
@@ -2528,6 +2528,7 @@
                             )
                         )
                     );
+                    */
 
                     reconstructHistory(finalPeriods);
                     alert(successMessage);
