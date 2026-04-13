@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e6"; </script>
+    <script> const APP_VERSION = "0.919 Beta e7"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -419,7 +419,7 @@
             Notif Immédiate</button>
 
         <button id="toggle-fullscreen"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; margin-left: 10px; padding: 10px;">Mode
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Mode
             Plein Écran</button>
 
     </div>
@@ -1091,33 +1091,55 @@
             }
         });
 
+        // Pour le mode plein écran
         const btnFullscreen = document.getElementById('toggle-fullscreen');
 
-        // Toggle FULLSCREEN
         btnFullscreen.addEventListener('click', async () => {
             if (!document.fullscreenElement) {
-                // On demande à passer en plein écran
+                // 1. On passe en plein écran (obligatoire AVANT de bloquer la rotation)
                 try {
-                    // document.documentElement cible toute la page (le <html>)
                     await document.documentElement.requestFullscreen();
                     btnFullscreen.innerText = "Quitter le Plein Écran";
+
+                    // 2. On bloque la rotation (ici en mode 'portrait')
+                    // Tu peux aussi mettre 'landscape' si tu préfères
+                    if (screen.orientation && screen.orientation.lock) {
+                        try {
+                            await screen.orientation.lock('portrait');
+                            console.log("[btnFullscreen] Rotation bloquée en portrait !");
+                        } catch (err) {
+                            // Certains vieux navigateurs ou iOS peuvent bloquer cette action
+                            console.warn("[btnFullscreen] Le verrouillage de l'orientation a échoué :", err.message);
+                        }
+                    }
+
                 } catch (err) {
-                    console.error(`Erreur Plein Écran : ${err.message}`);
-                    alert("Le mode plein écran n'est pas autorisé par ce navigateur.");
+                    console.error(`[btnFullscreen] Erreur Plein Écran : ${err.message}`);
                 }
             } else {
                 // On est déjà en plein écran, on en sort
                 if (document.exitFullscreen) {
+
+                    // 1. On libère la rotation pour rendre le contrôle à l'utilisateur
+                    if (screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock();
+                    }
+
+                    // 2. On quitte le plein écran
                     await document.exitFullscreen();
                     btnFullscreen.innerText = "Mode Plein Écran";
                 }
             }
         });
 
-        // Optionnel : Gérer le cas où l'utilisateur quitte le plein écran avec le bouton "Retour" d'Android
+        // Gérer la sortie via le bouton "Retour" d'Android
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) {
                 btnFullscreen.innerText = "Mode Plein Écran";
+                // Sécurité : on déverrouille aussi si on sort avec le bouton physique
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
             }
         });
 
