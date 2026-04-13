@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e5"; </script>
+    <script> const APP_VERSION = "0.919 Beta e6"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -52,6 +52,10 @@
             /* Équivalent de #b0b0b0 */
             --grid-color: rgba(255, 255, 255, 0.2);
             --grid-line: hsl(0, 0%, 25%);
+
+            --melange: color-mix(in srgb, var(--blue) 50%, var(--green));
+            --melange2: hsl(164, 61%, 48%);
+            /* Fallback de mélange si nav ne comprends pas color-mix */
 
         }
 
@@ -402,10 +406,21 @@
         <button id="btn-stop" class="btn-stop" onclick="stopRecording()" style="display: none;">Arrêter
             l'enregistrement</button>
 
-        <!--bouton test de notification en direct -->
+        <!--bouton test de notification en direct 
+        
         <button id="test-notif"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px ; padding: 10px;">Test
             Notif Immédiate</button>
+
+        -->
+
+        <button id="test-notif"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Test
+            Notif Immédiate</button>
+
+        <button id="toggle-fullscreen"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; margin-left: 10px; padding: 10px;">Mode
+            Plein Écran</button>
 
     </div>
 
@@ -1064,7 +1079,7 @@
         }
 
         // ================================
-        // 7b. Test notifications en direct
+        // 7b. Test notifications en direct (mettre après demande acceptation notif ???)
         // ================================
         document.getElementById('test-notif').addEventListener('click', () => {
             if ('serviceWorker' in navigator) {
@@ -1073,6 +1088,36 @@
                         body: 'Si tu vois ça, le bouton de notification en direct marche !'
                     });
                 });
+            }
+        });
+
+        const btnFullscreen = document.getElementById('toggle-fullscreen');
+
+        // Toggle FULLSCREEN
+        btnFullscreen.addEventListener('click', async () => {
+            if (!document.fullscreenElement) {
+                // On demande à passer en plein écran
+                try {
+                    // document.documentElement cible toute la page (le <html>)
+                    await document.documentElement.requestFullscreen();
+                    btnFullscreen.innerText = "Quitter le Plein Écran";
+                } catch (err) {
+                    console.error(`Erreur Plein Écran : ${err.message}`);
+                    alert("Le mode plein écran n'est pas autorisé par ce navigateur.");
+                }
+            } else {
+                // On est déjà en plein écran, on en sort
+                if (document.exitFullscreen) {
+                    await document.exitFullscreen();
+                    btnFullscreen.innerText = "Mode Plein Écran";
+                }
+            }
+        });
+
+        // Optionnel : Gérer le cas où l'utilisateur quitte le plein écran avec le bouton "Retour" d'Android
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                btnFullscreen.innerText = "Mode Plein Écran";
             }
         });
 
@@ -3145,7 +3190,14 @@
                 */
 
             // 6. Reprogrammer les vagues futures dans tous les cas
+            //scheduleAlerts(state.activeType, state.startTime);
+
+            // 6. Reprogrammer les vagues futures
+            const savedSentAlerts = [...state.sentAlerts]; // sauvegarde
             scheduleAlerts(state.activeType, state.startTime);
+            state.sentAlerts = savedSentAlerts; // restauration après le cancelAlerts interne
+            saveState();
+
             console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
         });
 
