@@ -1,6 +1,6 @@
 //sw.js v0.2 alertes (à partir de index_v0.916)
 
-const CACHE_NAME = 'PacingCount-v0.917'; //gestion timer alertes par index, SW ne fait qu'afficher
+const CACHE_NAME = 'PacingCount-v0.919'; //gestion timer alertes par index, SW ne fait qu'afficher
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -73,9 +73,7 @@ self.addEventListener('message', event => {
       body: data.body,
       tag: data.tag,
       requireInteraction: true, // reste visible jusqu'au tap
-      actions: [
-        { action: 'dismiss', title: "J'ai compris" }
-      ]
+      //actions: [{ action: 'dismiss', title: "J'ai compris" }] // Bouton "j'ai compris"
     });
     
     console.log(`[SW] ${CACHE_NAME} - Notification affichée immédiatement : ${data.tag}`);

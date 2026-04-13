@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e4"; </script>
+    <script> const APP_VERSION = "0.919 Beta e5"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1166,7 +1166,11 @@
                         //const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
-                        const title = `${bells} ${label}`;
+                        //const title = `${bells} ${label}`;
+                        const isLast = (i === config.maxCount - 1);
+                        const title = isLast
+                            ? `${bells} ${label} (Dernier rappel)`
+                            : `${bells} ${label} (Rappel ${i + 1})`;
 
                         // NOUVEAU : Texte personnalisé avec le nom de la période et le numéro du rappel
                         const rappelNumero = i + 1;
@@ -3062,6 +3066,47 @@
             // 5. Envoyer UN catchup si des vagues ont été manquées depuis le dernier catchup
             if (missed > 0) {
                 const label = getLabelForId(state.activeType);
+                const mins = Math.floor((now - state.startTime) / 60000);
+
+                // Calculé une seule fois, réutilisé pour le titre et le Wake Lock
+                const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
+                    state.startTime + config.threshold * 60000 + i * config.interval * 60000
+                ).some(fireAt => fireAt > now);
+
+                const title = hasMoreWaves
+                    ? `🔔 ${label} (Catchup ${missed})`
+                    : `🔔 ${label} (Dernier catchup)`;
+                const body = missed === 1
+                    ? `${mins} min en période ${label} (catchup de 1 rappel manqué pendant la veille)`
+                    : `${mins} min en période ${label} (catchup de ${missed} rappels manqués pendant la veille)`;
+
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const worker = navigator.serviceWorker.controller || registration.active;
+                    if (worker) {
+                        worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
+                        console.log(`[visibilitychange] 🔔 Catchup : ${missed} vague(s) manquée(s)`);
+
+                        state.sentAlerts.push({
+                            waveIndex: -1,
+                            typeId: state.activeType,
+                            firedAt: now,
+                            mode: 'presence',
+                            source: 'catchup'
+                        });
+                        saveState();
+
+                        if (!hasMoreWaves) releaseWakeLock();
+                    }
+                } catch (e) {
+                    console.error('[visibilitychange] ❌ Erreur catchup :', e);
+                }
+            } else {
+                console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
+            }
+
+            /*     if (missed > 0) {
+                const label = getLabelForId(state.activeType);
                 const title = `🔔 ${label}`;
                 const mins = Math.floor((now - state.startTime) / 60000);
                 const body = missed === 1
@@ -3097,6 +3142,7 @@
             } else {
                 console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
             }
+                */
 
             // 6. Reprogrammer les vagues futures dans tous les cas
             scheduleAlerts(state.activeType, state.startTime);
