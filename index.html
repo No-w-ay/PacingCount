@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e2"; </script>
+    <script> const APP_VERSION = "0.919 Beta e3"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -713,6 +713,17 @@
                 }
             }
 
+            // Initialisation de state.sentAlerts si absent
+            const rawState2 = localStorage.getItem('pacingState');
+            if (rawState2) {
+                const st2 = JSON.parse(rawState2);
+                if (!st2.sentAlerts) {
+                    st2.sentAlerts = [];
+                    localStorage.setItem('pacingState', JSON.stringify(st2));
+                    console.log("[Migration] state.sentAlerts initialisé à []");
+                }
+            }
+
             console.log("[Migration] Terminée.");
         }
 
@@ -728,6 +739,8 @@
         // ============================================================
         let state = JSON.parse(localStorage.getItem('pacingState'))
             || { activeType: null, startTime: null, history: [] };
+
+        if (!state.sentAlerts) state.sentAlerts = []; // sécurité
 
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
@@ -1095,6 +1108,8 @@
             localAlertTimers.forEach(id => clearTimeout(id));
             localAlertTimers = [];
             clearTimeout(autoReleaseWakeLockTimer); // NOUVEAU : On annule aussi le relâchement antérieurement programmé du Wake Lock
+            state.sentAlerts = [];
+            saveState();
             console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
         }
 
@@ -1171,6 +1186,17 @@
                                 tag: tag
                             });
                             console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
+
+                            // Enregistre la vague envoyée
+                            state.sentAlerts.push({
+                                waveIndex: i,
+                                typeId: typeId,
+                                firedAt: Date.now(),
+                                mode: 'presence',
+                                source: 'timer'
+                            });
+                            saveState();
+
                         } else {
                             console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
                         }
@@ -2997,30 +3023,43 @@
         // Gestion du retour au premier plan
         // Sur mobile, les setTimeout sont throttlés en arrière-plan.
         // Au retour en visible : rattrapage des alertes manquées + reprogrammation des futures.
-        // NOTE : missed compte toutes les vagues dont fireAt < now depuis le début de la période — pas seulement celles manquées pendant cette absence. Si l'utilisateur était présent et a reçu les vraies notifications, puis quitte et revient, missed sera surestimé.
-        // A TERME : noter dans le LOcalSotrage quelles alertes ont été envoyées.       
+        // NOUVEAU : AVEC enregistrement des alertes déjà jouées, pour ne pas en perdre la mémoire si nouvelle veille
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState !== 'visible') return;
 
             // 1. Re-acquérir le Wake Lock si besoin
             if (wakeLock !== null) await requestWakeLock();
 
-            // 2. Reprogrammer les alertes futures dans tous les cas
+            // 2. Pas de période active → rien à faire
             if (state.activeType === null || state.startTime === null) return;
             const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
-            if (!config) return;
+            if (!config) {
+                scheduleAlerts(state.activeType, state.startTime);
+                return;
+            }
 
-            // 3. Compter les vagues qui auraient dû sonner pendant l'absence
             const now = Date.now();
+
+            // 3. Timestamp du dernier catchup envoyé pour ce type (0 si aucun)
+            const lastCatchupAt = state.sentAlerts
+                .filter(s => s.source === 'catchup' && s.typeId === state.activeType)
+                .reduce((max, s) => s.firedAt > max ? s.firedAt : max, 0);
+
+            // 4. Compter les vagues manquées depuis le dernier catchup
             let missed = 0;
             for (let i = 0; i < config.maxCount; i++) {
                 const fireAt = state.startTime
                     + config.threshold * 60000
                     + i * config.interval * 60000;
-                if (fireAt < now) missed++;
+
+                const alreadySent = state.sentAlerts.some(
+                    s => s.waveIndex === i && s.typeId === state.activeType
+                );
+
+                if (fireAt < now && !alreadySent && fireAt > lastCatchupAt) missed++;
             }
 
-            // 4. Si des vagues ont été manquées, envoyer UNE notification de rattrapage
+            // 5. Envoyer UN catchup si des vagues ont été manquées depuis le dernier catchup
             if (missed > 0) {
                 const label = getLabelForId(state.activeType);
                 const elapsed = formatDuration(now - state.startTime);
@@ -3034,17 +3073,80 @@
                     const worker = navigator.serviceWorker.controller || registration.active;
                     if (worker) {
                         worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                        console.log(`[VisibilityChange] 🔔 Rattrapage : ${missed} vague(s) manquée(s)`);
+                        console.log(`[visibilitychange] 🔔 Catchup : ${missed} vague(s) manquée(s)`);
+
+                        state.sentAlerts.push({
+                            waveIndex: -1,
+                            typeId: state.activeType,
+                            firedAt: now,
+                            mode: 'presence',
+                            source: 'catchup'
+                        });
+                        saveState();
                     }
                 } catch (e) {
-                    console.error('[VisibilityChange] ❌ Erreur rattrapage :', e);
+                    console.error('[visibilitychange] ❌ Erreur catchup :', e);
                 }
+            } else {
+                console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
             }
 
-            // 5. Reprogrammer les vagues futures (scheduleAlerts ignore automatiquement les passées)
+            // 6. Reprogrammer les vagues futures dans tous les cas
             scheduleAlerts(state.activeType, state.startTime);
-            console.log(`[VisibilityChange] ✅ Retour visible — ${missed} manquée(s), futures reprogrammées`);
+            console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
         });
+
+        // NOTE : missed compte toutes les vagues dont fireAt < now depuis le début de la période — pas seulement celles manquées pendant cette absence. Si l'utilisateur était présent et a reçu les vraies notifications, puis quitte et revient, missed sera surestimé.
+        // A TERME : noter dans le LOcalSotrage quelles alertes ont été envoyées.   
+
+        /*    document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState !== 'visible') return;
+    
+                // 1. Re-acquérir le Wake Lock si besoin
+                if (wakeLock !== null) await requestWakeLock();
+    
+                // 2. Reprogrammer les alertes futures dans tous les cas
+                if (state.activeType === null || state.startTime === null) return;
+                const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
+                if (!config) return;
+    
+                // 3. Compter les vagues qui auraient dû sonner pendant l'absence
+                const now = Date.now();
+                let missed = 0;
+                for (let i = 0; i < config.maxCount; i++) {
+                    const fireAt = state.startTime
+                        + config.threshold * 60000
+                        + i * config.interval * 60000;
+                    if (fireAt < now) missed++;
+                }
+    
+                // 4. Si des vagues ont été manquées, envoyer UNE notification de rattrapage
+                if (missed > 0) {
+                    const label = getLabelForId(state.activeType);
+                    const elapsed = formatDuration(now - state.startTime);
+                    const title = `🔔 ${label}`;
+                    const body = missed === 1
+                        ? `${elapsed} en cours. 1 rappel manqué pendant l'absence.`
+                        : `${elapsed} en cours. ${missed} rappels manqués pendant l'absence.`;
+    
+                    try {
+                        const registration = await navigator.serviceWorker.ready;
+                        const worker = navigator.serviceWorker.controller || registration.active;
+                        if (worker) {
+                            worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
+                            console.log(`[VisibilityChange] 🔔 Rattrapage : ${missed} vague(s) manquée(s)`);
+                        }
+                    } catch (e) {
+                        console.error('[VisibilityChange] ❌ Erreur rattrapage :', e);
+                    }
+                }
+    
+                // 5. Reprogrammer les vagues futures (scheduleAlerts ignore automatiquement les passées)
+                scheduleAlerts(state.activeType, state.startTime);
+                console.log(`[VisibilityChange] ✅ Retour visible — ${missed} manquée(s), futures reprogrammées`);
+            });
+    
+            */
 
     </script>
 </body>
