@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e3"; </script>
+    <script> const APP_VERSION = "0.919 Beta e4"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -3062,11 +3062,11 @@
             // 5. Envoyer UN catchup si des vagues ont été manquées depuis le dernier catchup
             if (missed > 0) {
                 const label = getLabelForId(state.activeType);
-                const elapsed = formatDuration(now - state.startTime);
                 const title = `🔔 ${label}`;
+                const mins = Math.floor((now - state.startTime) / 60000);
                 const body = missed === 1
-                    ? `${elapsed} en cours. 1 rappel manqué pendant l'absence.`
-                    : `${elapsed} en cours. ${missed} rappels manqués pendant l'absence.`;
+                    ? `${mins} min en période ${label} (catchup de 1 rappel manqué pendant la veille)`
+                    : `${mins} min en période ${label} (catchup de ${missed} rappels manqués pendant la veille)`;
 
                 try {
                     const registration = await navigator.serviceWorker.ready;
@@ -3083,6 +3083,13 @@
                             source: 'catchup'
                         });
                         saveState();
+
+                        // release du wake-lock si c'était le dernier catchup à jouer
+                        const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
+                            state.startTime + config.threshold * 60000 + i * config.interval * 60000
+                        ).some(fireAt => fireAt > now);
+                        if (!hasMoreWaves) releaseWakeLock();
+
                     }
                 } catch (e) {
                     console.error('[visibilitychange] ❌ Erreur catchup :', e);
