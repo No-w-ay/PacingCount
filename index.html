@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.919 Beta e1"; </script>
+    <script> const APP_VERSION = "0.919 Beta e2"; </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -654,6 +654,7 @@
         };
 
         const SNAP_THRESHOLD = 60000; // 60 secondes — seuil de raccordement des bornes adjacentes
+        const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
 
         // ============================================================
         // 3. MIGRATION DU LOCALSTORAGE
@@ -1127,7 +1128,7 @@
 
                 // Si le moment est déjà passé (ex: reprise après fermeture), on ignore
                 if (delay <= 0) {
-                    console.log(`[Index] ⏳ Vague ${i + 1} ignorée (délai déjà écoulé)`);
+                    console.log(`[scheduleAlerts] ⏳ Vague ${i + 1} ignorée (délai déjà écoulé)`);
                     continue;
                 }
 
@@ -1142,6 +1143,12 @@
                     }
 
                     const timerId = setTimeout(async () => {
+                        // Guard : si trop tardif, visibilitychange s'en charge
+                        if (Date.now() - fireAt > LATE_ALERT_THRESHOLD) {
+                            console.log(`[scheduleAlerts] ⚠️ Vague ${i + 1} abandonnée (>${LATE_ALERT_THRESHOLD / 1000}s de retard)`);
+                            return;
+                        }
+                        //const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
                         const title = `${bells} ${label}`;
@@ -1163,9 +1170,9 @@
                                 body: body,
                                 tag: tag
                             });
-                            console.log(`[Index] 🔔 Message envoyé au SW actif : ${tag}`);
+                            console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
                         } else {
-                            console.error("[Index] ❌ Impossible de trouver un SW actif pour la notif.");
+                            console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
                         }
                     }, notifDelay);
 
@@ -1173,10 +1180,10 @@
                 }
 
                 programmedCount++;
-                console.log(`[Index] ⏱️ Vague ${i + 1} (${count}x) programmée dans ${Math.round(delay / 60000)} min`);
+                console.log(`[scheduleAlerts] ⏱️ Vague ${i + 1} (${count}x) programmée dans ${Math.round(delay / 60000)} min`);
             }
 
-            console.log(`[Notif] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
+            console.log(`[scheduleAlerts] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
 
             // NOUVEAU : Relâchement automatique du Wake Lock après la dernière alerte
             if (maxDelayMs > 0) {
@@ -2978,14 +2985,14 @@
             document.getElementById('sleep-overlay').classList.add('hidden');
         }
 
-    /*    // 4. Gestion du retour d'arrière-plan (Re-fixer le Wake Lock)
-        document.addEventListener('visibilitychange', async () => {
-            if (wakeLock !== null && document.visibilityState === 'visible') {
-                await requestWakeLock();
-            }
-        });
-
-     */   
+        /*    // 4. Gestion du retour d'arrière-plan (Re-fixer le Wake Lock)
+            document.addEventListener('visibilitychange', async () => {
+                if (wakeLock !== null && document.visibilityState === 'visible') {
+                    await requestWakeLock();
+                }
+            });
+    
+         */
 
         // Gestion du retour au premier plan
         // Sur mobile, les setTimeout sont throttlés en arrière-plan.
