@@ -74,30 +74,36 @@ self.addEventListener('message', event => {
       tag: data.tag,
       requireInteraction: true, // reste visible jusqu'au tap
       //actions: [{ action: 'dismiss', title: "J'ai compris" }] // Bouton "j'ai compris"
+      // 1. Ajoute un pattern de vibration (ça force Android à monter l'importance)
+      vibrate: [150, 200, 150], // pattern : vibre 150 ms, silence 200 ms, vibre 150 ms
+      // 3. Demande au téléphone de réveiller l'écran
+      renotify: true,
+      // 4. Catégorie (Expérimental mais aidé par certains navigateurs)
+      silent: false
     });
-    
+
     console.log(`[SW] ${CACHE_NAME} - Notification affichée immédiatement : ${data.tag}`);
-    
+
     // Essayer d'envoyer le log à la page (si sendLogToPage existe)
     if (typeof sendLogToPage === "function") {
-        sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification affichée : ${data.tag}`);
+      sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Notification affichée : ${data.tag}`);
     }
   }
 });
 
 
 // BONUS : détection notification push serveur
-self.addEventListener('push', function(event) {
+self.addEventListener('push', function (event) {
   const options = {
     body: 'Ceci est une notification de test push !'   // ,
- //   icon: 'icon.png',
-  //  badge: 'badge.png'
+    //   icon: 'icon.png',
+    //  badge: 'badge.png'
   };
 
   // On demande au système d'afficher la bulle
   event.waitUntil(
     self.registration.showNotification('Ma PWA', options)
   );
-  
+
   console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
 });
