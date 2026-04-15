@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.920 Beta e1"; </script>
+    <script> const APP_VERSION = "0.920 Beta e2"; </script>
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
     <!-- PacingCount — (c) 2026 No-w-ay -->
@@ -452,7 +452,8 @@
 
         <!-- Noms des boutons -->
         <div class="settings-group">
-            <label style="display:block; margin-bottom:10px; font-weight:bold;">Noms des boutons</label>
+            <label id="label-custom" for="custom-1" style="display:block; margin-bottom:10px; font-weight:bold;">Noms
+                des boutons</label>
             <input type="text" id="custom-1" onchange="saveSettings()">
             <input type="text" id="custom-2" onchange="saveSettings()">
             <input type="text" id="custom-3" onchange="saveSettings()">
@@ -472,7 +473,8 @@
         <!-- À propos -->
         <div class="settings-group">
             <label style="display:block; margin-bottom:10px; font-weight:bold;">À propos</label>
-            <div style="text-align:center; margin-bottom:15px; line-height:1.8;">
+            <div id="app-version" class="version-display"
+                style="text-align:center; margin-bottom:15px; line-height:1.8;">
                 <div id="about-title" style="font-weight:bold;"></div>
                 <div id="about-copyright" style="opacity:0.7; font-size:0.85rem;"></div>
                 <div id="about-version" style="opacity:0.7; font-size:0.85rem;"></div>
