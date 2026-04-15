@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.920 Beta e2"; </script>
+    <script> const APP_VERSION = "0.920 Beta e3"; </script>
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
     <!-- PacingCount — (c) 2026 No-w-ay -->
@@ -383,7 +383,7 @@
 
 <body>
 
-    <!-- mode pseudo veille (au démarrage et après inactivité) -->
+    <!-- mode pseudo veille (après INACTIVITY_DELAY) -->
     <div id="sleep-overlay" class="hidden">
         <div style="padding: 20px; opacity: 0.5;">
             <h1>PacingCount</h1>
@@ -408,18 +408,12 @@
         <button id="btn-stop" class="btn-stop" onclick="stopRecording()" style="display: none;">Arrêter
             l'enregistrement</button>
 
-        <!--bouton test de notification en direct 
-        
-        <button id="test-notif"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px ; padding: 10px;">Test
-            Notif Immédiate</button>
-
-        -->
-
+        <!-- bouton test de notification en direct -->
         <button id="test-notif"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Test
             Notif Immédiate</button>
 
+        <!-- bouton test fullscreen -->
         <button id="toggle-fullscreen"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Mode
             Plein Écran</button>
@@ -1417,12 +1411,6 @@
             return `${h}:${m}:${s}`;
         }
 
-        /*  function formatTime(ms) {
-              const d = new Date(ms);
-              return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '00');
-          }
-  */
-
         function formatTime(ms) {
             const d = new Date(ms);
             return d.getHours().toString().padStart(2, '0') + ":" + d.getMinutes().toString().padStart(2, '0') + ":" + d.getSeconds().toString().padStart(2, '0');
@@ -1943,7 +1931,6 @@
 
                     // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
                     div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
-                    // div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText}</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
@@ -2046,7 +2033,6 @@
                 }
             }
 
-            //console.log('[Debug Merge] résultat:', JSON.stringify(merged.filter(p => [1, 2, 3].includes(p.typeId))));
             // affiche les 5 dernières périodes seulement :
             console.log('[Debug Merge] résultat:', JSON.stringify(merged.slice(-5)));
 
@@ -2100,7 +2086,6 @@
               return merged;
               */
 
-            // console.log('[Debug Roller] combined:', JSON.stringify(combined.filter(p => [1, 2, 3].includes(p.typeId))));
             // affiche les 5 dernières périodes seulement :
             console.log('[Debug Roller] combined:', JSON.stringify(combined.slice(-5)));
 
@@ -2114,65 +2099,6 @@
         // on redéfinit la borne existante pour qu'elle coïncide exactement.
         // Évite tout trou ou fragment entre périodes de précisions différentes.
         // ============================================================
-        /*    function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
-                const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
-    
-                for (const entry of newEntries) {
-                    for (const p of result) {
-                        // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
-                        if (p.start === entry.start && p.end === entry.end) continue;
-    
-                        // Borne end d'une période existante proche du start de la nouvelle → on la colle
-                        if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
-                            p.end = entry.start;
-                        }
-    
-                        // Borne start d'une période existante proche du end de la nouvelle → on la colle
-                        if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
-                            p.start = entry.end;
-                        }
-                    }
-                }
-    
-                //console.log('[Debug Snap] avant filtre:', JSON.stringify(result.filter(p => [1, 2, 3].includes(p.typeId))));
-                // affiche les 5 dernières périodes seulement :
-                console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
-    
-                // Filtre les périodes qui seraient devenues nulles ou négatives après ajustement
-                return result.filter(p => p.end > p.start);
-            }
-                */
-        /*
-                function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
-                    const result = periods.map(p => ({ ...p })); // copie pour ne pas muter
-        
-                    for (const entry of newEntries) {
-                        for (const p of result) {
-                            // On ne touche pas aux périodes qui sont la nouvelle entrée elle-même
-                            if (p.start === entry.start && p.end === entry.end) continue;
-        
-                            // Période AVANT l'insert : on ne touche qu'à sa borne end
-                            if (p.end < entry.start) {
-                                if (Math.abs(p.end - entry.start) < threshold && Math.abs(p.end - entry.start) > 0) {
-                                    p.end = entry.start;
-                                }
-                            }
-        
-                            // Période APRÈS l'insert : on ne touche qu'à sa borne start
-                            if (p.start > entry.end) {
-                                if (Math.abs(p.start - entry.end) < threshold && Math.abs(p.start - entry.end) > 0) {
-                                    p.start = entry.end;
-                                }
-                            }
-                        }
-                    }
-        
-                    // affiche les 5 dernières périodes seulement :
-                    console.log('[Debug Snap] avant filtre:', JSON.stringify(result.slice(-5)));
-        
-                    return result.filter(p => p.end > p.start);
-                }
-                    */
 
         function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p }));
@@ -2259,9 +2185,6 @@
         // Corrige le bug de duplication de la période active lors d'une édition adjacente.
         // ============================================================
 
-        // ============================================================
-        // 18. ÉDITION MANUELLE D'UNE PÉRIODE (sauvegarde du modal)
-        // ============================================================
         function saveManualEdit() {
             const t = translations[settings.lang] || {};
 
@@ -2273,8 +2196,6 @@
             const startStrValue = document.getElementById('edit-start').value;
             const endStrValue = document.getElementById('edit-end').value;
 
-            //const start = new Date(startStrValue).getTime();
-            //let end = new Date(endStrValue).getTime(); // 'let' car on peut le modifier
             // Utiliser timestamp original si non modifié :
             const originalStart = parseInt(document.getElementById('edit-start-original').value);
             const originalEnd = parseInt(document.getElementById('edit-end-original').value);
@@ -2377,14 +2298,6 @@
                 const livePeriod = basePeriods.find(p => p.isLive);
                 if (livePeriod) {
                     livePeriod.end = now;
-                    // --- CORRECTION CHIRURGICALE ANTI-MICRO-FRAGMENT ---
-                    // Si on édite la période juste avant la période 'live' et qu'on la fait se terminer 
-                    // pile au moment (ou après) où la 'live' a commencé, 
-                    // on décale le début de la 'live' pour qu'il s'aligne parfaitement sur la fin de l'édition.
-                    /* if (newEntry.end >= livePeriod.start) {
-                        livePeriod.start = newEntry.end;
-                    }
-                        */
                 }
             }
 
@@ -2486,10 +2399,6 @@
                 [d, m, y] = parts;
             }
 
-            /* const [hr, min] = timeStr.split(':');
-             return new Date(parseInt(y), parseInt(m) - 1, parseInt(d),
-                 parseInt(hr), parseInt(min)).getTime();
-             */
             const [hr, min, sec = '0'] = timeStr.split(':');
             return new Date(parseInt(y), parseInt(m) - 1, parseInt(d),
                 parseInt(hr), parseInt(min), parseInt(sec)).getTime();
@@ -3110,15 +3019,6 @@
             document.getElementById('sleep-overlay').classList.add('hidden');
         }
 
-        /*    // 4. Gestion du retour d'arrière-plan (Re-fixer le Wake Lock)
-            document.addEventListener('visibilitychange', async () => {
-                if (wakeLock !== null && document.visibilityState === 'visible') {
-                    await requestWakeLock();
-                }
-            });
-    
-         */
-
         // Gestion du retour au premier plan
         // Sur mobile, les setTimeout sont throttlés en arrière-plan.
         // Au retour en visible : rattrapage des alertes manquées + reprogrammation des futures.
@@ -3200,48 +3100,6 @@
                 console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
             }
 
-            /*     if (missed > 0) {
-                const label = getLabelForId(state.activeType);
-                const title = `🔔 ${label}`;
-                const mins = Math.floor((now - state.startTime) / 60000);
-                const body = missed === 1
-                    ? `${mins} min en période ${label} (catchup de 1 rappel manqué pendant la veille)`
-                    : `${mins} min en période ${label} (catchup de ${missed} rappels manqués pendant la veille)`;
-
-                try {
-                    const registration = await navigator.serviceWorker.ready;
-                    const worker = navigator.serviceWorker.controller || registration.active;
-                    if (worker) {
-                        worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                        console.log(`[visibilitychange] 🔔 Catchup : ${missed} vague(s) manquée(s)`);
-
-                        state.sentAlerts.push({
-                            waveIndex: -1,
-                            typeId: state.activeType,
-                            firedAt: now,
-                            mode: 'presence',
-                            source: 'catchup'
-                        });
-                        saveState();
-
-                        // release du wake-lock si c'était le dernier catchup à jouer
-                        const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
-                            state.startTime + config.threshold * 60000 + i * config.interval * 60000
-                        ).some(fireAt => fireAt > now);
-                        if (!hasMoreWaves) releaseWakeLock();
-
-                    }
-                } catch (e) {
-                    console.error('[visibilitychange] ❌ Erreur catchup :', e);
-                }
-            } else {
-                console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
-            }
-                */
-
-            // 6. Reprogrammer les vagues futures dans tous les cas
-            //scheduleAlerts(state.activeType, state.startTime);
-
             // 6. Reprogrammer les vagues futures
             const savedSentAlerts = [...state.sentAlerts]; // sauvegarde
             scheduleAlerts(state.activeType, state.startTime);
@@ -3251,57 +3109,67 @@
             console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
         });
 
-        // NOTE : missed compte toutes les vagues dont fireAt < now depuis le début de la période — pas seulement celles manquées pendant cette absence. Si l'utilisateur était présent et a reçu les vraies notifications, puis quitte et revient, missed sera surestimé.
-        // A TERME : noter dans le LOcalSotrage quelles alertes ont été envoyées.   
 
-        /*    document.addEventListener('visibilitychange', async () => {
-                if (document.visibilityState !== 'visible') return;
-    
-                // 1. Re-acquérir le Wake Lock si besoin
-                if (wakeLock !== null) await requestWakeLock();
-    
-                // 2. Reprogrammer les alertes futures dans tous les cas
-                if (state.activeType === null || state.startTime === null) return;
-                const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
-                if (!config) return;
-    
-                // 3. Compter les vagues qui auraient dû sonner pendant l'absence
-                const now = Date.now();
-                let missed = 0;
-                for (let i = 0; i < config.maxCount; i++) {
-                    const fireAt = state.startTime
-                        + config.threshold * 60000
-                        + i * config.interval * 60000;
-                    if (fireAt < now) missed++;
-                }
-    
-                // 4. Si des vagues ont été manquées, envoyer UNE notification de rattrapage
-                if (missed > 0) {
-                    const label = getLabelForId(state.activeType);
-                    const elapsed = formatDuration(now - state.startTime);
-                    const title = `🔔 ${label}`;
-                    const body = missed === 1
-                        ? `${elapsed} en cours. 1 rappel manqué pendant l'absence.`
-                        : `${elapsed} en cours. ${missed} rappels manqués pendant l'absence.`;
-    
-                    try {
-                        const registration = await navigator.serviceWorker.ready;
-                        const worker = navigator.serviceWorker.controller || registration.active;
-                        if (worker) {
-                            worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                            console.log(`[VisibilityChange] 🔔 Rattrapage : ${missed} vague(s) manquée(s)`);
-                        }
-                    } catch (e) {
-                        console.error('[VisibilityChange] ❌ Erreur rattrapage :', e);
-                    }
-                }
-    
-                // 5. Reprogrammer les vagues futures (scheduleAlerts ignore automatiquement les passées)
-                scheduleAlerts(state.activeType, state.startTime);
-                console.log(`[VisibilityChange] ✅ Retour visible — ${missed} manquée(s), futures reprogrammées`);
-            });
-    
-            */
+        /* ===================================================
+
+        LOGIQUE GENERALE
+
+        1. Logique des périodes — points d'attentionMoteur central (ne pas contourner) :
+
+        applySteamroller(base, priority) — gère les chevauchements, fragment gauche reçoit isLive: false
+        snapAdjacentBorders(periods, entries) — raccorde les bornes à moins de SNAP_THRESHOLD(60s)
+        mergeAdjacentPeriods(periods) — fusionne les adjacents de même type, propage isLive
+        Chaîne: steamroller → snap → merge
+        reconstructHistory — isLive est la seule source de vérité, ne pas vérifier p.end
+
+        Contraintes critiques:
+
+        typeId entier 1 - 6, immuable, couleur liée à la position parmi les actifs(pas au typeId)
+        Coupure à minuit toujours faite par closePeriod() — jamais de période chevauchant minuit
+        Périodes de durée nulle: filtrées à l'import et à la création
+        DST: utiliser new Date(jour + 1), jamais dayS + 24 * 3600 * 1000
+        SNAP_THRESHOLD = 60000 — mettre à 0 désactive le snap(debug)
+
+
+        2. Logique des alertes, Wake Lock, pseudo - veille
+
+        Flux d'une alerte normale :
+
+        startPeriod() → scheduleAlerts(typeId, startTime) → setTimeout pour chaque vague
+        Au déclenchement: guard LATE_ALERT_THRESHOLD = 15000ms — si retard > 15s, abandon(visibilitychange prend le relais)
+        Envoi via postMessage DISPLAY_NOW au SW → showNotification()
+        Enregistrement dans state.sentAlerts[] + saveState()
+        Après dernière vague: autoReleaseWakeLockTimer relâche le Wake Lock 60s plus tard
+
+        Flux visibilitychange(retour au premier plan) :
+
+        Re - acquérir Wake Lock si besoin
+        Calculer lastCatchupAt(timestamp du dernier catchup pour ce type)
+        Compter vagues manquées: fireAt < now && !alreadySent && fireAt > lastCatchupAt
+        Si missed > 0 → UNE notification catchup, enregistrée dans sentAlerts avec source: 'catchup'
+        Si plus de vagues futures après catchup → releaseWakeLock()
+        scheduleAlerts() reprogramme les futures — sentAlerts sauvegardé / restauré autour de cet appel
+
+        Structure sentAlerts dans pacingState:
+
+        javascript{ waveIndex, typeId, firedAt, mode: 'presence', source: 'timer' | 'catchup' }
+        // waveIndex = -1 pour les catchups
+
+        Wake Lock:
+
+        Activé dans requestWakeLock() uniquement si une alerte active existe pour le type en cours
+        Relâché: automatiquement après dernière alerte, ou manuellement à stopRecording(), ou si plus de vagues après catchup
+        Si système coupe le Wake Lock(batterie) → stopInactivityDetection()
+
+        Pseudo - veille :
+
+        Overlay noir après INACTIVITY_DELAY = 20000ms d'inactivité
+        Déverrouillage: swipe vers le haut
+        Timer principal synchronisé via MutationObserver
+
+        Mode vagues croissantes: désactivé silencieusement(wave = false hardcodé), logique conservée dans le code
+
+        =====================================================    */
 
     </script>
 </body>
