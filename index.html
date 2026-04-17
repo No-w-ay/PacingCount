@@ -1229,7 +1229,7 @@
                     if (event.data && event.data.type === 'SW_VERSION') {
                         navigator.serviceWorker.removeEventListener('message', onMessage);
 
-                        const newVersion = event.data.version.replace('PacingCount-', '');
+                        const newVersion = event.data.version.replace('PacingCount-v', '');
                         title.innerText = '🔄 Mise à jour disponible';
                         body.innerHTML = `
                             <div style="margin-bottom:12px;">
