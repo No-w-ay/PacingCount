@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.1"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.2"; </script>
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
     <!-- PacingCount — (c) 2026 No-w-ay -->
@@ -1177,8 +1177,8 @@
         // Enregistrement du Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('[SW] Enregistré :', reg.scope))
-                .catch(err => console.error('[SW] Erreur enregistrement :', err));
+                .then(reg => console.log('[index] SW enregistré :', reg.scope))
+                .catch(err => console.error('[index] Erreur enregistrement SW :', err));
         }
 
         // ============================================================

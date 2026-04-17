@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.21-beta.1'; // Synchronisé manuellement avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.21-beta.2'; // Synchronisé manuellement avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,9 +10,26 @@ const ASSETS_TO_CACHE = [
   './icon-512.png'  // Ajout indispensable
 ];
 
+//Petite fonction pour envoyer des Log du SW à index.html
+function sendLogToPage(message) {
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'SW_LOG',
+        message: message
+      });
+    });
+  });
+}
+
+// Utilisation :
+sendLogToPage(`[SW-SLTP] Premier SLTP pour SW ${CACHE_NAME}`);
+
+
 // Installation du service worker et mise en cache
 self.addEventListener('install', event => {
   console.log(`[SW] ⬇️ Installation de la version : ${CACHE_NAME}`);
+  sendLogToPage(`[SW-SLTP] ⬇️ Installation de la version : ${CACHE_NAME}`);
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
   );
@@ -30,6 +47,7 @@ self.addEventListener('fetch', event => {
 // Nettoyage des anciens caches si on met à jour la version
 self.addEventListener('activate', event => {
   console.log(`[SW] 🚀 Activation réussie : ${CACHE_NAME} est maintenant aux commandes !`);
+  sendLogToPage(`[SW-SLTP] 🚀 Activation réussie : ${CACHE_NAME} est maintenant aux commandes !`);
   event.waitUntil(
     caches.keys().then(cacheNames =>
       Promise.all(
@@ -43,20 +61,7 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-//Petite fonction pour envoyer des Log du SW à index.html
-function sendLogToPage(message) {
-  self.clients.matchAll().then(clients => {
-    clients.forEach(client => {
-      client.postMessage({
-        type: 'SW_LOG',
-        message: message
-      });
-    });
-  });
-}
 
-// Utilisation :
-sendLogToPage(`[SW-SLTP] Version ${CACHE_NAME} active !`);
 
 // ============================================================
 // ALERTES DE PACING (Version simplifiée)
@@ -93,11 +98,13 @@ self.addEventListener('message', event => {
   // Répond avec la version du SW au clic sur "Vérifier mise à jour"
   if (data.type === 'GET_VERSION') {
     event.source.postMessage({ type: 'SW_VERSION', version: CACHE_NAME });
+    sendLogToPage(`[SW-SLTP] GET_VERSION reçu — version envoyée : ${CACHE_NAME}`);
   }
 
   // Déclenche l'activation du nouveau SW (appelé depuis applyUpdate() dans index.html)
   if (data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    sendLogToPage(`[SW-SLTP] SKIP_WAITING reçu — activation en cours...`);
   }
 });
 
@@ -116,4 +123,5 @@ self.addEventListener('push', function (event) {
   );
 
   console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
+  sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Push reçu !`);
 });
