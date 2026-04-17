@@ -1,6 +1,6 @@
-//sw.js v0.2 alertes (à partir de index_v0.916)
+//sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.920-Beta-e3'; // Synchronisé manuellement avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.21-beta.1'; // Synchronisé manuellement avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
