@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.7"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.8"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -2773,7 +2773,9 @@
             console.log("[exportCSV] Début de l'export");
             try {
                 //let csv = "Date,Debut,Fin,TypeId,TypeLabel,Minutes\n";
-                let csv = "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
+                //let csv = "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
+                let csv = "sep=,\n";
+                csv += "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
 
                 let allPeriods = [...state.history];
                 if (state.activeType) {
@@ -2851,9 +2853,15 @@
             reader.onload = function (e) {
                 try {
                     const text = e.target.result;
+
                     const lines = text.split('\n')
+                        .map(l => l.trim().replace(/^\uFEFF/, ''))  // retire le BOM éventuel
+                        .filter(l => l && !l.startsWith('sep='));   // ignore la ligne sep= si présente
+
+               /*     const lines = text.split('\n')
                         .map(l => l.trim().replace(/^\uFEFF/, '')) // retire le BOM éventuel
                         .filter(l => l);
+                    */
 
                     if (lines.length < 2) throw new Error("Fichier vide");
 
@@ -3276,9 +3284,11 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
-        // envoie à GoatCounter l'info de version au démarrage de l'app
+        // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode au démarrage de l'app
         if (window.goatcounter && navigator.onLine) {
             window.goatcounter.count({ path: 'version-' + APP_VERSION });
+            const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
+            window.goatcounter.count({ path: mode + '-mode' });
         }
 
         document.getElementById('lang-select').value = settings.lang;
