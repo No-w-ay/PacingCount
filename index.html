@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.6"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.7"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1575,6 +1575,24 @@
             if (waitingWorker) {
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
                 // Rechargement déclenché dès que le nouveau SW prend le contrôle
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    window.location.reload();
+                });
+            }
+            document.getElementById('updateModal').style.display = 'none';
+
+            if (window.goatcounter && navigator.onLine) {
+                window.goatcounter.count({ path: 'update-applied' });
+            }
+        }
+
+        function applyUpdate() {
+            // envoie à GoatCounter l'info 'update-applied'
+            if (window.goatcounter && navigator.onLine) {
+                window.goatcounter.count({ path: 'update-applied' });
+            }
+            if (waitingWorker) {
+                waitingWorker.postMessage({ type: 'SKIP_WAITING' });
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     window.location.reload();
                 });
@@ -3257,6 +3275,11 @@
         // 23. INITIALISATION AU DÉMARRAGE
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
+
+        // envoie à GoatCounter l'info de version au démarrage de l'app
+        if (window.goatcounter && navigator.onLine) {
+            window.goatcounter.count({ path: 'version-' + APP_VERSION });
+        }
 
         document.getElementById('lang-select').value = settings.lang;
         document.getElementById('custom-1').value = settings.labels[0];
