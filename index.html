@@ -7,7 +7,8 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.4"; </script> <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
+    <script> const APP_VERSION = "0.9.21-beta.5"; </script>
+    <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
     <!-- PacingCount — (c) 2026 No-w-ay -->
@@ -23,6 +24,7 @@
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
 
+    <script data-goatcounter="https://no-w-ay.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
     <script src="chart.js"></script>
     <!-- console temporaire sur tel    -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -1605,6 +1607,11 @@
 
             updateUI();
             requestWakeLock();
+
+            // GoatCounter — event période démarrée (envoi uniquement si connecté)
+            if (window.goatcounter && navigator.onLine) {
+                window.goatcounter.count({ path: 'period-started' });
+            }
         }
 
         function stopRecording() {
