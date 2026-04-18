@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.10"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.11"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1465,6 +1465,15 @@
                 return;
             }
 
+            // Affiche immédiatement le modal en état "chargement"
+            title.innerText = 'Mise à jour';
+            body.innerHTML = `
+                <div style="text-align:center; padding:10px 0; opacity:0.6;">
+                    🔄 Vérification en cours...
+                </div>`;
+            actions.innerHTML = '';
+            modal.style.display = 'flex';
+
             // Force une vérification fraîche de sw.js sur le serveur avant d'ouvrir le modal
             navigator.serviceWorker.ready.then(reg => {
                 reg.update().then(() => {
@@ -2793,8 +2802,8 @@
 
                 // BOM UTF-8 : assure la compatibilité Excel (Windows/Mac) et LibreOffice
                 // const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });  
-                // const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });  // colonnes ok Excel et Sheet, mais pas accents
-                const blob = new Blob([csv], { type: 'text/csv;charset=windows-1252;' });  // test pour voir si améliore accents
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });  // colonnes ok Excel et Sheet, mais pas accents
+                // const blob = new Blob([csv], { type: 'text/csv;charset=windows-1252;' });  // test pour voir si améliore accents -> NON
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
 
@@ -2860,10 +2869,10 @@
                         .map(l => l.trim().replace(/^\uFEFF/, ''))  // retire le BOM éventuel
                         .filter(l => l && !l.startsWith('sep='));   // ignore la ligne sep= si présente
 
-               /*     const lines = text.split('\n')
-                        .map(l => l.trim().replace(/^\uFEFF/, '')) // retire le BOM éventuel
-                        .filter(l => l);
-                    */
+                    /*     const lines = text.split('\n')
+                             .map(l => l.trim().replace(/^\uFEFF/, '')) // retire le BOM éventuel
+                             .filter(l => l);
+                         */
 
                     if (lines.length < 2) throw new Error("Fichier vide");
 
@@ -2954,8 +2963,8 @@
                 event.target.value = ''; // Reset du champ fichier pour permettre un re-import du même fichier
             };
 
-            // reader.readAsText(file, 'UTF-8'); 
-            reader.readAsText(file, 'windows-1252'); // test
+            reader.readAsText(file, 'UTF-8');
+            // reader.readAsText(file, 'windows-1252'); // test
         }
 
         // Affiche le modal avec le tableau de correspondance des types avant confirmation
