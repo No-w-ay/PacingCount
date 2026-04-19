@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.14"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.15"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1625,6 +1625,7 @@
                 // Ne pas fermer le modal — il reste visible jusqu'au reload
 
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`);
                     setTimeout(() => window.location.reload(), 1000);  // au moins visible 1 seconde
                 });
 
