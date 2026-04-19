@@ -1226,13 +1226,34 @@
                      font-size:0.95rem; cursor:pointer; flex:1;`;
             const btnUpdate = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
             const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
+
+            // Nouveau style pour le bouton d'export (assorti au message d'avertissement)
+            const btnExport = `background:rgba(255,180,0,0.1); border-radius:6px; padding:10px 16px;
+                               font-size:0.95rem; cursor:pointer; width:100%; margin-bottom:12px;
+                               color:#ffcc55; border:1px solid rgba(255,180,0,0.5);`;
+
+            // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
+            <button onclick="exportCSV()" style="${btnExport}">
+                💾 Exporter .csv avant la MAJ
+            </button>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <button onclick="document.getElementById('updateModal').style.display='none'"
+                    style="${btnLater}">Plus tard</button>
+                <button onclick="applyUpdate()"
+                    style="${btnUpdate}">Mettre à jour</button>
+            </div>`;
+
+
+   /*         const actionsCas1 = `
         <div style="display:flex; gap:10px; margin-bottom:10px;">
             <button onclick="document.getElementById('updateModal').style.display='none'"
                 style="${btnLater}">Plus tard</button>
             <button onclick="applyUpdate()"
                 style="${btnUpdate}">Mettre à jour</button>
         </div>`;
+    */    
+
 
             if (!('serviceWorker' in navigator)) {
                 // Pas de SW supporté — cas très rare
