@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.12"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.13"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1436,7 +1436,7 @@
          }
  */
 
-        function openUpdateModal() {
+        async function openUpdateModal() {
             const modal = document.getElementById('updateModal');
             const title = document.getElementById('update-modal-title');
             const body = document.getElementById('update-modal-body');
@@ -1472,15 +1472,26 @@
             modal.style.display = 'flex';
 
             // Force une vérification fraîche de sw.js sur le serveur avant d'ouvrir le modal
+            // au moins visible 1 seconde (Vérif en cours...)
             navigator.serviceWorker.ready.then(reg => {
-                reg.update().then(() => {
-                    // Après update(), reg.waiting est à jour si un nouveau SW a été trouvé
-                    if (reg.waiting) waitingWorker = reg.waiting;
-                    _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
-                }).catch(() => {
-                    // Hors ligne ou erreur réseau — on affiche avec ce qu'on sait
+
+                Promise.all([
+                    reg.update().then(() => { if (reg.waiting) waitingWorker = reg.waiting; }).catch(() => { }),
+                    new Promise(resolve => setTimeout(resolve, 1000))
+                ]).then(() => {
                     _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
                 });
+
+                /*      reg.update().then(() => {
+                          // Après update(), reg.waiting est à jour si un nouveau SW a été trouvé
+                          if (reg.waiting) waitingWorker = reg.waiting;
+                          _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
+                      }).catch(() => {
+                          // Hors ligne ou erreur réseau — on affiche avec ce qu'on sait
+                          _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
+                      });
+                  */
+
             });
         }
 
@@ -1566,10 +1577,6 @@
                 <span style="font-size:0.85rem; opacity:0.7; font-family:monospace; margin-top:6px; display:block;">
                     Version actuelle : ${APP_VERSION}
                 </span>
-                <div style="display:flex; gap:8px; font-family:monospace; font-size:0.9rem;">
-                    <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                    <strong>${APP_VERSION}</strong>
-                </div>
             </div>`;
             }
             actions.innerHTML = `
@@ -1581,21 +1588,21 @@
         </button>`;
         }
 
-  /*      function applyUpdate() {
-            if (waitingWorker) {
-                waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-                // Rechargement déclenché dès que le nouveau SW prend le contrôle
-                navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    window.location.reload();
-                });
-            }
-            document.getElementById('updateModal').style.display = 'none';
-
-            if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'update-applied' });
-            }
-        }
-*/
+        /*      function applyUpdate() {
+                  if (waitingWorker) {
+                      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+                      // Rechargement déclenché dès que le nouveau SW prend le contrôle
+                      navigator.serviceWorker.addEventListener('controllerchange', () => {
+                          window.location.reload();
+                      });
+                  }
+                  document.getElementById('updateModal').style.display = 'none';
+      
+                  if (window.goatcounter && navigator.onLine) {
+                      window.goatcounter.count({ path: 'update-applied' });
+                  }
+              }
+      */
 
         function applyUpdate() {
             // envoie à GoatCounter l'info 'update-applied'
@@ -1604,11 +1611,25 @@
             }
             if (waitingWorker) {
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+
+                // Affiche l'état d'attente pendant l'activation du nouveau SW
+                document.getElementById('update-modal-title').innerText = 'Mise à jour';
+                document.getElementById('update-modal-body').innerHTML = `
+                    <div style="text-align:center; padding:10px 0; opacity:0.6;">
+                        ⏳ Mise à jour en cours...<br>
+                        <span style="font-size:0.8rem; margin-top:6px; display:block;">
+                            L'application va redémarrer.
+                         </span>
+                    </div>`;
+                document.getElementById('update-modal-actions').innerHTML = '';
+                // Ne pas fermer le modal — il reste visible jusqu'au reload
+
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    window.location.reload();
+                    setTimeout(() => window.location.reload(), 1000);  // au moins visible 1 seconde
                 });
+
             }
-            document.getElementById('updateModal').style.display = 'none';
+            // document.getElementById('updateModal').style.display = 'none';
         }
 
         // Demande la permission notifications (appelée au démarrage)
