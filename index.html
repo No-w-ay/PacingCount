@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.22"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.23"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -3134,7 +3134,7 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
-        // Message "toast" de mise à jour réussie - reste 4 secondes puis disparaît sans clic
+        // Message "toast" de mise à jour réussie - reste 5 secondes puis disparaît sans clic
         // try catch de sécurité pour ne pas bloquer une mise à jour
         try {
             const lastSeenVersion = localStorage.getItem('lastSeenVersion');
@@ -3150,12 +3150,12 @@
                     toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
-        border-radius:8px; padding:14px 24px; font-size:0.85rem; text-align:center;
+        border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
         min-width:220px; z-index:200; opacity:1; transition:opacity 1s;
         white-space:nowrap;`;
                     document.body.appendChild(toast);
-                    setTimeout(() => { toast.style.opacity = '0'; }, 4000);
-                    setTimeout(() => { toast.remove(); }, 5000);
+                    setTimeout(() => { toast.style.opacity = '0'; }, 5000);
+                    setTimeout(() => { toast.remove(); }, 6000);
                 }, 500);
 
 
