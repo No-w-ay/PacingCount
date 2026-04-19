@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.21"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.22"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -3134,27 +3134,73 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
-        // Message "toast" de mise à jour réussie - reste 3 secondes puis disparaît sans clic
-        const lastSeenVersion = localStorage.getItem('lastSeenVersion');
-        if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
-            localStorage.removeItem('pendingUpdateFrom');
-            console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
+        // Message "toast" de mise à jour réussie - reste 4 secondes puis disparaît sans clic
+        // try catch de sécurité pour ne pas bloquer une mise à jour
+        try {
+            const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+            if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
+                localStorage.removeItem('pendingUpdateFrom');
+                console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
 
-            // Petit toast non bloquant
-            setTimeout(() => {
-                const toast = document.createElement('div');
-                toast.innerText = `✅ Mise à jour ${APP_VERSION} installée`;
-                toast.style.cssText = `
+                // Petit toast non bloquant
+                setTimeout(() => {
+                    const toast = document.createElement('div');
+                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ Mise à jour installée</div>
+                       <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
+                    toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
+        border-radius:8px; padding:14px 24px; font-size:0.85rem; text-align:center;
+        min-width:220px; z-index:200; opacity:1; transition:opacity 1s;
+        white-space:nowrap;`;
+                    document.body.appendChild(toast);
+                    setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+                    setTimeout(() => { toast.remove(); }, 5000);
+                }, 500);
+
+
+       /*         setTimeout(() => {
+                    const toast = document.createElement('div');
+                    toast.innerText = `✅ Mise à jour ${APP_VERSION} installée`;
+                    toast.style.cssText = `
             position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
             background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
             border-radius:8px; padding:10px 20px; font-size:0.85rem;
             z-index:200; opacity:1; transition:opacity 1s;`;
-                document.body.appendChild(toast);
-                setTimeout(() => { toast.style.opacity = '0'; }, 3000);
-                setTimeout(() => { toast.remove(); }, 4000);
-            }, 500);
+                    document.body.appendChild(toast);
+                    setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+                    setTimeout(() => { toast.remove(); }, 5000);
+                }, 500);
+        */
+
+            }
+            localStorage.setItem('lastSeenVersion', APP_VERSION);
+        } catch (e) {
+            console.warn('[Init] ⚠️ localStorage inaccessible — toast de mise à jour désactivé', e);
         }
-        localStorage.setItem('lastSeenVersion', APP_VERSION); // ← manquait
+
+        /*
+                const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+                if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
+                    localStorage.removeItem('pendingUpdateFrom');
+                    console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
+        
+                    // Petit toast non bloquant
+                    setTimeout(() => {
+                        const toast = document.createElement('div');
+                        toast.innerText = `✅ Mise à jour ${APP_VERSION} installée`;
+                        toast.style.cssText = `
+                    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+                    background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
+                    border-radius:8px; padding:10px 20px; font-size:0.85rem;
+                    z-index:200; opacity:1; transition:opacity 1s;`;
+                        document.body.appendChild(toast);
+                        setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+                        setTimeout(() => { toast.remove(); }, 4000);
+                    }, 500);
+                }
+                localStorage.setItem('lastSeenVersion', APP_VERSION); // ← manquait
+        */
 
         // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode au démarrage de l'app
         if (window.goatcounter && navigator.onLine) {
