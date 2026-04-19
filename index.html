@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.20"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.21"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -3154,6 +3154,7 @@
                 setTimeout(() => { toast.remove(); }, 4000);
             }, 500);
         }
+        localStorage.setItem('lastSeenVersion', APP_VERSION); // ← manquait
 
         // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode au démarrage de l'app
         if (window.goatcounter && navigator.onLine) {
