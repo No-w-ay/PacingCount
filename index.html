@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.15"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.16"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -24,7 +24,7 @@
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
 
-    <script data-goatcounter="https://no-w-ay.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+    <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="//gc.zgo.at/count.js"></script>
     <script src="chart.js"></script>
     <!-- console temporaire sur tel    -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -1215,227 +1215,6 @@
             });
         }
 
-        /*       function openUpdateModal() {
-                   const modal = document.getElementById('updateModal');
-                   const title = document.getElementById('update-modal-title');
-                   const body = document.getElementById('update-modal-body');
-                   const actions = document.getElementById('update-modal-actions');
-       
-                   if (waitingWorker) {
-                       // --- CAS 1 : nouveau SW en attente ---
-                       // On demande sa version au SW en attente
-                       waitingWorker.postMessage({ type: 'GET_VERSION' });
-       
-                       // Réponse attendue via navigator.serviceWorker message handler
-                       const onMessage = (event) => {
-                           if (event.data && event.data.type === 'SW_VERSION') {
-                               navigator.serviceWorker.removeEventListener('message', onMessage);
-       
-                               const newVersion = event.data.version.replace('PacingCount-v', '');
-                               title.innerText = '🔄 Mise à jour disponible';
-                               body.innerHTML = `
-                                   <div style="margin-bottom:12px;">
-                                       Version actuelle : <strong>${APP_VERSION}</strong><br>
-                                       Version disponible : <strong style="color:var(--green);">${newVersion}</strong>
-                                   </div>
-                                   <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                               border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                       💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                       par précaution.
-                                   </div>`;
-                               actions.innerHTML = `
-                                   <button onclick="applyUpdate()"
-                                       style="width:100%; padding:14px; background:var(--green); color:white;
-                                              border:none; border-radius:8px; font-size:1rem; font-weight:bold;
-                                              cursor:pointer; margin-bottom:10px;">
-                                       Mettre à jour maintenant
-                                   </button>
-                                   <button onclick="document.getElementById('updateModal').style.display='none'"
-                                       style="width:100%; padding:10px; background:#444; color:white;
-                                              border:none; border-radius:8px; cursor:pointer;">
-                                       Plus tard
-                                   </button>`;
-                               modal.style.display = 'flex';
-                           }
-                       };
-                       navigator.serviceWorker.addEventListener('message', onMessage);
-       
-                       // Fallback si le SW en attente ne répond pas à GET_VERSION (ex: ancienne version sans ce handler)
-                       setTimeout(() => {
-                           navigator.serviceWorker.removeEventListener('message', onMessage);
-                           if (modal.style.display !== 'flex') {
-                               title.innerText = '🔄 Mise à jour disponible';
-                               body.innerHTML = `
-                                   <div style="margin-bottom:12px;">
-                                       Version actuelle : <strong>${APP_VERSION}</strong><br>
-                                       Une nouvelle version est disponible.
-                                   </div>
-                                   <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                               border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                       💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                       par précaution.
-                                   </div>`;
-                               actions.innerHTML = `
-                                   <button onclick="applyUpdate()"
-                                       style="width:100%; padding:14px; background:var(--green); color:white;
-                                              border:none; border-radius:8px; font-size:1rem; font-weight:bold;
-                                              cursor:pointer; margin-bottom:10px;">
-                                       Mettre à jour maintenant
-                                   </button>
-                                   <button onclick="document.getElementById('updateModal').style.display='none'"
-                                       style="width:100%; padding:10px; background:#444; color:white;
-                                              border:none; border-radius:8px; cursor:pointer;">
-                                       Plus tard
-                                   </button>`;
-                               modal.style.display = 'flex';
-                           }
-                       }, 1500);
-       
-                   } else {
-                       // --- CAS 2 : pas de nouveau SW en attente ---
-                       title.innerText = 'Mise à jour';
-                       if (navigator.onLine) {
-                           body.innerHTML = `
-                               <div style="text-align:center; padding:10px 0;">
-                                   ✅ Vous avez la dernière version<br>
-                                   <span style="font-size:0.85rem; opacity:0.7; margin-top:6px; display:block;">
-                                       Version ${APP_VERSION}
-                                   </span>
-                               </div>`;
-                       } else {
-                           body.innerHTML = `
-                               <div style="text-align:center; padding:10px 0; color:#ffcc55;">
-                                   📡 Hors ligne — Impossible de vérifier<br>
-                                   <span style="font-size:0.85rem; opacity:0.7; margin-top:6px; display:block;">
-                                       Version actuelle : ${APP_VERSION}
-                                   </span>
-                               </div>`;
-                       }
-                       actions.innerHTML = `
-                           <button onclick="document.getElementById('updateModal').style.display='none'"
-                               style="width:100%; padding:12px; background:#444; color:white;
-                                      border:none; border-radius:8px; cursor:pointer;">
-                               Fermer
-                           </button>`;
-                       modal.style.display = 'flex';
-                   }
-               }
-       */
-
-        /*
-         function openUpdateModal() {
-             const modal = document.getElementById('updateModal');
-             const title = document.getElementById('update-modal-title');
-             const body = document.getElementById('update-modal-body');
-             const actions = document.getElementById('update-modal-actions');
- 
-             // Styles partagés des boutons (outline, sans remplissage)
-             const btnBase = `background:transparent; border-radius:6px; padding:10px 16px;
-                              font-size:0.95rem; cursor:pointer; flex:1;`;
-             const btnUpdate = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
-             const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
- 
-             // Bloc actions Cas 1 — boutons côte à côte + note redémarrage
-             const actionsCas1 = `
-                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                     <button onclick="document.getElementById('updateModal').style.display='none'"
-                         style="${btnLater}">Plus tard</button>
-                     <button onclick="applyUpdate()"
-                         style="${btnUpdate}">Mettre à jour</button>
-                 </div>
-                 <p style="font-size:0.75rem; opacity:0.55; text-align:center; margin:0;">
-                     ℹ️ Un redémarrage du téléphone appliquera la mise à jour automatiquement.
-                 </p>`;
- 
-             if (waitingWorker) {
-                 // --- CAS 1 : nouveau SW en attente ---
-                 waitingWorker.postMessage({ type: 'GET_VERSION' });
- 
-                 // Réponse attendue via navigator.serviceWorker message handler
-                 const onMessage = (event) => {
-                     if (event.data && event.data.type === 'SW_VERSION') {
-                         navigator.serviceWorker.removeEventListener('message', onMessage);
- 
-                         const newVersion = event.data.version.replace('PacingCount-', '');
-                         title.innerText = '🔄 Mise à jour disponible';
-                         body.innerHTML = `
-                             <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
-                                 <div style="display:flex; gap:8px;">
-                                     <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                                     <strong>${APP_VERSION}</strong>
-                                 </div>
-                                 <div style="display:flex; gap:8px; margin-top:4px;">
-                                     <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                                     <strong style="color:var(--blue);">${newVersion}</strong>
-                                 </div>
-                             </div>
-                             <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                         border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                 💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                 par précaution.
-                             </div>`;
-                         actions.innerHTML = actionsCas1;
-                         modal.style.display = 'flex';
-                     }
-                 };
-                 navigator.serviceWorker.addEventListener('message', onMessage);
- 
-                 // Fallback si le SW en attente ne répond pas à GET_VERSION (ex: ancienne version sans ce handler)
-                 setTimeout(() => {
-                     navigator.serviceWorker.removeEventListener('message', onMessage);
-                     if (modal.style.display !== 'flex') {
-                         title.innerText = '🔄 Mise à jour disponible';
-                         body.innerHTML = `
-                             <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
-                                 <div style="display:flex; gap:8px;">
-                                     <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                                     <strong>${APP_VERSION}</strong>
-                                 </div>
-                                 <div style="display:flex; gap:8px; margin-top:4px;">
-                                     <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                                     <strong style="color:var(--blue);">nouvelle version</strong>
-                                 </div>
-                             </div>
-                             <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                         border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                 💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                 par précaution.
-                             </div>`;
-                         actions.innerHTML = actionsCas1;
-                         modal.style.display = 'flex';
-                     }
-                 }, 1500);
- 
-             } else {
-                 // --- CAS 2 : pas de nouveau SW en attente ---
-                 title.innerText = 'Mise à jour';
-                 if (navigator.onLine) {
-                     body.innerHTML = `
-                         <div style="text-align:center; padding:10px 0;">
-                             ✅ Vous avez la dernière version<br>
-                             <span style="font-size:0.85rem; opacity:0.7; margin-top:6px; display:block;">
-                                 Version ${APP_VERSION}
-                             </span>
-                         </div>`;
-                 } else {
-                     body.innerHTML = `
-                         <div style="text-align:center; padding:10px 0; color:#ffcc55;">
-                             📡 Hors ligne — Impossible de vérifier<br>
-                             <span style="font-size:0.85rem; opacity:0.7; margin-top:6px; display:block;">
-                                 Version actuelle : ${APP_VERSION}
-                             </span>
-                         </div>`;
-                 }
-                 actions.innerHTML = `
-                     <button onclick="document.getElementById('updateModal').style.display='none'"
-                         style="${btnLater} flex:none; width:100%;">
-                         Fermer
-                     </button>`;
-                 modal.style.display = 'flex';
-             }
-         }
- */
-
         function openUpdateModal() {
             const modal = document.getElementById('updateModal');
             const title = document.getElementById('update-modal-title');
@@ -1481,16 +1260,6 @@
                 ]).then(() => {
                     _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
                 });
-
-                /*      reg.update().then(() => {
-                          // Après update(), reg.waiting est à jour si un nouveau SW a été trouvé
-                          if (reg.waiting) waitingWorker = reg.waiting;
-                          _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
-                      }).catch(() => {
-                          // Hors ligne ou erreur réseau — on affiche avec ce qu'on sait
-                          _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
-                      });
-                  */
 
             });
         }
@@ -1588,22 +1357,6 @@
         </button>`;
         }
 
-        /*      function applyUpdate() {
-                  if (waitingWorker) {
-                      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
-                      // Rechargement déclenché dès que le nouveau SW prend le contrôle
-                      navigator.serviceWorker.addEventListener('controllerchange', () => {
-                          window.location.reload();
-                      });
-                  }
-                  document.getElementById('updateModal').style.display = 'none';
-      
-                  if (window.goatcounter && navigator.onLine) {
-                      window.goatcounter.count({ path: 'update-applied' });
-                  }
-              }
-      */
-
         function applyUpdate() {
             // envoie à GoatCounter l'info 'update-applied'
             if (window.goatcounter && navigator.onLine) {
@@ -1625,7 +1378,7 @@
                 // Ne pas fermer le modal — il reste visible jusqu'au reload
 
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`);
+                    console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`); // En pratique on le voit rarement, car redémarrage de l'app juste après
                     setTimeout(() => window.location.reload(), 1000);  // au moins visible 1 seconde
                 });
 
@@ -2841,6 +2594,11 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                 }, 100);
+
+                // Event export-csv pour statistiques GoatCounter
+                if (window.goatcounter && navigator.onLine) {
+                    window.goatcounter.count({ path: 'export-csv' });
+                }
 
                 console.log("[exportCSV] Export terminé");
             } catch (err) {
