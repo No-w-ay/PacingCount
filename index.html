@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.17"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.18"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -24,7 +24,8 @@
     <meta name="theme-color" content="#121212">
     <link rel="manifest" href="manifest.json">
 
-    <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}' async src="//gc.zgo.at/count.js"></script>
+    <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
+        async src="//gc.zgo.at/count.js"></script>
     <script src="chart.js"></script>
     <!-- console temporaire sur tel    -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -1245,14 +1246,14 @@
             </div>`;
 
 
-   /*         const actionsCas1 = `
-        <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <button onclick="document.getElementById('updateModal').style.display='none'"
-                style="${btnLater}">Plus tard</button>
-            <button onclick="applyUpdate()"
-                style="${btnUpdate}">Mettre à jour</button>
-        </div>`;
-    */    
+            /*         const actionsCas1 = `
+                 <div style="display:flex; gap:10px; margin-bottom:10px;">
+                     <button onclick="document.getElementById('updateModal').style.display='none'"
+                         style="${btnLater}">Plus tard</button>
+                     <button onclick="applyUpdate()"
+                         style="${btnUpdate}">Mettre à jour</button>
+                 </div>`;
+             */
 
 
             if (!('serviceWorker' in navigator)) {
@@ -1309,8 +1310,8 @@
                     </div>
                     <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
                                 border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                        Tout redémarrage de l'app appliquera la mise à jour. CONSEIL : Exporter vos données en CSV avant la mise à jour,
-                        par précaution 💾.
+                        Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
+                        par précaution.
                     </div>`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
@@ -1324,25 +1325,52 @@
                     if (modal.style.display !== 'flex') {
                         title.innerText = '🔄 Mise à jour disponible';
                         body.innerHTML = `
-                    <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
-                        <div style="display:flex; gap:8px;">
-                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                            <strong>${APP_VERSION}</strong>
-                        </div>
-                        <div style="display:flex; gap:8px; margin-top:4px;">
-                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                            <strong style="color:var(--blue);">nouvelle version</strong>
-                        </div>
-                    </div>
-                    <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                        💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                        par précaution.
-                    </div>`;
+            <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
+                <div style="display:flex; gap:8px;">
+                    <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                    <strong>${APP_VERSION}</strong>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:4px;">
+                    <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                    <strong style="color:var(--blue);">nouvelle version</strong>
+                </div>
+            </div>
+            <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
+                        border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
+                Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
+                par précaution.
+            </div>`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
                 }, 1500);
+
+                /*          // Fallback si GET_VERSION sans réponse (ancien SW)
+                          setTimeout(() => {
+                              navigator.serviceWorker.removeEventListener('message', onMessage);
+                              if (modal.style.display !== 'flex') {
+                                  title.innerText = '🔄 Mise à jour disponible';
+                                  body.innerHTML = `
+                              <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
+                                  <div style="display:flex; gap:8px;">
+                                      <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                                      <strong>${APP_VERSION}</strong>
+                                  </div>
+                                  <div style="display:flex; gap:8px; margin-top:4px;">
+                                      <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                                      <strong style="color:var(--blue);">nouvelle version</strong>
+                                  </div>
+                              </div>
+                              <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
+                                          border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
+                                  💾 Pensez à exporter vos données en CSV avant la mise à jour,
+                                  par précaution.
+                              </div>`;
+                                  actions.innerHTML = actionsCas1;
+                                  modal.style.display = 'flex';
+                              }
+                          }, 1500);
+                    */
 
             } else {
                 _showUpdateModalCas2(title, body, actions, btnLater);
@@ -1384,6 +1412,7 @@
                 window.goatcounter.count({ path: 'update-applied' });
             }
             if (waitingWorker) {
+                localStorage.setItem('pendingUpdateFrom', APP_VERSION);
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 
                 // Affiche l'état d'attente pendant l'activation du nouveau SW
@@ -1392,16 +1421,22 @@
                     <div style="text-align:center; padding:10px 0; opacity:0.6;">
                         ⏳ Mise à jour en cours...<br>
                         <span style="font-size:0.8rem; margin-top:6px; display:block;">
-                            L'application va redémarrer.
+                            L'application va redémarrer dans quelques instants.
                          </span>
                     </div>`;
                 document.getElementById('update-modal-actions').innerHTML = '';
                 // Ne pas fermer le modal — il reste visible jusqu'au reload
 
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`); // En pratique on le voit rarement, car redémarrage de l'app juste après
+                    //console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`); // En pratique on le voit rarement, car redémarrage de l'app juste après
                     setTimeout(() => window.location.reload(), 1000);  // au moins visible 1 seconde
                 });
+
+                // Sécurité : si controllerchange ne se déclenche pas dans les 12 secondes, on recharge quand même
+                setTimeout(() => {
+                    console.log('[applyUpdate] ⚠️ Timeout — rechargement forcé');
+                    window.location.reload();
+                }, 12000);
 
             }
             // document.getElementById('updateModal').style.display = 'none';
@@ -3098,6 +3133,26 @@
         // 23. INITIALISATION AU DÉMARRAGE
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
+
+        // Message "toast" de mise à jour réussie - reste 3 secondes puis disparaît sans clic
+        const pendingUpdateFrom = localStorage.getItem('pendingUpdateFrom');
+        if (pendingUpdateFrom && pendingUpdateFrom !== APP_VERSION) {
+            localStorage.removeItem('pendingUpdateFrom');
+            console.log(`[Init] ✅ Mise à jour réussie : ${pendingUpdateFrom} → ${APP_VERSION}`);
+            // Petit toast non bloquant
+            setTimeout(() => {
+                const toast = document.createElement('div');
+                toast.innerText = `✅ Mise à jour ${APP_VERSION} installée`;
+                toast.style.cssText = `
+            position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+            background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
+            border-radius:8px; padding:10px 20px; font-size:0.85rem;
+            z-index:200; opacity:1; transition:opacity 1s;`;
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+                setTimeout(() => { toast.remove(); }, 4000);
+            }, 500);
+        }
 
         // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode au démarrage de l'app
         if (window.goatcounter && navigator.onLine) {
