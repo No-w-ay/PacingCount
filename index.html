@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.18"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.19"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1412,7 +1412,7 @@
                 window.goatcounter.count({ path: 'update-applied' });
             }
             if (waitingWorker) {
-                localStorage.setItem('pendingUpdateFrom', APP_VERSION);
+                //localStorage.setItem('pendingUpdateFrom', APP_VERSION); // Plus nécessaire, géré dans [Init] pour être plus général
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 
                 // Affiche l'état d'attente pendant l'activation du nouveau SW
@@ -3135,10 +3135,11 @@
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
         // Message "toast" de mise à jour réussie - reste 3 secondes puis disparaît sans clic
-        const pendingUpdateFrom = localStorage.getItem('pendingUpdateFrom');
-        if (pendingUpdateFrom && pendingUpdateFrom !== APP_VERSION) {
+        const lastSeenVersion = localStorage.getItem('lastSeenVersion');
+        if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
             localStorage.removeItem('pendingUpdateFrom');
-            console.log(`[Init] ✅ Mise à jour réussie : ${pendingUpdateFrom} → ${APP_VERSION}`);
+            console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
+
             // Petit toast non bloquant
             setTimeout(() => {
                 const toast = document.createElement('div');
