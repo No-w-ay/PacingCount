@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.11"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.12"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1453,10 +1453,7 @@
                 style="${btnLater}">Plus tard</button>
             <button onclick="applyUpdate()"
                 style="${btnUpdate}">Mettre à jour</button>
-        </div>
-        <p style="font-size:0.75rem; opacity:0.55; text-align:center; margin:0;">
-            ℹ️ Un redémarrage du téléphone appliquera la mise à jour automatiquement.
-        </p>`;
+        </div>`;
 
             if (!('serviceWorker' in navigator)) {
                 // Pas de SW supporté — cas très rare
@@ -1511,8 +1508,8 @@
                     </div>
                     <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
                                 border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                        💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                        par précaution.
+                        Tout redémarrage de l'app appliquera la mise à jour. CONSEIL : Exporter vos données en CSV avant la mise à jour,
+                        par précaution 💾.
                     </div>`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
@@ -1566,9 +1563,13 @@
                 body.innerHTML = `
             <div style="text-align:center; padding:10px 0; color:#ffcc55;">
                 📡 Hors ligne — Impossible de vérifier<br>
-                <span style="font-size:0.85rem; opacity:0.7; margin-top:6px; display:block;">
+                <span style="font-size:0.85rem; opacity:0.7; font-family:monospace; margin-top:6px; display:block;">
                     Version actuelle : ${APP_VERSION}
                 </span>
+                <div style="display:flex; gap:8px; font-family:monospace; font-size:0.9rem;">
+                    <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                    <strong>${APP_VERSION}</strong>
+                </div>
             </div>`;
             }
             actions.innerHTML = `
@@ -1580,7 +1581,7 @@
         </button>`;
         }
 
-        function applyUpdate() {
+  /*      function applyUpdate() {
             if (waitingWorker) {
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
                 // Rechargement déclenché dès que le nouveau SW prend le contrôle
@@ -1594,6 +1595,7 @@
                 window.goatcounter.count({ path: 'update-applied' });
             }
         }
+*/
 
         function applyUpdate() {
             // envoie à GoatCounter l'info 'update-applied'
