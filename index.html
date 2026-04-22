@@ -7,10 +7,12 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.26"; </script>
-    <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
-    <meta name="author" content="No-w-ay">
-    <meta name="copyright" content="(c) 2026 No-w-ay">
+    <script>
+        const APP_VERSION = "0.9.21-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_NAME = "PacingCount";
+        const APP_AUTHOR = "No-w-ay";
+        const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
+    </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
          Toute utilisation, modification ou redistribution
@@ -1759,9 +1761,9 @@
 
             // CORRECTIF — chaque enfant est ciblé directement
             const aboutTitle = document.getElementById('about-title');
-            if (aboutTitle) aboutTitle.innerText = 'PacingCount';
+            if (aboutTitle) aboutTitle.innerText = APP_NAME;
             const aboutCopyright = document.getElementById('about-copyright');
-            if (aboutCopyright) aboutCopyright.innerText = '© 2026 No-w-ay';
+            if (aboutCopyright) aboutCopyright.innerText = APP_COPYRIGHT;
             const aboutVersion = document.getElementById('about-version');
             if (aboutVersion) aboutVersion.innerText = `Version ${APP_VERSION}`;
 
