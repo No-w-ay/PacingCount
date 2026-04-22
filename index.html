@@ -7,7 +7,7 @@
 
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
-    <script> const APP_VERSION = "0.9.21-beta.23"; </script>
+    <script> const APP_VERSION = "0.9.21-beta.24"; </script>
     <!-- MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js -->
     <meta name="author" content="No-w-ay">
     <meta name="copyright" content="(c) 2026 No-w-ay">
@@ -1748,10 +1748,18 @@
             } else prevTimer.style.display = 'none';
 
             // Affichage de la version
-            const versionEl = document.getElementById('app-version');
-            if (versionEl) {
-                versionEl.innerText = `Version ${APP_VERSION}`;
-            }
+            /*    const versionEl = document.getElementById('app-version');
+                if (versionEl) {
+                    versionEl.innerText = `Version ${APP_VERSION}`;
+                }  */
+
+            // CORRECTIF — chaque enfant est ciblé directement
+            const aboutTitle = document.getElementById('about-title');
+            if (aboutTitle) aboutTitle.innerText = 'PacingCount';
+            const aboutCopyright = document.getElementById('about-copyright');
+            if (aboutCopyright) aboutCopyright.innerText = '© 2026 No-w-ay';
+            const aboutVersion = document.getElementById('about-version');
+            if (aboutVersion) aboutVersion.innerText = `Version ${APP_VERSION}`;
 
             // Rafraîchit la liste des alertes si l'onglet réglages est visible
             if (document.getElementById('page-settings').classList.contains('active')) {
