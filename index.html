@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.21-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.21-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1674,6 +1674,13 @@
                 const confirmed = confirm("⚠️ Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
                 if (!confirmed) {
                     document.getElementById('lang-select').value = 'fr';
+                    settings.lang = 'fr';
+                    settings.types.forEach(t => {
+                        if (STANDARD_TYPES[t.id]) t.label = STANDARD_TYPES[t.id]['fr'];
+                    });
+                    settings.labels = settings.types.filter(t => t.active).map(t => t.label);
+                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
+                    updateUI();
                     return;
                 }
             }
@@ -1682,6 +1689,13 @@
                 const confirmed = confirm("⚠️ Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
                 if (!confirmed) {
                     document.getElementById('lang-select').value = 'fr';
+                    settings.lang = 'fr';
+                    settings.types.forEach(t => {
+                        if (STANDARD_TYPES[t.id]) t.label = STANDARD_TYPES[t.id]['fr'];
+                    });
+                    settings.labels = settings.types.filter(t => t.active).map(t => t.label);
+                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
+                    updateUI();
                     return;
                 }
             }
