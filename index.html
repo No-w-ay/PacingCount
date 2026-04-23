@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.21-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.21-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -696,8 +696,8 @@
 
         const STANDARD_TYPES = {
             1: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" },
-            2: { fr: "Couché actif", en: "Active rest", nl: "Actief rusten" },
-            3: { fr: "Non couché", en: "Upright / Active", nl: "Rechtop" }
+            2: { fr: "Couché actif", en: "Lying down, active", nl: "Actief liggend" },
+            3: { fr: "Non couché", en: "Not lying down", nl: "Niet liggend" }
             // Ajouter de nouveaux types standards ici à l'avenir
         };
 
@@ -1665,8 +1665,30 @@
         }
 
         function changeLang() {
-            settings.lang = document.getElementById('lang-select').value;
+            //    settings.lang = document.getElementById('lang-select').value;
+            //    console.log(`[changeLang] Langue → ${settings.lang}`);
+
+            const newLang = document.getElementById('lang-select').value;
+
+            if (newLang === 'en') {
+                const confirmed = confirm("⚠️ Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
+                if (!confirmed) {
+                    document.getElementById('lang-select').value = 'fr';
+                    return;
+                }
+            }
+
+            if (newLang === 'nl') {
+                const confirmed = confirm("⚠️ Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
+                if (!confirmed) {
+                    document.getElementById('lang-select').value = 'fr';
+                    return;
+                }
+            }
+
+            settings.lang = newLang;
             console.log(`[changeLang] Langue → ${settings.lang}`);
+
             // Mise à jour des labels des types STANDARDS selon la nouvelle langue
             settings.types.forEach(t => {
                 if (STANDARD_TYPES[t.id]) {
@@ -1733,6 +1755,13 @@
             // Le mettre ici écraserait ce compteur à chaque updateUI().
             // document.getElementById('title-history').innerText = t.history;
 
+            // Mise à jour noms boutons dans Réglages
+            [1, 2, 3].forEach(i => {
+                const input = document.getElementById(`custom-${i}`);
+                if (input) input.value = settings.types[i - 1]?.label || '';
+            });
+
+            // Mise à jour noms boutons dans Mesure
             [1, 2, 3].forEach(i => {
                 document.getElementById(`opt-${i}`).innerText = settings.labels[i - 1];
                 document.getElementById(`btn-${i}`).innerText = settings.labels[i - 1];
@@ -1752,12 +1781,6 @@
                 // Utilise getColorNameForId pour la couleur du timer précédent
                 prevTimer.className = `timer-previous text-${getColorNameForId(last.typeId)}`;
             } else prevTimer.style.display = 'none';
-
-            // Affichage de la version
-            /*    const versionEl = document.getElementById('app-version');
-                if (versionEl) {
-                    versionEl.innerText = `Version ${APP_VERSION}`;
-                }  */
 
             // CORRECTIF — chaque enfant est ciblé directement
             const aboutTitle = document.getElementById('about-title');
