@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.21-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.21-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1521,7 +1521,7 @@
                             console.log(`[scheduleAlerts] ⚠️ Vague ${i + 1} abandonnée (>${LATE_ALERT_THRESHOLD / 1000}s de retard)`);
                             return;
                         }
-
+                        //const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
                         //const title = `${bells} ${label}`;
@@ -3262,17 +3262,12 @@
         }, { passive: true });
 
         sleepOverlay.addEventListener('touchend', e => {
-            //sleepOverlay.addEventListener('touchend', async e => {
             const sleepTouchEndY = e.changedTouches[0].screenY;
             const diffY = sleepTouchEndY - sleepTouchStartY;
 
             if (diffY < -50) {
                 sleepOverlay.classList.add('hidden');
                 console.log("[Veille] Écran déverrouillé");
-                if (document.fullscreenElement && document.exitFullscreen) {
-                    document.exitFullscreen()
-                        .catch(err => console.warn("[Veille] exitFullscreen impossible :", err.message));
-                }
             }
         }, { passive: true });
 
@@ -3345,13 +3340,8 @@
             // On n'active l'overlay que si on a un Wake Lock actif
             if (wakeLock && sleepOverlay && sleepOverlay.classList.contains('hidden')) {
                 inactivityTimer = setTimeout(() => {
-                    //inactivityTimer = setTimeout(async () => {
                     sleepOverlay.classList.remove('hidden');
                     console.log("[Veille] Pseudo-veille activée.");
-                    if (document.documentElement.requestFullscreen) {
-                        document.documentElement.requestFullscreen()
-                            .catch(err => console.warn("[Veille] Fullscreen impossible :", err.message));
-                    }
                 }, INACTIVITY_DELAY);
             }
         }
