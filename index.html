@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -31,10 +31,11 @@
     <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
         async src="//gc.zgo.at/count.js"></script>
     <script src="chart.js"></script>
+
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
-    <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après -->
+    <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
+    <script>eruda.init();</script>    -->
 
     <style>
         :root {
@@ -111,19 +112,22 @@
            Les éléments .dev-only sont cachés par défaut.
            La classe .dev-mode sur <body> les rend visibles.        */
         .dev-only {
-            display: none !important;
+            display: none;
         }
 
         body.dev-mode .dev-only {
-            display: block !important;
+            display: block;
         }
 
         /* Pour les boutons inline, on surcharge avec inline-block */
         body.dev-mode button.dev-only {
-            display: inline-block !important;
+            display: inline-block;
         }
 
         /* Indicateur discret en bas de la section À propos #dev-mode-indicator */
+        body.dev-mode #dev-mode-indicator {
+            display: flex;
+        }
 
         .page {
             display: none;
@@ -532,9 +536,8 @@
             </div>
 
             <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
-            <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
             <div id="dev-mode-indicator" class="dev-only"
-                style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:18px; padding-top:12px; border-top:1px solid var(--border); font-size:0.85rem; opacity:0.75;">
+                style="align-items:center; justify-content:center; gap:10px; margin-top:18px; padding-top:12px; border-top:1px solid var(--border); font-size:0.85rem; opacity:0.75;">
                 <span>🛠️ Mode développeur</span>
                 <div onclick="toggleDevMode(false)"
                     style="position:relative; width:44px; height:24px; border-radius:12px; background:var(--green); cursor:pointer; flex-shrink:0;">
