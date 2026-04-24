@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3232,7 +3232,7 @@
         function applyDevMode(active) {
             if (active) {
                 document.body.classList.add('dev-mode');
-                document.getElementById('toggle-dev-mode').checked = true;
+                //document.getElementById('toggle-dev-mode').checked = true;
                 // Charger Eruda dynamiquement si pas encore chargé
                 if (!window.eruda) {
                     const s = document.createElement('script');
@@ -3242,7 +3242,7 @@
                 }
             } else {
                 document.body.classList.remove('dev-mode');
-                document.getElementById('toggle-dev-mode').checked = false;
+                //document.getElementById('toggle-dev-mode').checked = false;
             }
         }
 
