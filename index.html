@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -129,14 +129,7 @@
             display: flex;
         }
 
-        /* Montre ou masque Eruda */
-        #eruda {
-            display: none !important;
-        }
-
-        body.dev-mode #eruda {
-            display: unset !important;
-        }
+        /* Montre ou masque Eruda - bug je retire  */
 
         .page {
             display: none;
@@ -3249,12 +3242,22 @@
                 if (!window.eruda) {
                     const s = document.createElement('script');
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
-                    s.onload = () => eruda.init();
+                    s.onload = () => {
+                        eruda.init();
+                        // #eruda existe maintenant dans le DOM
+                        const erudaEl = document.getElementById('eruda');
+                        if (erudaEl) erudaEl.style.display = '';
+                    };
                     document.head.appendChild(s);
+                } else {
+                    // Eruda déjà chargé, juste le rendre visible
+                    const erudaEl = document.getElementById('eruda');
+                    if (erudaEl) erudaEl.style.display = '';
                 }
             } else {
                 document.body.classList.remove('dev-mode');
-                //document.getElementById('toggle-dev-mode').checked = false;
+                const erudaEl = document.getElementById('eruda');
+                if (erudaEl) erudaEl.style.display = 'none';
             }
         }
 
