@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -32,6 +32,9 @@
         async src="//gc.zgo.at/count.js"></script>
     <script src="chart.js"></script>
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
+    <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
 
     <style>
         :root {
@@ -438,7 +441,8 @@
 
         <!-- bouton test fullscreen — mode développeur uniquement -->
         <button id="toggle-fullscreen" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">🛠️ Mode
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">🛠️
+            Mode
             Plein Écran</button>
 
     </div>
