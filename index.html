@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -107,22 +107,20 @@
         /* ── MODE DÉVELOPPEUR ──────────────────────────────────────────
            Les éléments .dev-only sont cachés par défaut.
            La classe .dev-mode sur <body> les rend visibles.        */
-        .dev-only { display: none !important; }
-        body.dev-mode .dev-only { display: block !important; }
-        /* Pour les boutons inline, on surcharge avec inline-block */
-        body.dev-mode button.dev-only { display: inline-block !important; }
-        /* Indicateur discret en bas de la section À propos */
-        #dev-mode-indicator {
-            margin-top: 18px;
-            padding-top: 12px;
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            font-size: 0.85rem;
-            opacity: 0.75;
+        .dev-only {
+            display: none !important;
         }
+
+        body.dev-mode .dev-only {
+            display: block !important;
+        }
+
+        /* Pour les boutons inline, on surcharge avec inline-block */
+        body.dev-mode button.dev-only {
+            display: inline-block !important;
+        }
+
+        /* Indicateur discret en bas de la section À propos #dev-mode-indicator */
 
         .page {
             display: none;
@@ -435,12 +433,12 @@
 
         <!-- bouton test de notification en direct — mode développeur uniquement -->
         <button id="test-notif" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Test
-            Notif Immédiate</button>
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
+            🛠️ Test Notif Immédiate</button>
 
         <!-- bouton test fullscreen — mode développeur uniquement -->
         <button id="toggle-fullscreen" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">Mode
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">🛠️ Mode
             Plein Écran</button>
 
     </div>
@@ -530,12 +528,16 @@
             </div>
 
             <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
-            <div id="dev-mode-indicator" class="dev-only">
-                <span>Mode développeur</span>
-                <label class="toggle-label" style="margin:0;">
-                    <input type="checkbox" id="toggle-dev-mode" onchange="toggleDevMode(this.checked)">
-                    <span class="toggle-slider"></span>
-                </label>
+            <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
+            <div id="dev-mode-indicator" class="dev-only"
+                style="display:flex; align-items:center; justify-content:center; gap:10px; margin-top:18px; padding-top:12px; border-top:1px solid var(--border); font-size:0.85rem; opacity:0.75;">
+                <span>🛠️ Mode développeur</span>
+                <div onclick="toggleDevMode(false)"
+                    style="position:relative; width:44px; height:24px; border-radius:12px; background:var(--green); cursor:pointer; flex-shrink:0;">
+                    <div
+                        style="position:absolute; top:2px; left:22px; width:20px; height:20px; border-radius:50%; background:white;">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
