@@ -503,7 +503,7 @@
                 </button>
             </div>
             <br>
-            <div style="font-family: 'Lora', serif; font-size:0.92rem; line-height: 1.6; opacity:0.85;">
+            <div style="font-family: 'Lora', serif; font-size:0.93rem; line-height: 1.6; opacity:0.9;">
                 <p style="margin:0 0 10px 0;">
                     <b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et
                     objectiver leur niveau
@@ -525,8 +525,8 @@
             <div id="app-version" class="version-display"
                 style="text-align:center; margin-bottom:15px; line-height:1.8;">
                 <!-- Zone de tap cachée — 7 taps active le mode développeur -->
-                <div id="about-title" style="opacity:0.7; font-size:0.85rem;"></div>
-                <div id="about-copyright" style="opacity:0.7; font-size:0.85rem;"></div>
+                <div id="about-title" style="opacity:0.6; font-size:0.85rem;"></div>
+                <div id="about-copyright" style="opacity:0.6; font-size:0.85rem;"></div>
             </div>
 
             <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
@@ -1028,7 +1028,7 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                alert("🏗️ Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+                alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
             }
             const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
@@ -1708,7 +1708,7 @@
             const newLang = document.getElementById('lang-select').value;
 
             if (newLang === 'en') {
-                const confirmed = confirm("🏗️ Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
+                const confirmed = confirm("🏗️  Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
                 if (!confirmed) {
                     document.getElementById('lang-select').value = 'fr';
                     settings.lang = 'fr';
@@ -1723,7 +1723,7 @@
             }
 
             if (newLang === 'nl') {
-                const confirmed = confirm("🏗️ Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
+                const confirmed = confirm("🏗️  Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
                 if (!confirmed) {
                     document.getElementById('lang-select').value = 'fr';
                     settings.lang = 'fr';
