@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -31,8 +31,8 @@
     <!--
     <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
         async src="//gc.zgo.at/count.js"></script>
+       -->
     <script src="chart.js"></script>
-    -->
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
     <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
@@ -1442,8 +1442,8 @@
                 <span style="font-size:0.85rem; font-family:monospace; opacity:0.7; margin-top:6px; display:block;">
                     Version ${APP_VERSION}
                 </span>
-                <br><br>
-                En cas d'échec d'une mise à jour, forcez le rédémarrage de l'application.
+                <br><br><span style="font-size:0.85rem; opacity:0.7; display:block;">
+                En cas d'échec d'une mise à jour, forcez le rédémarrage de l'application</span>
             </div>`;
             } else {
                 body.innerHTML = `
@@ -1479,7 +1479,7 @@
                         ⏳ Mise à jour en cours...<br>
                         <span style="font-size:0.8rem; margin-top:6px; display:block;">
                             L'application va redémarrer dans quelques instants.<br><br>
-                            En cas d'échec de la mise à jour, forcer le rédémarrage de l'application.
+                            En cas d'échec de la mise à jour, forcez le rédémarrage de l'application.
                          </span>
                     </div>`;
                 document.getElementById('update-modal-actions').innerHTML = '';
