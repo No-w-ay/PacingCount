@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1442,7 +1442,7 @@
                 <span style="font-size:0.85rem; font-family:monospace; opacity:0.7; margin-top:6px; display:block;">
                     Version ${APP_VERSION}
                 </span>
-                <br><br><span style="font-size:0.85rem; opacity:0.7; display:block;">
+                <br><br><span style="font-size:0.9rem; opacity:0.85; display:block;">
                 En cas d'échec d'une mise à jour, forcez le rédémarrage de l'application</span>
             </div>`;
             } else {
@@ -3248,6 +3248,13 @@
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
                         eruda.init();
+                        // Réappliquer l'horodatage — car Eruda réinitialise console.log à son init
+                        const _erudaLog = console.log.bind(console);
+                        console.log = (...args) => {
+                            const d = new Date();
+                            const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+                            _erudaLog(`[${hms}]`, ...args);
+                        };
                         // #eruda existe maintenant dans le DOM
                         const erudaEl = document.getElementById('eruda');
                         if (erudaEl) erudaEl.style.display = '';
