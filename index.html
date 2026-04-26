@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -31,8 +31,10 @@
     <!-- -->
     <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
         async src="//gc.zgo.at/count.js"></script>
-       
+
+    <!-- -->
     <script src="chart.js"></script>
+    -->
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
     <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
@@ -3335,21 +3337,21 @@
             console.warn('[Init] ⚠️ localStorage inaccessible — toast de mise à jour désactivé', e);
         }
 
-        // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode
-        // uniquement au premier démarrage du jour (comparaison via timestamp précis en localStorage)
-        // Si lastAppOpen absent (première install ou migration), on envoie quand même et on initialise
-        const _lastOpen = localStorage.getItem('lastAppOpen');
+        // Ping quotidien GoatCounter — envoyé une seule fois par jour, uniquement si en ligne
+        // Si hors ligne : lastDailyPingSent non mis à jour — on réessaiera au prochain démarrage
+        // Si clé absente (première install ou migration) : on envoie et on initialise
+        const _lastPing = localStorage.getItem('lastDailyPingSent');
         const _today = new Date().toDateString();
-        const _lastDay = _lastOpen ? new Date(parseInt(_lastOpen)).toDateString() : null;
-        if (_today !== _lastDay) {
+        const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
+        if (_today !== _lastPingDay) {
             if (window.goatcounter && navigator.onLine) {
                 window.goatcounter.count({ path: 'version-' + APP_VERSION });
                 const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
                 window.goatcounter.count({ path: mode + '-mode' });
+                localStorage.setItem('lastDailyPingSent', Date.now());
             }
+            // Si hors ligne : on ne met pas à jour — on réessaiera au prochain démarrage
         }
-        // Toujours mettre à jour le timestamp, même si GoatCounter est désactivé
-        localStorage.setItem('lastAppOpen', Date.now());
 
         document.getElementById('lang-select').value = settings.lang;
         document.getElementById('custom-1').value = settings.labels[0];
