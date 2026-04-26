@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -34,7 +34,7 @@
 
     <!-- -->
     <script src="chart.js"></script>
-    
+
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
     <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
@@ -1237,7 +1237,21 @@
         // Enregistrement du Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('[index] SW enregistré :', reg.scope))
+                //.then(reg => console.log('[index] SW enregistré :', reg.scope))
+                .then(reg => {
+                    //console.log('[index] SW enregistré :', reg.scope);
+                    navigator.serviceWorker.ready.then(swReg => {
+                        // Listener temporaire pour logger le nom du cache
+                        const onVersion = event => {
+                            if (event.data?.type === 'SW_VERSION') {
+                                console.log('[index] Cache SW actif :', event.data.version);
+                                navigator.serviceWorker.removeEventListener('message', onVersion);
+                            }
+                        };
+                        navigator.serviceWorker.addEventListener('message', onVersion);
+                        swReg.active.postMessage({ type: 'GET_VERSION' });
+                    });
+                })
                 .catch(err => console.error('[index] Erreur enregistrement SW :', err));
         }
 
@@ -3345,9 +3359,9 @@
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
         if (_today !== _lastPingDay) {
             if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'version-' + APP_VERSION });
+                window.goatcounter.count({ path: 'DailyUser-' + APP_VERSION });
                 const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
-                window.goatcounter.count({ path: mode + '-mode' });
+                window.goatcounter.count({ path: 'DailyUser-' + mode });
                 localStorage.setItem('lastDailyPingSent', Date.now());
             }
             // Si hors ligne : on ne met pas à jour — on réessaiera au prochain démarrage
