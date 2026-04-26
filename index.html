@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -28,10 +28,10 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Lora&display=swap" rel="stylesheet">
 
-    <!--
+    <!-- -->
     <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
         async src="//gc.zgo.at/count.js"></script>
-       -->
+       
     <script src="chart.js"></script>
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
@@ -3335,12 +3335,21 @@
             console.warn('[Init] ⚠️ localStorage inaccessible — toast de mise à jour désactivé', e);
         }
 
-        // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode au démarrage de l'app
-        if (window.goatcounter && navigator.onLine) {
-            window.goatcounter.count({ path: 'version-' + APP_VERSION });
-            const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
-            window.goatcounter.count({ path: mode + '-mode' });
+        // envoie à GoatCounter l'info de version ET le installed-mode ou browser-mode
+        // uniquement au premier démarrage du jour (comparaison via timestamp précis en localStorage)
+        // Si lastAppOpen absent (première install ou migration), on envoie quand même et on initialise
+        const _lastOpen = localStorage.getItem('lastAppOpen');
+        const _today = new Date().toDateString();
+        const _lastDay = _lastOpen ? new Date(parseInt(_lastOpen)).toDateString() : null;
+        if (_today !== _lastDay) {
+            if (window.goatcounter && navigator.onLine) {
+                window.goatcounter.count({ path: 'version-' + APP_VERSION });
+                const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
+                window.goatcounter.count({ path: mode + '-mode' });
+            }
         }
+        // Toujours mettre à jour le timestamp, même si GoatCounter est désactivé
+        localStorage.setItem('lastAppOpen', Date.now());
 
         document.getElementById('lang-select').value = settings.lang;
         document.getElementById('custom-1').value = settings.labels[0];
