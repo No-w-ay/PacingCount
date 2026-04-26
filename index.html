@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -711,12 +711,20 @@
 
     <script>
 
-        // Pour que tous les console.log existants affichent automatiquement l'heure
-        const _log = console.log.bind(console);
+        // Buffer console + horodatage automatique        
+        // Buffer console — stocke les logs avant chargement d'Eruda (max 100 entrées)
+        // Rejoué dans Eruda au moment de son initialisation (voir applyDevMode)
+        // Conservé en mémoire après replay — utile pour futur rapport d'erreur
+        // _nativeLog = console natif, utilisé pour PC DevTools et replay Eruda
+        const _logBuffer = [];
+        const _nativeLog = console.log.bind(console);
         console.log = (...args) => {
             const d = new Date();
             const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-            _log(`[${hms}]`, ...args);
+            const stamped = [`[${hms}]`, ...args];
+            _logBuffer.push({ ts: d.getTime(), args: stamped });
+            if (_logBuffer.length > 100) _logBuffer.shift();
+            _nativeLog(...stamped);
         };
 
         // Pour afficher dans la console liée à index.html les logs du SW (celui-ci les transmet)
@@ -3264,6 +3272,11 @@
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
                         eruda.init();
+                        // Replay du buffer dans Eruda
+                        _logBuffer.forEach(entry => {
+                            _nativeLog(...entry.args); // déjà horodaté, bypass la surcharge Eruda
+                        });
+       
                         // Réappliquer l'horodatage — car Eruda réinitialise console.log à son init
                         const _erudaLog = console.log.bind(console);
                         console.log = (...args) => {
@@ -3271,6 +3284,9 @@
                             const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
                             _erudaLog(`[${hms}]`, ...args);
                         };
+                                        
+                        console.log('[Eruda] ✅ Replay terminé — console en direct');
+
                         // #eruda existe maintenant dans le DOM
                         const erudaEl = document.getElementById('eruda');
                         if (erudaEl) erudaEl.style.display = '';
