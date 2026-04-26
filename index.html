@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3272,19 +3272,20 @@
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
                         eruda.init();
-                        // Replay du buffer dans Eruda
+                        // Replay du buffer dans Eruda — console.log pointe maintenant vers Eruda
                         _logBuffer.forEach(entry => {
-                            _nativeLog(...entry.args); // déjà horodaté, bypass la surcharge Eruda
+                            console.log(...entry.args); // déjà horodaté
                         });
-       
+
                         // Réappliquer l'horodatage — car Eruda réinitialise console.log à son init
-                        const _erudaLog = console.log.bind(console);
+                        const _erudaLog = console.log.bind(console); // → Eruda
                         console.log = (...args) => {
                             const d = new Date();
                             const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
-                            _erudaLog(`[${hms}]`, ...args);
+                            _erudaLog(`[${hms}]`, ...args);  // → Eruda
+                            _nativeLog(`[${hms}]`, ...args); // → PC natif
                         };
-                                        
+
                         console.log('[Eruda] ✅ Replay terminé — console en direct');
 
                         // #eruda existe maintenant dans le DOM
