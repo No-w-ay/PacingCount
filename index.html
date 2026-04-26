@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1468,7 +1468,7 @@
         function applyUpdate() {
             // envoie à GoatCounter l'info 'update-applied'
             if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'update-applied' });
+                window.goatcounter.count({ path: 'update-to-' + APP_VERSION });
             }
             if (waitingWorker) {
                 //localStorage.setItem('pendingUpdateFrom', APP_VERSION); // Plus nécessaire, géré dans [Init] pour être plus général
