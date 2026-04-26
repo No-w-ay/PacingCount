@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -723,7 +723,7 @@
             const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
             const stamped = [`[${hms}]`, ...args];
             _logBuffer.push({ ts: d.getTime(), args: stamped });
-            if (_logBuffer.length > 100) _logBuffer.shift();
+            if (_logBuffer.length > 100) _logBuffer.shift(); // limité à 100 entrées
             _nativeLog(...stamped);
         };
 
@@ -3272,9 +3272,10 @@
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
                         eruda.init();
-                        // Replay du buffer dans Eruda — console.log pointe maintenant vers Eruda
+                        // Replay du buffer dans Eruda
+                        const erudaConsole = eruda.get('console');
                         _logBuffer.forEach(entry => {
-                            console.log(...entry.args); // déjà horodaté
+                            erudaConsole.log(...entry.args); // → Eruda uniquement, sans doublon PC
                         });
 
                         // Réappliquer l'horodatage — car Eruda réinitialise console.log à son init
