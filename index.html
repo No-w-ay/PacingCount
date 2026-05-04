@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3272,11 +3272,12 @@
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
 
-                        eruda.init();
-                        // Capturer Eruda avant de neutraliser la surcharge initiale
-                        const _erudaLog = console.log.bind(console); // → pointe vers Eruda ✅
-                        // Neutraliser la surcharge initiale — Eruda gère maintenant le pipe vers PC
+                        // Neutraliser la surcharge initiale AVANT eruda.init() — pour qu'Eruda capture le natif
                         console.log = _nativeLog;
+                        eruda.init();
+                        // Capturer Eruda après son init
+                        const _erudaLog = console.log.bind(console); // → pointe vers Eruda ✅
+
                         // Replay du buffer dans Eruda
                         const erudaConsole = eruda.get('console');
 
