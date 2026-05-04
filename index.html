@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.24"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3271,17 +3271,21 @@
                     const s = document.createElement('script');
                     s.src = 'https://cdn.jsdelivr.net/npm/eruda';
                     s.onload = () => {
+
                         eruda.init();
+                        // Capturer Eruda avant de neutraliser la surcharge initiale
+                        const _erudaLog = console.log.bind(console); // → pointe vers Eruda ✅
                         // Neutraliser la surcharge initiale — Eruda gère maintenant le pipe vers PC
                         console.log = _nativeLog;
                         // Replay du buffer dans Eruda
                         const erudaConsole = eruda.get('console');
+
                         _logBuffer.forEach(entry => {
                             erudaConsole.log(...entry.args); // → Eruda uniquement, sans doublon PC
                         });
 
                         // Réappliquer l'horodatage — car Eruda réinitialise console.log à son init
-                        const _erudaLog = console.log.bind(console); // → Eruda
+                        //const _erudaLog = console.log.bind(console); // → Eruda
                         console.log = (...args) => {
                             const d = new Date();
                             const hms = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
