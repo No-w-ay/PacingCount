@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1488,10 +1488,12 @@
         }
 
         function applyUpdate() {
+            // L'event update-to-XXX est géré au démarrage via lastSeenVersion — pas besoin ici
             // envoie à GoatCounter l'info 'update-applied'
-            if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'update-to-' + APP_VERSION });
-            }
+            //if (window.goatcounter && navigator.onLine) {
+            //    window.goatcounter.count({ path: 'update-to-' + APP_VERSION });
+            //}
+
             if (waitingWorker) {
                 //localStorage.setItem('pendingUpdateFrom', APP_VERSION); // Plus nécessaire, géré dans [Init] pour être plus général
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -3371,9 +3373,16 @@
                     setTimeout(() => { toast.remove(); }, 6000);
                 }, 500);
             }
+            window._isNewVersion = !lastSeenVersion || lastSeenVersion !== APP_VERSION;
             localStorage.setItem('lastSeenVersion', APP_VERSION);
         } catch (e) {
             console.warn('[Init] ⚠️ localStorage inaccessible — toast de mise à jour désactivé', e);
+        }
+
+        // Envoyer update-to-XXX si nouvelle version (indépendant du ping quotidien)
+        //const _lastSeenVersion = localStorage.getItem('lastSeenVersion');
+        if (window.goatcounter && navigator.onLine && window._isNewVersion) {
+            window.goatcounter.count({ path: 'update-to-' + APP_VERSION });
         }
 
         // Ping quotidien GoatCounter — envoyé une seule fois par jour, uniquement si en ligne
@@ -3382,6 +3391,7 @@
         const _lastPing = localStorage.getItem('lastDailyPingSent');
         const _today = new Date().toDateString();
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
+
         if (_today !== _lastPingDay) {
             if (window.goatcounter && navigator.onLine) {
                 window.goatcounter.count({ path: 'DailyUser-' + APP_VERSION });
@@ -3389,6 +3399,7 @@
                 window.goatcounter.count({ path: 'DailyUser-' + mode });
                 localStorage.setItem('lastDailyPingSent', Date.now());
             }
+
             // Si hors ligne : on ne met pas à jour — on réessaiera au prochain démarrage
         }
 
