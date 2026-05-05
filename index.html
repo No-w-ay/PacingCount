@@ -8,10 +8,12 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
+        // Détection branche main ou dev — permet différences d'affichage auto entre les 2 versions
+        const IS_DEV = location.hostname.includes('dev.');
     </script>
     <!-- PacingCount — (c) 2026 No-w-ay -->
     <!-- Copyright : All right reserved
@@ -3416,6 +3418,12 @@
         // Initialisation du mode développeur (persistance + 7 taps)
         initDevMode();
 
+        // Indicateurs visuels branche dev
+        if (IS_DEV) {
+            document.title = `${APP_NAME} DEV`;
+            document.querySelector('meta[name="theme-color"]').content = '#5C0000';
+        }
+
         updateUI();
 
         // Demande la permission notifications au 1er lancement
@@ -3731,6 +3739,73 @@
         Timer principal synchronisé via MutationObserver
 
         Mode vagues croissantes: désactivé silencieusement(wave = false hardcodé), logique conservée dans le code
+
+
+        3. Mode développeur
+
+        Activé par 7 taps sur le titre ou le copyright dans la section À propos. Persisté en localStorage (devMode = '1'). Désactivé via un toggle visible uniquement quand le mode est actif. Les éléments dev portent la classe CSS dev-only — cachés par défaut, visibles quand body a la classe dev-mode.
+
+        Éléments contrôlés par le mode dev :
+
+        Bouton "Test Notif Immédiate"
+        Bouton "Mode Plein Écran"
+        Le toggle lui-même avec l'indicateur 🛠️ Mode développeur
+
+        Eruda est chargé dynamiquement au premier passage en mode dev (pas au démarrage) — économise les ressources en production.
+
+
+        4. Système de console
+
+        Trois niveaux :
+
+        _nativeLog — référence au console.log natif du navigateur, capturée avant toute surcharge. Jamais modifiée. Toujours disponible pour la console PC DevTools.
+        
+        Surcharge initiale (active dès le démarrage) — remplace console.log par une fonction qui :
+
+        Horodate chaque message ([HH:MM:SS])
+        Stocke dans _logBuffer[] (max 100 entrées, buffer tournant)
+        Envoie vers _nativeLog → visible sur PC DevTools
+
+        Surcharge post-Eruda (active après chargement d'Eruda) — remplace console.log à nouveau :
+
+        Horodate chaque message
+        Envoie vers _erudaLog (référence Eruda capturée juste avant neutralisation)
+        Eruda redirige vers PC en interne — un seul horodatage sur PC ✅
+
+        Séquence au chargement d'Eruda :
+
+        Capturer _erudaLog = console.log.bind(console) → pointe vers Eruda
+        Neutraliser la surcharge initiale : console.log = _nativeLog — pour qu'Eruda capture le natif pur
+        eruda.init() — Eruda prend le natif comme base, pas la surcharge
+        Replay du buffer via erudaConsole.log() — injecte directement dans Eruda sans doublon PC
+        Réappliquer l'horodatage via la surcharge post-Eruda
+        Message "Replay terminé — console en direct"
+
+        Résultat :
+
+        PC DevTools : logs depuis le démarrage, un seul horodatage, en continu ✅
+        Eruda : replay complet depuis le démarrage, puis direct, horodaté ✅
+        Buffer conservé en mémoire après replay — base pour futur rapport d'erreur ✅
+
+
+        5. Détection environnement dev/prod
+
+        const IS_DEV = location.hostname.includes('dev.') — détecte automatiquement dev.pacingcount.pages.dev vs pacingcount.pages.dev. Pas de modification à gérer au merge.
+    
+        En mode dev :
+
+        document.title → PacingCount DEV
+        theme-color → rouge sombre #5C0000
+
+
+        6. Infrastructure de déploiement
+
+        Liaison GitHub → Cloudflare Pages. Deux branches :
+
+        main → pacingcount.pages.dev — version stable
+        dev → dev.pacingcount.pages.dev — version de développement
+
+        Workflow : coder sur dev, tester, merger dans main quand stable.
 
         =====================================================    */
 
