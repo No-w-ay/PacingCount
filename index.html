@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.34"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.35"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1354,12 +1354,12 @@
             modal.style.display = 'flex';
 
             // Force une vérification fraîche de sw.js sur le serveur avant d'ouvrir le modal
-            // au moins visible 1 seconde (Vérif en cours...)
+            // au moins visible 3 seconde (Vérif en cours...)
             navigator.serviceWorker.ready.then(reg => {
 
                 Promise.all([
                     reg.update().then(() => { if (reg.waiting) waitingWorker = reg.waiting; }).catch(() => { }),
-                    new Promise(resolve => setTimeout(resolve, 1000))
+                    new Promise(resolve => setTimeout(resolve, 3000))
                 ]).then(() => {
                     _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
                 });
@@ -1515,7 +1515,7 @@
 
                 navigator.serviceWorker.addEventListener('controllerchange', () => {
                     //console.log(`[applyUpdate] ✅ Nouveau SW actif (${APP_VERSION}) — rechargement dans 1 seconde`); // En pratique on le voit rarement, car redémarrage de l'app juste après
-                    setTimeout(() => window.location.reload(), 1000);  // au moins visible 1 seconde
+                    setTimeout(() => window.location.reload(), 1000); // minimum 1 sec     
                 });
 
                 // Sécurité : si controllerchange ne se déclenche pas dans les 12 secondes, on recharge quand même
@@ -3431,7 +3431,7 @@
 
             // Couleur fond
             //document.body.style.backgroundColor = '#2a0000'; // Rouge très sombre, distinct du fond normal
-            
+
             // Fond barre de navigation en gris vert sombre
             document.querySelector('nav').style.backgroundColor = '#1a2a1a';
             // Titre page mesure — indique dev branch en petit gris italique
