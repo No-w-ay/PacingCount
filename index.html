@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -535,7 +535,7 @@
                     personnelle.
                 </p>
             </div>
-            <div id="app-version" class="version-display"
+            <div id="about-tap-zone" class="version-display"
                 style="text-align:center; margin-bottom:15px; line-height:1.8;">
                 <!-- Zone de tap cachée — 7 taps active le mode développeur -->
                 <div id="about-title" style="opacity:0.6; font-size:0.85rem;"></div>
@@ -3409,11 +3409,14 @@
         document.getElementById('custom-1').value = settings.labels[0];
         document.getElementById('custom-2').value = settings.labels[1];
         document.getElementById('custom-3').value = settings.labels[2];
+
         // Remplissage dynamique de la section À propos :
-        document.getElementById('about-title').innerText = document.title;
-        document.getElementById('about-copyright').innerText =
-            document.querySelector('meta[name="copyright"]')?.content || '(c) 2026 No-w-ay';
-        document.getElementById('about-version').innerText = 'Version ' + APP_VERSION;
+        // about-title, about-copyright, about-version remplis par updateUI()
+
+        //document.getElementById('about-title').innerText = document.title;
+        //document.getElementById('about-copyright').innerText =
+        //    document.querySelector('meta[name="copyright"]')?.content || '(c) 2026 No-w-ay';
+        //document.getElementById('about-version').innerText = 'Version ' + APP_VERSION;
 
         // Initialisation du mode développeur (persistance + 7 taps)
         initDevMode();
@@ -3421,7 +3424,10 @@
         // Indicateurs visuels branche dev
         if (IS_DEV) {
             document.title = `${APP_NAME} DEV`;
-            document.querySelector('meta[name="theme-color"]').content = '#5C0000';
+            document.querySelector('meta[name="theme-color"]').content = '#8B0000';
+            // Titre page mesure — indique visuellement la branche dev
+            document.getElementById('title-measure').innerHTML =
+                `${APP_NAME}<br><span style="font-size:0.55em; color:#888; font-style:italic;">dev branch</span>`;
         }
 
         updateUI();
