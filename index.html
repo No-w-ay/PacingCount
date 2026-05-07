@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.37"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.38"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2346,7 +2346,8 @@
 
                     // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
-                    let totalMin = Math.floor(durationMs / 60000);
+                    //let totalMin = Math.floor(durationMs / 60000); // Minutes entières tronquées
+                    let totalMin = Math.round(durationMs / 60000);   // Minutes entièrs arrondies
                     let hours = Math.floor(totalMin / 60);
                     let mins = (totalMin % 60).toString().padStart(2, '0');
                     let durationText = `${hours}h${mins}`;
