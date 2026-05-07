@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.36"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.38"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1052,7 +1052,8 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+            //alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+            alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
             }
             const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
@@ -2345,7 +2346,8 @@
 
                     // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
-                    let totalMin = Math.floor(durationMs / 60000);
+                    //let totalMin = Math.floor(durationMs / 60000); // Minutes entières tronquées
+                    let totalMin = Math.round(durationMs / 60000);   // Minutes entièrs arrondies
                     let hours = Math.floor(totalMin / 60);
                     let mins = (totalMin % 60).toString().padStart(2, '0');
                     let durationText = `${hours}h${mins}`;
@@ -2692,11 +2694,14 @@
 
             let finalMsg = "";
 
+            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type ${typeId}`;
             if (isEndInFuture) {
-                finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n";
+                finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n\n";
+                finalMsg += `${typeLabel}\n`;
                 finalMsg += `${dateS} ${hourS} → en cours...\n\n`;
             } else {
-                finalMsg += "Nouvelle période :\n";
+                finalMsg += "Nouvelle période :\n\n";
+                finalMsg += `${typeLabel}\n`;
                 finalMsg += `${dateS} ${hourS} → ${dateE} ${hourE}\n\n`;
             }
 
