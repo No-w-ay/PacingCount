@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.33"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.34"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3432,11 +3432,11 @@
             // Couleur fond
             //document.body.style.backgroundColor = '#2a0000'; // Rouge très sombre, distinct du fond normal
             
-            // Fond barre de navigation en vert sombre
-            document.querySelector('nav').style.backgroundColor = '#004a00';
+            // Fond barre de navigation en gris vert sombre
+            document.querySelector('nav').style.backgroundColor = '#1a2a1a';
             // Titre page mesure — indique dev branch en petit gris italique
             document.getElementById('title-measure').innerHTML =
-                `${APP_NAME} <span style="font-size:0.55em; color:#666; font-style:italic;">dev branch</span>`;
+                `${APP_NAME} <span style="font-size:0.55em; color:#4a554a; font-style:italic;">dev branch</span>`;
         }
 
         updateUI();
