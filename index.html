@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.31"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.32"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3425,7 +3425,7 @@
         if (IS_DEV) {
             document.title = `${APP_NAME} - dev branch`;
             document.querySelector('meta[name="theme-color"]').content = '#5C0000';
-            document.body.style.backgroundColor = '#4a0000'; // Rouge très sombre, distinct du fond normal
+            document.body.style.backgroundColor = '#2a0000'; // Rouge très sombre, distinct du fond normal
             // Titre page mesure — indique visuellement la branche dev
             document.getElementById('title-measure').innerHTML =
                 `${APP_NAME} <span style="font-size:0.55em; color:#888; font-style:italic;">dev branch</span>`;
