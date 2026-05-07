@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.35"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.36"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1358,8 +1358,23 @@
             navigator.serviceWorker.ready.then(reg => {
 
                 Promise.all([
-                    reg.update().then(() => { if (reg.waiting) waitingWorker = reg.waiting; }).catch(() => { }),
-                    new Promise(resolve => setTimeout(resolve, 3000))
+                    //reg.update().then(() => { if (reg.waiting) waitingWorker = reg.waiting; }).catch(() => { }),
+                    reg.update().then(() => {
+                        if (reg.waiting) {
+                            waitingWorker = reg.waiting;
+                        } else {
+                            // Écouter si un nouveau SW s'installe pendant le délai d'attente
+                            reg.addEventListener('updatefound', () => {
+                                const newWorker = reg.installing;
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed') {
+                                        waitingWorker = newWorker;
+                                    }
+                                });
+                            });
+                        }
+                    }).catch(() => { }),
+                    new Promise(resolve => setTimeout(resolve, 2000))
                 ]).then(() => {
                     _showUpdateModalContent(reg, title, body, actions, actionsCas1, btnLater, modal);
                 });
@@ -3436,7 +3451,7 @@
             document.querySelector('nav').style.backgroundColor = '#1a2a1a';
             // Titre page mesure — indique dev branch en petit gris italique
             document.getElementById('title-measure').innerHTML =
-                `${APP_NAME} <span style="font-size:0.55em; color:#4a554a; font-style:italic;">dev branch</span>`;
+                `${APP_NAME} <span style="font-size:0.55em; color:#4a6a4a; font-style:italic;">dev branch</span>`;
         }
 
         updateUI();
