@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.38"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.39"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1052,8 +1052,8 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-            //alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
-            alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+                //alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+                alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
             }
             const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
@@ -1708,8 +1708,13 @@
             requestWakeLock();
 
             // GoatCounter — event période démarrée (envoi uniquement si connecté)
-            if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'period-started' });
+            //if (window.goatcounter && navigator.onLine) {
+            //    window.goatcounter.count({ path: 'period-started' });
+            //}
+
+            // GoatCounter — event période démarrée (envoi uniquement si connecté)
+            if (navigator.onLine) {
+                sendToGoatCounter('period-started');
             }
         }
 
@@ -1844,11 +1849,6 @@
         // ============================================================
         function updateUI() {
 
-            //const t = translations[settings.lang];
-
-            // Sécurité : si settings ou lang n'existent pas encore, on évite le crash
-            // if (!translations || !settings) return;
-            // const t = translations[settings.lang] || translations['fr']; // Fallback sur le français
             const t = (translations && settings) ? (translations[settings.lang] || translations['fr']) : {};
             document.getElementById('nav-timeline').innerText = t.timeline;
             document.getElementById('title-timeline').innerText = t.timeline;
@@ -1859,11 +1859,6 @@
             document.getElementById('btn-import').innerText = t.import;
             document.getElementById('label-custom').innerText = t.custom;
             document.getElementById('btn-stop').innerText = t.stop;
-
-            // Note: on ne met pas à jour title-history ici car renderHistory()
-            // y ajoute le compteur (ex: "Périodes enregistrées (12)").
-            // Le mettre ici écraserait ce compteur à chaque updateUI().
-            // document.getElementById('title-history').innerText = t.history;
 
             // Mise à jour noms boutons dans Réglages
             [1, 2, 3].forEach(i => {
@@ -2803,8 +2798,13 @@
                 }, 100);
 
                 // Event export-csv pour statistiques GoatCounter
-                if (window.goatcounter && navigator.onLine) {
-                    window.goatcounter.count({ path: 'export-csv' });
+                //if (window.goatcounter && navigator.onLine) {
+                //    window.goatcounter.count({ path: 'export-csv' });
+                //}
+
+                // Event export-csv pour statistiques GoatCounter
+                if (navigator.onLine) {
+                    sendToGoatCounter('export-csv');
                 }
 
                 console.log("[exportCSV] Export terminé");
@@ -3371,6 +3371,19 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
+        // Fonction de sécurité pour laisser à GoatCounter le temps de charger (10 essais en 10 secondes)
+        function sendToGoatCounter(pathValue, attempts = 0) {
+            if (window.goatcounter && window.goatcounter.count) {
+                window.goatcounter.count({ path: pathValue });
+                console.log(`[GoatCounter] ✅ Envoyé : ${pathValue}`);
+            } else if (attempts < 10 && navigator.onLine) {
+                // Réessai toutes les 1000ms (1s)
+                setTimeout(() => sendToGoatCounter(pathValue, attempts + 1), 1000);
+            } else {
+                console.warn(`[GoatCounter] ❌ Abandon : ${pathValue} (Bloqueur ou Hors-ligne)`);
+            }
+        }
+
         // Message "toast" de mise à jour réussie - reste 5 secondes puis disparaît sans clic
         // try catch de sécurité pour ne pas bloquer une mise à jour
         try {
@@ -3395,48 +3408,39 @@
                     setTimeout(() => { toast.remove(); }, 6000);
                 }, 500);
             }
+
+            // Détection : première installation (pas de lastSeenVersion) OU changement de version
             window._isNewVersion = !lastSeenVersion || lastSeenVersion !== APP_VERSION;
+
+            // Envoi sécurisé à GoatCounter si nouveau/maj et en ligne
+            if (window._isNewVersion && navigator.onLine) {
+                sendToGoatCounter('update-to-' + APP_VERSION);
+            }
+
             localStorage.setItem('lastSeenVersion', APP_VERSION);
         } catch (e) {
-            console.warn('[Init] ⚠️ localStorage inaccessible — toast de mise à jour désactivé', e);
-        }
-
-        // Envoyer update-to-XXX si nouvelle version (indépendant du ping quotidien)
-        //const _lastSeenVersion = localStorage.getItem('lastSeenVersion');
-        if (window.goatcounter && navigator.onLine && window._isNewVersion) {
-            window.goatcounter.count({ path: 'update-to-' + APP_VERSION });
+            console.warn('[Init] ⚠️ localStorage inaccessible — toast et events version désactivés', e);
         }
 
         // Ping quotidien GoatCounter — envoyé une seule fois par jour, uniquement si en ligne
-        // Si hors ligne : lastDailyPingSent non mis à jour — on réessaiera au prochain démarrage
-        // Si clé absente (première install ou migration) : on envoie et on initialise
         const _lastPing = localStorage.getItem('lastDailyPingSent');
         const _today = new Date().toDateString();
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
-        if (_today !== _lastPingDay) {
-            if (window.goatcounter && navigator.onLine) {
-                window.goatcounter.count({ path: 'DailyUser-' + APP_VERSION });
-                const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
-                window.goatcounter.count({ path: 'DailyUser-' + mode });
-                localStorage.setItem('lastDailyPingSent', Date.now());
-            }
+        if (_today !== _lastPingDay && navigator.onLine) {
+            // Utilisation de la fonction sécurisée pour les pings quotidiens
+            sendToGoatCounter('DailyUser-' + APP_VERSION);
 
-            // Si hors ligne : on ne met pas à jour — on réessaiera au prochain démarrage
+            const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
+            sendToGoatCounter('DailyUser-' + mode);
+
+            localStorage.setItem('lastDailyPingSent', Date.now());
         }
 
         document.getElementById('lang-select').value = settings.lang;
         document.getElementById('custom-1').value = settings.labels[0];
         document.getElementById('custom-2').value = settings.labels[1];
         document.getElementById('custom-3').value = settings.labels[2];
-
-        // Remplissage dynamique de la section À propos :
-        // about-title, about-copyright, about-version remplis par updateUI()
-
-        //document.getElementById('about-title').innerText = document.title;
-        //document.getElementById('about-copyright').innerText =
-        //    document.querySelector('meta[name="copyright"]')?.content || '(c) 2026 No-w-ay';
-        //document.getElementById('about-version').innerText = 'Version ' + APP_VERSION;
 
         // Initialisation du mode développeur (persistance + 7 taps)
         initDevMode();
