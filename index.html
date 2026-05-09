@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.39"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.22-beta.40"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3450,7 +3450,7 @@
             // Titre de la page Web
             document.title = `${APP_NAME} - dev branch`;
 
-            // Couleur thème - visible dans la barre de haut ?
+            // Couleur thème - visible dans la barre de haut ? NON VISIBLE ???
             document.querySelector('meta[name="theme-color"]').content = '#5C0000';
 
             // Couleur fond
@@ -3827,17 +3827,7 @@
         Buffer conservé en mémoire après replay — base pour futur rapport d'erreur ✅
 
 
-        5. Détection environnement dev/prod
-
-        const IS_DEV = location.hostname.includes('dev.') — détecte automatiquement dev.pacingcount.pages.dev vs pacingcount.pages.dev. Pas de modification à gérer au merge.
-    
-        En mode dev :
-
-        document.title → PacingCount DEV
-        theme-color → rouge sombre #5C0000
-
-
-        6. Infrastructure de déploiement
+        5. Infrastructure de déploiement
 
         Liaison GitHub → Cloudflare Pages. Deux branches :
 
@@ -3845,6 +3835,14 @@
         dev → dev.pacingcount.pages.dev — version de développement
 
         Workflow : coder sur dev, tester, merger dans main quand stable.
+
+        Détection auto branche dev/prod via const IS_DEV = location.hostname.includes('dev.')
+        (détecte automatiquement dev.pacingcount.pages.dev vs pacingcount.pages.dev)
+        Pas de modification d'apparence à gérer au merge.
+    
+        En dev branch :
+        - Fond barre de navigation en gris vert sombre
+        - Titre page mesure — indique dev branch en petit gris italique
 
         =====================================================    */
 
