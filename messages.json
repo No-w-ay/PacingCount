@@ -25,10 +25,8 @@
       "type": "welcome",
       "id": "welcome-v1",
       "_comment": "Message de bienvenue — affiché une seule fois au premier lancement. Ne jamais réutiliser cet id.",
-      "maxVersion": null,
       "validFrom": "2026-05-13",
       "validUntil": "",
-      "blockAfter": null,
       "title": {
         "fr": "Bienvenue dans PacingCount 👋",
         "en": "Welcome to PacingCount 👋",
@@ -49,10 +47,8 @@
       "type": "info",
       "id": "info-export-tip-v1",
       "_comment": "Astuce export — affiché une seule fois, pendant la période de validité.",
-      "maxVersion": null,
       "validFrom": "2026-05-01",
       "validUntil": "2026-07-31",
-      "blockAfter": null,
       "title": {
         "fr": "💡 Le saviez-vous ?",
         "en": "💡 Did you know?",
