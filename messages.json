@@ -33,10 +33,9 @@
         "nl": "Welkom bij PacingCount 👋"
       },
       "body": {
-        "fr": "PacingCount t'aide à suivre tes périodes d'activité et de repos.\n\nToutes tes données restent uniquement sur ton appareil — rien n'est envoyé sur un serveur.\n\nEn continuant, tu acceptes cette utilisation.",
-        "en": "PacingCount helps you track your activity and rest periods.\n\nAll your data stays on your device — nothing is sent to a server.\n\nBy continuing, you accept this use.",
-        "nl": "PacingCount helpt je om je activiteits- en rustperiodes bij te houden.\n\nAlle gegevens blijven op jouw apparaat — er wordt niets naar een server gestuurd.\n\nDoor verder te gaan, ga je akkoord met dit gebruik."
-      },
+        "fr": "PacingCount t'aide à suivre tes périodes d'activité et de repos.\n\nA chaque changement d'activité, appuie sur le bouton correspondant. Le reste se fait tout seul !\n\nPlus d'info dans la section \"A propos\" de l'app. En continuant, tu acceptes cette utilisation.",        
+        "en": "PacingCount helps you track your activity and rest periods.\n\nEvery time you switch activity, press the corresponding button. The rest happens automatically!\n\nMore info in the \"About\" section of the app. By continuing, you accept this use."
+        "nl": "PacingCount helpt je om je activiteits- en rustperiodes bij te houden.\n\nDruk bij elke verandering van activiteit op de bijbehorende knop. de rest gaat vanzelf!\n\nMeer info in de \"Over\"-sectie van de app. Door verder te gaan, ga je akkoord met dit gebruik."      },
       "button": {
         "fr": "C'est parti !",
         "en": "Let's go!",
