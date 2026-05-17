@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1627,7 +1627,7 @@
         }
 
         // --- Affiche le #messageModal avec le contenu du message ---
-        
+
         /* function showMessage(msg, newVersion) {
             const lang = (settings && settings.lang) || 'fr';
             const fallbackLang = 'fr';
@@ -1824,6 +1824,7 @@
                 let newVersion = null;
                 if (msg.type === 'update') {
                     newVersion = await getNewVersionFromSW();
+                    if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
                 }
                 showMessage(msg, newVersion);
                 return; // Un seul message par lancement
