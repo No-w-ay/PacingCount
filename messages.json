@@ -6,7 +6,7 @@
       "type": "update",
       "id": "update-killswitch-v1",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
-      "maxVersion": "0.9.23-beta.3",
+      "maxVersion": "0.9.23-beta.4",
       "validFrom": "2026-05-13",
       "validUntil": "",
       "blockAfter": "2025-08-01",
