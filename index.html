@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1295,6 +1295,10 @@
         //         → si hors ligne : message spécifique
         // ============================================================
 
+        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
+            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
+            Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
+
         let waitingWorker = null; // Référence au SW en attente, si détecté
 
         if ('serviceWorker' in navigator) {
@@ -1424,11 +1428,7 @@
                             <strong style="color:var(--blue);">${newVersion}</strong>
                         </div>
                     </div>
-                    <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                        Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
-                        par précaution.
-                    </div>`;
+                    ${CONSEIL_HTML}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -1451,11 +1451,7 @@
                     <strong style="color:var(--blue);">nouvelle version</strong>
                 </div>
             </div>
-            <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                        border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
-                par précaution.
-            </div>`;
+            ${CONSEIL_HTML}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -1721,10 +1717,7 @@
                         </div>
                     </div>`;
                 conseilBlock.style.display = 'block';
-                conseilBlock.innerHTML = `
-                    <p style="color:#ffcc55; margin:0 0 16px 0; line-height:1.7; font-family:inherit;">
-                        <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
-                        Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
+                conseilBlock.innerHTML = CONSEIL_HTML;
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
