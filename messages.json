@@ -4,7 +4,7 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.23-beta.9",
+      "id": "update-0.9.23-beta.10",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
       "maxVersion": "",
       "validFrom": "2026-05-13",
@@ -16,7 +16,7 @@
         "nl": "⚠️ Update vereist"
       },
       "body": {
-        "fr": "",
+        "fr": "Correction de bugs et petites améliorations diverses",
         "en": "An important update is available.\n\nThis version will no longer be supported after August 1, 2026. Please update the app.",
         "nl": "Een belangrijke update is beschikbaar.\n\nDeze versie wordt na 1 augustus 2026 niet meer ondersteund. Werk de app bij."
       }
