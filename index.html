@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -717,6 +717,7 @@
                 style="display:none; margin-bottom:14px; font-family:monospace; font-size:0.9rem;"></div>
             <div id="message-modal-body"
                 style="margin-bottom:16px; line-height:1.7; font-size:0.95rem; white-space:pre-line;"></div>
+            <div id="message-modal-conseil" style="display:none;"></div>
             <div id="message-modal-actions"></div>
         </div>
     </div>
@@ -1294,6 +1295,10 @@
         //         → si hors ligne : message spécifique
         // ============================================================
 
+        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
+            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
+            Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
+
         let waitingWorker = null; // Référence au SW en attente, si détecté
 
         if ('serviceWorker' in navigator) {
@@ -1336,7 +1341,7 @@
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
             <button onclick="exportCSV()" style="${btnExport}">
-                💾 Exporter vos données (.csv)
+                💾 Exporter mes données (.csv)
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <button onclick="document.getElementById('updateModal').style.display='none'"
@@ -1423,11 +1428,7 @@
                             <strong style="color:var(--blue);">${newVersion}</strong>
                         </div>
                     </div>
-                    <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                        Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
-                        par précaution.
-                    </div>`;
+                    ${CONSEIL_HTML}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -1450,11 +1451,7 @@
                     <strong style="color:var(--blue);">nouvelle version</strong>
                 </div>
             </div>
-            <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                        border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                Tout redémarrage de l'app appliquera la mise à jour. <b>CONSEIL :</b> Exporter vos données en CSV avant la mise à jour,
-                par précaution.
-            </div>`;
+            ${CONSEIL_HTML}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -1704,11 +1701,12 @@
             // Bloc version + encadré conseil sauvegarde (type update uniquement)
             // Reprend exactement le HTML de _showUpdateModalContent()
             const versionBlock = document.getElementById('message-modal-version');
+            const conseilBlock = document.getElementById('message-modal-conseil');
             if (msg.type === 'update') {
                 const versionLabel = newVersion || 'nouvelle version';
                 versionBlock.style.display = 'block';
                 versionBlock.innerHTML = `
-                    <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
+                    <div style="font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
                             <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
                             <strong>${APP_VERSION}</strong>
@@ -1717,13 +1715,14 @@
                             <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
                             <strong style="color:var(--blue);">${versionLabel}</strong>
                         </div>
-                    </div>
-                    <p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
-                        <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
-                        Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
+                    </div>`;
+                conseilBlock.style.display = 'block';
+                conseilBlock.innerHTML = CONSEIL_HTML;
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
+                conseilBlock.style.display = 'none';
+                conseilBlock.innerHTML = '';
             }
 
             // Styles boutons (cohérents avec openUpdateModal)
@@ -1752,7 +1751,9 @@
                 // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
                 const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
                 actions.innerHTML = `
-                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
+                    <div style="text-align:center;">
+                        <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>
+                    </div>`;
             }
 
             document.getElementById('messageModal').style.display = 'flex';
