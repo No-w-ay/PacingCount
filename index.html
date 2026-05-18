@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1295,7 +1295,7 @@
         //         → si hors ligne : message spécifique
         // ============================================================
 
-        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
+        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
             <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
             Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
 
@@ -1341,7 +1341,7 @@
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
             <button onclick="exportCSV()" style="${btnExport}">
-                💾 Exporter vos données (.csv)
+                💾 Exporter mes données (.csv)
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <button onclick="document.getElementById('updateModal').style.display='none'"
@@ -1751,7 +1751,9 @@
                 // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
                 const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
                 actions.innerHTML = `
-                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
+                    <div style="text-align:center;">
+                        <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>
+                    </div>`;
             }
 
             document.getElementById('messageModal').style.display = 'flex';

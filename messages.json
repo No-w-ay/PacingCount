@@ -4,7 +4,7 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.23-beta.13",
+      "id": "update-0.9.23-beta.14",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
       "maxVersion": "",
       "validFrom": "2026-05-13",
@@ -48,14 +48,14 @@
       "id": "info-export-tip-v1",
       "_comment": "Astuce export — affiché une seule fois, pendant la période de validité.",
       "validFrom": "2026-05-01",
-      "validUntil": "2026-07-31",
+      "validUntil": "",
       "title": {
         "fr": "💡 Le saviez-vous ?",
         "en": "💡 Did you know?",
         "nl": "💡 Wist u dat?"
       },
       "body": {
-        "fr": "Vous pouvez exporter vos données en CSV depuis l'onglet Réglages, pour les sauvegarder ou les partager avec un médecin.",
+        "fr": "Vous pouvez exporter vos données en format .csv (compatible tableur) depuis l'onglet Historique, pour les sauvegarder, les importer ultérieurement dans l'app, ou les partager avec des tiers.",
         "en": "You can export your data as CSV from the Settings tab, to save it or share it with a doctor.",
         "nl": "U kunt uw gegevens exporteren als CSV via het tabblad Instellingen."
       },
