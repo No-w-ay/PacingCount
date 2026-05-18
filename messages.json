@@ -4,19 +4,19 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-killswitch-v1",
+      "id": "update-0.9.23-beta.9",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
-      "maxVersion": "0.9.23-beta.40",
+      "maxVersion": "",
       "validFrom": "2026-05-13",
       "validUntil": "",
-      "blockAfter": "2025-08-01",
+      "blockAfter": "",
       "title": {
         "fr": "Mise à jour disponible",
         "en": "⚠️ Update required",
         "nl": "⚠️ Update vereist"
       },
       "body": {
-        "fr": "Nous vous conseillons de mettre à jour l'application.",
+        "fr": "",
         "en": "An important update is available.\n\nThis version will no longer be supported after August 1, 2026. Please update the app.",
         "nl": "Een belangrijke update is beschikbaar.\n\nDeze versie wordt na 1 augustus 2026 niet meer ondersteund. Werk de app bij."
       }

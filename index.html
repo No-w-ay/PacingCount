@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1718,8 +1718,8 @@
                         </div>
                     </div>
                     <p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
-                        ⚠️ Tout redémarrage de l'app appliquera la mise à jour.<br>
-                        <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.</p>`;
+                        <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
+                        Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
