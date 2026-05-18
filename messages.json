@@ -11,12 +11,12 @@
       "validUntil": "",
       "blockAfter": "2025-08-01",
       "title": {
-        "fr": "⚠️ Mise à jour requise",
+        "fr": "Mise à jour disponible",
         "en": "⚠️ Update required",
         "nl": "⚠️ Update vereist"
       },
       "body": {
-        "fr": "Une mise à jour importante est disponible.\n\nCette version ne sera plus supportée après le 1er août 2026. Merci de mettre à jour l'application.",
+        "fr": "Nous vous conseillons de mettre à jour l'application.",
         "en": "An important update is available.\n\nThis version will no longer be supported after August 1, 2026. Please update the app.",
         "nl": "Een belangrijke update is beschikbaar.\n\nDeze versie wordt na 1 augustus 2026 niet meer ondersteund. Werk de app bij."
       }
