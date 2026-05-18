@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.22-beta.40"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -30,9 +30,10 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Lora&display=swap" rel="stylesheet">
 
-    <!-- -->
+    <!--
     <script data-goatcounter="https://pacingcount.goatcounter.com/count" data-goatcounter-settings='{"no_onload": true}'
         async src="//gc.zgo.at/count.js"></script>
+        -->
 
     <!-- -->
     <script src="chart.js"></script>
@@ -704,6 +705,23 @@
         </div>
     </div>
 
+    <!-- ============================================================ -->
+    <!-- MODAL MESSAGES JSON (section 8d)                             -->
+    <!-- Affiche les messages fetché depuis messages.json :           -->
+    <!-- welcome, info, update (kill switch)                          -->
+    <!-- ============================================================ -->
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <h3 id="message-modal-title" style="margin-top:0;"></h3>
+            <div id="message-modal-version"
+                style="display:none; margin-bottom:14px; font-family:monospace; font-size:0.9rem;"></div>
+            <div id="message-modal-body"
+                style="margin-bottom:16px; line-height:1.7; font-size:0.95rem; white-space:pre-line;"></div>
+            <div id="message-modal-actions"></div>
+        </div>
+    </div>
+    <!-- FIN MODAL MESSAGES JSON -->
+
     <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
         <button onclick="showPage('measure')" id="nav-measure" class="active">Mesure</button>
@@ -1318,7 +1336,7 @@
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
             <button onclick="exportCSV()" style="${btnExport}">
-                💾 Exporter .csv avant la MAJ
+                💾 Exporter vos données (.csv)
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <button onclick="document.getElementById('updateModal').style.display='none'"
@@ -1543,6 +1561,288 @@
             }
             // document.getElementById('updateModal').style.display = 'none';
         }
+
+        // ============================================================
+        // 8d. SYSTÈME DE MESSAGES JSON
+        // Fetche messages.json depuis le serveur au démarrage (cache: no-store).
+        // Affiche le premier message éligible dans #messageModal.
+        // Silencieux si offline — pas de message cette fois-là.
+        // Priorité = ordre dans le JSON.
+        // Types gérés : welcome, info, update (kill switch).
+        // ============================================================
+
+        // --- Comparaison semver : retourne true si versionA <= versionB ---
+        // Format attendu : "X.Y.Z" ou "X.Y.Z-beta.N"
+        // Règle : X.Y.Z-beta.N < X.Y.Z (la release est plus récente que ses betas)
+        function semverLte(versionA, versionB) {
+            // Décompose "X.Y.Z-beta.N" en segments numériques [X, Y, Z, -1, N]
+            // La release propre "X.Y.Z" donne [X, Y, Z, 0] (0 > -1, donc release > beta)
+            function parse(v) {
+                const [main, beta] = v.split('-beta.');
+                const parts = main.split('.').map(Number);
+                // Si pas de suffixe beta : marqueur 0 (release), sinon -1 + numéro beta
+                if (beta === undefined) {
+                    parts.push(0);       // release propre
+                    parts.push(0);
+                } else {
+                    parts.push(-1);      // marqueur "beta"
+                    parts.push(Number(beta));
+                }
+                return parts; // [major, minor, patch, betaMarker, betaNum]
+            }
+            const a = parse(versionA);
+            const b = parse(versionB);
+            for (let i = 0; i < Math.max(a.length, b.length); i++) {
+                const ai = a[i] ?? 0;
+                const bi = b[i] ?? 0;
+                if (ai < bi) return true;
+                if (ai > bi) return false;
+            }
+            return true; // égaux → lte est true
+        }
+
+        // --- Retourne la version du SW en attente via GET_VERSION ---
+        // Résout avec la chaîne de version nettoyée, ou null si pas de réponse
+        function getNewVersionFromSW() {
+            return new Promise(resolve => {
+                if (!('serviceWorker' in navigator)) { resolve(null); return; }
+                navigator.serviceWorker.ready.then(reg => {
+                    const worker = reg.waiting || waitingWorker;
+                    if (!worker) { resolve(null); return; }
+                    const onMsg = event => {
+                        if (event.data && event.data.type === 'SW_VERSION') {
+                            navigator.serviceWorker.removeEventListener('message', onMsg);
+                            clearTimeout(fallback);
+                            resolve(event.data.version.replace('PacingCount-v', ''));
+                        }
+                    };
+                    navigator.serviceWorker.addEventListener('message', onMsg);
+                    worker.postMessage({ type: 'GET_VERSION' });
+                    // Fallback si le SW ne répond pas
+                    const fallback = setTimeout(() => {
+                        navigator.serviceWorker.removeEventListener('message', onMsg);
+                        resolve(null);
+                    }, 3000);
+                }).catch(() => resolve(null));
+            });
+        }
+
+        // --- Affiche le #messageModal avec le contenu du message ---
+
+        /* function showMessage(msg, newVersion) {
+            const lang = (settings && settings.lang) || 'fr';
+            const fallbackLang = 'fr';
+
+            const title = (msg.title && (msg.title[lang] || msg.title[fallbackLang])) || '';
+            const body = (msg.body && (msg.body[lang] || msg.body[fallbackLang])) || '';
+
+            document.getElementById('message-modal-title').innerText = title;
+            document.getElementById('message-modal-body').innerText = body; // white-space:pre-line gère les \n\n
+
+            // Bloc version (affiché uniquement pour type update si version connue)
+            const versionBlock = document.getElementById('message-modal-version');
+            if (msg.type === 'update' && newVersion) {
+                versionBlock.style.display = 'block';
+                versionBlock.innerHTML = `
+                    <div style="display:flex; gap:8px;">
+                        <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                        <strong>${APP_VERSION}</strong>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:4px;">
+                        <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                        <strong style="color:var(--blue);">${newVersion}</strong>
+                    </div>`;
+            } else {
+                versionBlock.style.display = 'none';
+                versionBlock.innerHTML = '';
+            }
+
+            // Styles boutons (cohérents avec openUpdateModal)
+            const btnBase = `background:transparent; border-radius:6px; padding:10px 16px; font-size:0.95rem; cursor:pointer; flex:1;`;
+            const btnPrimary = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
+            const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
+            const btnExport = `background:rgba(255,180,0,0.1); border-radius:6px; padding:10px 16px;
+                                font-size:0.95rem; cursor:pointer; width:100%; margin-bottom:12px;
+                                color:#ffcc55; border:1px solid rgba(255,180,0,0.5);`;
+
+            const actions = document.getElementById('message-modal-actions');
+            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
+
+            if (msg.type === 'update') {
+                // Bouton export toujours présent pour update
+                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données</button>`;
+                html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
+                if (!isBlocking) {
+                    // Non bloquant : bouton "Plus tard"
+                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
+                }
+                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
+                html += `</div>`;
+                actions.innerHTML = html;
+            } else {
+                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
+                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
+                actions.innerHTML = `
+                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
+            }
+
+            document.getElementById('messageModal').style.display = 'flex';
+            console.log(`[Messages] Modal affiché — type:${msg.type} id:${msg.id} bloquant:${isBlocking}`);
+        }
+        */
+
+        function showMessage(msg, newVersion) {
+            const lang = (settings && settings.lang) || 'fr';
+            const fallbackLang = 'fr';
+
+            const title = (msg.title && (msg.title[lang] || msg.title[fallbackLang])) || '';
+            const body = (msg.body && (msg.body[lang] || msg.body[fallbackLang])) || '';
+
+            document.getElementById('message-modal-title').innerText = title;
+            document.getElementById('message-modal-body').innerText = body; // white-space:pre-line gère les \n\n
+
+            // Bloc version + encadré conseil sauvegarde (type update uniquement)
+            // Reprend exactement le HTML de _showUpdateModalContent()
+            const versionBlock = document.getElementById('message-modal-version');
+            if (msg.type === 'update') {
+                const versionLabel = newVersion || 'nouvelle version';
+                versionBlock.style.display = 'block';
+                versionBlock.innerHTML = `
+                    <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
+                        <div style="display:flex; gap:8px;">
+                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                            <strong>${APP_VERSION}</strong>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:4px;">
+                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                            <strong style="color:var(--blue);">${versionLabel}</strong>
+                        </div>
+                    </div>
+                    <p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
+                        <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
+                        Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
+            } else {
+                versionBlock.style.display = 'none';
+                versionBlock.innerHTML = '';
+            }
+
+            // Styles boutons (cohérents avec openUpdateModal)
+            const btnBase = `background:transparent; border-radius:6px; padding:10px 16px; font-size:0.95rem; cursor:pointer; flex:1;`;
+            const btnPrimary = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
+            const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
+            const btnExport = `background:rgba(255,180,0,0.1); border-radius:6px; padding:10px 16px;
+                                font-size:0.95rem; cursor:pointer; width:100%; margin-bottom:12px;
+                                color:#ffcc55; border:1px solid rgba(255,180,0,0.5);`;
+
+            const actions = document.getElementById('message-modal-actions');
+            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
+
+            if (msg.type === 'update') {
+                // Bouton export toujours présent pour update
+                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données (.csv)</button>`;
+                html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
+                if (!isBlocking) {
+                    // Non bloquant : bouton "Plus tard"
+                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
+                }
+                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
+                html += `</div>`;
+                actions.innerHTML = html;
+            } else {
+                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
+                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
+                actions.innerHTML = `
+                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
+            }
+
+            document.getElementById('messageModal').style.display = 'flex';
+            console.log(`[Messages] Modal affiché — type:${msg.type} id:${msg.id} bloquant:${isBlocking}`);
+        }
+
+
+        // --- Ferme le modal et met à jour le localStorage selon le type ---
+        function dismissMessage(id, addToSeen) {
+            if (addToSeen) {
+                // welcome / info : marquer comme vu définitivement
+                const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
+                if (!seen.includes(id)) {
+                    seen.push(id);
+                    localStorage.setItem('seenMessages', JSON.stringify(seen));
+                }
+            } else {
+                // update non bloquant : ajouter id à seenMessages + mettre à jour lastShownUpdate avec le timestamp du dernier affichage
+                const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
+                if (!seen.includes(id)) {
+                    seen.push(id);
+                    localStorage.setItem('seenMessages', JSON.stringify(seen));
+                }
+                localStorage.setItem('lastShownUpdate', Date.now());
+            }
+            document.getElementById('messageModal').style.display = 'none';
+            console.log(`[Messages] Dismissé — id:${id} addToSeen:${addToSeen}`);
+        }
+
+        // --- Fonction principale : fetch + filtrage + affichage ---
+        async function checkMessages() {
+            let messages;
+            try {
+                const response = await fetch('messages.json', { cache: 'no-store' });
+                // messages.json n'est pas dans ASSETS_TO_CACHE du SW,
+                // donc caches.match() retourne toujours undefined → fetch réseau garanti.
+                const data = await response.json();
+                messages = data.messages;
+            } catch (e) {
+                // Offline ou fichier absent — silencieux, pas de message cette fois
+                console.log('[Messages] Fetch messages.json échoué (offline ?) :', e.message);
+                return;
+            }
+
+            const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+            for (const msg of messages) {
+                if (!msg.type || !msg.id) continue;
+
+                // Filtre validFrom
+                if (msg.validFrom && todayStr < msg.validFrom) continue;
+
+                // Filtre validUntil (chaîne vide = pas de limite)
+                if (msg.validUntil && todayStr > msg.validUntil) continue;
+
+                // Filtre maxVersion (kill switch) : ignorer si APP_VERSION > maxVersion
+                if (msg.maxVersion && !semverLte(APP_VERSION, msg.maxVersion)) continue;
+
+                // Filtre fréquence pour update non bloquant : max 1 fois par 7 jours
+                const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
+                if (msg.type === 'update' && !isBlocking) {
+                    const alreadySeen = seen.includes(msg.id);
+                    if (alreadySeen) {
+                        const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
+                        const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
+                        if (lastShown && (Date.now() - lastShown) < sevenDays) continue;
+                    }
+                }
+
+                // Filtre seenMessages (sauf update bloquant qui doit toujours s'afficher)
+                if (!isBlocking && seen.includes(msg.id)) continue;
+
+                // Premier message éligible trouvé — on l'affiche
+                let newVersion = null;
+                if (msg.type === 'update') {
+                    newVersion = await getNewVersionFromSW();
+                    if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
+                }
+                showMessage(msg, newVersion);
+                return; // Un seul message par lancement
+            }
+
+            console.log('[Messages] Aucun message éligible à afficher.');
+        }
+
+        // ============================================================
+        // FIN 8d. SYSTÈME DE MESSAGES JSON
+        // ============================================================
 
         // Demande la permission notifications (appelée au démarrage)
         async function requestNotificationPermission() {
@@ -3467,6 +3767,10 @@
 
         // Demande la permission notifications au 1er lancement
         requestNotificationPermission();
+
+        // Affiche le premier message JSON éligible après 2500ms
+        // (laisse le temps à l'UI de se charger et à l'utilisateur de poser les yeux dessus)
+        setTimeout(() => checkMessages(), 2500);
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.

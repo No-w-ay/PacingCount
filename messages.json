@@ -1,0 +1,69 @@
+{
+  "_comment": "messages.json — PacingCount. Ordre = priorité d'affichage (premier éligible affiché). Un seul message par lancement. Pour désactiver un message sans l'effacer, mettre validUntil dans le passé.",
+
+  "messages": [
+    {
+      "type": "update",
+      "id": "update-0.9.23-beta.11",
+      "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
+      "maxVersion": "",
+      "validFrom": "2026-05-13",
+      "validUntil": "",
+      "blockAfter": "",
+      "title": {
+        "fr": "Mise à jour disponible",
+        "en": "⚠️ Update required",
+        "nl": "⚠️ Update vereist"
+      },
+      "body": {
+        "fr": "Correction de bugs et petites améliorations diverses",
+        "en": "An important update is available.\n\nThis version will no longer be supported after August 1, 2026. Please update the app.",
+        "nl": "Een belangrijke update is beschikbaar.\n\nDeze versie wordt na 1 augustus 2026 niet meer ondersteund. Werk de app bij."
+      }
+    },
+    {
+      "type": "welcome",
+      "id": "welcome-v1",
+      "_comment": "Message de bienvenue — affiché une seule fois au premier lancement. Ne jamais réutiliser cet id.",
+      "validFrom": "2026-05-13",
+      "validUntil": "",
+      "title": {
+        "fr": "Bienvenue dans PacingCount 👋",
+        "en": "Welcome to PacingCount 👋",
+        "nl": "Welkom bij PacingCount 👋"
+      },
+      "body": {
+        "fr": "PacingCount t'aide à suivre tes périodes d'activité et de repos.\n\nA chaque changement d'activité, appuie sur le bouton correspondant. Le reste se fait tout seul !\n\nPlus d'info dans la section \"A propos\" de l'app. En continuant, tu acceptes cette utilisation.",        
+        "en": "PacingCount helps you track your activity and rest periods.\n\nEvery time you switch activity, press the corresponding button. The rest happens automatically!\n\nMore info in the \"About\" section of the app. By continuing, you accept this use.",
+        "nl": "PacingCount helpt je om je activiteits- en rustperiodes bij te houden.\n\nDruk bij elke verandering van activiteit op de bijbehorende knop. de rest gaat vanzelf!\n\nMeer info in de \"Over\"-sectie van de app. Door verder te gaan, ga je akkoord met dit gebruik."
+      },
+      "button": {
+        "fr": "C'est parti !",
+        "en": "Let's go!",
+        "nl": "Aan de slag!"
+      }
+    },
+    {
+      "type": "info",
+      "id": "info-export-tip-v1",
+      "_comment": "Astuce export — affiché une seule fois, pendant la période de validité.",
+      "validFrom": "2026-05-01",
+      "validUntil": "2026-07-31",
+      "title": {
+        "fr": "💡 Le saviez-vous ?",
+        "en": "💡 Did you know?",
+        "nl": "💡 Wist u dat?"
+      },
+      "body": {
+        "fr": "Vous pouvez exporter vos données en CSV depuis l'onglet Réglages, pour les sauvegarder ou les partager avec un médecin.",
+        "en": "You can export your data as CSV from the Settings tab, to save it or share it with a doctor.",
+        "nl": "U kunt uw gegevens exporteren als CSV via het tabblad Instellingen."
+      },
+      "button": {
+        "fr": "J'ai compris",
+        "en": "Got it",
+        "nl": "Begrepen"
+      }
+    }
+  ]
+}
