@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -717,6 +717,7 @@
                 style="display:none; margin-bottom:14px; font-family:monospace; font-size:0.9rem;"></div>
             <div id="message-modal-body"
                 style="margin-bottom:16px; line-height:1.7; font-size:0.95rem; white-space:pre-line;"></div>
+            <div id="message-modal-conseil" style="display:none;"></div>
             <div id="message-modal-actions"></div>
         </div>
     </div>
@@ -1704,11 +1705,12 @@
             // Bloc version + encadré conseil sauvegarde (type update uniquement)
             // Reprend exactement le HTML de _showUpdateModalContent()
             const versionBlock = document.getElementById('message-modal-version');
+            const conseilBlock = document.getElementById('message-modal-conseil');
             if (msg.type === 'update') {
                 const versionLabel = newVersion || 'nouvelle version';
                 versionBlock.style.display = 'block';
                 versionBlock.innerHTML = `
-                    <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
+                    <div style="font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
                             <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
                             <strong>${APP_VERSION}</strong>
@@ -1717,13 +1719,17 @@
                             <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
                             <strong style="color:var(--blue);">${versionLabel}</strong>
                         </div>
-                    </div>
-                    <p style="color:#ffcc55; margin:12px 0 0 0; line-height:1.7; font-family:inherit;">
+                    </div>`;
+                conseilBlock.style.display = 'block';
+                conseilBlock.innerHTML = `
+                    <p style="color:#ffcc55; margin:0 0 16px 0; line-height:1.7; font-family:inherit;">
                         <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution.<br>
                         Tout redémarrage de l'app appliquera automatiquement la mise à jour.</p>`;
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
+                conseilBlock.style.display = 'none';
+                conseilBlock.innerHTML = '';
             }
 
             // Styles boutons (cohérents avec openUpdateModal)
