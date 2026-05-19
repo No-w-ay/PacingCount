@@ -56,7 +56,7 @@
       "body": {
         "fr": "Vous pouvez exporter vos données en format .csv (compatible tableur) depuis l'onglet Historique, pour les sauvegarder, les importer ultérieurement dans l'app, ou les partager avec des tiers.",
         "en": "You can export your data in .csv format (spreadsheet-compatible) from the History tab, to save it, re-import it into the app later, or share it with others.",
-        "nl": "U kunt uw gegevens exporteren in .csv-formaat (compatibel met spreadsheets) via het tabblad Geschiedenis, om ze op te slaan, later opnieuw in de app te importeren, of te delen met anderen."
+        "nl": "U kunt uw gegevens exporteren in .csv-formaat (compatibel met spreadsheets) via het tabblad Historiek, om ze op te slaan, later opnieuw in de app te importeren, of te delen met anderen."
       },
       "button": {
         "fr": "J'ai compris",
