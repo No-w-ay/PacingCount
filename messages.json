@@ -1,6 +1,5 @@
 {
   "_comment": "messages.json — PacingCount. Ordre = priorité d'affichage (premier éligible affiché). Un seul message par lancement. Pour désactiver un message sans l'effacer, mettre validUntil dans le passé.",
-
   "messages": [
     {
       "type": "update",
@@ -12,13 +11,13 @@
       "blockAfter": "",
       "title": {
         "fr": "Mise à jour disponible",
-        "en": "⚠️ Update required",
-        "nl": "⚠️ Update vereist"
+        "en": "Update available",
+        "nl": "Update beschikbaar"
       },
       "body": {
         "fr": "Correction de bugs et petites améliorations diverses",
-        "en": "An important update is available.\n\nThis version will no longer be supported after August 1, 2026. Please update the app.",
-        "nl": "Een belangrijke update is beschikbaar.\n\nDeze versie wordt na 1 augustus 2026 niet meer ondersteund. Werk de app bij."
+        "en": "Bug fixes and minor improvements",
+        "nl": "Bugfixes en kleine verbeteringen"
       }
     },
     {
@@ -33,7 +32,7 @@
         "nl": "Welkom bij PacingCount 👋"
       },
       "body": {
-        "fr": "PacingCount t'aide à suivre tes périodes d'activité et de repos.\n\nA chaque changement d'activité, appuie sur le bouton correspondant. Le reste se fait tout seul !\n\nPlus d'info dans la section \"A propos\" de l'app. En continuant, tu acceptes cette utilisation.",        
+        "fr": "PacingCount t'aide à suivre tes périodes d'activité et de repos.\n\nA chaque changement d'activité, appuie sur le bouton correspondant. Le reste se fait tout seul !\n\nPlus d'info dans la section \"A propos\" de l'app. En continuant, tu acceptes cette utilisation.",
         "en": "PacingCount helps you track your activity and rest periods.\n\nEvery time you switch activity, press the corresponding button. The rest happens automatically!\n\nMore info in the \"About\" section of the app. By continuing, you accept this use.",
         "nl": "PacingCount helpt je om je activiteits- en rustperiodes bij te houden.\n\nDruk bij elke verandering van activiteit op de bijbehorende knop. de rest gaat vanzelf!\n\nMeer info in de \"Over\"-sectie van de app. Door verder te gaan, ga je akkoord met dit gebruik."
       },
@@ -56,8 +55,8 @@
       },
       "body": {
         "fr": "Vous pouvez exporter vos données en format .csv (compatible tableur) depuis l'onglet Historique, pour les sauvegarder, les importer ultérieurement dans l'app, ou les partager avec des tiers.",
-        "en": "You can export your data as CSV from the Settings tab, to save it or share it with a doctor.",
-        "nl": "U kunt uw gegevens exporteren als CSV via het tabblad Instellingen."
+        "en": "You can export your data in .csv format (spreadsheet-compatible) from the History tab, to save it, re-import it into the app later, or share it with others.",
+        "nl": "U kunt uw gegevens exporteren in .csv-formaat (compatibel met spreadsheets) via het tabblad Geschiedenis, om ze op te slaan, later opnieuw in de app te importeren, of te delen met anderen."
       },
       "button": {
         "fr": "J'ai compris",
