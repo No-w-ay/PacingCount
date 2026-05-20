@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.23-beta.14'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.23-beta.16'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -82,7 +82,7 @@ self.addEventListener('message', event => {
       // 1. Ajoute un pattern de vibration (ça force Android à monter l'importance)
       vibrate: [150, 200, 150], // pattern : vibre 150 ms, silence 200 ms, vibre 150 ms
       // 3. Demande au téléphone de réveiller l'écran
-      renotify: true,
+      //renotify: true,
       // 4. Catégorie (Expérimental mais aidé par certains navigateurs)
       silent: false
     });
