@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.23-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.23-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -68,7 +68,7 @@
             --chart-gray-text: hsl(0, 0%, 69%);
             /* Équivalent de #b0b0b0 */
             --grid-color: rgba(255, 255, 255, 0.2);
-            --grid-line: hsl(0, 0%, 25%);
+            --grid-line: hsl(0, 0%, 45%);
 
             --melange: color-mix(in srgb, var(--blue) 50%, var(--green));
             --melange2: hsl(164, 61%, 48%);
@@ -459,9 +459,13 @@
     </div>
 
     <div id="page-results" class="page">
-        <h1 id="title-results">Totaux journaliers</h1>
+        <h1 id="title-results">Totaux par jour</h1>
 
         <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
+
+        <!-- Graphe hebdomadaire — section 14b -->
+        <h2 style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
+        <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
 
         <h3 style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
             chiffrés</h3>
@@ -507,17 +511,17 @@
             <label style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp; feedback</label>
             <div style="font-family: 'Lora', serif; font-size:0.93rem; line-height: 1.6; opacity:0.9;">
                 <p style="margin:0 0 12px 0;">
-                    Rejoignez le groupe Facebook des utilisateurs·trices — le bon endroit pour poser une question
-                    ou partager un feedback sur l'application.
+                    Rejoignez le <b>groupe Facebook des utilisateurs·trices</b> — le bon endroit pour poser une question
+                    ou partager un feedback sur l'application :
                 </p>
                 <p style="margin:0 0 12px 0; text-align:center;">
                     <a href="https://www.facebook.com/groups/1478593046580774" target="_blank"
-                        style="color:var(--blue); text-decoration:none;">
-                        👥 PacingCount : Communauté &amp; Feedback (Groupe Facebook)
+                        style="color:var(--blue); text-decoration:none; font-weight: bold;">
+                        👥 PacingCount : communauté &amp; feedback (↗)
                     </a>
                 </p>
-                <p style="margin:0; text-align:center; color:var(--blue);">
-                    ✉️ PacingCount&#64;gmail&#46;com
+                <p style="margin:0; text-align:center; opacity:0.5;">
+                    PacingCount&#64;gmail&#46;com
                 </p>
             </div>
         </div>
@@ -1315,8 +1319,8 @@
         // ============================================================
 
         const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 16px 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
-            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution 
-            (Tout redémarrage de l'app appliquera automatiquement la mise à jour)</p>`;
+            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution. 
+            (tout redémarrage de l'app appliquera automatiquement la mise à jour)</p>`;
 
         let waitingWorker = null; // Référence au SW en attente, si détecté
 
@@ -2502,7 +2506,7 @@
                         <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
                         <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
                     </div>
-                    <div style="position: relative; padding-top: 8px; padding-bottom: 8px;">
+                    <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
                             <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
                             <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
@@ -2599,6 +2603,183 @@
                         ${eyeSlash}
                     </span>
                 </div>`;
+
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // 14b. GRAPHIQUE HEBDOMADAIRE
+        // Affiche une barre par semaine ISO, représentant la moyenne
+        // des jours complets (>= 23h enregistrées) de cette semaine.
+        // Pas de moyenne mobile. Label : "S21", "S22", etc.
+        // ============================================================
+        function renderWeeklyCharts() {
+            console.log("[renderWeeklyCharts] Rendu du graphique hebdomadaire");
+
+            const container = document.getElementById('weekly-charts-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            // --- CONFIGURATION — mêmes couleurs et labels que renderDailyCharts ---
+            const defaultColors = [
+                getCSSColor('--blue'),
+                getCSSColor('--green'),
+                getCSSColor('--orange'),
+                getCSSColor('--red'),
+                getCSSColor('--purple')
+            ];
+            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+            const barGray = getCSSColor('--chart-gray-bar');
+            const textGray = getCSSColor('--chart-gray-text');
+
+            // Types repos (même définition que renderDailyCharts)
+            const reposIds = [1, 2];
+
+            // --- HELPER : numéro de semaine ISO et année ISO ---
+            // Retourne { week: 21, year: 2026 } pour une date donnée.
+            // La semaine ISO commence le lundi. L'année ISO peut différer de l'année civile
+            // pour les jours en début/fin d'année.
+            function getISOWeek(dateStr) {
+                const d = new Date(dateStr);
+                const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+                const day = date.getUTCDay() || 7; // lundi = 1, dimanche = 7
+                date.setUTCDate(date.getUTCDate() + 4 - day); // jeudi de la semaine
+                const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+                const week = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+                return { week, year: date.getUTCFullYear() };
+            }
+
+            // --- AGRÉGATION PAR JOUR (identique à renderDailyCharts) ---
+            const daysData = {};
+            let allPeriods = [...state.history];
+            if (state.activeType) {
+                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(p => {
+                const d = new Date(p.start);
+                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const displayDate = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                if (!daysData[dateKey]) daysData[dateKey] = { displayDate, totals: {}, reposMins: 0, totalMins: 0 };
+                const durationMins = (p.end - p.start) / 60000;
+                const typeKey = p.typeId !== undefined ? p.typeId : p.type;
+                if (!daysData[dateKey].totals[typeKey]) daysData[dateKey].totals[typeKey] = 0;
+                daysData[dateKey].totals[typeKey] += durationMins;
+                daysData[dateKey].totalMins += durationMins;
+                if (reposIds.includes(typeKey)) daysData[dateKey].reposMins += durationMins;
+            });
+
+            // Critère d'incomplétude — même seuil que renderDailyCharts
+            const isIncomplete = (key) => daysData[key].totalMins < 23 * 60 - 1;
+
+            // --- AGRÉGATION PAR SEMAINE ---
+            // weeksData : clé = "2026-W21", valeur = { label, completeDays, totals }
+            const weeksData = {};
+
+            Object.keys(daysData).forEach(dateKey => {
+                if (isIncomplete(dateKey)) return; // On ignore les jours incomplets
+
+                const { week, year } = getISOWeek(dateKey);
+                const weekKey = `${year}-W${String(week).padStart(2, '0')}`; // ex: "2026-W21"
+
+                if (!weeksData[weekKey]) {
+                    weeksData[weekKey] = {
+                        label: `S${week}`,   // label affiché : "S21"
+                        completeDays: 0,
+                        totals: {},          // somme des minutes par type
+                        totalMins: 0
+                    };
+                }
+
+                weeksData[weekKey].completeDays++;
+                weeksData[weekKey].totalMins += daysData[dateKey].totalMins;
+
+                Object.keys(daysData[dateKey].totals).forEach(type => {
+                    if (!weeksData[weekKey].totals[type]) weeksData[weekKey].totals[type] = 0;
+                    weeksData[weekKey].totals[type] += daysData[dateKey].totals[type];
+                });
+            });
+
+            // Tri décroissant (semaine la plus récente en haut)
+            const sortedWeeks = Object.keys(weeksData).sort((a, b) => b.localeCompare(a));
+
+            if (sortedWeeks.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:#888;'>Pas encore assez de données complètes.</p>";
+                return;
+            }
+
+            // --- CONSTRUCTION DU HTML ---
+            // Même structure visuelle que renderDailyCharts : axe 0h-24h + barres
+            let html = `
+                <div style="position: relative; margin-bottom: 20px;">
+                    <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                    </div>
+                    <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
+                        <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
+                            <div style="position: absolute; left: 25%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
+                            <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
+                            <div style="position: absolute; left: 75%; top: 0; bottom: 0; border-left: 1px solid var(--grid-line);"></div>
+                        </div>
+            `;
+
+            sortedWeeks.forEach(weekKey => {
+                const week = weeksData[weekKey];
+                const n = week.completeDays; // nombre de jours complets dans la semaine
+
+                // Calcul des moyennes : total de la semaine / nombre de jours complets
+                html += `
+                    <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
+                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
+                            ${week.label}
+                        </div>
+                        <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: default; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
+                            <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
+                                ${Object.keys(week.totals).sort().map(type => {
+                                    const avgMins = week.totals[type] / n;   // moyenne sur les jours complets
+                                    const perc = (avgMins / 1440) * 100;
+                                    const typeIdx = parseInt(type) - 1;
+                                    const color = defaultColors[typeIdx] || '#ccc';
+                                    const label = labels[typeIdx];
+                                    const h = Math.floor(avgMins / 60);
+                                    const m = Math.round(avgMins % 60);
+                                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
+                                    return perc > 0 ? `
+                                        <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
+                                             onmousemove="showBarTooltip(event, '${tooltipText}')"
+                                             onmouseout="hideBarTooltip()"
+                                             ontouchstart="showBarTooltip(event, '${tooltipText}')"
+                                             ontouchend="hideBarTooltip()">
+                                        </div>` : '';
+                                }).join('')}
+                            </div>
+                            <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
+                                ${Array.from({ length: 24 }).map(() =>
+                                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
+                                ).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div></div>`;
+
+            // Légende — même style que renderDailyCharts, sans la moyenne mobile
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            labels.forEach((label, index) => {
+                html += `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
+                        <span>${label}</span>
+                    </div>`;
+            });
+            html += `</div>`;
 
             container.innerHTML = html;
         }
@@ -3593,6 +3774,7 @@
             }
             if (p === 'results') {
                 renderDailyCharts();
+                renderWeeklyCharts();
                 renderResults();
             }
             if (p === 'settings') {
