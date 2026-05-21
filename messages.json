@@ -47,7 +47,7 @@
       "id": "info-export-tip-v1",
       "_comment": "Astuce export — affiché une seule fois, pendant la période de validité.",
       "validFrom": "2026-05-01",
-      "validUntil": "",
+      "validUntil": "2026-05-01",
       "title": {
         "fr": "💡 Le saviez-vous ?",
         "en": "💡 Did you know?",
