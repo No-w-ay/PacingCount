@@ -4350,6 +4350,39 @@
         - Fond barre de navigation en gris vert sombre
         - Titre page mesure — indique dev branch en petit gris italique
 
+
+        6. Système de messages JSON
+
+        Au démarrage de l'app (après 2,5 secondes), l'app fetche le fichier messages.json
+        depuis le serveur (cache: no-store — toujours la version fraîche). Le premier message 
+        éligible est affiché dans un modal. Un seul message par lancement.
+
+        Le fichier messages.json est hébergé sur GitHub, modifiable sans toucher au code de l'app. 
+        L'ordre des messages dans le fichier défini leur ordre de priorité.
+
+        3 types de messages :
+
+        welcome — affiché une seule fois au premier lancement (id jamais vu dans seenMessages)
+        info — astuce ou information, affiché une seule fois (id mis en seenMessages au dismiss)
+        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter. Nécessite un SW en attente pour s'afficher.
+
+        Filtres d'éligibilité :
+
+        validFrom / validUntil — période de validité (vide = pas de limite)
+        maxVersion — s'affiche uniquement si APP_VERSION ≤ maxVersion (vide = toutes versions)
+        blockAfter — avant la date : non bloquant avec bouton "Plus tard" ; après : bloquant, pas de dismiss possible
+
+        localStorage
+
+        seenMessages — array d'ids vus définitivement (welcome, info, et update "Plus tard")
+        lastShownUpdate — timestamp du dernier affichage d'un update, pour le filtre 7 jours. Ignoré si l'id du message a changé.
+
+        Usage concret
+
+        Modifier messages.json sur GitHub pour pousser un message sans mise à jour de l'app
+        Désactiver un message sans l'effacer : mettre validUntil dans le passé
+        Kill switch : renseigner maxVersion + blockAfter pour forcer une mise à jour
+
         =====================================================    */
 
     </script>
