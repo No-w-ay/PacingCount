@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -456,9 +456,8 @@
             <div id="main-timer" class="timer-display text-default">00:00:00</div>
             <div id="prev-timer" class="timer-previous" style="display: none;">Précédent: 00:00:00</div>
         </div>
-        <button id="btn-1" class="measure-btn btn-blue" onclick="startPeriod(1)">Couché sans stimulation</button>
-        <button id="btn-2" class="measure-btn btn-green" onclick="startPeriod(2)">Couché actif</button>
-        <button id="btn-3" class="measure-btn btn-orange" onclick="startPeriod(3)">Non couché</button>
+        <!-- Passe B v0.9.24 : boutons rendus dynamiquement par renderMeasureButtons() -->
+        <div id="measure-buttons-container"></div>
         <button id="btn-stop" class="btn-stop" onclick="stopRecording()" style="display: none;">Arrêter
             l'enregistrement</button>
 
@@ -504,11 +503,10 @@
 
         <!-- Noms des boutons -->
         <div class="settings-group">
-            <label id="label-custom" for="custom-1" style="display:block; margin-bottom:10px; font-weight:bold;">Noms
+            <label id="label-custom" style="display:block; margin-bottom:10px; font-weight:bold;">Noms
                 des boutons</label>
-            <input type="text" id="custom-1" onchange="saveSettings()">
-            <input type="text" id="custom-2" onchange="saveSettings()">
-            <input type="text" id="custom-3" onchange="saveSettings()">
+            <!-- Passe B v0.9.24 : inputs rendus dynamiquement par renderTypesSettings() -->
+            <div id="type-inputs-container"></div>
         </div>
 
         <!-- Alertes de périodes -->
@@ -645,11 +643,8 @@
             <input type="hidden" id="edit-start-original"> <!-- champs cachés : valeur originale -->
             <input type="hidden" id="edit-end-original"> <!-- champs cachés : valeur originale -->
             <label for="edit-type">Type de période</label>
-            <select id="edit-type">
-                <option value="1" id="opt-1">Bleu</option>
-                <option value="2" id="opt-2">Vert</option>
-                <option value="3" id="opt-3">Orange</option>
-            </select>
+            <!-- Passe B v0.9.24 : options remplies dynamiquement par openEditModal() / openAddModal() -->
+            <select id="edit-type"></select>
             <label for="edit-start" style="display:block; margin-top:15px;">Début</label>
             <input type="datetime-local" id="edit-start" step="60">
             <label for="edit-end" style="display:block; margin-top:15px;">Fin</label>
@@ -2242,17 +2237,54 @@
         }
 
         function saveSettings() {
-            // Passe A v0.9.24 — correctif : mapping via getActiveTypes() au lieu des indices hardcodés.
-            // Les inputs custom-1/2/3 correspondent aux N types actifs dans l'ordre de leur id.
-            // (sera remplacé par rendu dynamique complet en Passe B)
-            const activeTypes = getActiveTypes();
-            activeTypes.forEach((tp, idx) => {
-                const input = document.getElementById(`custom-${idx + 1}`);
+            // Passe B v0.9.24 — lecture depuis les inputs dynamiques (IDs type-input-{typeId})
+            getActiveTypes().forEach(tp => {
+                const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) tp.label = input.value;
             });
-            settings.labels = activeTypes.map(tp => tp.label);
+            settings.labels = getActiveTypes().map(tp => tp.label);
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             updateUI();
+        }
+
+        // ============================================================
+        // 9b. RENDU DYNAMIQUE DES BOUTONS ET INPUTS (Passe B v0.9.24)
+        // Remplacent les éléments HTML hardcodés supprimés en Passe B.
+        // Appelés au démarrage et après tout changement des types actifs (Passe D).
+        // IDs basés sur tp.id (typeId immuable) — pas sur la position dans la liste.
+        // ============================================================
+
+        // Crée les boutons de la page Mesure dans #measure-buttons-container.
+        // Chaque bouton appelle startPeriod(tp.id) — résout le bug du onclick hardcodé.
+        function renderMeasureButtons() {
+            const container = document.getElementById('measure-buttons-container');
+            if (!container) return;
+            container.innerHTML = '';
+            getActiveTypes().forEach(tp => {
+                const btn = document.createElement('button');
+                btn.id = `btn-${tp.id}`;
+                btn.className = `measure-btn btn-${tp.color}`;
+                btn.innerText = tp.label;
+                btn.onclick = () => startPeriod(tp.id);
+                container.appendChild(btn);
+            });
+            console.log(`[renderMeasureButtons] ${getActiveTypes().length} bouton(s) rendu(s)`);
+        }
+
+        // Crée les inputs de renommage dans #type-inputs-container (onglet Réglages).
+        // Chaque input a l'ID type-input-{typeId} — lu par saveSettings().
+        function renderTypesSettings() {
+            const container = document.getElementById('type-inputs-container');
+            if (!container) return;
+            container.innerHTML = '';
+            getActiveTypes().forEach(tp => {
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = `type-input-${tp.id}`;
+                input.value = tp.label;
+                input.onchange = saveSettings;
+                container.appendChild(input);
+            });
         }
 
         function changeLang() {
@@ -2350,28 +2382,20 @@
             document.getElementById('label-custom').innerText = t.custom;
             document.getElementById('btn-stop').innerText = t.stop;
 
-            // Mise à jour noms boutons dans Réglages
-            // Passe A v0.9.24 — correctif : lecture depuis getActiveTypes() au lieu de settings.types[i-1].
-            // Évite de lire le slot id:3 (yellow, inactif) à la place de id:4 (orange, actif).
-            // (sera remplacé par rendu dynamique complet en Passe B)
-            getActiveTypes().forEach((tp, idx) => {
-                const input = document.getElementById(`custom-${idx + 1}`);
+            // Mise à jour des labels dans les inputs Réglages (Passe B : IDs type-input-{typeId})
+            getActiveTypes().forEach(tp => {
+                const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) input.value = tp.label;
             });
 
-            // Mise à jour noms boutons dans Mesure
-            // Passe A v0.9.24 — correctif : boucle sur getActiveTypes() pour que l'active-indicator
-            // compare state.activeType au vrai tp.id (ex : 4) et non à la position (1,2,3).
-            // (sera remplacé par rendu dynamique complet en Passe B)
-            getActiveTypes().forEach((tp, idx) => {
-                const btnNum = idx + 1;
-                const btn = document.getElementById(`btn-${btnNum}`);
-                const opt = document.getElementById(`opt-${btnNum}`);
+            // Mise à jour des boutons Mesure (Passe B : IDs btn-{typeId})
+            // active-indicator : compare state.activeType au tp.id réel (ex : 4, pas 3)
+            getActiveTypes().forEach(tp => {
+                const btn = document.getElementById(`btn-${tp.id}`);
                 if (btn) {
                     btn.innerText = tp.label;
                     btn.classList.toggle('active-indicator', state.activeType === tp.id);
                 }
-                if (opt) opt.innerText = tp.label;
             });
             document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
             const mainTimer = document.getElementById('main-timer');
@@ -3066,22 +3090,37 @@
 
             let e;
             if (i === 'live') {
-                // Si c'est le chrono en cours, on simule l'objet
                 e = {
                     typeId: state.activeType,
                     start: state.startTime,
-                    end: Date.now() // La fin affichée sera "maintenant"
+                    end: Date.now()
                 };
             } else {
-                // Sinon, on prend l'historique normal
                 e = state.history[i];
             }
 
-            document.getElementById('edit-type').value = e.typeId;
+            // Passe B v0.9.24 : remplir le select avec les types actifs (remplace les options hardcodées)
+            const editTypeSelect = document.getElementById('edit-type');
+            editTypeSelect.innerHTML = '';
+            getActiveTypes().forEach(tp => {
+                const opt = document.createElement('option');
+                opt.value = tp.id;
+                opt.textContent = tp.label;
+                editTypeSelect.appendChild(opt);
+            });
+            editTypeSelect.value = e.typeId;
+            // Fallback : si le typeId n'est plus actif (type désactivé ou données anciennes),
+            // on sélectionne le premier type actif disponible
+            if (String(editTypeSelect.value) !== String(e.typeId)) {
+                const firstActive = getActiveTypes()[0];
+                if (firstActive) editTypeSelect.value = firstActive.id;
+                console.warn(`[openEditModal] typeId ${e.typeId} inactif — fallback sur ${firstActive?.id}`);
+            }
+
             document.getElementById('edit-start').value = toLocalISOString(e.start);
             document.getElementById('edit-end').value = toLocalISOString(e.end);
-            document.getElementById('edit-start-original').value = e.start; // stocker les timestamps originaux
-            document.getElementById('edit-end-original').value = e.end;     // stocker les timestamps originaux
+            document.getElementById('edit-start-original').value = e.start;
+            document.getElementById('edit-end-original').value = e.end;
 
             document.getElementById('editModal').style.display = 'flex';
         }
@@ -3089,9 +3128,20 @@
         function openAddModal() {
             console.log("[openAddModal] Ouverture du modal d'ajout");
 
+            // Passe B v0.9.24 : remplir le select avec les types actifs
+            const editTypeSelect = document.getElementById('edit-type');
+            editTypeSelect.innerHTML = '';
+            getActiveTypes().forEach(tp => {
+                const opt = document.createElement('option');
+                opt.value = tp.id;
+                opt.textContent = tp.label;
+                editTypeSelect.appendChild(opt);
+            });
+            // Le premier type actif est sélectionné par défaut
+
             document.getElementById('edit-index').value = "-1";
-            document.getElementById('edit-start-original').value = "-1";    // initialiser les champs cachés à -1
-            document.getElementById('edit-end-original').value = "-1";      // initialiser les champs cachés à -1
+            document.getElementById('edit-start-original').value = "-1";
+            document.getElementById('edit-end-original').value = "-1";
             document.getElementById('edit-start').value = toLocalISOString(Date.now() - 3600000);
             document.getElementById('edit-end').value = toLocalISOString(Date.now());
 
@@ -4117,12 +4167,9 @@
         }
 
         document.getElementById('lang-select').value = settings.lang;
-        // Passe A v0.9.24 — correctif : initialisation via getActiveTypes() au lieu de settings.labels[0/1/2].
-        // Garantit que custom-3 affiche le label de id:4 (orange) et non de id:3 (yellow, inactif).
-        getActiveTypes().forEach((tp, idx) => {
-            const input = document.getElementById(`custom-${idx + 1}`);
-            if (input) input.value = tp.label;
-        });
+        // Passe B v0.9.24 : rendu dynamique des boutons (Mesure) et des inputs (Réglages)
+        renderMeasureButtons();
+        renderTypesSettings();
 
         // Initialisation du mode développeur (persistance + 7 taps)
         initDevMode();
