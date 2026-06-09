@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -863,6 +863,34 @@
         // ============================================================
         function migrateLocalStorage() {
             console.log("[Migration] Vérification du localStorage...");
+
+            // --- Bootstrap : garantit l'existence de pacingSettings avant toute migration ---
+            // Cas concerné : utilisateur n'ayant jamais créé d'alerte ni modifié les réglages
+            // (saveSettings() n'a jamais été appelé → pacingSettings n'existe pas en localStorage).
+            // Solution : le créer en ANCIEN format (sans .color, type 3 = "Non couché")
+            // afin que le bloc v0.9.24 ci-dessous le détecte et l'upgrade normalement,
+            // en migrant aussi l'historique (typeId 3→4) si pacingState est présent.
+            // Ce choix est plus robuste qu'un flag : il se base sur l'architecture des données,
+            // ce qui reste valide même après réinstallation ou réimport de données.
+            if (!localStorage.getItem('pacingSettings')) {
+                const bootstrapSettings = {
+                    lang: 'fr',
+                    alerts: [],
+                    // Ancien format intentionnel (sans .color) : déclenche la migration v0.9.24.
+                    // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
+                    // Labels FR par défaut (la langue n'était pas persistée non plus si absente).
+                    types: [
+                        { id: 1, label: "Couché sans stimulation", active: true  },
+                        { id: 2, label: "Couché actif",             active: true  },
+                        { id: 3, label: "Non couché",               active: true  },
+                        { id: 4, label: "",                          active: false },
+                        { id: 5, label: "",                          active: false },
+                        { id: 6, label: "",                          active: false }
+                    ]
+                };
+                localStorage.setItem('pacingSettings', JSON.stringify(bootstrapSettings));
+                console.log("[Migration] pacingSettings absent — bootstrap créé (ancien format, sans .color)");
+            }
 
             // --- Migration de settings ---
             const rawSettings = localStorage.getItem('pacingSettings');
