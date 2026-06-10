@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1190,6 +1190,17 @@
         function getColorNameForId(typeId) {
             const t = settings.types.find(t => t.id === typeId);
             return t?.color || "gray";
+        }
+
+        // Retourne la valeur hex réelle de la couleur pour un typeId donné.
+        // Passe C v0.9.24 : utilisé par les graphes (Chart.js et barres HTML) qui ont besoin
+        // d'une valeur exploitable, pas d'un nom de variable CSS.
+        // Gère les types prédéfinis 1-6 (noms CSS comme "blue") ET les futurs types custom
+        // (valeur hex directe comme "#e74c3c" stockée dans settings.types[].color).
+        function getColorValueForId(typeId) {
+            const colorName = getColorNameForId(typeId);
+            if (colorName.startsWith('#')) return colorName;   // valeur hex directe (custom)
+            return getCSSColor(`--${colorName}`);              // résolution de la variable CSS
         }
 
         // ============================================================
@@ -2471,10 +2482,11 @@
             const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
 
-            // Profil par défaut : types "repos" = ids 1 et 2, type "actif" = id 3
+            // Profil par défaut : types "repos" = ids 1 et 2, type "actif" = id 4
+            // Passe C v0.9.24 : actifId corrigé de 3 → 4 (ex-typeId 3 migré en 4)
             // À externaliser dans la définition de profil quand les profils seront implémentés
             const reposIds = [1, 2];
-            const actifId = 3;
+            const actifId = 4;
             const today = new Date().toLocaleDateString();
 
             // --- ÉTAPE 1 : collecter toutes les périodes ---
@@ -2542,21 +2554,19 @@
                 html += `<strong>${day.displayDate}</strong><br>`;
 
                 // Ligne 2 : totaux par type
+                // Passe C v0.9.24 : couleur lue depuis getColorNameForId (slot typeId) — plus de TYPE_COLORS[idx]
                 let ligne2 = '';
-                active.forEach((tp, idx) => {
-                    const colorName = TYPE_COLORS[idx] || 'gray';
+                active.forEach(tp => {
+                    const colorName = getColorNameForId(tp.id);
                     ligne2 += `<span class="text-${colorName}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
                 });
                 html += `${ligne2}<br>`;
 
-                // Ligne 3 : sous-total repos (puces colorées) + moyenne mobile
+                // Ligne 3 : sous-total repos
+                // Passe C v0.9.24 : couleurs via getColorNameForId — fonctionne même si reposIds sont en position non-séquentielle
                 let reposBullets = '';
                 reposIds.forEach(id => {
-                    const idx = active.findIndex(tp => tp.id === id);
-                    if (idx !== -1) {
-                        const colorName = TYPE_COLORS[idx] || 'gray';
-                        reposBullets += `<span class="text-${colorName}">●</span>`;
-                    }
+                    reposBullets += `<span class="text-${getColorNameForId(id)}">●</span>`;
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
@@ -2570,8 +2580,8 @@
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    const actifIdx = active.findIndex(tp => tp.id === actifId);
-                    const actifColor = actifIdx !== -1 ? TYPE_COLORS[actifIdx] : 'gray';
+                    // Passe C v0.9.24 : couleur actif via getColorNameForId — plus de TYPE_COLORS[actifIdx]
+                    const actifColor = getColorNameForId(actifId);
                     html += `<span style="font-size:0.9rem;">`;
                     html += `${periods.length} période(s) <span class="text-${actifColor}">●</span> : `;
                     html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
@@ -2634,14 +2644,16 @@
             };
 
             // --- CONFIGURATION ---
-            const defaultColors = [
-                getCSSColor('--blue'),
-                getCSSColor('--green'),
-                getCSSColor('--orange'),
-                getCSSColor('--red'),
-                getCSSColor('--purple')
-            ];
-            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+            // Passe C v0.9.24 : couleurs et labels construits depuis getActiveTypes() + getColorValueForId()
+            // Remplace les tableaux defaultColors et labels hardcodés (5 couleurs positionnelles, sans yellow).
+            // colorMap et labelMap permettent un lookup direct par typeId dans les boucles de rendu.
+            // getColorValueForId() gère les types prédéfinis (CSS var) et futurs types custom (hex).
+            const colorMap = {};
+            const labelMap = {};
+            getActiveTypes().forEach(tp => {
+                colorMap[tp.id] = getColorValueForId(tp.id);
+                labelMap[tp.id] = tp.label;
+            });
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
             const tLang = translations[settings.lang] || translations['fr'];
@@ -2752,9 +2764,10 @@
                                 ${Object.keys(day.totals).sort().map(type => {
                     const mins = day.totals[type];
                     const perc = (mins / 1440) * 100;
-                    const typeIdx = parseInt(type) - 1;
-                    const color = defaultColors[typeIdx] || '#ccc';
-                    const label = labels[typeIdx];
+                    // Passe C : lookup par typeId — correct même si les typeIds sont non-séquentiels
+                    const typeId = parseInt(type);
+                    const color = colorMap[typeId] || getColorValueForId(typeId);
+                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
                     const h = Math.floor(mins / 60);
                     const m = Math.round(mins % 60);
                     const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
@@ -2780,14 +2793,14 @@
 
             html += `</div></div>`;
 
-            // Légende — avec entrée pour la moyenne mobile
+            // Légende — Passe C : boucle sur getActiveTypes() au lieu des tableaux positionnels
             const tLegend = translations[settings.lang] || translations['fr'];
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
-            labels.forEach((label, index) => {
+            getActiveTypes().forEach(tp => {
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
-                        <span>${label}</span>
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colorMap[tp.id]};"></div>
+                        <span>${tp.label}</span>
                     </div>`;
             });
 
@@ -2821,15 +2834,14 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // --- CONFIGURATION — mêmes couleurs et labels que renderDailyCharts ---
-            const defaultColors = [
-                getCSSColor('--blue'),
-                getCSSColor('--green'),
-                getCSSColor('--orange'),
-                getCSSColor('--red'),
-                getCSSColor('--purple')
-            ];
-            const labels = (typeof settings !== 'undefined' && settings.labels) ? settings.labels : ['Repos', 'Léger', 'Intense', 'Autre'];
+            // --- CONFIGURATION — Passe C v0.9.24 : même approche que renderDailyCharts ---
+            // colorMap et labelMap : lookup par typeId, remplacent les tableaux positionnels
+            const colorMap = {};
+            const labelMap = {};
+            getActiveTypes().forEach(tp => {
+                colorMap[tp.id] = getColorValueForId(tp.id);
+                labelMap[tp.id] = tp.label;
+            });
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
 
@@ -2941,11 +2953,12 @@
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: default; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(week.totals).sort().map(type => {
-                                    const avgMins = week.totals[type] / n;   // moyenne sur les jours complets
+                                    const avgMins = week.totals[type] / n;
                                     const perc = (avgMins / 1440) * 100;
-                                    const typeIdx = parseInt(type) - 1;
-                                    const color = defaultColors[typeIdx] || '#ccc';
-                                    const label = labels[typeIdx];
+                                    // Passe C : lookup par typeId
+                                    const typeId = parseInt(type);
+                                    const color = colorMap[typeId] || getColorValueForId(typeId);
+                                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
                                     const h = Math.floor(avgMins / 60);
                                     const m = Math.round(avgMins % 60);
                                     const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
@@ -2971,13 +2984,13 @@
 
             html += `</div></div>`;
 
-            // Légende — même style que renderDailyCharts, sans la moyenne mobile
+            // Légende — Passe C : boucle sur getActiveTypes() au lieu des tableaux positionnels
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
-            labels.forEach((label, index) => {
+            getActiveTypes().forEach(tp => {
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${defaultColors[index] || '#ccc'};"></div>
-                        <span>${label}</span>
+                        <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colorMap[tp.id]};"></div>
+                        <span>${tp.label}</span>
                     </div>`;
             });
             html += `</div>`;
@@ -3832,7 +3845,11 @@
                 daysStart.push(d.getTime());
             }
 
-            const dataSetsByType = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+            // Passe C v0.9.24 : dataSetsByType construit depuis getActiveTypes() — plus de {1:[],2:[],3:[],4:[],5:[]}
+            // Gère automatiquement N types actifs, y compris typeId > 5 ou non-séquentiels.
+            const dataSetsByType = {};
+            getActiveTypes().forEach(tp => { dataSetsByType[tp.id] = []; });
+
             let allPeriods = [...state.history];
 
             if (state.activeType) {
@@ -3867,19 +3884,12 @@
                 }
             });
 
-            // Couleurs harmonisées — lecture depuis getCSSColor (section 1), unifié avec le reste du code
-            const chartColors = [
-                getCSSColor('--blue'),
-                getCSSColor('--green'),
-                getCSSColor('--orange'),
-                getCSSColor('--red'),
-                getCSSColor('--purple')
-            ];
-
-            const datasets = [1, 2, 3, 4, 5].map(type => ({
-                label: getLabelForId(type),
-                data: dataSetsByType[type],
-                backgroundColor: chartColors[type - 1],
+            // Passe C v0.9.24 : couleurs via getColorValueForId() — plus de tableau chartColors hardcodé
+            // Les datasets sont construits sur getActiveTypes() — s'adapte à N types actifs
+            const datasets = getActiveTypes().map(tp => ({
+                label: tp.label,
+                data: dataSetsByType[tp.id],
+                backgroundColor: getColorValueForId(tp.id),
                 borderRadius: 4,
                 borderSkipped: false
             }));
@@ -3952,11 +3962,12 @@
             }
 
             // Légende personnalisée sous le graphique
-            renderTimelineLegend(chartColors, textGray);
+            renderTimelineLegend(textGray);
         }
 
         // Génère la légende colorée sous le graphique timeline
-        function renderTimelineLegend(colors, textColor) {
+        // Passe C v0.9.24 : utilise getColorValueForId() au lieu du tableau colors passé en paramètre
+        function renderTimelineLegend(textColor) {
             const chartContainer = document.querySelector('#page-timeline .chart-container');
             let existingLegend = document.getElementById('timeline-custom-legend');
             if (existingLegend) existingLegend.remove();
@@ -3965,12 +3976,12 @@
             legend.id = 'timeline-custom-legend';
             legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
 
-            // Utilise getActiveTypes() pour n'afficher que les types actifs avec le bon label
-            getActiveTypes().forEach((type, index) => {
+            // getActiveTypes() + getColorValueForId() — dynamique, N types, sans index positionnel
+            getActiveTypes().forEach(tp => {
                 legend.innerHTML += `
             <div style="display: flex; align-items: center; gap: 6px;">
-                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colors[index]};"></div>
-                <span>${type.label}</span>
+                <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${getColorValueForId(tp.id)};"></div>
+                <span>${tp.label}</span>
             </div>`;
             });
             chartContainer.after(legend);
