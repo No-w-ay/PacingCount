@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -168,24 +168,21 @@
             font-weight: bold;
             color: white;
             cursor: pointer;
-            transition: transform 0.1s;
+            /* Refactoring couleurs : fond injecté via --btn-color (défini en JS par getColorForId).
+               Compatible avec tout format CSS : var(--blue), #hex, hsl(), etc. */
+            background-color: var(--btn-color, #444);
+            transition: transform 0.1s, filter 0.1s;
         }
 
         .measure-btn:active {
             transform: scale(0.98);
         }
 
-        .btn-blue {
-            background-color: var(--blue);
+        .measure-btn:hover {
+            filter: brightness(1.15);
         }
 
-        .btn-green {
-            background-color: var(--green);
-        }
-
-        .btn-orange {
-            background-color: var(--orange);
-        }
+        /* btn-blue / btn-green / btn-orange supprimées — remplacées par --btn-color (Passe refactoring) */
 
         .btn-stop {
             background-color: transparent;
@@ -1183,24 +1180,38 @@
             return t ? t.label : `Type ${typeId}`;
         }
 
-        // Retourne le nom de couleur CSS pour un typeId donné.
-        // Passe A v0.9.24 : lecture directe depuis settings.types[].color (fixe par slot typeId).
-        // Plus de dépendance à la position parmi les actifs — cohérent même si des slots sont sautés.
-        // "gray" si le typeId est inconnu (ne devrait pas arriver en usage normal).
-        function getColorNameForId(typeId) {
+        // ============================================================
+        // FONCTIONS COULEUR UNIFIÉES (refactoring pré-Passe D)
+        // settings.types[].color peut stocker plusieurs formats :
+        //   "blue"               → nom de variable CSS prédéfinie (types 1-6)
+        //   "#e74c3c"            → valeur hex directe (futurs types custom)
+        //   "hsl(207, 90%, 45%)" → fonction CSS directe (futurs types custom)
+        // getColorForId() est la fonction principale pour le rendu HTML (styles inline).
+        // getColorValueForId() est réservée à Chart.js qui n'accepte pas var(--*).
+        // ============================================================
+
+        // Retourne une valeur CSS utilisable en style inline pour n'importe quel typeId.
+        // Gère tous les formats de couleur sans distinction en amont.
+        function getColorForId(typeId) {
             const t = settings.types.find(t => t.id === typeId);
-            return t?.color || "gray";
+            if (!t?.color) return 'var(--gray, #888)';
+            const c = t.color;
+            // Valeur CSS directe : hex (#...) ou fonction CSS (hsl(), rgb(), oklch()...)
+            if (c.startsWith('#') || c.includes('(')) return c;
+            // Nom de variable CSS prédéfinie → envelopper dans var(--)
+            return `var(--${c})`;
         }
 
-        // Retourne la valeur hex réelle de la couleur pour un typeId donné.
-        // Passe C v0.9.24 : utilisé par les graphes (Chart.js et barres HTML) qui ont besoin
-        // d'une valeur exploitable, pas d'un nom de variable CSS.
-        // Gère les types prédéfinis 1-6 (noms CSS comme "blue") ET les futurs types custom
-        // (valeur hex directe comme "#e74c3c" stockée dans settings.types[].color).
+        // Retourne la valeur de couleur calculée pour Chart.js (accepte hex, hsl, rgb nativement).
+        // Pour les noms de variables CSS prédéfinies, résout via getCSSColor().
         function getColorValueForId(typeId) {
-            const colorName = getColorNameForId(typeId);
-            if (colorName.startsWith('#')) return colorName;   // valeur hex directe (custom)
-            return getCSSColor(`--${colorName}`);              // résolution de la variable CSS
+            const t = settings.types.find(t => t.id === typeId);
+            if (!t?.color) return '#888';
+            const c = t.color;
+            // Valeur CSS directe → Chart.js l'accepte telle quelle
+            if (c.startsWith('#') || c.includes('(')) return c;
+            // Nom de variable CSS → résoudre en valeur calculée
+            return getCSSColor(`--${c}`);
         }
 
         // ============================================================
@@ -1225,7 +1236,8 @@
             }
 
             container.innerHTML = settings.alerts.map((alert, idx) => {
-                const colorName = getColorNameForId(alert.typeId);
+                // Refactoring couleurs : getColorForId() en style inline
+                const alertColor = getColorForId(alert.typeId);
                 const label = getLabelForId(alert.typeId);
                 const waveLabel = alert.wave
                     ? (t.alertModeWave || 'Vagues croissantes')
@@ -1237,7 +1249,7 @@
                 <div style="display:flex; align-items:center; justify-content:space-between;
                             padding:10px 0; border-bottom:1px solid var(--border);">
                     <div style="flex-grow:1;">
-                        <span style="color:var(--${colorName}); font-weight:bold;">●</span>
+                        <span style="color: ${alertColor}; font-weight:bold;">●</span>
                         <span style="font-weight:bold; margin-left:4px;">${label}</span>
                         <br>
                         <span style="font-size:0.8rem; opacity:0.7;">
@@ -1275,7 +1287,6 @@
             // Rempli le select des types
             const sel = document.getElementById('alert-type');
             sel.innerHTML = active.map(tp => {
-                const colorName = getColorNameForId(tp.id);
                 return `<option value="${tp.id}">${tp.label}</option>`;
             }).join('');
 
@@ -2195,9 +2206,10 @@
 
             // Correction affichage transitoire : on remet le timer à 00:00:00 et on
             // applique la nouvelle couleur en une seule opération avant le prochain tick.
+            // Refactoring couleurs : style inline sur le timer au lieu de class text-*
             const mainTimer = document.getElementById('main-timer');
-            const newColor = getColorNameForId(typeId);
-            mainTimer.className = 'timer-display text-' + newColor;
+            mainTimer.className = 'timer-display';
+            mainTimer.style.color = getColorForId(typeId);
             mainTimer.innerText = '00:00:00';
 
             updateUI();
@@ -2267,6 +2279,7 @@
 
         // Crée les boutons de la page Mesure dans #measure-buttons-container.
         // Chaque bouton appelle startPeriod(tp.id) — résout le bug du onclick hardcodé.
+        // Refactoring couleurs : --btn-color injecté via setProperty (compatible tout format CSS).
         function renderMeasureButtons() {
             const container = document.getElementById('measure-buttons-container');
             if (!container) return;
@@ -2274,7 +2287,8 @@
             getActiveTypes().forEach(tp => {
                 const btn = document.createElement('button');
                 btn.id = `btn-${tp.id}`;
-                btn.className = `measure-btn btn-${tp.color}`;
+                btn.className = 'measure-btn';
+                btn.style.setProperty('--btn-color', getColorForId(tp.id));
                 btn.innerText = tp.label;
                 btn.onclick = () => startPeriod(tp.id);
                 container.appendChild(btn);
@@ -2410,17 +2424,20 @@
             });
             document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
             const mainTimer = document.getElementById('main-timer');
-            // Utilise getColorNameForId pour être compatible avec la nouvelle structure typeId
-            const timerColor = state.activeType ? getColorNameForId(state.activeType) : null;
-            mainTimer.className = 'timer-display ' + (timerColor ? `text-${timerColor}` : 'text-default');
+            // Refactoring couleurs : style inline au lieu de class text-* — compatible tout format
+            mainTimer.className = 'timer-display';
+            mainTimer.style.color = state.activeType
+                ? getColorForId(state.activeType)
+                : 'var(--text-color)';
             if (!state.activeType) mainTimer.innerText = "00:00:00";
             const prevTimer = document.getElementById('prev-timer');
             if (state.history.length > 0) {
                 const last = state.history[state.history.length - 1];
                 prevTimer.style.display = 'block';
                 prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
-                // Utilise getColorNameForId pour la couleur du timer précédent
-                prevTimer.className = `timer-previous text-${getColorNameForId(last.typeId)}`;
+                // Refactoring couleurs : style inline au lieu de class text-*
+                prevTimer.className = 'timer-previous';
+                prevTimer.style.color = getColorForId(last.typeId);
             } else prevTimer.style.display = 'none';
 
             // CORRECTIF — chaque enfant est ciblé directement
@@ -2554,19 +2571,18 @@
                 html += `<strong>${day.displayDate}</strong><br>`;
 
                 // Ligne 2 : totaux par type
-                // Passe C v0.9.24 : couleur lue depuis getColorNameForId (slot typeId) — plus de TYPE_COLORS[idx]
+                // Refactoring couleurs : style inline via getColorForId() — compatible tout format, plus de class text-*
                 let ligne2 = '';
                 active.forEach(tp => {
-                    const colorName = getColorNameForId(tp.id);
-                    ligne2 += `<span class="text-${colorName}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
+                    ligne2 += `<span style="color: ${getColorForId(tp.id)}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
                 });
                 html += `${ligne2}<br>`;
 
                 // Ligne 3 : sous-total repos
-                // Passe C v0.9.24 : couleurs via getColorNameForId — fonctionne même si reposIds sont en position non-séquentielle
+                // Refactoring couleurs : style inline via getColorForId()
                 let reposBullets = '';
                 reposIds.forEach(id => {
-                    reposBullets += `<span class="text-${getColorNameForId(id)}">●</span>`;
+                    reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
@@ -2580,10 +2596,9 @@
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    // Passe C v0.9.24 : couleur actif via getColorNameForId — plus de TYPE_COLORS[actifIdx]
-                    const actifColor = getColorNameForId(actifId);
+                    // Refactoring couleurs : style inline via getColorForId()
                     html += `<span style="font-size:0.9rem;">`;
-                    html += `${periods.length} période(s) <span class="text-${actifColor}">●</span> : `;
+                    html += `${periods.length} période(s) <span style="color: ${getColorForId(actifId)}">●</span> : `;
                     html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
                     html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
                     html += `<i>${t.resMin} ${formatMins(min)}</i>`;
@@ -3049,9 +3064,9 @@
                         actions = `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
                     }
 
-                    // Récupération du label et de la couleur via les nouvelles fonctions utilitaires
+                    // Récupération du label et de la couleur — refactoring : getColorForId() unifié
                     let labelText = getLabelForId(e.typeId);
-                    let colorVar = `var(--${getColorNameForId(e.typeId)})`;
+                    let colorVar = getColorForId(e.typeId);
                     let inProgressText = t.inProgress || "En cours";
 
                     // --- CALCUL DE LA DURÉE ---
