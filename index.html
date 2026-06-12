@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -246,6 +246,77 @@
 
         .text-purple {
             color: var(--purple);
+        }
+
+        /* ============================================================
+           PASSE D — Réglages : toggles de types et sélecteur de profils
+           ============================================================ */
+
+        /* Ligne d'un slot de type : toggle coloré + input de renommage */
+        .type-settings-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .type-settings-row input {
+            flex: 1;
+            margin-top: 0;
+        }
+
+        /* Bouton ON/OFF coloré pour chaque slot.
+           La couleur est injectée via --toggle-color (getColorForId), comme --btn-color sur .measure-btn */
+        .type-toggle-btn {
+            flex-shrink: 0;
+            width: 52px;
+            padding: 7px 0;
+            border: 2px solid var(--toggle-color, #555);
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: bold;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: background-color 0.15s, color 0.15s;
+            background-color: transparent;
+            color: var(--toggle-color, #aaa);
+        }
+
+        .type-toggle-btn.active {
+            background-color: var(--toggle-color, #555);
+            color: white;
+        }
+
+        /* Sélecteur de profils prédéfinis */
+        .profile-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .profile-btn {
+            padding: 8px 14px;
+            border-radius: 6px;
+            border: 1px solid #555;
+            background: transparent;
+            color: var(--text-color);
+            cursor: pointer;
+            font-size: 0.88rem;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .profile-btn.active {
+            border-color: var(--blue);
+            background: rgba(100, 160, 220, 0.15);
+            color: white;
+            font-weight: bold;
+        }
+
+        .profile-custom-label {
+            font-size: 0.82rem;
+            opacity: 0.65;
+            align-self: center;
         }
 
         .settings-group {
@@ -498,12 +569,15 @@
             </select>
         </div>
 
-        <!-- Noms des boutons -->
+        <!-- Noms des boutons + toggles + profils -->
         <div class="settings-group">
             <label id="label-custom" style="display:block; margin-bottom:10px; font-weight:bold;">Noms
                 des boutons</label>
-            <!-- Passe B v0.9.24 : inputs rendus dynamiquement par renderTypesSettings() -->
+            <!-- Passe D : 6 slots avec toggle ON/OFF + input, rendus par renderTypesSettings() -->
             <div id="type-inputs-container"></div>
+            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils prédéfinis</label>
+            <!-- Passe D : boutons de profil rendus par renderProfileSelector() -->
+            <div id="profile-selector-container"></div>
         </div>
 
         <!-- Alertes de périodes -->
@@ -2260,25 +2334,24 @@
         }
 
         function saveSettings() {
-            // Passe B v0.9.24 — lecture depuis les inputs dynamiques (IDs type-input-{typeId})
-            getActiveTypes().forEach(tp => {
+            // Passe D : lecture depuis TOUS les inputs (actifs et inactifs) — IDs type-input-{typeId}
+            // Permet de sauvegarder les labels des slots inactifs (pré-nommage avant activation).
+            settings.types.forEach(tp => {
                 const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) tp.label = input.value;
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
+            // Détection automatique du profil courant — bascule en "custom" si modification
+            settings.activeProfile = detectProfile();
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             updateUI();
         }
 
         // ============================================================
-        // 9b. RENDU DYNAMIQUE DES BOUTONS ET INPUTS (Passe B v0.9.24)
-        // Remplacent les éléments HTML hardcodés supprimés en Passe B.
-        // Appelés au démarrage et après tout changement des types actifs (Passe D).
-        // IDs basés sur tp.id (typeId immuable) — pas sur la position dans la liste.
+        // 9b. RENDU DYNAMIQUE DES BOUTONS, INPUTS ET PROFILS (Passe D v0.9.24)
         // ============================================================
 
         // Crée les boutons de la page Mesure dans #measure-buttons-container.
-        // Chaque bouton appelle startPeriod(tp.id) — résout le bug du onclick hardcodé.
         // Refactoring couleurs : --btn-color injecté via setProperty (compatible tout format CSS).
         function renderMeasureButtons() {
             const container = document.getElementById('measure-buttons-container');
@@ -2296,20 +2369,119 @@
             console.log(`[renderMeasureButtons] ${getActiveTypes().length} bouton(s) rendu(s)`);
         }
 
-        // Crée les inputs de renommage dans #type-inputs-container (onglet Réglages).
-        // Chaque input a l'ID type-input-{typeId} — lu par saveSettings().
+        // Crée les 6 slots dans #type-inputs-container (onglet Réglages).
+        // Passe D : affiche TOUS les slots (actifs et inactifs) avec toggle ON/OFF + input.
+        // Slots inactifs : input atténué, placeholder "(inactif)".
+        // La couleur du toggle utilise getColorForId() — compatible tout format CSS.
         function renderTypesSettings() {
             const container = document.getElementById('type-inputs-container');
             if (!container) return;
             container.innerHTML = '';
-            getActiveTypes().forEach(tp => {
+            settings.types.forEach(tp => {
+                const row = document.createElement('div');
+                row.className = 'type-settings-row';
+
+                // Bouton toggle ON/OFF
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = `type-toggle-btn${tp.active ? ' active' : ''}`;
+                toggleBtn.style.setProperty('--toggle-color', getColorForId(tp.id));
+                toggleBtn.innerText = tp.active ? 'ON' : 'OFF';
+                toggleBtn.onclick = () => toggleTypeActive(tp.id);
+
+                // Input de renommage
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.id = `type-input-${tp.id}`;
                 input.value = tp.label;
+                input.placeholder = tp.active ? '' : '(inactif)';
+                if (!tp.active) input.style.opacity = '0.4';
                 input.onchange = saveSettings;
-                container.appendChild(input);
+
+                row.appendChild(toggleBtn);
+                row.appendChild(input);
+                container.appendChild(row);
             });
+        }
+
+        // Rend le sélecteur de profils dans #profile-selector-container.
+        // Les profils viennent de PROFILES{} — extensible sans modification.
+        // Le profil courant (settings.activeProfile) est mis en évidence.
+        function renderProfileSelector() {
+            const container = document.getElementById('profile-selector-container');
+            if (!container) return;
+            const current = settings.activeProfile;
+            const div = document.createElement('div');
+            div.className = 'profile-selector';
+
+            Object.entries(PROFILES).forEach(([profileId, profile]) => {
+                const btn = document.createElement('button');
+                btn.className = `profile-btn${current === profileId ? ' active' : ''}`;
+                btn.innerText = profile.name;
+                btn.onclick = () => applyProfile(profileId);
+                div.appendChild(btn);
+            });
+
+            if (current === 'custom') {
+                const span = document.createElement('span');
+                span.className = 'profile-custom-label';
+                span.innerText = '✏️ Personnalisé';
+                div.appendChild(span);
+            }
+
+            container.innerHTML = '';
+            container.appendChild(div);
+        }
+
+        // Vérifie si la configuration actuelle correspond à un profil prédéfini.
+        // Retourne l'id du profil correspondant, ou "custom" si aucun ne correspond.
+        // Utilisée par saveSettings() pour tenir activeProfile à jour automatiquement.
+        function detectProfile() {
+            for (const [profileId, profile] of Object.entries(PROFILES)) {
+                const matches = profile.types.every(pt => {
+                    const st = settings.types.find(t => t.id === pt.id);
+                    if (!st) return false;
+                    return st.active === pt.active && st.label === pt.label;
+                });
+                if (matches) return profileId;
+            }
+            return 'custom';
+        }
+
+        // Active ou désactive un slot de type.
+        // Garde-fou : minimum 1 type actif.
+        // Activation d'un slot vide : applique le nom standard (STANDARD_TYPES) si disponible.
+        function toggleTypeActive(typeId) {
+            const tp = settings.types.find(t => t.id === typeId);
+            if (!tp) return;
+            if (tp.active && getActiveTypes().length <= 1) {
+                alert('Au moins un type de période doit rester actif.');
+                return;
+            }
+            tp.active = !tp.active;
+            // Si on active un slot sans label → appliquer le nom standard si disponible
+            if (tp.active && !tp.label && STANDARD_TYPES[tp.id]) {
+                tp.label = STANDARD_TYPES[tp.id][settings.lang] || STANDARD_TYPES[tp.id]['fr'] || '';
+            }
+            saveSettings();
+            renderTypesSettings();
+            renderMeasureButtons();
+        }
+
+        // Applique un profil prédéfini après confirmation.
+        // Écrase les labels et états actifs des slots concernés.
+        // saveSettings() appellera detectProfile() et mettra activeProfile à jour.
+        function applyProfile(profileId) {
+            const profile = PROFILES[profileId];
+            if (!profile) return;
+            if (!confirm(`Appliquer le profil "${profile.name}" va modifier vos noms de boutons. Continuer ?`)) return;
+            profile.types.forEach(pt => {
+                const st = settings.types.find(t => t.id === pt.id);
+                if (st) { st.label = pt.label; st.active = pt.active; }
+            });
+            saveSettings();
+            renderTypesSettings();
+            renderMeasureButtons();
+            renderProfileSelector();
         }
 
         function changeLang() {
@@ -2407,8 +2579,8 @@
             document.getElementById('label-custom').innerText = t.custom;
             document.getElementById('btn-stop').innerText = t.stop;
 
-            // Mise à jour des labels dans les inputs Réglages (Passe B : IDs type-input-{typeId})
-            getActiveTypes().forEach(tp => {
+            // Mise à jour des labels dans les inputs Réglages (Passe D : TOUS les slots, actifs et inactifs)
+            settings.types.forEach(tp => {
                 const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) input.value = tp.label;
             });
@@ -4032,6 +4204,8 @@
             }
             if (p === 'settings') {
                 renderAlertsList();
+                renderTypesSettings();
+                renderProfileSelector();
             }
         }
 
@@ -4196,6 +4370,7 @@
         // Passe B v0.9.24 : rendu dynamique des boutons (Mesure) et des inputs (Réglages)
         renderMeasureButtons();
         renderTypesSettings();
+        renderProfileSelector();
 
         // Initialisation du mode développeur (persistance + 7 taps)
         initDevMode();
