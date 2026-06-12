@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2468,20 +2468,27 @@
         }
 
         // Applique un profil prédéfini après confirmation.
-        // Écrase les labels et états actifs des slots concernés.
-        // saveSettings() appellera detectProfile() et mettra activeProfile à jour.
+        // N'utilise PAS saveSettings() car celle-ci relit les inputs DOM (pas encore mis à jour).
+        // Écrit directement dans settings et localStorage, puis re-rend tout.
         function applyProfile(profileId) {
             const profile = PROFILES[profileId];
             if (!profile) return;
             if (!confirm(`Appliquer le profil "${profile.name}" va modifier vos noms de boutons. Continuer ?`)) return;
+
+            console.log(`[applyProfile] Application : ${profile.name}`);
             profile.types.forEach(pt => {
                 const st = settings.types.find(t => t.id === pt.id);
                 if (st) { st.label = pt.label; st.active = pt.active; }
             });
-            saveSettings();
+            settings.labels = getActiveTypes().map(tp => tp.label);
+            settings.activeProfile = profileId; // profil connu — pas besoin de detectProfile()
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            console.log(`[applyProfile] OK — ${getActiveTypes().length} types actifs, activeProfile="${profileId}"`);
+
             renderTypesSettings();
             renderMeasureButtons();
             renderProfileSelector();
+            updateUI();
         }
 
         function changeLang() {
