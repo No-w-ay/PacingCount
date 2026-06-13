@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2334,15 +2334,29 @@
         }
 
         function saveSettings() {
-            // Passe D : lecture depuis TOUS les inputs (actifs et inactifs) — IDs type-input-{typeId}
-            // Permet de sauvegarder les labels des slots inactifs (pré-nommage avant activation).
+            // Lecture depuis TOUS les inputs (actifs et inactifs) — IDs type-input-{typeId}
             settings.types.forEach(tp => {
                 const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) tp.label = input.value;
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
-            // Détection automatique du profil courant — bascule en "custom" si modification
-            settings.activeProfile = detectProfile();
+
+            // Détection automatique du profil courant
+            const detectedProfile = detectProfile();
+
+            // Si on s'écarte d'un profil de base → snapshot auto dans customProfiles[0]
+            // (silencieux ici — le confirm est dans toggleTypeActive pour les toggles,
+            //  et dans saveSettings pour les modifications de labels)
+            if (detectedProfile === 'custom') {
+                if (!settings.customProfiles) settings.customProfiles = [];
+                settings.customProfiles[0] = {
+                    name: 'Personnalisé',
+                    types: JSON.parse(JSON.stringify(settings.types))
+                };
+                console.log('[saveSettings] Snapshot profil Personnalisé mis à jour');
+            }
+            settings.activeProfile = detectedProfile;
+
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             updateUI();
         }
@@ -2404,15 +2418,17 @@
         }
 
         // Rend le sélecteur de profils dans #profile-selector-container.
-        // Les profils viennent de PROFILES{} — extensible sans modification.
+        // Profils prédéfinis (PROFILES{}) + bouton Personnalisé si customProfiles[0] existe.
         // Le profil courant (settings.activeProfile) est mis en évidence.
         function renderProfileSelector() {
             const container = document.getElementById('profile-selector-container');
             if (!container) return;
             const current = settings.activeProfile;
+            const hasCustom = settings.customProfiles && settings.customProfiles[0];
             const div = document.createElement('div');
             div.className = 'profile-selector';
 
+            // Boutons des profils prédéfinis
             Object.entries(PROFILES).forEach(([profileId, profile]) => {
                 const btn = document.createElement('button');
                 btn.className = `profile-btn${current === profileId ? ' active' : ''}`;
@@ -2421,15 +2437,43 @@
                 div.appendChild(btn);
             });
 
-            if (current === 'custom') {
-                const span = document.createElement('span');
-                span.className = 'profile-custom-label';
-                span.innerText = '✏️ Personnalisé';
-                div.appendChild(span);
+            // Bouton Personnalisé — visible seulement si un profil custom a été créé
+            if (hasCustom) {
+                const btn = document.createElement('button');
+                btn.className = `profile-btn${current === 'custom' ? ' active' : ''}`;
+                btn.innerText = '✏️ Personnalisé';
+                btn.onclick = () => restoreCustomProfile();
+                div.appendChild(btn);
             }
 
             container.innerHTML = '';
             container.appendChild(div);
+        }
+
+        // Restaure le profil personnalisé sauvegardé (customProfiles[0]) dans settings.types[].
+        // Pas de confirm() nécessaire — c'est une restauration, pas une destruction.
+        function restoreCustomProfile() {
+            const custom = settings.customProfiles && settings.customProfiles[0];
+            if (!custom) return;
+            if (settings.activeProfile === 'custom') return; // déjà actif
+
+            const msg = `Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
+            if (!confirm(msg)) return;
+
+            console.log('[restoreCustomProfile] Restauration du profil Personnalisé');
+            custom.types.forEach(ct => {
+                const st = settings.types.find(t => t.id === ct.id);
+                if (st) { st.label = ct.label; st.active = ct.active; }
+            });
+            settings.labels = getActiveTypes().map(tp => tp.label);
+            settings.activeProfile = 'custom';
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            console.log('[restoreCustomProfile] OK');
+
+            renderTypesSettings();
+            renderMeasureButtons();
+            renderProfileSelector();
+            updateUI();
         }
 
         // Vérifie si la configuration actuelle correspond à un profil prédéfini.
@@ -2449,22 +2493,34 @@
 
         // Active ou désactive un slot de type.
         // Garde-fou : minimum 1 type actif.
+        // Premier écart d'un profil de base : confirm() avant de modifier.
         // Activation d'un slot vide : applique le nom standard (STANDARD_TYPES) si disponible.
         function toggleTypeActive(typeId) {
             const tp = settings.types.find(t => t.id === typeId);
             if (!tp) return;
+
             if (tp.active && getActiveTypes().length <= 1) {
                 alert('Au moins un type de période doit rester actif.');
                 return;
             }
+
+            // Premier écart d'un profil de base : avertir et proposer la sauvegarde en Personnalisé
+            const currentProfile = settings.activeProfile;
+            const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
+            if (isLeavingBase) {
+                const profileName = PROFILES[currentProfile].name;
+                const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
+                if (!confirm(msg)) return;
+            }
+
             tp.active = !tp.active;
-            // Si on active un slot sans label → appliquer le nom standard si disponible
             if (tp.active && !tp.label && STANDARD_TYPES[tp.id]) {
                 tp.label = STANDARD_TYPES[tp.id][settings.lang] || STANDARD_TYPES[tp.id]['fr'] || '';
             }
             saveSettings();
             renderTypesSettings();
             renderMeasureButtons();
+            renderProfileSelector();
         }
 
         // Applique un profil prédéfini après confirmation.
@@ -2473,7 +2529,14 @@
         function applyProfile(profileId) {
             const profile = PROFILES[profileId];
             if (!profile) return;
-            if (!confirm(`Appliquer le profil "${profile.name}" va modifier vos noms de boutons. Continuer ?`)) return;
+
+            // Si on est en profil custom, mentionner qu'il reste accessible
+            const hasCustom = settings.customProfiles && settings.customProfiles[0];
+            const customNote = hasCustom
+                ? `Votre profil Personnalisé reste disponible dans les réglages.\n`
+                : '';
+            const msg = `Appliquer le profil "${profile.name}" ?\n${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
+            if (!confirm(msg)) return;
 
             console.log(`[applyProfile] Application : ${profile.name}`);
             profile.types.forEach(pt => {
@@ -2481,7 +2544,7 @@
                 if (st) { st.label = pt.label; st.active = pt.active; }
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
-            settings.activeProfile = profileId; // profil connu — pas besoin de detectProfile()
+            settings.activeProfile = profileId;
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             console.log(`[applyProfile] OK — ${getActiveTypes().length} types actifs, activeProfile="${profileId}"`);
 
