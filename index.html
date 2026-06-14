@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2402,11 +2402,13 @@
                 toggleBtn.innerText = tp.active ? 'ON' : 'OFF';
                 toggleBtn.onclick = () => toggleTypeActive(tp.id);
 
-                // Input de renommage
+                // Input de renommage — maxLength 30 : limite à la source pour garder les boutons
+                // sur une ligne (mobile 375px+), et simplifier la normalisation GoatCounter.
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.id = `type-input-${tp.id}`;
                 input.value = tp.label;
+                input.maxLength = 30;
                 input.placeholder = tp.active ? '' : '(inactif)';
                 if (!tp.active) input.style.opacity = '0.4';
                 input.onchange = saveSettings;
@@ -4427,11 +4429,39 @@
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
         if (_today !== _lastPingDay && navigator.onLine) {
-            // Utilisation de la fonction sécurisée pour les pings quotidiens
+            // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
 
+            // 2. Mode d'accès (installed / browser)
             const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
             sendToGoatCounter('DailyUser-' + mode);
+
+            // 3. Profil actif
+            // Normalise un label pour GoatCounter : retire accents, remplace espaces par _,
+            // supprime les caractères non alphanumériques ni underscore. Casse conservée.
+            function normalizeLabel(str) {
+                return (str || '')
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '') // supprime les diacritiques
+                    .replace(/\s+/g, '_')            // espaces → underscore
+                    .replace(/[^a-zA-Z0-9_]/g, ''); // supprime le reste
+            }
+
+            let profilePath;
+            const activeProf = settings.activeProfile;
+            if (activeProf === 'pacingcount_standard') {
+                profilePath = 'DailyUser-PacingCountStandard';
+            } else if (activeProf === 'uz_leuven_2018') {
+                profilePath = 'DailyUser-UZLeuven2018';
+            } else {
+                // Profil custom : liste les types actifs avec leur id et label normalisé
+                const activeParts = getActiveTypes()
+                    .map(tp => `${tp.id}-${normalizeLabel(tp.label)}`)
+                    .join('-');
+                profilePath = `DailyUser-Custom-${activeParts}`;
+            }
+            sendToGoatCounter(profilePath);
+            console.log(`[GoatCounter] Profil envoyé : ${profilePath}`);
 
             localStorage.setItem('lastDailyPingSent', Date.now());
         }
