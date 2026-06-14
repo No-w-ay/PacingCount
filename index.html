@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4758,7 +4758,56 @@
 
         LOGIQUE GENERALE
 
-        1. Logique des périodes — points d'attentionMoteur central (ne pas contourner) :
+        0. Types de périodes et profils — structure et logique
+
+        Chaque type de période est un objet persisté dans `settings.types[]` 
+        (localStorage, clé `pacingSettings`) :
+        
+        { id: 1, label: "Couché sans stimulation", active: true, color: "blue" }
+        
+        `id` est immuable et sert de clé dans tout l'historique. `label` est cosmétique 
+        et renommable librement. `active` détermine si le type est visible dans l'interface. 
+        `color` est le format de couleur brut — nom de variable CSS (`"blue"`), hex (`"#e74c3c"`), 
+        ou fonction CSS (`"hsl(...)"`) — géré de façon uniforme par `getColorForId()`.
+
+        L'app supporte 6 slots prédéfinis (ids 1 à 6, couleurs bleu/vert/jaune/orange/rouge/violet). 
+        Des slots supplémentaires (ids 7+) sont architecturalement possibles avec une couleur hex 
+        ou hsl dans `color`. Au minimum 1 type doit rester actif.
+
+        Gestion des couleurs — deux fonctions :
+
+        `getColorForId(typeId)` — retourne une valeur CSS inline (`var(--blue)`, `#e74c3c`, `hsl(...)`). 
+        Utilisée partout sauf Chart.js.
+
+        `getColorValueForId(typeId)` — retourne une valeur calculée (hex ou hsl direct). 
+        Réservée à Chart.js qui n'accepte pas `var(--)`.
+
+        Profils — structure et comportement :
+
+        Un profil est un preset qui écrit dans `settings.types[]`. Il ne vit pas en permanence : 
+        c'est une fonction de pré-remplissage, pas une entité active.
+
+        Deux profils prédéfinis hardcodés dans la constante `PROFILES{}` : `pacingcount_standard` 
+        (3 types actifs) et `uz_leuven_2018` (5 types actifs). Ils définissent uniquement `label` 
+        et `active` par slot — pas les couleurs, qui sont fixes par `id`.
+
+        `settings.activeProfile` vaut l'id du profil courant (`"pacingcount_standard"`, `"uz_leuven_2018"`) 
+        ou `"custom"`. Il est mis à jour automatiquement par `detectProfile()` à chaque `saveSettings()`, 
+        par comparaison label + active de chaque slot contre les profils connus.
+
+        Un seul profil personnalisé est supporté, stocké dans `settings.customProfiles[0]`. Il est créé 
+        automatiquement (snapshot de `settings.types[]`) au premier écart d'un profil prédéfini, 
+        et mis à jour silencieusement à chaque modification manuelle suivante. Il reste accessible 
+        via son bouton dans les Réglages même après avoir appliqué un profil prédéfini, et peut 
+        être restauré en un clic.
+
+        Labels — contraintes :
+
+        30 caractères maximum (enforced via `maxlength` sur les inputs). Persistés dans `settings.types[].label`. 
+        `settings.labels[]` est un tableau dérivé des labels actifs, maintenu pour compatibilité avec les fonctions de graphes.
+
+        
+        1. Logique des périodes — Moteur central :
 
         applySteamroller(base, priority) — gère les chevauchements, fragment gauche reçoit isLive: false
         snapAdjacentBorders(periods, entries) — raccorde les bornes à moins de SNAP_THRESHOLD(60s)
@@ -4768,7 +4817,7 @@
 
         Contraintes critiques:
 
-        typeId entier 1 - 6, immuable, couleur liée à la position parmi les actifs(pas au typeId)
+        typeId entier 1-6 (extensible), immuable, couleur fixe par typeId stockée dans settings.types[].color
         Coupure à minuit toujours faite par closePeriod() — jamais de période chevauchant minuit
         Périodes de durée nulle: filtrées à l'import et à la création
         DST: utiliser new Date(jour + 1), jamais dayS + 24 * 3600 * 1000
