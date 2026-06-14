@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -53,14 +53,13 @@
             /* hsl(207, 90%, 54%); #2196F3; */
             --green: hsl(122, 32%, 51%);
             /* hsl(122, 39%, 49%); #2196F3; */
-            --yellow: hsl(50, 85%, 45%);
-            /* Jaune — hsl(48, 90%, 50%) */
-            --orange: hsl(32, 90%, 48%);
-            /* hsl(36, 90%, 50%); #2196F3; */
-            --red: hsl(4, 90%, 52%);
-            /* hsl(4, 90%, 58%); */
-            --purple: hsl(290, 65%, 50%);
-            /* hsl(291, 64%, 42%) équivalent de #9C27B0 */
+            --yellow: hsl(48, 90%, 50%);
+            /* Jaune — typeId 3 dans la palette 6 couleurs (Passe A v0.9.24) */
+            --orange: hsl(36, 90%, 50%);
+            /* hsl(36, 100%, 50%); #2196F3; */
+            --red: #f44336;
+            --purple: hsl(291, 64%, 42%);
+            /* Équivalent de #9C27B0 */
             --teal: hsl(174, 60%, 41%);
             /* Nouvelle couleur pour un éventuel 7e type */
 
@@ -708,6 +707,22 @@
     </div>
 
     <!-- Modal d'édition des périodes -->
+    <!-- Modal description de profil — ouvert par openProfileModal() -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <h3 id="profile-modal-title" style="margin-top:0;"></h3>
+            <!-- Description du profil, rendue en paragraphes par openProfileModal() -->
+            <div id="profile-modal-description" style="line-height:1.6; white-space:pre-wrap; font-size:0.93rem;"></div>
+            <!-- Séparateur + message de confirmation — visible uniquement si profil non actif -->
+            <div id="profile-modal-confirm-section" style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #444; font-size:0.88rem; opacity:0.85;">
+                <span id="profile-modal-confirm-msg"></span>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:20px;" id="profile-modal-buttons">
+                <!-- Boutons injectés dynamiquement par openProfileModal() -->
+            </div>
+        </div>
+    </div>
+
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 id="modal-title" style="margin-top:0;">Modifier l'entrée</h3>
@@ -896,6 +911,11 @@
         const PROFILES = {
             pacingcount_standard: {
                 name: "PacingCount standard",
+                description: {
+                    fr: `Un profil simple et 100% comportemental.\n\n3 types de périodes :\n• Couché sans stimulation (yeux fermés)\n• Couché actif (ex. lecture, podcast, appel téléphonique, smartphone, etc.)\n• Non couché (tout le reste, en position non couchée)\n\nIci, pas d'interprétation, ni de nuances difficiles à discerner entre les trois types. Simple, stable et clair : idéal pour une objectivation des évolutions à long terme.`,
+                    en: `A simple, 100% behavioural profile.\n\n3 period types:\n• Lying without stimulation (eyes closed)\n• Lying, active (e.g. reading, podcast, phone call, smartphone, etc.)\n• Not lying down (everything else, in a non-recumbent position)\n\nNo interpretation required, no difficult distinctions between types. Simple, stable and clear: ideal for objectively tracking long-term changes.`,
+                    nl: `Een eenvoudig en 100% gedragsmatig profiel.\n\n3 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Actief liggend (bijv. lezen, podcast, telefoongesprek, smartphone, enz.)\n• Niet liggend (al het andere, in een niet-liggende positie)\n\nGeen interpretatie nodig, geen moeilijke nuances tussen de types. Eenvoudig, stabiel en duidelijk: ideaal voor objectieve opvolging op lange termijn.`
+                },
                 types: [
                     { id: 1, label: "Couché sans stimulation", active: true  },
                     { id: 2, label: "Couché actif",             active: true  },
@@ -907,6 +927,11 @@
             },
             uz_leuven_2018: {
                 name: "UZ Leuven 2018",
+                description: {
+                    fr: `Profil défini et utilisé par le service ME/CFS de l'UZ Leuven. Ici légèrement précisé, pour réduire les ambiguités entre les types de périodes.\n\n5 types de périodes :\n• Couché sans stimulation (yeux fermés)\n• Détente (activité plaisante demandant peu d'énergie)\n• Repas et hygiène\n• Activité physique (dépense d'énergie physique prédominante)\n• Activité mentale (dépense d'énergie cognitive ou émotionnelle prédominante)\n\nPermet de prendre conscience de la répartition des principaux types d'activités.`,
+                    en: `Profile defined and used by the ME/CFS unit at UZ Leuven. Slightly refined here to reduce ambiguities between period types.\n\n5 period types:\n• Lying without stimulation (eyes closed)\n• Relaxation (pleasant activity requiring little energy)\n• Meals and hygiene\n• Physical activity (predominantly physical energy expenditure)\n• Mental activity (predominantly cognitive or emotional energy expenditure)\n\nHelps raise awareness of how time is distributed across main activity types.`,
+                    nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
+                },
                 types: [
                     { id: 1, label: "Couché sans stimulation", active: true  },
                     { id: 2, label: "Détente",                  active: true  },
@@ -915,6 +940,17 @@
                     { id: 5, label: "Activité mentale",         active: true  },
                     { id: 6, label: "",                          active: false },
                 ]
+            }
+        };
+
+        // Métadonnées du profil Personnalisé — nom et description traduits.
+        // Séparé de PROFILES{} car le profil custom est dynamique (pas de types[] fixes).
+        const CUSTOM_PROFILE_META = {
+            name: { fr: "Personnalisé", en: "Custom", nl: "Aangepast" },
+            description: {
+                fr: "Votre profil défini sur mesure, de 1 à 6 types de périodes.",
+                en: "Your custom profile, from 1 to 6 period types.",
+                nl: "Uw aangepast profiel, van 1 tot 6 periodetypen."
             }
         };
 
@@ -2422,7 +2458,7 @@
 
         // Rend le sélecteur de profils dans #profile-selector-container.
         // Profils prédéfinis (PROFILES{}) + bouton Personnalisé si customProfiles[0] existe.
-        // Le profil courant (settings.activeProfile) est mis en évidence.
+        // Le clic ouvre toujours openProfileModal() — description + action dans le modal.
         function renderProfileSelector() {
             const container = document.getElementById('profile-selector-container');
             if (!container) return;
@@ -2431,12 +2467,12 @@
             const div = document.createElement('div');
             div.className = 'profile-selector';
 
-            // Boutons des profils prédéfinis
+            // Boutons des profils prédéfinis — ouvrent le modal
             Object.entries(PROFILES).forEach(([profileId, profile]) => {
                 const btn = document.createElement('button');
                 btn.className = `profile-btn${current === profileId ? ' active' : ''}`;
                 btn.innerText = profile.name;
-                btn.onclick = () => applyProfile(profileId);
+                btn.onclick = () => openProfileModal(profileId);
                 div.appendChild(btn);
             });
 
@@ -2444,8 +2480,8 @@
             if (hasCustom) {
                 const btn = document.createElement('button');
                 btn.className = `profile-btn${current === 'custom' ? ' active' : ''}`;
-                btn.innerText = '✏️ Personnalisé';
-                btn.onclick = () => restoreCustomProfile();
+                btn.innerText = '✏️ ' + (CUSTOM_PROFILE_META.name[settings.lang] || CUSTOM_PROFILE_META.name['fr']);
+                btn.onclick = () => openProfileModal('custom');
                 div.appendChild(btn);
             }
 
@@ -2453,33 +2489,82 @@
             container.appendChild(div);
         }
 
-        // Restaure le profil personnalisé sauvegardé (customProfiles[0]) dans settings.types[].
-        // Pas de confirm() nécessaire — c'est une restauration, pas une destruction.
-        function restoreCustomProfile() {
-            const custom = settings.customProfiles && settings.customProfiles[0];
-            if (!custom) return;
-            if (settings.activeProfile === 'custom') return; // déjà actif
+        // Ouvre le modal de description d'un profil.
+        // profileId : id d'un profil prédéfini (PROFILES) ou "custom".
+        // Si le profil n'est pas actif : affiche séparateur + message + boutons Annuler/Appliquer.
+        // Si le profil est actif : affiche seulement la description + bouton Fermer.
+        function openProfileModal(profileId) {
+            const lang = settings.lang;
+            const isActive = settings.activeProfile === profileId;
+            const isCustom = profileId === 'custom';
 
-            const msg = `Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
-            if (!confirm(msg)) return;
+            // Nom et description selon le type de profil
+            let name, description;
+            if (isCustom) {
+                name = CUSTOM_PROFILE_META.name[lang] || CUSTOM_PROFILE_META.name['fr'];
+                description = CUSTOM_PROFILE_META.description[lang] || CUSTOM_PROFILE_META.description['fr'];
+            } else {
+                const profile = PROFILES[profileId];
+                if (!profile) return;
+                name = profile.name;
+                description = profile.description?.[lang] || profile.description?.['fr'] || '';
+            }
 
-            console.log('[restoreCustomProfile] Restauration du profil Personnalisé');
-            custom.types.forEach(ct => {
-                const st = settings.types.find(t => t.id === ct.id);
-                if (st) { st.label = ct.label; st.active = ct.active; }
-            });
-            settings.labels = getActiveTypes().map(tp => tp.label);
-            settings.activeProfile = 'custom';
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            console.log('[restoreCustomProfile] OK');
+            document.getElementById('profile-modal-title').innerText = name;
+            document.getElementById('profile-modal-description').innerText = description;
 
-            renderTypesSettings();
-            renderMeasureButtons();
-            renderProfileSelector();
-            updateUI();
+            // Section confirmation — visible uniquement si profil non actif
+            const confirmSection = document.getElementById('profile-modal-confirm-section');
+            const confirmMsg = document.getElementById('profile-modal-confirm-msg');
+            const buttonsDiv = document.getElementById('profile-modal-buttons');
+            buttonsDiv.innerHTML = '';
+
+            if (!isActive) {
+                const hasCustom = settings.customProfiles && settings.customProfiles[0];
+                const customNote = (!isCustom && hasCustom)
+                    ? 'Votre profil Personnalisé reste disponible dans les réglages.\n'
+                    : '';
+                const actionVerb = isCustom ? 'Restaurer' : 'Appliquer';
+                confirmMsg.innerText = `${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
+                confirmSection.style.display = 'block';
+
+                // Bouton Annuler
+                const btnCancel = document.createElement('button');
+                btnCancel.className = 'export-btn';
+                btnCancel.style.cssText = 'background:#444; margin:0;';
+                btnCancel.innerText = 'Annuler';
+                btnCancel.onclick = () => closeProfileModal();
+                buttonsDiv.appendChild(btnCancel);
+
+                // Bouton Appliquer / Restaurer
+                const btnApply = document.createElement('button');
+                btnApply.className = 'export-btn';
+                btnApply.style.cssText = 'margin:0;';
+                btnApply.innerText = isCustom ? 'Restaurer ce profil' : 'Appliquer ce profil';
+                btnApply.onclick = () => {
+                    closeProfileModal();
+                    if (isCustom) restoreCustomProfile(true); // true = skip confirm (déjà montré)
+                    else applyProfile(profileId, true);        // true = skip confirm (déjà montré)
+                };
+                buttonsDiv.appendChild(btnApply);
+            } else {
+                // Profil déjà actif : bouton Fermer uniquement
+                confirmSection.style.display = 'none';
+                const btnClose = document.createElement('button');
+                btnClose.className = 'export-btn';
+                btnClose.style.cssText = 'margin:0;';
+                btnClose.innerText = 'Fermer';
+                btnClose.onclick = () => closeProfileModal();
+                buttonsDiv.appendChild(btnClose);
+            }
+
+            document.getElementById('profileModal').style.display = 'flex';
+            console.log(`[openProfileModal] Profil "${profileId}" — actif: ${isActive}`);
         }
 
-        // Vérifie si la configuration actuelle correspond à un profil prédéfini.
+        function closeProfileModal() {
+            document.getElementById('profileModal').style.display = 'none';
+        }
         // Retourne l'id du profil correspondant, ou "custom" si aucun ne correspond.
         // Utilisée par saveSettings() pour tenir activeProfile à jour automatiquement.
         function detectProfile() {
@@ -2526,20 +2611,19 @@
             renderProfileSelector();
         }
 
-        // Applique un profil prédéfini après confirmation.
+        // Applique un profil prédéfini.
+        // skipConfirm : true si appelé depuis openProfileModal (confirmation déjà montrée dans le modal).
         // N'utilise PAS saveSettings() car celle-ci relit les inputs DOM (pas encore mis à jour).
-        // Écrit directement dans settings et localStorage, puis re-rend tout.
-        function applyProfile(profileId) {
+        function applyProfile(profileId, skipConfirm = false) {
             const profile = PROFILES[profileId];
             if (!profile) return;
 
-            // Si on est en profil custom, mentionner qu'il reste accessible
-            const hasCustom = settings.customProfiles && settings.customProfiles[0];
-            const customNote = hasCustom
-                ? `Votre profil Personnalisé reste disponible dans les réglages.\n`
-                : '';
-            const msg = `Appliquer le profil "${profile.name}" ?\n${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
-            if (!confirm(msg)) return;
+            if (!skipConfirm) {
+                const hasCustom = settings.customProfiles && settings.customProfiles[0];
+                const customNote = hasCustom ? `Votre profil Personnalisé reste disponible dans les réglages.\n` : '';
+                const msg = `Appliquer le profil "${profile.name}" ?\n${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
+                if (!confirm(msg)) return;
+            }
 
             console.log(`[applyProfile] Application : ${profile.name}`);
             profile.types.forEach(pt => {
@@ -2550,6 +2634,34 @@
             settings.activeProfile = profileId;
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             console.log(`[applyProfile] OK — ${getActiveTypes().length} types actifs, activeProfile="${profileId}"`);
+
+            renderTypesSettings();
+            renderMeasureButtons();
+            renderProfileSelector();
+            updateUI();
+        }
+
+        // Restaure le profil personnalisé sauvegardé (customProfiles[0]) dans settings.types[].
+        // skipConfirm : true si appelé depuis openProfileModal (info déjà montrée dans le modal).
+        function restoreCustomProfile(skipConfirm = false) {
+            const custom = settings.customProfiles && settings.customProfiles[0];
+            if (!custom) return;
+            if (settings.activeProfile === 'custom') return; // déjà actif
+
+            if (!skipConfirm) {
+                const msg = `Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
+                if (!confirm(msg)) return;
+            }
+
+            console.log('[restoreCustomProfile] Restauration du profil Personnalisé');
+            custom.types.forEach(ct => {
+                const st = settings.types.find(t => t.id === ct.id);
+                if (st) { st.label = ct.label; st.active = ct.active; }
+            });
+            settings.labels = getActiveTypes().map(tp => tp.label);
+            settings.activeProfile = 'custom';
+            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            console.log('[restoreCustomProfile] OK');
 
             renderTypesSettings();
             renderMeasureButtons();
