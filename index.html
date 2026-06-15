@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -930,7 +930,7 @@
                 description: {
                     fr: `Profil défini et utilisé par le service ME/CFS de l'UZ Leuven. Ici légèrement précisé, pour réduire les ambiguités entre les types de périodes.\n\n5 types de périodes :\n• Couché sans stimulation (yeux fermés)\n• Détente (activité plaisante demandant peu d'énergie)\n• Repas et hygiène\n• Activité physique (dépense d'énergie physique prédominante)\n• Activité mentale (dépense d'énergie cognitive ou émotionnelle prédominante)\n\nPermet de prendre conscience de la répartition des principaux types d'activités.`,
                     en: `Profile defined and used by the ME/CFS unit at UZ Leuven. Slightly refined here to reduce ambiguities between period types.\n\n5 period types:\n• Lying without stimulation (eyes closed)\n• Relaxation (pleasant activity requiring little energy)\n• Meals and hygiene\n• Physical activity (predominantly physical energy expenditure)\n• Mental activity (predominantly cognitive or emotional energy expenditure)\n\nHelps raise awareness of how time is distributed across main activity types.`,
-                    nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
+                    nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
                 },
                 types: [
                     { id: 1, label: "Couché sans stimulation", active: true  },
@@ -944,13 +944,14 @@
         };
 
         // Métadonnées du profil Personnalisé — nom et description traduits.
-        // Séparé de PROFILES{} car le profil custom est dynamique (pas de types[] fixes).
+        // Description de base uniquement ; la liste des types actifs est générée dynamiquement
+        // dans openProfileModal() depuis settings.customProfiles[0].
         const CUSTOM_PROFILE_META = {
             name: { fr: "Personnalisé", en: "Custom", nl: "Aangepast" },
             description: {
-                fr: "Votre profil défini sur mesure, de 1 à 6 types de périodes.",
-                en: "Your custom profile, from 1 to 6 period types.",
-                nl: "Uw aangepast profiel, van 1 tot 6 periodetypen."
+                fr: "Votre profil défini sur mesure, de 1 à 6 types de périodes. Vous pouvez le modifier à tout moment dans l'onglet réglages.",
+                en: "Your custom profile, from 1 to 6 period types. You can modify it at any time in the settings tab.",
+                nl: "Uw aangepast profiel, van 1 tot 6 periodetypen. U kunt het op elk moment wijzigen in het instellingen-tabblad."
             }
         };
 
@@ -2448,7 +2449,26 @@
                 input.maxLength = 30;
                 input.placeholder = tp.active ? '' : '(inactif)';
                 if (!tp.active) input.style.opacity = '0.4';
-                input.onchange = saveSettings;
+
+                if (tp.active) {
+                    // Type ACTIF : confirm au premier écart d'un profil de base (point 5)
+                    input.onchange = () => {
+                        const currentProfile = settings.activeProfile;
+                        const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
+                        if (isLeavingBase) {
+                            const profileName = PROFILES[currentProfile].name;
+                            const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
+                            if (!confirm(msg)) {
+                                input.value = tp.label; // revert
+                                return;
+                            }
+                        }
+                        saveSettings();
+                    };
+                } else {
+                    // Type INACTIF : sauvegarde silencieuse, pas de confirmation
+                    input.onchange = saveSettings;
+                }
 
                 row.appendChild(toggleBtn);
                 row.appendChild(input);
@@ -2501,8 +2521,23 @@
             // Nom et description selon le type de profil
             let name, description;
             if (isCustom) {
-                name = CUSTOM_PROFILE_META.name[lang] || CUSTOM_PROFILE_META.name['fr'];
-                description = CUSTOM_PROFILE_META.description[lang] || CUSTOM_PROFILE_META.description['fr'];
+                // Point 3 : titre avec emoji, description avec liste dynamique des types actifs du snapshot
+                name = '✏️ ' + (CUSTOM_PROFILE_META.name[lang] || CUSTOM_PROFILE_META.name['fr']);
+                const baseDesc = CUSTOM_PROFILE_META.description[lang] || CUSTOM_PROFILE_META.description['fr'];
+                const customSnap = settings.customProfiles && settings.customProfiles[0];
+                const activeCustomTypes = customSnap ? customSnap.types.filter(t => t.active) : [];
+                let dynamicPart = '';
+                if (activeCustomTypes.length > 0) {
+                    const configLabel = lang === 'nl'
+                        ? 'Laatste opgeslagen configuratie :'
+                        : (lang === 'en' ? 'Last saved configuration:' : 'Voici la dernière configuration enregistrée :');
+                    const typeWord = lang === 'nl'
+                        ? 'periodetypen'
+                        : (lang === 'en' ? 'period type(s)' : 'type(s) de période(s)');
+                    dynamicPart = `\n\n${configLabel}\n${activeCustomTypes.length} ${typeWord} :\n`
+                        + activeCustomTypes.map(t => `• ${t.label}`).join('\n');
+                }
+                description = baseDesc + dynamicPart;
             } else {
                 const profile = PROFILES[profileId];
                 if (!profile) return;
@@ -2520,12 +2555,8 @@
             buttonsDiv.innerHTML = '';
 
             if (!isActive) {
-                const hasCustom = settings.customProfiles && settings.customProfiles[0];
-                const customNote = (!isCustom && hasCustom)
-                    ? 'Votre profil Personnalisé reste disponible dans les réglages.\n'
-                    : '';
-                const actionVerb = isCustom ? 'Restaurer' : 'Appliquer';
-                confirmMsg.innerText = `${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
+                // Point 2 : message simplifié, sans mention du profil Personnalisé
+                confirmMsg.innerText = `Note : le profil actif s'applique à tout l'historique enregistré.`;
                 confirmSection.style.display = 'block';
 
                 // Bouton Annuler
@@ -2536,15 +2567,15 @@
                 btnCancel.onclick = () => closeProfileModal();
                 buttonsDiv.appendChild(btnCancel);
 
-                // Bouton Appliquer / Restaurer
+                // Point 1 : bouton unifié "Appliquer ce profil" pour tous les profils
                 const btnApply = document.createElement('button');
                 btnApply.className = 'export-btn';
                 btnApply.style.cssText = 'margin:0;';
-                btnApply.innerText = isCustom ? 'Restaurer ce profil' : 'Appliquer ce profil';
+                btnApply.innerText = 'Appliquer ce profil';
                 btnApply.onclick = () => {
                     closeProfileModal();
-                    if (isCustom) restoreCustomProfile(true); // true = skip confirm (déjà montré)
-                    else applyProfile(profileId, true);        // true = skip confirm (déjà montré)
+                    if (isCustom) restoreCustomProfile(true);
+                    else applyProfile(profileId, true);
                 };
                 buttonsDiv.appendChild(btnApply);
             } else {
@@ -2619,9 +2650,7 @@
             if (!profile) return;
 
             if (!skipConfirm) {
-                const hasCustom = settings.customProfiles && settings.customProfiles[0];
-                const customNote = hasCustom ? `Votre profil Personnalisé reste disponible dans les réglages.\n` : '';
-                const msg = `Appliquer le profil "${profile.name}" ?\n${customNote}Note : le profil actif s'applique à tout l'historique enregistré.`;
+                const msg = `Appliquer le profil "${profile.name}" ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
                 if (!confirm(msg)) return;
             }
 
