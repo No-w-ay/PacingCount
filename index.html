@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -743,25 +743,47 @@
         </div>
     </div>
 
-    <!-- Modal d'import CSV : restructuré pour afficher le tableau de correspondance des types -->
+    <!-- Modal d'import CSV — réécriture v0.9.24 : tableau de correspondances avec selects +
+         boutons Remplacer / Fusionner / Annuler en bas. Logique inchangée. -->
     <div id="importModal" class="modal">
         <div class="modal-content">
-            <h3 id="import-modal-title" style="margin-top:0;">Options d'importation</h3>
+            <h3 style="margin-top:0;">Importer un fichier CSV</h3>
 
-            <!-- Zone du tableau de correspondance, remplie dynamiquement par showImportModal() -->
-            <div id="import-mapping-table" style="margin-bottom: 15px;"></div>
+            <!-- Tableau de correspondances — rempli dynamiquement par showImportModal() -->
+            <div id="import-mapping-table" style="margin-bottom:16px;"></div>
 
-            <button class="export-btn" id="btn-import-replace" style="background: var(--red); margin-bottom: 10px;"
-                onclick="processImport('replace')">Remplacer</button>
-            <p id="import-replace-desc" style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">
-                Supprime tout et remplace par le fichier.</p>
+            <!-- Notice fusion (visible si deux types du fichier → même cible) -->
+            <div id="import-merge-notice" style="display:none; font-size:0.82rem;
+                color:var(--orange); margin-bottom:12px;"></div>
 
-            <button class="export-btn" id="btn-import-merge" style="background: var(--blue); margin-bottom: 10px;"
-                onclick="processImport('merge')">Fusionner</button>
-            <p id="import-merge-desc" style="font-size: 0.75rem; margin: -5px 0 15px 0; opacity: 0.7;">
-                Le fichier a la priorité en cas de conflit.</p>
+            <!-- Séparateur -->
+            <div style="border-top:1px solid #444; margin-bottom:16px;"></div>
 
-            <button class="export-btn" id="btn-import-cancel" style="background: #444;"
+            <!-- Bouton Remplacer -->
+            <button class="export-btn" id="btn-import-replace"
+                style="background:var(--red); margin-bottom:6px;"
+                onclick="processImport('replace')">
+                ⚠️ Remplacer l'historique
+            </button>
+            <p style="font-size:0.78rem; margin:0 0 16px 0; opacity:0.7;">
+                Efface tout l'historique actuel et importe le fichier.
+                Cette action est irréversible.
+            </p>
+
+            <!-- Bouton Fusionner -->
+            <button class="export-btn" id="btn-import-merge"
+                style="background:var(--blue); margin-bottom:6px;"
+                onclick="processImport('merge')">
+                ⚠️ Fusionner
+            </button>
+            <p style="font-size:0.78rem; margin:0 0 16px 0; opacity:0.7;">
+                Ajoute les données du fichier à l'historique existant.
+                Le fichier a priorité sur la plage temporelle qu'il couvre.
+                Cette action est irréversible.
+            </p>
+
+            <!-- Bouton Annuler -->
+            <button class="export-btn" style="background:#444;"
                 onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
@@ -891,23 +913,17 @@
         //   Sert UNIQUEMENT à l'initialisation (migration, profils, nouveaux utilisateurs).
         //   Au runtime, la couleur est lue depuis settings.types[].color.
         //   NOUVELLE PALETTE v0.9.24 : yellow inséré en position 3 (index 2), teal retiré.
-        // STANDARD_TYPES : noms prédéfinis multilingues. typeId 3 = slot jaune vide (pas de nom standard).
-        // PROFILES : profils prédéfinis. applyProfile() écrit dans settings.types[].
+        // PROFILES : profils prédéfinis + profil custom. Contient labels multilingues, descriptions
+        //            et états actifs par slot. applyProfile() écrit dans settings.types[].
         //            La couleur n'est pas dans le profil — elle est fixe par typeId via TYPE_COLORS.
+        //            custom.types = null (dynamique — lu depuis settings.customProfiles[0]).
         // ============================================================
         const TYPE_COLORS = ["blue", "green", "yellow", "orange", "red", "purple"];
 
-        const STANDARD_TYPES = {
-            1: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" },
-            2: { fr: "Couché actif", en: "Lying down, active", nl: "Actief liggend" },
-            // typeId 3 = jaune — slot libre, pas de nom standard prédéfini
-            4: { fr: "Non couché", en: "Not lying down", nl: "Niet liggend" }
-            // Ajouter de nouveaux types standards ici à l'avenir
-        };
-
-        // Profils prédéfinis : PacingCount Standard (3 types) et UZ Leuven 2018 (5 types).
-        // Chaque profil définit le label et l'état actif/inactif de chacun des 6 slots.
-        // applyProfile() écrase settings.types[].label et .active, puis sauvegarde.
+        // Profils prédéfinis + profil custom (unifié).
+        // labels multilingues dans types[].label : { fr, en, nl }
+        // Slots inactifs sans nom : label = "" (pas besoin de traduction).
+        // applyProfile() lit pt.label[lang] || pt.label['fr'] pour écrire dans settings.types[].
         const PROFILES = {
             pacingcount_standard: {
                 name: "PacingCount standard",
@@ -917,12 +933,12 @@
                     nl: `Een eenvoudig en 100% gedragsmatig profiel.\n\n3 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Actief liggend (bijv. lezen, podcast, telefoongesprek, smartphone, enz.)\n• Niet liggend (al het andere, in een niet-liggende positie)\n\nGeen interpretatie nodig, geen moeilijke nuances tussen de types. Eenvoudig, stabiel en duidelijk: ideaal voor objectieve opvolging op lange termijn.`
                 },
                 types: [
-                    { id: 1, label: "Couché sans stimulation", active: true  },
-                    { id: 2, label: "Couché actif",             active: true  },
-                    { id: 3, label: "",                          active: false },
-                    { id: 4, label: "Non couché",               active: true  },
-                    { id: 5, label: "",                          active: false },
-                    { id: 6, label: "",                          active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation",  nl: "Liggend zonder stimulatie" }, active: true  },
+                    { id: 2, label: { fr: "Couché actif",             en: "Lying down, active",         nl: "Actief liggend"          }, active: true  },
+                    { id: 3, label: "",                                                                                                   active: false },
+                    { id: 4, label: { fr: "Non couché",               en: "Not lying down",             nl: "Niet liggend"            }, active: true  },
+                    { id: 5, label: "",                                                                                                   active: false },
+                    { id: 6, label: "",                                                                                                   active: false },
                 ]
             },
             uz_leuven_2018: {
@@ -933,25 +949,25 @@
                     nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
                 },
                 types: [
-                    { id: 1, label: "Couché sans stimulation", active: true  },
-                    { id: 2, label: "Détente",                  active: true  },
-                    { id: 3, label: "Repas et hygiène",         active: true  },
-                    { id: 4, label: "Activité physique",        active: true  },
-                    { id: 5, label: "Activité mentale",         active: true  },
-                    { id: 6, label: "",                          active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true  },
+                    { id: 2, label: { fr: "Détente",                  en: "Relaxation",               nl: "Ontspanning"              }, active: true  },
+                    { id: 3, label: { fr: "Repas et hygiène",         en: "Meals and hygiene",         nl: "Maaltijden en hygiëne"    }, active: true  },
+                    { id: 4, label: { fr: "Activité physique",        en: "Physical activity",         nl: "Fysieke activiteit"       }, active: true  },
+                    { id: 5, label: { fr: "Activité mentale",         en: "Mental activity",           nl: "Mentale activiteit"       }, active: true  },
+                    { id: 6, label: "",                                                                                                  active: false },
                 ]
-            }
-        };
-
-        // Métadonnées du profil Personnalisé — nom et description traduits.
-        // Description de base uniquement ; la liste des types actifs est générée dynamiquement
-        // dans openProfileModal() depuis settings.customProfiles[0].
-        const CUSTOM_PROFILE_META = {
-            name: { fr: "Personnalisé", en: "Custom", nl: "Aangepast" },
-            description: {
-                fr: "Votre profil défini sur mesure, de 1 à 6 types de périodes. Vous pouvez le modifier à tout moment dans l'onglet réglages.",
-                en: "Your custom profile, from 1 to 6 period types. You can modify it at any time in the settings tab.",
-                nl: "Uw aangepast profiel, van 1 tot 6 periodetypen. U kunt het op elk moment wijzigen in het instellingen-tabblad."
+            },
+            // Profil custom — types: null (dynamique, lu depuis settings.customProfiles[0]).
+            // name et description sont des objets multilingues (seul profil avec nom traduit).
+            // Visible dans le sélecteur uniquement si settings.customProfiles[0] existe.
+            custom: {
+                name: { fr: "✏️ Personnalisé", en: "✏️ Custom", nl: "✏️ Aangepast" },
+                description: {
+                    fr: "Votre profil défini sur mesure, de 1 à 6 types de périodes. Vous pouvez le modifier à tout moment dans l'onglet réglages.",
+                    en: "Your custom profile, from 1 to 6 period types. You can modify it at any time in the settings tab.",
+                    nl: "Uw aangepast profiel, van 1 tot 6 periodetypen. U kunt het op elk moment wijzigen in het instellingen-tabblad."
+                },
+                types: null  // dynamique
             }
         };
 
@@ -2477,8 +2493,8 @@
         }
 
         // Rend le sélecteur de profils dans #profile-selector-container.
-        // Profils prédéfinis (PROFILES{}) + bouton Personnalisé si customProfiles[0] existe.
-        // Le clic ouvre toujours openProfileModal() — description + action dans le modal.
+        // Boucle unifiée sur PROFILES{} — custom inclus (visible si customProfiles[0] existe).
+        // name peut être string (profils prédéfinis) ou objet multilingue (custom).
         function renderProfileSelector() {
             const container = document.getElementById('profile-selector-container');
             if (!container) return;
@@ -2487,23 +2503,19 @@
             const div = document.createElement('div');
             div.className = 'profile-selector';
 
-            // Boutons des profils prédéfinis — ouvrent le modal
             Object.entries(PROFILES).forEach(([profileId, profile]) => {
+                // Custom : visible seulement si un profil custom a été créé
+                if (profileId === 'custom' && !hasCustom) return;
+
                 const btn = document.createElement('button');
                 btn.className = `profile-btn${current === profileId ? ' active' : ''}`;
-                btn.innerText = profile.name;
+                // Nom : string ou objet multilingue
+                btn.innerText = typeof profile.name === 'object'
+                    ? (profile.name[settings.lang] || profile.name['fr'])
+                    : profile.name;
                 btn.onclick = () => openProfileModal(profileId);
                 div.appendChild(btn);
             });
-
-            // Bouton Personnalisé — visible seulement si un profil custom a été créé
-            if (hasCustom) {
-                const btn = document.createElement('button');
-                btn.className = `profile-btn${current === 'custom' ? ' active' : ''}`;
-                btn.innerText = '✏️ ' + (CUSTOM_PROFILE_META.name[settings.lang] || CUSTOM_PROFILE_META.name['fr']);
-                btn.onclick = () => openProfileModal('custom');
-                div.appendChild(btn);
-            }
 
             container.innerHTML = '';
             container.appendChild(div);
@@ -2517,16 +2529,19 @@
             const lang = settings.lang;
             const isActive = settings.activeProfile === profileId;
             const isCustom = profileId === 'custom';
+            const profile = PROFILES[profileId];
+            if (!profile) return;
 
-            // Nom et description selon le type de profil
-            let name, description;
+            // Nom : string (profils prédéfinis) ou objet multilingue (custom)
+            const name = typeof profile.name === 'object'
+                ? (profile.name[lang] || profile.name['fr'])
+                : profile.name;
+
+            // Description : texte de base depuis PROFILES, partie dynamique pour le custom
+            let description = profile.description?.[lang] || profile.description?.['fr'] || '';
             if (isCustom) {
-                // Point 3 : titre avec emoji, description avec liste dynamique des types actifs du snapshot
-                name = '✏️ ' + (CUSTOM_PROFILE_META.name[lang] || CUSTOM_PROFILE_META.name['fr']);
-                const baseDesc = CUSTOM_PROFILE_META.description[lang] || CUSTOM_PROFILE_META.description['fr'];
                 const customSnap = settings.customProfiles && settings.customProfiles[0];
                 const activeCustomTypes = customSnap ? customSnap.types.filter(t => t.active) : [];
-                let dynamicPart = '';
                 if (activeCustomTypes.length > 0) {
                     const configLabel = lang === 'nl'
                         ? 'Laatste opgeslagen configuratie :'
@@ -2534,15 +2549,9 @@
                     const typeWord = lang === 'nl'
                         ? 'periodetypen'
                         : (lang === 'en' ? 'period type(s)' : 'type(s) de période(s)');
-                    dynamicPart = `\n\n${configLabel}\n${activeCustomTypes.length} ${typeWord} :\n`
+                    description += `\n\n${configLabel}\n${activeCustomTypes.length} ${typeWord} :\n`
                         + activeCustomTypes.map(t => `• ${t.label}`).join('\n');
                 }
-                description = baseDesc + dynamicPart;
-            } else {
-                const profile = PROFILES[profileId];
-                if (!profile) return;
-                name = profile.name;
-                description = profile.description?.[lang] || profile.description?.['fr'] || '';
             }
 
             document.getElementById('profile-modal-title').innerText = name;
@@ -2600,10 +2609,15 @@
         // Utilisée par saveSettings() pour tenir activeProfile à jour automatiquement.
         function detectProfile() {
             for (const [profileId, profile] of Object.entries(PROFILES)) {
+                if (!profile.types) continue; // custom.types = null — jamais détecté automatiquement
                 const matches = profile.types.every(pt => {
                     const st = settings.types.find(t => t.id === pt.id);
                     if (!st) return false;
-                    return st.active === pt.active && st.label === pt.label;
+                    // Comparer au label traduit (pt.label peut être objet ou chaîne vide)
+                    const ptLabel = typeof pt.label === 'object'
+                        ? (pt.label[settings.lang] || pt.label['fr'] || '')
+                        : (pt.label || '');
+                    return st.active === pt.active && st.label === ptLabel;
                 });
                 if (matches) return profileId;
             }
@@ -2613,7 +2627,7 @@
         // Active ou désactive un slot de type.
         // Garde-fou : minimum 1 type actif.
         // Premier écart d'un profil de base : confirm() avant de modifier.
-        // Activation d'un slot vide : applique le nom standard (STANDARD_TYPES) si disponible.
+        // Activation d'un slot vide : cherche le label dans le profil actif (PROFILES).
         function toggleTypeActive(typeId) {
             const tp = settings.types.find(t => t.id === typeId);
             if (!tp) return;
@@ -2633,8 +2647,15 @@
             }
 
             tp.active = !tp.active;
-            if (tp.active && !tp.label && STANDARD_TYPES[tp.id]) {
-                tp.label = STANDARD_TYPES[tp.id][settings.lang] || STANDARD_TYPES[tp.id]['fr'] || '';
+            // Activation d'un slot vide : chercher le label dans le profil actif (si prédéfini)
+            if (tp.active && !tp.label) {
+                const activeProf = PROFILES[settings.activeProfile];
+                if (activeProf && activeProf.types) {
+                    const profType = activeProf.types.find(pt => pt.id === tp.id);
+                    if (profType && typeof profType.label === 'object') {
+                        tp.label = profType.label[settings.lang] || profType.label['fr'] || '';
+                    }
+                }
             }
             saveSettings();
             renderTypesSettings();
@@ -2657,7 +2678,13 @@
             console.log(`[applyProfile] Application : ${profile.name}`);
             profile.types.forEach(pt => {
                 const st = settings.types.find(t => t.id === pt.id);
-                if (st) { st.label = pt.label; st.active = pt.active; }
+                if (st) {
+                    // label peut être un objet multilingue {fr,en,nl} ou une chaîne vide ""
+                    st.label = typeof pt.label === 'object'
+                        ? (pt.label[settings.lang] || pt.label['fr'] || '')
+                        : (pt.label || '');
+                    st.active = pt.active;
+                }
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
             settings.activeProfile = profileId;
@@ -2710,7 +2737,13 @@
                     document.getElementById('lang-select').value = 'fr';
                     settings.lang = 'fr';
                     settings.types.forEach(t => {
-                        if (STANDARD_TYPES[t.id]) t.label = STANDARD_TYPES[t.id]['fr'];
+                        const activeProf = PROFILES[settings.activeProfile];
+                        if (activeProf && activeProf.types) {
+                            const profType = activeProf.types.find(pt => pt.id === t.id);
+                            if (profType && typeof profType.label === 'object') {
+                                t.label = profType.label['fr'] || t.label;
+                            }
+                        }
                     });
                     settings.labels = settings.types.filter(t => t.active).map(t => t.label);
                     localStorage.setItem('pacingSettings', JSON.stringify(settings));
@@ -2725,7 +2758,13 @@
                     document.getElementById('lang-select').value = 'fr';
                     settings.lang = 'fr';
                     settings.types.forEach(t => {
-                        if (STANDARD_TYPES[t.id]) t.label = STANDARD_TYPES[t.id]['fr'];
+                        const activeProf = PROFILES[settings.activeProfile];
+                        if (activeProf && activeProf.types) {
+                            const profType = activeProf.types.find(pt => pt.id === t.id);
+                            if (profType && typeof profType.label === 'object') {
+                                t.label = profType.label['fr'] || t.label;
+                            }
+                        }
                     });
                     settings.labels = settings.types.filter(t => t.active).map(t => t.label);
                     localStorage.setItem('pacingSettings', JSON.stringify(settings));
@@ -2737,12 +2776,17 @@
             settings.lang = newLang;
             console.log(`[changeLang] Langue → ${settings.lang}`);
 
-            // Mise à jour des labels des types STANDARDS selon la nouvelle langue
-            settings.types.forEach(t => {
-                if (STANDARD_TYPES[t.id]) {
-                    t.label = STANDARD_TYPES[t.id][settings.lang] || t.label;
-                }
-            });
+            // Mise à jour des labels depuis le profil actif (si prédéfini avec types multilingues)
+            // Les profils custom ont des labels utilisateur — on ne les écrase pas au changement de langue
+            const activeProf = PROFILES[settings.activeProfile];
+            if (activeProf && activeProf.types) {
+                settings.types.forEach(t => {
+                    const profType = activeProf.types.find(pt => pt.id === t.id);
+                    if (profType && typeof profType.label === 'object') {
+                        t.label = profType.label[settings.lang] || profType.label['fr'] || t.label;
+                    }
+                });
+            }
             // Mise à jour de settings.labels pour compatibilité avec les fonctions graphiques
             settings.labels = settings.types.filter(t => t.active).map(t => t.label);
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
@@ -4098,53 +4142,114 @@
             // reader.readAsText(file, 'windows-1252'); // test
         }
 
-        // Affiche le modal avec le tableau de correspondance des types avant confirmation
+        // Affiche le modal d'import avec le tableau de correspondances des types.
+        // Chaque type du fichier a un <select> pré-rempli automatiquement si possible :
+        //   - correspondance exacte par typeId ou label → sélectionné automatiquement
+        //   - migration connue (ancien id 3 + label standard) → redirigé vers id 4
+        //   - type non reconnu → "Ignorer" pré-sélectionné, ⚠️ visible
+        // processImport() lit les valeurs des selects au moment du clic.
         function showImportModal() {
             console.log("[showImportModal] Affichage du modal de confirmation");
-            const t = translations[settings.lang] || {};
 
-            // Construction du tableau de correspondance
+            // Labels connus de l'ancien typeId 3 ("Non couché" avant migration v0.9.24)
+            const OLD_TYPE3_LABELS = ["Non couché", "Not lying down", "Niet liggend"];
+
+            // Construction des options du select pour chaque type du fichier
+            function buildSelectOptions(selectedId) {
+                let opts = getActiveTypes().map(tp => {
+                    const colorDot = `<span style="color:${getColorForId(tp.id)}">●</span>`;
+                    const sel = selectedId === tp.id ? ' selected' : '';
+                    return `<option value="${tp.id}"${sel}>${tp.label} (id ${tp.id})</option>`;
+                }).join('');
+                const ignoreSel = selectedId === null ? ' selected' : '';
+                opts += `<option value="ignore"${ignoreSel}>— Ignorer ce type</option>`;
+                return opts;
+            }
+
+            // Détermination du typeId cible pour chaque type du fichier
+            function resolveTarget(m) {
+                // Migration connue : ancien id 3 avec label standard → id 4
+                if (m.csvTypeId === 3 && m.csvLabel && OLD_TYPE3_LABELS.includes(m.csvLabel.trim())) {
+                    const t4 = settings.types.find(t => t.id === 4 && t.active);
+                    if (t4) return 4;
+                }
+                // Correspondance par resolvedId (déjà calculé dans importCSV)
+                if (!m.isNew && m.resolvedId) return m.resolvedId;
+                // Non résolu
+                return null;
+            }
+
+            // Construction du tableau
             let tableRows = '';
-            Object.values(pendingImportMapping).forEach(m => {
-                const icon = m.isNew ? '⚠️' : '✅';
-                const appSide = m.isNew
-                    ? `<em style="opacity:0.6">${t.importUnknown || 'Type inconnu — sera ignoré'}</em>`
-                    : `Type ${m.resolvedId} — "${m.resolvedLabel}"`;
-                const fileSide = m.csvLabel
-                    + (m.csvTypeId !== null ? ` <span style="opacity:0.5">(id ${m.csvTypeId})</span>` : '');
+            Object.entries(pendingImportMapping).forEach(([key, m]) => {
+                const targetId = resolveTarget(m);
+                const isAuto = !m.isNew || targetId !== null;
+                const icon = isAuto ? '✅' : '⚠️';
+                const fileSide = `${m.csvLabel || ''}${m.csvTypeId !== null
+                    ? ` <span style="opacity:0.5; font-size:0.8em;">(id ${m.csvTypeId})</span>`
+                    : ''}`;
+                const selectId = `import-select-${key}`;
                 tableRows += `
                     <tr>
-                        <td style="padding:6px 8px;">${icon}</td>
-                        <td style="padding:6px 8px;">${fileSide}</td>
-                        <td style="padding:6px 8px; opacity:0.5;">→</td>
-                        <td style="padding:6px 8px;">${appSide}</td>
+                        <td style="padding:5px 6px; font-size:1em;">${icon}</td>
+                        <td style="padding:5px 6px; font-size:0.85rem;">${fileSide}</td>
+                        <td style="padding:5px 4px; opacity:0.5;">→</td>
+                        <td style="padding:5px 6px;">
+                            <select id="${selectId}"
+                                style="font-size:0.82rem; background:var(--input-bg,#222);
+                                       color:var(--text-color); border:1px solid #555;
+                                       border-radius:4px; padding:3px 6px; width:100%;"
+                                onchange="checkImportFusion()">
+                                ${buildSelectOptions(targetId)}
+                            </select>
+                        </td>
                     </tr>`;
             });
 
-            const hasWarnings = Object.values(pendingImportMapping).some(m => m.isNew);
-
             document.getElementById('import-mapping-table').innerHTML = `
-                <table style="width:100%; border-collapse:collapse; font-size:0.85rem;">
+                <p style="font-size:0.82rem; opacity:0.7; margin:0 0 10px 0;">
+                    Vérifiez les correspondances entre les types du fichier et ceux de l'application.
+                    Les correspondances marquées ✅ ont été détectées automatiquement.
+                </p>
+                <table style="width:100%; border-collapse:collapse;">
                     <thead>
-                        <tr style="opacity:0.6; border-bottom:1px solid #444;">
-                            <th style="padding:4px 8px; text-align:left;"></th>
-                            <th style="padding:4px 8px; text-align:left;">${t.importFileHeader || 'Dans le fichier'}</th>
+                        <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
+                            <th style="padding:3px 6px; text-align:left;"></th>
+                            <th style="padding:3px 6px; text-align:left;">Dans le fichier</th>
                             <th></th>
-                            <th style="padding:4px 8px; text-align:left;">${t.importAppHeader || "Dans l'application"}</th>
+                            <th style="padding:3px 6px; text-align:left;">Dans l'application</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
-                </table>
-                ${hasWarnings ? `<p style="font-size:0.8rem; color:var(--orange); margin-top:10px;">⚠️ ${t.importWarning || "Les types inconnus ne seront pas importés."}</p>` : ''}`;
+                </table>`;
 
-            // Traduction des boutons (mis à jour selon la langue courante)
-            document.getElementById('btn-import-replace').innerText = t.importReplace || "Remplacer";
-            document.getElementById('import-replace-desc').innerText = t.importReplaceDesc || "Supprime tout et remplace par le fichier.";
-            document.getElementById('btn-import-merge').innerText = t.importMerge || "Fusionner";
-            document.getElementById('import-merge-desc').innerText = t.importMergeDesc || "Le fichier a la priorité en cas de conflit.";
-            document.getElementById('btn-import-cancel').innerText = t.importCancel || "Annuler";
+            // Détection initiale des fusions
+            checkImportFusion();
 
             document.getElementById('importModal').style.display = 'flex';
+        }
+
+        // Vérifie si plusieurs types du fichier sont mappés vers le même type de l'app.
+        // Affiche une notice si c'est le cas.
+        function checkImportFusion() {
+            const targets = {};
+            Object.keys(pendingImportMapping).forEach(key => {
+                const sel = document.getElementById(`import-select-${key}`);
+                if (!sel || sel.value === 'ignore') return;
+                targets[sel.value] = (targets[sel.value] || []);
+                targets[sel.value].push(pendingImportMapping[key].csvLabel || key);
+            });
+            const fusions = Object.entries(targets).filter(([, labels]) => labels.length > 1);
+            const notice = document.getElementById('import-merge-notice');
+            if (fusions.length > 0) {
+                const tp = settings.types.find(t => t.id === parseInt(fusions[0][0]));
+                const targetLabel = tp ? tp.label : `id ${fusions[0][0]}`;
+                notice.style.display = 'block';
+                notice.innerHTML = `⚠️ Attention : plusieurs types du fichier seront fusionnés`
+                    + ` en un seul type dans l'application ("${targetLabel}").`;
+            } else {
+                notice.style.display = 'none';
+            }
         }
 
         function processImport(mode) {
@@ -4153,12 +4258,20 @@
                 if (!pendingImportData || !pendingImportMapping) return;
                 const t = translations[settings.lang] || {};
 
-                // Résolution finale : conversion clé → typeId concret. Types inconnus ignorés.
+                // Lecture des selects pour construire le mapping final (clé → typeId cible ou null)
+                const finalMapping = {};
+                Object.keys(pendingImportMapping).forEach(key => {
+                    const sel = document.getElementById(`import-select-${key}`);
+                    const val = sel ? sel.value : 'ignore';
+                    finalMapping[key] = val === 'ignore' ? null : parseInt(val);
+                });
+
+                // Résolution finale : conversion clé → typeId concret. Types ignorés exclus.
                 const resolvedPeriods = pendingImportData
                     .map(p => {
-                        const m = pendingImportMapping[p.key];
-                        if (m.isNew) return null;
-                        return { typeId: m.resolvedId, start: p.start, end: p.end };
+                        const targetId = finalMapping[p.key];
+                        if (targetId === null || targetId === undefined) return null;
+                        return { typeId: targetId, start: p.start, end: p.end };
                     })
                     .filter(p => p !== null);
 
@@ -4168,7 +4281,7 @@
                     return;
                 }
 
-                const successMessage = t.importSuccess || "Importation réussie !";
+                const successMessage = `${resolvedPeriods.length} période(s) importée(s) avec succès.`;
 
                 if (mode === 'replace') {
                     reconstructHistory(resolvedPeriods);
@@ -4177,29 +4290,10 @@
                     let basePeriods = [...state.history];
                     if (state.activeType !== null) {
                         basePeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
-                        //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: Date.now(), isLive: true });
                     }
-
-                    // steamroller → snap (close to live only avec SNAP_THRESHOLD) → merge
-
-                    //let finalPeriods = applySteamroller(basePeriods, resolvedPeriods);
-                    //let finalPeriods = snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods);
                     let finalPeriods = mergeAdjacentPeriods(
                         snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
                     );
-
-                    /*
-                    let finalPeriods = mergeAdjacentPeriods(
-                        snapAdjacentBorders(
-                            applySteamroller(basePeriods, resolvedPeriods),
-                            resolvedPeriods.filter(p =>
-                                Math.abs(p.end - state.startTime) < SNAP_THRESHOLD ||
-                                Math.abs(p.start - state.startTime) < SNAP_THRESHOLD
-                            )
-                        )
-                    );
-                    */
-
                     reconstructHistory(finalPeriods);
                     alert(successMessage);
                 }
