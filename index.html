@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4203,8 +4203,8 @@
                 let opts = settings.types.map(tp => {
                     const sel = selectedId === tp.id ? ' selected' : '';
                     const inactifNote = tp.active ? '' : ' (inactif)';
-                    // Point 5 : tiret moyen – pour les ids dans les options du select
-                    return `<option value="${tp.id}"${sel}>${tp.label || '(sans nom)'}${inactifNote} – id ${tp.id}</option>`;
+                    // Point 5 : format #N pour les ids dans les options
+                    return `<option value="${tp.id}"${sel}>${tp.label || '(sans nom)'}${inactifNote} #${tp.id}</option>`;
                 }).join('');
                 const ignoreSel = selectedId === null ? ' selected' : '';
                 opts += `<option value="ignore"${ignoreSel}>— Ignorer ce type</option>`;
@@ -4236,15 +4236,14 @@
             sortedEntries.forEach(([key, m]) => {
                 const { targetId, isExact } = resolveTarget(m);
                 const icon = isExact ? '✅' : '🔍';
-                // Point 5 : tiret moyen – pour l'id côté fichier (au lieu des parenthèses grisées)
-                const idStr = m.csvTypeId !== null ? ` – id ${m.csvTypeId}` : '';
+                const idStr = m.csvTypeId !== null ? ` #${m.csvTypeId}` : '';
                 const selectId = `import-select-${key}`;
                 const initBorder = borderColor(targetId);
                 const initArrow = arrowColor(targetId);
 
                 tableRows += `
                     <tr>
-                        <td style="padding:3px 4px; white-space:nowrap; font-size:0.83rem;">
+                        <td style="padding:3px 0; font-size:0.83rem;">
                             ${icon} ${m.csvLabel || ''}${idStr}
                         </td>
                         <td style="padding:3px 4px; color:${initArrow}; font-weight:bold;"
@@ -4262,7 +4261,6 @@
                     </tr>`;
             });
 
-            // Point 2 : en-tête de tableau remis
             document.getElementById('import-mapping-table').innerHTML = `
                 <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
                     Correspondances entre les types de périodes du fichier et ceux de l'application :
@@ -4271,7 +4269,7 @@
                 <table style="width:100%; border-collapse:collapse;">
                     <thead>
                         <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
-                            <th style="padding:3px 4px; text-align:left;">Dans le fichier</th>
+                            <th style="padding:3px 0; text-align:left;">Dans le fichier</th>
                             <th></th>
                             <th style="padding:3px 4px; text-align:left;">Dans l'application</th>
                         </tr>
@@ -4283,10 +4281,6 @@
             document.getElementById('importModal').style.display = 'flex';
         }
 
-        // Met à jour bordure et flèche quand l'utilisateur change un select,
-        // puis vérifie les fusions éventuelles.
-        // Point 7 : gris unifié #666 pour ignore ET inactif — supprime les deux tests séparés.
-        // Point 6 : outline:none dans le CSS inline du select — cadre reste coloré au focus.
         function onImportSelectChange(key) {
             const sel = document.getElementById(`import-select-${key}`);
             const arrow = document.getElementById(`arrow-${key}`);
@@ -4298,9 +4292,8 @@
             } else {
                 const id = parseInt(val);
                 const tp = settings.types.find(t => t.id === id);
-                const color = tp?.active ? getColorForId(id) : '#666';
-                sel.style.borderColor = color;
-                arrow.style.color = getColorForId(id); // flèche toujours colorée même si inactif
+                sel.style.borderColor = tp?.active ? getColorForId(id) : '#666';
+                arrow.style.color = getColorForId(id);
             }
             checkImportFusion();
         }
