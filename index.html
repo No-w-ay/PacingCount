@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4099,14 +4099,18 @@
                         if (!typesSeen[key]) {
                             let resolved = null;
 
-                            // Résolution par TypeId en priorité (nouveau format)
+                            // Normalisation pour comparaison accent+casse insensible
+                            const normLabel = (s) => (s || '').normalize('NFD')
+                                .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+                            // Résolution par typeId en priorité — actifs et inactifs inclus
                             if (csvTypeId !== null) {
                                 resolved = settings.types.find(t => t.id === csvTypeId) || null;
                             }
-                            // Fallback par label (ancien format ou label modifié)
+                            // Fallback par label normalisé (casse et accents insensibles)
                             if (!resolved && csvLabel) {
                                 resolved = settings.types.find(t =>
-                                    t.label.toLowerCase() === csvLabel.toLowerCase()
+                                    normLabel(t.label) === normLabel(csvLabel)
                                 ) || null;
                             }
 
@@ -4115,6 +4119,7 @@
                                 csvLabel: csvLabel || `Type ${csvTypeId}`,
                                 resolvedId: resolved ? resolved.id : null,
                                 resolvedLabel: resolved ? resolved.label : null,
+                                resolvedActive: resolved ? resolved.active : null,
                                 isNew: !resolved
                             };
                         }
@@ -4151,55 +4156,103 @@
         function showImportModal() {
             console.log("[showImportModal] Affichage du modal de confirmation");
 
-            // Labels connus de l'ancien typeId 3 ("Non couché" avant migration v0.9.24)
+            // Normalisation pour comparaison accent+casse insensible — même logique que importCSV
+            const normLabel = (s) => (s || '').normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+            // Labels connus de l'ancien typeId 3 avant migration v0.9.24
             const OLD_TYPE3_LABELS = ["Non couché", "Not lying down", "Niet liggend"];
 
-            // Construction des options du select pour chaque type du fichier
+            // Détermine la cible et si c'est une correspondance exacte
+            // ✅ = typeId identique ET label normalisé identique
+            // 🔍 = tout le reste
+            function resolveTarget(m) {
+                const normCsv = normLabel(m.csvLabel);
+
+                // ✅ Exact : même typeId ET même label normalisé
+                if (m.csvTypeId !== null && m.resolvedId === m.csvTypeId) {
+                    const appType = settings.types.find(t => t.id === m.csvTypeId);
+                    if (appType && normLabel(appType.label) === normCsv) {
+                        return { targetId: m.csvTypeId, isExact: true };
+                    }
+                }
+
+                // 🔍 Migration connue : ancien label type 3 → type 4
+                if (m.csvTypeId === 3 && OLD_TYPE3_LABELS.some(l => normLabel(l) === normCsv)) {
+                    if (settings.types.find(t => t.id === 4)) return { targetId: 4, isExact: false };
+                }
+
+                // 🔍 Label normalisé identique, typeId différent (actifs en priorité)
+                const labelMatchActive = settings.types.find(t =>
+                    t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                if (labelMatchActive) return { targetId: labelMatchActive.id, isExact: false };
+
+                const labelMatchInactive = settings.types.find(t =>
+                    !t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                if (labelMatchInactive) return { targetId: labelMatchInactive.id, isExact: false };
+
+                // 🔍 typeId identique mais label différent (déjà dans resolvedId)
+                if (m.resolvedId) return { targetId: m.resolvedId, isExact: false };
+
+                // 🔍 Aucune correspondance → Ignorer
+                return { targetId: null, isExact: false };
+            }
+
+            // Construit les options du select (tous les types, actifs et inactifs)
             function buildSelectOptions(selectedId) {
-                let opts = getActiveTypes().map(tp => {
-                    const colorDot = `<span style="color:${getColorForId(tp.id)}">●</span>`;
+                let opts = settings.types.map(tp => {
                     const sel = selectedId === tp.id ? ' selected' : '';
-                    return `<option value="${tp.id}"${sel}>${tp.label} (id ${tp.id})</option>`;
+                    const inactifNote = tp.active ? '' : ' (inactif)';
+                    return `<option value="${tp.id}"${sel}>${tp.label || '(sans nom)'}${inactifNote} — id ${tp.id}</option>`;
                 }).join('');
                 const ignoreSel = selectedId === null ? ' selected' : '';
                 opts += `<option value="ignore"${ignoreSel}>— Ignorer ce type</option>`;
                 return opts;
             }
 
-            // Détermination du typeId cible pour chaque type du fichier
-            function resolveTarget(m) {
-                // Migration connue : ancien id 3 avec label standard → id 4
-                if (m.csvTypeId === 3 && m.csvLabel && OLD_TYPE3_LABELS.includes(m.csvLabel.trim())) {
-                    const t4 = settings.types.find(t => t.id === 4 && t.active);
-                    if (t4) return 4;
-                }
-                // Correspondance par resolvedId (déjà calculé dans importCSV)
-                if (!m.isNew && m.resolvedId) return m.resolvedId;
-                // Non résolu
-                return null;
+            // Couleur de la flèche → selon le type cible (grise si Ignorer)
+            function arrowColor(targetId) {
+                return targetId !== null ? getColorForId(targetId) : '#555';
             }
 
-            // Construction du tableau
+            // Couleur de la bordure du select : vive si actif, grise si inactif, #555 si Ignorer
+            function borderColor(targetId) {
+                if (targetId === null) return '#555';
+                const tp = settings.types.find(t => t.id === targetId);
+                return tp?.active ? getColorForId(targetId) : '#666';
+            }
+
+            // Tri des entrées par csvTypeId croissant (sans id à la fin)
+            const sortedEntries = Object.entries(pendingImportMapping).sort(([, a], [, b]) => {
+                const ai = a.csvTypeId ?? 9999;
+                const bi = b.csvTypeId ?? 9999;
+                return ai - bi;
+            });
+
+            // Construction des lignes
             let tableRows = '';
-            Object.entries(pendingImportMapping).forEach(([key, m]) => {
-                const targetId = resolveTarget(m);
-                const isAuto = !m.isNew || targetId !== null;
-                const icon = isAuto ? '✅' : '⚠️';
-                const fileSide = `${m.csvLabel || ''}${m.csvTypeId !== null
-                    ? ` <span style="opacity:0.5; font-size:0.8em;">(id ${m.csvTypeId})</span>`
-                    : ''}`;
+            sortedEntries.forEach(([key, m]) => {
+                const { targetId, isExact } = resolveTarget(m);
+                const icon = isExact ? '✅' : '🔍';
+                const idStr = m.csvTypeId !== null
+                    ? ` <span style="opacity:0.45; font-size:0.78em;">(id ${m.csvTypeId})</span>` : '';
                 const selectId = `import-select-${key}`;
+                const initBorder = borderColor(targetId);
+                const initArrow = arrowColor(targetId);
+
                 tableRows += `
                     <tr>
-                        <td style="padding:5px 6px; font-size:1em;">${icon}</td>
-                        <td style="padding:5px 6px; font-size:0.85rem;">${fileSide}</td>
-                        <td style="padding:5px 4px; opacity:0.5;">→</td>
-                        <td style="padding:5px 6px;">
+                        <td style="padding:5px 4px; white-space:nowrap; font-size:0.83rem;">
+                            ${icon} ${m.csvLabel || ''}${idStr}
+                        </td>
+                        <td style="padding:5px 4px; color:${initArrow}; font-weight:bold;"
+                            id="arrow-${key}">→</td>
+                        <td style="padding:5px 0;">
                             <select id="${selectId}"
                                 style="font-size:0.82rem; background:var(--input-bg,#222);
-                                       color:var(--text-color); border:1px solid #555;
-                                       border-radius:4px; padding:3px 6px; width:100%;"
-                                onchange="checkImportFusion()">
+                                       color:var(--text-color); border:2px solid ${initBorder};
+                                       border-radius:4px; padding:3px 5px; width:100%;"
+                                onchange="onImportSelectChange('${key}')">
                                 ${buildSelectOptions(targetId)}
                             </select>
                         </td>
@@ -4207,49 +4260,37 @@
             });
 
             document.getElementById('import-mapping-table').innerHTML = `
-                <p style="font-size:0.82rem; opacity:0.7; margin:0 0 10px 0;">
-                    Vérifiez les correspondances entre les types du fichier et ceux de l'application.
-                    Les correspondances marquées ✅ ont été détectées automatiquement.
+                <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
+                    Correspondances entre les types de périodes du fichier et ceux de l'application :
+                    ✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation
                 </p>
                 <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
-                            <th style="padding:3px 6px; text-align:left;"></th>
-                            <th style="padding:3px 6px; text-align:left;">Dans le fichier</th>
-                            <th></th>
-                            <th style="padding:3px 6px; text-align:left;">Dans l'application</th>
-                        </tr>
-                    </thead>
                     <tbody>${tableRows}</tbody>
                 </table>`;
 
-            // Détection initiale des fusions
             checkImportFusion();
-
             document.getElementById('importModal').style.display = 'flex';
         }
 
-        // Vérifie si plusieurs types du fichier sont mappés vers le même type de l'app.
-        // Affiche une notice si c'est le cas.
-        function checkImportFusion() {
-            const targets = {};
-            Object.keys(pendingImportMapping).forEach(key => {
-                const sel = document.getElementById(`import-select-${key}`);
-                if (!sel || sel.value === 'ignore') return;
-                targets[sel.value] = (targets[sel.value] || []);
-                targets[sel.value].push(pendingImportMapping[key].csvLabel || key);
-            });
-            const fusions = Object.entries(targets).filter(([, labels]) => labels.length > 1);
-            const notice = document.getElementById('import-merge-notice');
-            if (fusions.length > 0) {
-                const tp = settings.types.find(t => t.id === parseInt(fusions[0][0]));
-                const targetLabel = tp ? tp.label : `id ${fusions[0][0]}`;
-                notice.style.display = 'block';
-                notice.innerHTML = `⚠️ Attention : plusieurs types du fichier seront fusionnés`
-                    + ` en un seul type dans l'application ("${targetLabel}").`;
+        // Met à jour bordure et flèche quand l'utilisateur change un select,
+        // puis vérifie les fusions éventuelles.
+        function onImportSelectChange(key) {
+            const normLabel = (s) => (s || '').normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const sel = document.getElementById(`import-select-${key}`);
+            const arrow = document.getElementById(`arrow-${key}`);
+            if (!sel || !arrow) return;
+            const val = sel.value;
+            if (val === 'ignore') {
+                sel.style.borderColor = '#555';
+                arrow.style.color = '#555';
             } else {
-                notice.style.display = 'none';
+                const id = parseInt(val);
+                const tp = settings.types.find(t => t.id === id);
+                sel.style.borderColor = tp?.active ? getColorForId(id) : '#666';
+                arrow.style.color = getColorForId(id);
             }
+            checkImportFusion();
         }
 
         function processImport(mode) {
@@ -4304,7 +4345,28 @@
             }
         }
 
-        function closeImportModal() {
+        // Vérifie les sélections courantes : fusions (plusieurs → un) et types ignorés.
+        // Met à jour la notice orange sous le tableau.
+        function checkImportFusion() {
+            const targets = {};
+            Object.keys(pendingImportMapping).forEach(key => {
+                const sel = document.getElementById(`import-select-${key}`);
+                if (!sel || sel.value === 'ignore') return;
+                if (!targets[sel.value]) targets[sel.value] = [];
+                targets[sel.value].push(pendingImportMapping[key].csvLabel || key);
+            });
+            const fusions = Object.entries(targets).filter(([, labels]) => labels.length > 1);
+            const notice = document.getElementById('import-merge-notice');
+            if (fusions.length > 0) {
+                const tp = settings.types.find(t => t.id === parseInt(fusions[0][0]));
+                const targetLabel = tp ? `"${tp.label}"` : `id ${fusions[0][0]}`;
+                notice.style.display = 'block';
+                notice.innerHTML = `⚠️ Plusieurs types du fichier seront fusionnés en un seul`
+                    + ` type dans l'application (${targetLabel}).`;
+            } else {
+                notice.style.display = 'none';
+            }
+        }
             console.log("[closeImportModal] Fermeture du modal d'import");
             const modal = document.getElementById('importModal');
             if (modal) modal.style.display = 'none';
