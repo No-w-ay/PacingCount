@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1306,6 +1306,16 @@
         function getLabelForId(typeId) {
             const t = settings.types.find(t => t.id === typeId);
             return t ? t.label : `Type ${typeId}`;
+        }
+
+        // Retourne les types (actifs ou inactifs) ayant des données dans l'historique
+        // ou en cours — triés par id. Partagé par toutes les légendes de graphes.
+        function getTypesWithHistoryData() {
+            const usedIds = new Set(state.history.map(e => e.typeId));
+            if (state.activeType !== null) usedIds.add(state.activeType);
+            return settings.types
+                .filter(tp => usedIds.has(tp.id))
+                .sort((a, b) => a.id - b.id);
         }
 
         // ============================================================
@@ -3237,14 +3247,15 @@
 
             html += `</div></div>`;
 
-            // Légende — Passe C : boucle sur getActiveTypes() au lieu des tableaux positionnels
+            // Légende — types ayant des données dans l'historique
             const tLegend = translations[settings.lang] || translations['fr'];
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
-            getActiveTypes().forEach(tp => {
+            getTypesWithHistoryData().forEach(tp => {
+                const label = tp.label || `Type #${tp.id}`;
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colorMap[tp.id]};"></div>
-                        <span>${tp.label}</span>
+                        <span>${label}</span>
                     </div>`;
             });
 
@@ -3428,13 +3439,14 @@
 
             html += `</div></div>`;
 
-            // Légende — Passe C : boucle sur getActiveTypes() au lieu des tableaux positionnels
+            // Légende — types ayant des données dans l'historique
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
-            getActiveTypes().forEach(tp => {
+            getTypesWithHistoryData().forEach(tp => {
+                const label = tp.label || `Type #${tp.id}`;
                 html += `
                     <div style="display: flex; align-items: center; gap: 6px;">
                         <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${colorMap[tp.id]};"></div>
-                        <span>${tp.label}</span>
+                        <span>${label}</span>
                     </div>`;
             });
             html += `</div>`;
@@ -4436,10 +4448,10 @@
                 daysStart.push(d.getTime());
             }
 
-            // Passe C v0.9.24 : dataSetsByType construit depuis getActiveTypes() — plus de {1:[],2:[],3:[],4:[],5:[]}
-            // Gère automatiquement N types actifs, y compris typeId > 5 ou non-séquentiels.
+            // Construit depuis settings.types (tous les types, actifs et inactifs)
+            // pour que les périodes de types désactivés apparaissent aussi dans le graphe.
             const dataSetsByType = {};
-            getActiveTypes().forEach(tp => { dataSetsByType[tp.id] = []; });
+            settings.types.forEach(tp => { dataSetsByType[tp.id] = []; });
 
             let allPeriods = [...state.history];
 
@@ -4475,15 +4487,16 @@
                 }
             });
 
-            // Passe C v0.9.24 : couleurs via getColorValueForId() — plus de tableau chartColors hardcodé
-            // Les datasets sont construits sur getActiveTypes() — s'adapte à N types actifs
-            const datasets = getActiveTypes().map(tp => ({
-                label: tp.label,
-                data: dataSetsByType[tp.id],
-                backgroundColor: getColorValueForId(tp.id),
-                borderRadius: 4,
-                borderSkipped: false
-            }));
+            // Datasets : uniquement les types ayant des données dans la fenêtre des 7 jours.
+            const datasets = settings.types
+                .filter(tp => dataSetsByType[tp.id].length > 0)
+                .map(tp => ({
+                    label: tp.label || `Type #${tp.id}`,
+                    data: dataSetsByType[tp.id],
+                    backgroundColor: getColorValueForId(tp.id),
+                    borderRadius: 4,
+                    borderSkipped: false
+                }));
 
             if (window.timelineChartInstance) {
                 window.timelineChartInstance.data.labels = labels;
@@ -4553,12 +4566,12 @@
             }
 
             // Légende personnalisée sous le graphique
-            renderTimelineLegend(textGray);
+            renderTimelineLegend(textGray, getTypesWithHistoryData());
         }
 
-        // Génère la légende colorée sous le graphique timeline
-        // Passe C v0.9.24 : utilise getColorValueForId() au lieu du tableau colors passé en paramètre
-        function renderTimelineLegend(textColor) {
+        // Génère la légende colorée sous le graphique timeline.
+        // typesWithData : résultat de getTypesWithHistoryData() — types avec données dans l'historique.
+        function renderTimelineLegend(textColor, typesWithData) {
             const chartContainer = document.querySelector('#page-timeline .chart-container');
             let existingLegend = document.getElementById('timeline-custom-legend');
             if (existingLegend) existingLegend.remove();
@@ -4567,12 +4580,13 @@
             legend.id = 'timeline-custom-legend';
             legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
 
-            // getActiveTypes() + getColorValueForId() — dynamique, N types, sans index positionnel
-            getActiveTypes().forEach(tp => {
+            // Types ayant des données dans l'historique — actifs ou inactifs
+            typesWithData.forEach(tp => {
+                const label = tp.label || `Type #${tp.id}`;
                 legend.innerHTML += `
             <div style="display: flex; align-items: center; gap: 6px;">
                 <div style="width: 12px; height: 12px; border-radius: 50%; background-color: ${getColorValueForId(tp.id)};"></div>
-                <span>${tp.label}</span>
+                <span>${label}</span>
             </div>`;
             });
             chartContainer.after(legend);
