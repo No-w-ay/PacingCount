@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.24-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2927,23 +2927,19 @@
             const container = document.getElementById('results-list');
             container.innerHTML = "";
             const t = translations[settings.lang] || translations['fr'];
-            const active = getActiveTypes();
+            // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export
+            const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
 
-            // Profil par défaut : types "repos" = ids 1 et 2, type "actif" = id 4
-            // Passe C v0.9.24 : actifId corrigé de 3 → 4 (ex-typeId 3 migré en 4)
-            // À externaliser dans la définition de profil quand les profils seront implémentés
             const reposIds = [1, 2];
             const actifId = 4;
             const today = new Date().toLocaleDateString();
 
-            // --- ÉTAPE 1 : collecter toutes les périodes ---
             let all = [...state.history];
             if (state.activeType) {
                 all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
             all.sort((a, b) => a.start - b.start);
 
-            // --- ÉTAPE 2 : agréger par jour ---
             const daysData = {};
             all.forEach(e => {
                 const d = new Date(e.start).toLocaleDateString();
@@ -2956,7 +2952,8 @@
                         actifPeriods: [],
                         totalMins: 0
                     };
-                    active.forEach(tp => { daysData[d].totals[tp.id] = 0; });
+                    // Initialiser tous les types (pas seulement actifs)
+                    allTypes.forEach(tp => { daysData[d].totals[tp.id] = 0; });
                 }
                 if (daysData[d].totals[e.typeId] !== undefined) {
                     daysData[d].totals[e.typeId] += mins;
@@ -3000,11 +2997,13 @@
                 // Ligne 1 : date
                 html += `<strong>${day.displayDate}</strong><br>`;
 
-                // Ligne 2 : totaux par type
-                // Refactoring couleurs : style inline via getColorForId() — compatible tout format, plus de class text-*
+                // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour
                 let ligne2 = '';
-                active.forEach(tp => {
-                    ligne2 += `<span style="color: ${getColorForId(tp.id)}">●</span> ${formatMins(day.totals[tp.id] || 0)} &nbsp;`;
+                allTypes.forEach(tp => {
+                    const mins = day.totals[tp.id] || 0;
+                    if (mins > 0) {
+                        ligne2 += `<span style="color: ${getColorForId(tp.id)}">●</span> ${formatMins(mins)} &nbsp;`;
+                    }
                 });
                 html += `${ligne2}<br>`;
 
@@ -3091,11 +3090,11 @@
             // --- CONFIGURATION ---
             // Passe C v0.9.24 : couleurs et labels construits depuis getActiveTypes() + getColorValueForId()
             // Remplace les tableaux defaultColors et labels hardcodés (5 couleurs positionnelles, sans yellow).
-            // colorMap et labelMap permettent un lookup direct par typeId dans les boucles de rendu.
-            // getColorValueForId() gère les types prédéfinis (CSS var) et futurs types custom (hex).
+            // Point 4 : colorMap et labelMap depuis settings.types (tous les types)
+            // La légende n'affiche que les types ayant des données dans la période
             const colorMap = {};
             const labelMap = {};
-            getActiveTypes().forEach(tp => {
+            settings.types.forEach(tp => {
                 colorMap[tp.id] = getColorValueForId(tp.id);
                 labelMap[tp.id] = tp.label;
             });
@@ -3279,11 +3278,11 @@
             if (!container) return;
             container.innerHTML = '';
 
-            // --- CONFIGURATION — Passe C v0.9.24 : même approche que renderDailyCharts ---
-            // colorMap et labelMap : lookup par typeId, remplacent les tableaux positionnels
+            // Point 4 : colorMap et labelMap depuis settings.types (tous les types, actifs et inactifs)
+            // La légende n'affichera que les types ayant des données dans la période affichée
             const colorMap = {};
             const labelMap = {};
-            getActiveTypes().forEach(tp => {
+            settings.types.forEach(tp => {
                 colorMap[tp.id] = getColorValueForId(tp.id);
                 labelMap[tp.id] = tp.label;
             });
@@ -4236,15 +4235,18 @@
             sortedEntries.forEach(([key, m]) => {
                 const { targetId, isExact } = resolveTarget(m);
                 const icon = isExact ? '✅' : '🔍';
-                const idStr = m.csvTypeId !== null ? ` #${m.csvTypeId}` : '';
+                // Point 3 : #N grisé via span opacity:0.65
+                const idStr = m.csvTypeId !== null
+                    ? ` <span style="opacity:0.65">#${m.csvTypeId}</span>` : '';
                 const selectId = `import-select-${key}`;
                 const initBorder = borderColor(targetId);
                 const initArrow = arrowColor(targetId);
 
                 tableRows += `
                     <tr>
+                        <td style="padding:3px 3px 3px 0; font-size:0.83rem; width:1px; white-space:nowrap;">${icon}</td>
                         <td style="padding:3px 0; font-size:0.83rem;">
-                            ${icon} ${m.csvLabel || ''}${idStr}
+                            ${m.csvLabel || ''}${idStr}
                         </td>
                         <td style="padding:3px 4px; color:${initArrow}; font-weight:bold;"
                             id="arrow-${key}">→</td>
@@ -4267,8 +4269,15 @@
                     ✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation
                 </p>
                 <table style="width:100%; border-collapse:collapse;">
+                    <colgroup>
+                        <col>
+                        <col>
+                        <col style="width:1px">
+                        <col style="width:40%">
+                    </colgroup>
                     <thead>
                         <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
+                            <th></th>
                             <th style="padding:3px 0; text-align:left;">Dans le fichier</th>
                             <th></th>
                             <th style="padding:3px 4px; text-align:left;">Dans l'application</th>
