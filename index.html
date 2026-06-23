@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -500,6 +500,49 @@
                 transform: translateY(-7px);
             }
         }
+
+        /* ── BARRE NAVIGATION TEMPORELLE (page Historique) ─────────────────
+           Placée entre le titre et le graphe timeline.
+           Boutons désactivés : opacity 0.3 + pointer-events none.         */
+        .history-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 12px;
+            flex-wrap: nowrap;
+        }
+
+        .history-nav-btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: var(--text-color);
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.15s;
+            flex-shrink: 0;
+        }
+
+        .history-nav-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .history-nav select {
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 5px 4px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            /* reset largeur et marge hérités de la règle globale select */
+            width: auto;
+            margin-top: 0;
+        }
     </style>
 </head>
 
@@ -668,6 +711,16 @@
 
     <div id="page-timeline" class="page" style="padding-top: 10px;">
         <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
+
+        <!-- Barre de navigation temporelle — rendue par updateNavButtons() / populateHistoryDropdowns() -->
+        <div class="history-nav" id="history-nav">
+            <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
+            <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
+            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
+            <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
+            <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
+            <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
+        </div>
 
         <div class="chart-container"
             style="position: relative; height: 48vh; width: 100%; margin-bottom: 10px; flex-shrink: 0;">
@@ -1170,6 +1223,14 @@
             || { activeType: null, startTime: null, history: [] };
 
         if (!state.sentAlerts) state.sentAlerts = []; // sécurité
+
+        // Ancre temporelle — dernier jour affiché dans la vue Historique.
+        // La fenêtre affichée est toujours : historyEndDate - 6j → historyEndDate.
+        // Initialisé à aujourd'hui (minuit local, sans heure).
+        {
+            const _n = new Date();
+            window.historyEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+        }
 
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
@@ -3475,15 +3536,26 @@
                     all.push({ typeId: state.activeType, start: state.startTime, inProgress: true });
                 }
 
-                // Mise à jour du titre avec le compteur de périodes
                 const titleElement = document.getElementById('title-history');
+
+                // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
+                // state.history n'est pas modifié — originalIndex reste valide
+                const _ed = window.historyEndDate;
+                const windowEnd   = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() + 1).getTime();
+                const windowStart = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6).getTime();
+                const displayed = all.filter(e =>
+                    e.inProgress ||
+                    (e.start >= windowStart && e.start < windowEnd && e.end > e.start)
+                );
+
+                // Titre : nombre de périodes dans la fenêtre
                 if (titleElement) {
                     let baseText = t.history || "Périodes enregistrées";
-                    titleElement.innerText = `${baseText} (${all.length})`;
+                    titleElement.innerText = `${baseText} (${displayed.length})`;
                 }
 
                 // On parcourt les données à l'envers (les plus récentes en premier)
-                all.reverse().forEach(e => {
+                displayed.reverse().forEach(e => {
                     const div = document.createElement('div');
                     div.className = "history-item";
 
@@ -3523,6 +3595,7 @@
 
                     container.appendChild(div);
                 });
+
             } catch (err) {
                 console.error("Erreur bloquée dans renderHistory :", err);
             }
@@ -3550,6 +3623,10 @@
                 renderTimelineChart();
                 //  renderResults();
                 if (typeof updateUI === "function") updateUI(); // Pour stopper l'interface du chrono si nécessaire
+                if (document.getElementById('page-timeline').classList.contains('active')) {
+                    populateHistoryDropdowns();
+                    updateNavButtons();
+                }
             }
         }
 
@@ -3789,6 +3866,8 @@
             // Rafraîchit l'historique seulement si la page timeline est déjà visible
             // (évite un appel inutile à Chart.js si on est sur une autre page)
             if (document.getElementById('page-timeline').classList.contains('active')) {
+                populateHistoryDropdowns();
+                updateNavButtons();
                 renderTimelineChart();
                 renderHistory();
             }
@@ -4429,7 +4508,9 @@
         function renderTimelineChart() {
             console.log("[renderTimelineChart] Rendu du graphique timeline");
             const ctx = document.getElementById('timelineChart').getContext('2d');
-            const now = new Date();
+            // endDate = dernier jour de la fenêtre affichée (piloté par historyEndDate).
+            // now (timestamp) reste utilisé uniquement pour la période en cours (Date.now()).
+            const endDate = window.historyEndDate;
             const labels = [];
             const daysStart = [];
 
@@ -4437,9 +4518,9 @@
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
 
-            // Création des 7 derniers jours avec format sur 2 lignes
+            // Création des 7 jours de la fenêtre : endDate - 6j → endDate
             for (let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                let d = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - i);
                 const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
                 const dayNum = d.getDate().toString().padStart(2, '0');
 
@@ -4468,7 +4549,7 @@
                     let dayS = daysStart[i];
                     // Calcul du vrai minuit du jour suivant en heure locale
                     // (évite le bug du changement d'heure : un jour peut durer 23h ou 25h)
-                    let dayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+                    let dayDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (6 - i));
                     let nextDay = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate() + 1);
                     let dayE = nextDay.getTime();
 
@@ -4593,6 +4674,134 @@
         }
 
         // ============================================================
+        // 21b. NAVIGATION TEMPORELLE — page Historique
+        // window.historyEndDate : dernier jour de la fenêtre de 7 jours affichée.
+        // Fenêtre = historyEndDate - 6j → historyEndDate (inclus).
+        // ============================================================
+
+        // Avance ou recule de `days` jours, avec clamp haut (aujourd'hui) et bas (1er jour historique).
+        function navigateHistory(days) {
+            const ed = window.historyEndDate;
+            const candidate = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + days);
+
+            // Clamp haut : ne dépasse pas aujourd'hui
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            if (candidate > todayMidnight) { window.historyEndDate = todayMidnight; }
+            // Clamp bas : ne descend pas sous historyStartDate (premier jour avec données)
+            else {
+                const minDate = _getHistoryStartDate();
+                if (minDate && candidate < minDate) { window.historyEndDate = minDate; }
+                else { window.historyEndDate = candidate; }
+            }
+
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+        }
+
+        // Remet historyEndDate à aujourd'hui.
+        function goToToday() {
+            const n = new Date();
+            window.historyEndDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+        }
+
+        // Retourne la date (minuit local) du premier jour ayant des données,
+        // ou null si l'historique est vide.
+        function _getHistoryStartDate() {
+            if (!state.history.length) return null;
+            // state.history est trié chronologiquement
+            const first = state.history[0].start;
+            const d = new Date(first);
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+
+        // Active/désactive les boutons de navigation selon la position courante.
+        function updateNavButtons() {
+            // Guard : les boutons n'existent que sur la page Historique
+            if (!document.getElementById('nav-back7')) return;
+
+            const ed = window.historyEndDate;
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const minDate = _getHistoryStartDate();
+
+            // Calcule le premier jour de la fenêtre affichée
+            const windowStart = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - 6);
+
+            // Boutons "en arrière" désactivés si on est déjà au bout de l'historique ou vide
+            const atStart = !minDate || windowStart <= minDate;
+            document.getElementById('nav-back7').disabled = atStart;
+            document.getElementById('nav-back1').disabled = atStart;
+
+            // Boutons "en avant" et "aujourd'hui" désactivés si historyEndDate = aujourd'hui
+            const atEnd = ed >= todayMidnight;
+            document.getElementById('nav-fwd1').disabled  = atEnd;
+            document.getElementById('nav-fwd7').disabled  = atEnd;
+            document.getElementById('nav-today').disabled = atEnd;
+        }
+
+        // Saute au premier jour avec données dans le mois sélectionné.
+        // value = "YYYY-MM" (format des options du select nav-month).
+        function jumpToMonth(value) {
+            if (!value) return;
+            const [y, m] = value.split('-').map(Number);
+            // Trouver le premier jour du mois ayant des données
+            const firstInMonth = state.history.find(e => {
+                const d = new Date(e.start);
+                return d.getFullYear() === y && d.getMonth() === m - 1;
+            });
+            if (!firstInMonth) return;
+            const d = new Date(firstInMonth.start);
+            const firstDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            // Le premier jour avec données est la colonne gauche du graphe → endDate = firstDay + 6j
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const candidate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + 6);
+            window.historyEndDate = candidate > todayMidnight ? todayMidnight : candidate;
+
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+        }
+
+        // Peuple le select nav-month avec les mois ayant des données (format "Janvier 2026").
+        // Un seul select — l'année est incluse dans le libellé pour éviter toute ambiguïté.
+        // Appelée à l'ouverture de la page Historique et après tout changement de données.
+        function populateHistoryDropdowns() {
+            const monthSel = document.getElementById('nav-month');
+            if (!monthSel) return;
+
+            // Historique vide : select vide + option neutre, pas de crash
+            if (!state.history.length) {
+                monthSel.innerHTML = '<option value="">—</option>';
+                return;
+            }
+
+            const monthsSet = new Set();
+            state.history.forEach(e => {
+                const d = new Date(e.start);
+                const y = d.getFullYear();
+                const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                monthsSet.add(`${y}-${m}`);
+            });
+
+            const months = [...monthsSet].sort();
+            const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+
+            monthSel.innerHTML = months.map(ym => {
+                const [y, m] = ym.split('-');
+                return `<option value="${ym}">${MONTH_NAMES[parseInt(m) - 1]} ${y}</option>`;
+            }).join('');
+
+            // Sélectionner l'option correspondant à historyEndDate courante
+            const ed = window.historyEndDate;
+            const curYM = `${ed.getFullYear()}-${(ed.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
+        }
+
+        // ============================================================
         // 22. NAVIGATION ENTRE PAGES
         // ============================================================
         function showPage(p) {
@@ -4612,6 +4821,8 @@
             document.getElementById(`nav-${p}`).classList.add('active');
 
             if (p === 'timeline') {
+                populateHistoryDropdowns();
+                updateNavButtons();
                 renderTimelineChart();
                 renderHistory();
             }
