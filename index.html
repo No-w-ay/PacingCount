@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -716,7 +716,7 @@
         <div class="history-nav" id="history-nav">
             <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
             <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
-            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
+            <select id="nav-month" onclick="if(this.value===this.dataset.last)jumpToMonth(this.value); this.dataset.last=this.value;" onchange="jumpToMonth(this.value); this.dataset.last=this.value;"></select>
             <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
             <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
             <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
@@ -3532,27 +3532,30 @@
 
                 // On rassemble toutes les données (historique + période en cours éventuelle)
                 let all = [...state.history];
-                if (state.activeType) {
+
+                // La période en cours n'est incluse que si la fenêtre affiche aujourd'hui
+                const _ed = window.historyEndDate;
+                const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+                const isShowingToday = _ed >= todayMidnight;
+                if (state.activeType && isShowingToday) {
                     all.push({ typeId: state.activeType, start: state.startTime, inProgress: true });
                 }
 
+                // Titre : total absolu (avant filtre), compteur grisé
                 const titleElement = document.getElementById('title-history');
+                if (titleElement) {
+                    const baseText = t.history || "Périodes enregistrées";
+                    titleElement.innerHTML = `${baseText} <span style="opacity:0.55; font-weight:normal;">(${all.length})</span>`;
+                }
 
                 // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
                 // state.history n'est pas modifié — originalIndex reste valide
-                const _ed = window.historyEndDate;
                 const windowEnd   = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() + 1).getTime();
                 const windowStart = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6).getTime();
                 const displayed = all.filter(e =>
                     e.inProgress ||
                     (e.start >= windowStart && e.start < windowEnd && e.end > e.start)
                 );
-
-                // Titre : nombre de périodes dans la fenêtre
-                if (titleElement) {
-                    let baseText = t.history || "Périodes enregistrées";
-                    titleElement.innerText = `${baseText} (${displayed.length})`;
-                }
 
                 // On parcourt les données à l'envers (les plus récentes en premier)
                 displayed.reverse().forEach(e => {
@@ -4773,13 +4776,18 @@
             const monthSel = document.getElementById('nav-month');
             if (!monthSel) return;
 
-            // Historique vide : select vide + option neutre, pas de crash
-            if (!state.history.length) {
-                monthSel.innerHTML = '<option value="">—</option>';
-                return;
-            }
-
+            const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
             const monthsSet = new Set();
+
+            // Toujours inclure le mois du 1er jour de la fenêtre affichée
+            // (même sans données : premier lancement, données supprimées, etc.)
+            const _ed = window.historyEndDate;
+            const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+            const fY = firstDay.getFullYear();
+            const fM = (firstDay.getMonth() + 1).toString().padStart(2, '0');
+            monthsSet.add(`${fY}-${fM}`);
+
+            // Ajouter les mois ayant des données dans l'historique
             state.history.forEach(e => {
                 const d = new Date(e.start);
                 const y = d.getFullYear();
@@ -4788,16 +4796,13 @@
             });
 
             const months = [...monthsSet].sort();
-            const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-
             monthSel.innerHTML = months.map(ym => {
                 const [y, m] = ym.split('-');
                 return `<option value="${ym}">${MONTH_NAMES[parseInt(m) - 1]} ${y}</option>`;
             }).join('');
 
             // Sélectionner l'option correspondant à historyEndDate courante
-            const ed = window.historyEndDate;
-            const curYM = `${ed.getFullYear()}-${(ed.getMonth() + 1).toString().padStart(2, '0')}`;
+            const curYM = `${_ed.getFullYear()}-${(_ed.getMonth() + 1).toString().padStart(2, '0')}`;
             if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
         }
 
@@ -5139,9 +5144,10 @@
             const observer = new MutationObserver(() => {
                 sleepTimer.innerText = mainTimer.innerText;
                 sleepTimer.className = mainTimer.className;
+                sleepTimer.style.color = mainTimer.style.color;
             });
 
-            observer.observe(mainTimer, { attributes: true, childList: true, characterData: true });
+            observer.observe(mainTimer, { attributes: true, childList: true, characterData: true, subtree: true });
         }
 
         // ============================================================
