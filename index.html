@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -310,7 +310,7 @@
         }
 
         .profile-custom-label {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             opacity: 0.65;
             align-self: center;
         }
@@ -515,7 +515,7 @@
             color: var(--text-color);
             border-radius: 6px;
             padding: 5px 9px;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             cursor: pointer;
             white-space: nowrap;
             transition: opacity 0.15s;
@@ -533,7 +533,7 @@
             border: 1px solid #555;
             border-radius: 6px;
             padding: 5px 4px;
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             cursor: pointer;
             /* reset largeur et marge hérités de la règle globale select */
             width: auto;
@@ -708,19 +708,21 @@
     <div id="page-timeline" class="page" style="padding-top: 10px;">
         <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
 
+        <div class="chart-container"
+            style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
+            <canvas id="timelineChart"></canvas>
+        </div>
+
         <!-- Barre de navigation temporelle — rendue par updateNavButtons() / populateHistoryDropdowns() -->
-        <div class="history-nav" id="history-nav">
+        <!-- Placée sous le graphe, au-dessus de la légende (insérée dynamiquement après cette div) -->
+        <div class="history-nav" id="history-nav" style="margin-top: 8px; margin-bottom: 4px;">
+            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
             <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
             <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
             <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
             <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
             <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
             <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
-        </div>
-
-        <div class="chart-container"
-            style="position: relative; height: 48vh; width: 100%; margin-bottom: 10px; flex-shrink: 0;">
-            <canvas id="timelineChart"></canvas>
         </div>
 
         <div class="history-card"
@@ -3306,7 +3308,7 @@
 
             // Légende — types ayant des données dans l'historique
             const tLegend = translations[settings.lang] || translations['fr'];
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 8px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -3497,7 +3499,7 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 8px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -4652,13 +4654,15 @@
         // Génère la légende colorée sous le graphique timeline.
         // typesWithData : résultat de getTypesWithHistoryData() — types avec données dans l'historique.
         function renderTimelineLegend(textColor, typesWithData) {
-            const chartContainer = document.querySelector('#page-timeline .chart-container');
             let existingLegend = document.getElementById('timeline-custom-legend');
             if (existingLegend) existingLegend.remove();
 
             const legend = document.createElement('div');
             legend.id = 'timeline-custom-legend';
-            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+
+            // Respecte l'état courant du toggle légende
+            if (!window.showTimelineLegend) legend.style.display = 'none';
 
             // Types ayant des données dans l'historique — actifs ou inactifs
             typesWithData.forEach(tp => {
@@ -4669,7 +4673,23 @@
                 <span>${label}</span>
             </div>`;
             });
-            chartContainer.after(legend);
+
+            // Insère après history-nav (sous la barre de navigation)
+            const historyNav = document.getElementById('history-nav');
+            if (historyNav) historyNav.after(legend);
+        }
+
+        // État du toggle légende timeline — persisté pour la session (pas de reset au changement d'onglet)
+        if (typeof window.showTimelineLegend === 'undefined') window.showTimelineLegend = true;
+
+        function toggleTimelineLegend() {
+            window.showTimelineLegend = !window.showTimelineLegend;
+            // Met à jour l'opacité du bouton L pour refléter l'état
+            const btn = document.getElementById('nav-legend');
+            if (btn) btn.style.opacity = window.showTimelineLegend ? '1' : '0.35';
+            // Affiche ou masque la légende sans redessiner le graphe
+            const legend = document.getElementById('timeline-custom-legend');
+            if (legend) legend.style.display = window.showTimelineLegend ? '' : 'none';
         }
 
         // ============================================================
@@ -4696,6 +4716,7 @@
             renderTimelineChart();
             renderHistory();
             updateNavButtons();
+            populateHistoryDropdowns();
         }
 
         // Remet historyEndDate à aujourd'hui.
@@ -4705,6 +4726,7 @@
             renderTimelineChart();
             renderHistory();
             updateNavButtons();
+            populateHistoryDropdowns();
         }
 
         // Retourne la date (minuit local) du premier jour ayant des données,
@@ -4826,6 +4848,9 @@
             if (p === 'timeline') {
                 populateHistoryDropdowns();
                 updateNavButtons();
+                // Synchronise l'opacité du bouton L avec l'état mémorisé du toggle
+                const btnL = document.getElementById('nav-legend');
+                if (btnL) btnL.style.opacity = window.showTimelineLegend ? '1' : '0.35';
                 renderTimelineChart();
                 renderHistory();
             }
