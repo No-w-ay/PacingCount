@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -176,10 +176,6 @@
 
         .measure-btn:active {
             transform: scale(0.98);
-        }
-
-        .measure-btn:hover {
-            filter: brightness(1.15);
         }
 
         /* btn-blue / btn-green / btn-orange supprimées — remplacées par --btn-color (Passe refactoring) */
@@ -716,7 +712,7 @@
         <div class="history-nav" id="history-nav">
             <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
             <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
-            <select id="nav-month" onclick="if(this.value===this.dataset.last)jumpToMonth(this.value); this.dataset.last=this.value;" onchange="jumpToMonth(this.value); this.dataset.last=this.value;"></select>
+            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
             <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
             <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
             <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
@@ -1366,7 +1362,7 @@
         // Retourne le label d'un type par son id (y compris types inactifs/fantômes)
         function getLabelForId(typeId) {
             const t = settings.types.find(t => t.id === typeId);
-            return t ? t.label : `Type ${typeId}`;
+            return t ? t.label : `Type #${typeId}`;
         }
 
         // Retourne les types (actifs ou inactifs) ayant des données dans l'historique
@@ -3282,7 +3278,7 @@
                     // Passe C : lookup par typeId — correct même si les typeIds sont non-séquentiels
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
-                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
+                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
                     const h = Math.floor(mins / 60);
                     const m = Math.round(mins % 60);
                     const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
@@ -3474,7 +3470,7 @@
                                     // Passe C : lookup par typeId
                                     const typeId = parseInt(type);
                                     const color = colorMap[typeId] || getColorValueForId(typeId);
-                                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
+                                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
                                     const h = Math.floor(avgMins / 60);
                                     const m = Math.round(avgMins % 60);
                                     const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
@@ -3968,7 +3964,7 @@
 
             let finalMsg = "";
 
-            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type ${typeId}`;
+            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type #${typeId}`;
             if (isEndInFuture) {
                 finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n\n";
                 finalMsg += `${typeLabel}\n`;
@@ -4801,8 +4797,10 @@
                 return `<option value="${ym}">${MONTH_NAMES[parseInt(m) - 1]} ${y}</option>`;
             }).join('');
 
-            // Sélectionner l'option correspondant à historyEndDate courante
-            const curYM = `${_ed.getFullYear()}-${(_ed.getMonth() + 1).toString().padStart(2, '0')}`;
+            // Sélectionner l'option du mois du premier jour visible (historyEndDate - 6j).
+            // Pas historyEndDate lui-même — le select doit refléter ce que le graphe montre à gauche.
+            const firstVisible = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+            const curYM = `${firstVisible.getFullYear()}-${(firstVisible.getMonth() + 1).toString().padStart(2, '0')}`;
             if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
         }
 
