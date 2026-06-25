@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -115,6 +115,12 @@
             opacity: 1;
             font-weight: bold;
             color: var(--blue);
+        }
+
+        /* Override pour page-timeline : scroll interne + footer fixe en bas */
+        #page-timeline {
+            padding-bottom: 0;
+            overflow: hidden;
         }
 
         /* ── MODE DÉVELOPPEUR ──────────────────────────────────────────
@@ -725,54 +731,63 @@
     </div>
 
 
-    <div id="page-timeline" class="page" style="padding-top: 10px;">
-        <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
+    <div id="page-timeline" class="page" style="padding-top: 10px; padding-bottom: 0; overflow: hidden;">
 
-        <div class="chart-container"
-            style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
-            <canvas id="timelineChart"></canvas>
+        <!-- Zone scrollable : graphe + nav + légende + liste -->
+        <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto; padding-bottom: 8px;">
+
+            <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
+
+            <div class="chart-container"
+                style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
+                <canvas id="timelineChart"></canvas>
+            </div>
+
+            <!-- Barre de navigation temporelle sticky — rendue par updateNavButtons() / populateHistoryDropdowns() -->
+            <!-- La légende est insérée dynamiquement après cette div par renderTimelineLegend() -->
+            <div class="history-nav" id="history-nav" style="margin-top: 8px; margin-bottom: 4px;">
+                <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
+                <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
+                <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
+                <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
+                <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
+                <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
+                <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
+            </div>
+
+            <!-- Liste des périodes — sans cadre history-card -->
+            <div id="history-list" style="margin-top: 12px;"></div>
+
         </div>
 
-        <!-- Barre de navigation temporelle — rendue par updateNavButtons() / populateHistoryDropdowns() -->
-        <!-- Placée sous le graphe, au-dessus de la légende (insérée dynamiquement après cette div) -->
-        <div class="history-nav" id="history-nav" style="margin-top: 8px; margin-bottom: 4px;">
-            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
-            <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
-            <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
-            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
-            <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
-            <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
-            <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
-        </div>
+        <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
+        <div id="timeline-footer" style="flex-shrink: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 10px 15px;">
 
-        <div class="history-card"
-            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
+            <!-- Ligne 1 : plage de dates affichée -->
+            <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; text-align: center;"></div>
 
-            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
-                Périodes enregistrées
-            </h3>
+            <!-- Ligne 2 : bouton Ajouter -->
+            <button class="add-btn" onclick="openAddModal()"
+                style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
+                + Ajouter une période
+            </button>
 
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-                <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                        style="flex: 1; padding: 10px; margin: 0;"> Exporter CSV
-                    </button>
-
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 10px; margin: 0;" id="btn-import">
-                        Importer CSV
-                    </button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                        style="display:none;" onchange="importCSV(event)">
-                </div>
-
-                <button class="add-btn" onclick="openAddModal()"
-                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin: 0;">
-                    + Ajouter une période
+            <!-- Ligne 3 : boutons Import / Export -->
+            <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
+                    Importer CSV
+                </button>
+                <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                    style="display:none;" onchange="importCSV(event)">
+                <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                    style="flex: 1; padding: 8px; margin: 0;">
+                    Exporter CSV
                 </button>
             </div>
 
-            <div class="history-container" id="history-list" style="margin-top: 0;"></div>
+            <!-- Ligne 4 : total absolu -->
+            <div id="timeline-footer-total" style="font-size: 0.82rem; opacity: 0.55; text-align: center;"></div>
 
         </div>
     </div>
@@ -3559,11 +3574,24 @@
                     all.push({ typeId: state.activeType, start: state.startTime, inProgress: true });
                 }
 
-                // Titre : total absolu (avant filtre), compteur grisé
-                const titleElement = document.getElementById('title-history');
-                if (titleElement) {
-                    const baseText = t.history || "Périodes enregistrées";
-                    titleElement.innerHTML = `${baseText} <span style="opacity:0.55; font-weight:normal;">(${all.length})</span>`;
+                // Mise à jour du footer : plage de dates (ligne 1) + total (ligne 4)
+                const MONTH_SHORT = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
+                const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+                const lastDay  = _ed;
+                const fD = firstDay.getDate();
+                const fM = MONTH_SHORT[firstDay.getMonth()];
+                const lD = lastDay.getDate();
+                const lM = MONTH_SHORT[lastDay.getMonth()];
+                const rangeStr = firstDay.getMonth() === lastDay.getMonth()
+                    ? `Vue du ${fD} au ${lD} ${lM}`
+                    : `Vue du ${fD} ${fM} au ${lD} ${lM}`;
+                const rangeEl = document.getElementById('timeline-footer-range');
+                if (rangeEl) rangeEl.innerText = rangeStr;
+
+                const totalEl = document.getElementById('timeline-footer-total');
+                if (totalEl) {
+                    const totalCount = state.history.length + (state.activeType ? 1 : 0);
+                    totalEl.innerText = `Total : ${totalCount} période${totalCount > 1 ? 's' : ''} enregistrée${totalCount > 1 ? 's' : ''}`;
                 }
 
                 // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
