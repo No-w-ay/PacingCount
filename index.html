@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -507,6 +507,11 @@
             gap: 4px;
             margin-bottom: 12px;
             flex-wrap: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: var(--bg-color);
+            padding: 4px 0;
         }
 
         .history-nav-btn {
@@ -3323,7 +3328,7 @@
 
             // Légende — types ayant des données dans l'historique
             const tLegend = translations[settings.lang] || translations['fr'];
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 2px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -3514,7 +3519,7 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 2px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -4674,7 +4679,7 @@
 
             const legend = document.createElement('div');
             legend.id = 'timeline-custom-legend';
-            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 2px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; row-gap: 2px; column-gap: 10px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
 
             // Respecte l'état courant du toggle légende
             if (!window.showTimelineLegend) legend.style.display = 'none';
