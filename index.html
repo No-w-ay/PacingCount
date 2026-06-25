@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -520,10 +520,25 @@
             white-space: nowrap;
             transition: opacity 0.15s;
             flex-shrink: 0;
+            position: relative;  /* nécessaire pour le pseudo-élément ::after */
+            overflow: hidden;    /* la barre oblique s'arrête aux bords du bouton */
         }
 
         .history-nav-btn:disabled {
             opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Barre oblique sur le bouton L quand la légende est masquée */
+        .history-nav-btn.nav-legend-off::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -25%;
+            width: 150%;
+            height: 2px;
+            background: #888;
+            transform: translateY(-50%) rotate(-45deg);
             pointer-events: none;
         }
 
@@ -3308,7 +3323,7 @@
 
             // Légende — types ayant des données dans l'historique
             const tLegend = translations[settings.lang] || translations['fr'];
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 8px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 2px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -3499,7 +3514,7 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 8px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 2px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -4659,7 +4674,7 @@
 
             const legend = document.createElement('div');
             legend.id = 'timeline-custom-legend';
-            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 2px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
 
             // Respecte l'état courant du toggle légende
             if (!window.showTimelineLegend) legend.style.display = 'none';
@@ -4684,9 +4699,9 @@
 
         function toggleTimelineLegend() {
             window.showTimelineLegend = !window.showTimelineLegend;
-            // Met à jour l'opacité du bouton L pour refléter l'état
+            // Barre oblique via classe CSS — pas d'opacity, le bouton reste identique visuellement
             const btn = document.getElementById('nav-legend');
-            if (btn) btn.style.opacity = window.showTimelineLegend ? '1' : '0.35';
+            if (btn) btn.classList.toggle('nav-legend-off', !window.showTimelineLegend);
             // Affiche ou masque la légende sans redessiner le graphe
             const legend = document.getElementById('timeline-custom-legend');
             if (legend) legend.style.display = window.showTimelineLegend ? 'flex' : 'none';
@@ -4848,9 +4863,9 @@
             if (p === 'timeline') {
                 populateHistoryDropdowns();
                 updateNavButtons();
-                // Synchronise l'opacité du bouton L avec l'état mémorisé du toggle
+                // Synchronise l'état du bouton L avec l'état mémorisé du toggle
                 const btnL = document.getElementById('nav-legend');
-                if (btnL) btnL.style.opacity = window.showTimelineLegend ? '1' : '0.35';
+                if (btnL) btnL.classList.toggle('nav-legend-off', !window.showTimelineLegend);
                 renderTimelineChart();
                 renderHistory();
             }
