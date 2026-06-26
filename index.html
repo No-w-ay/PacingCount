@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -730,6 +730,8 @@
         <!-- Zone scrollable : graphe + légende + liste -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto; padding-bottom: 8px;">
 
+            <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique</div>
+
             <div class="chart-container"
                 style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
                 <canvas id="timelineChart"></canvas>
@@ -743,7 +745,12 @@
         </div>
 
         <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
-        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 10px 15px;">
+        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 10px 15px; overflow: hidden; transition: max-height 0.3s ease;">
+
+            <!-- Encoche — indique que le footer est un drawer -->
+            <div id="footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
+                <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+            </div>
 
             <!-- Ligne 1 : plage de dates affichée -->
             <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center;"></div>
@@ -4729,6 +4736,71 @@
         // État du toggle légende timeline — persisté pour la session (pas de reset au changement d'onglet)
         if (typeof window.showTimelineLegend === 'undefined') window.showTimelineLegend = true;
 
+        // ── DRAWER FOOTER (page Historique) ────────────────────────────────
+        // État mémorisé pour la session. Défaut : sorti (true).
+        if (typeof window.footerExpanded === 'undefined') window.footerExpanded = true;
+
+        // Mesure la hauteur de l'état rentré au runtime (après rendu DOM).
+        // Cible : bas du bouton Ajouter + petite marge visuelle.
+        function measureFooterCollapsed() {
+            const footer = document.getElementById('timeline-footer');
+            const addBtn = footer ? footer.querySelector('.add-btn') : null;
+            if (!footer || !addBtn) return;
+            const collapsed = addBtn.offsetTop + addBtn.offsetHeight + 10;
+            footer.style.setProperty('--footer-collapsed', collapsed + 'px');
+        }
+
+        function applyFooterState(animate) {
+            const footer = document.getElementById('timeline-footer');
+            if (!footer) return;
+            if (!animate) footer.style.transition = 'none';
+            if (window.footerExpanded) {
+                footer.style.maxHeight = '600px'; // valeur généreuse — contenu toujours plus petit
+            } else {
+                const collapsed = footer.style.getPropertyValue('--footer-collapsed') || '130px';
+                footer.style.maxHeight = collapsed;
+            }
+            if (!animate) {
+                // Force reflow puis réactive la transition
+                footer.offsetHeight;
+                footer.style.transition = '';
+            }
+        }
+
+        function toggleFooterDrawer() {
+            window.footerExpanded = !window.footerExpanded;
+            applyFooterState(true);
+        }
+
+        // Initialisation du drawer : mesure + état + interactions
+        function initFooterDrawer() {
+            const footer = document.getElementById('timeline-footer');
+            if (!footer) return;
+
+            // Mesure après rendu
+            measureFooterCollapsed();
+            applyFooterState(false);
+
+            // Clic sur l'encoche ou la ligne 1 (hors boutons) → toggle
+            const handle = document.getElementById('footer-handle');
+            if (handle) handle.addEventListener('click', toggleFooterDrawer);
+            const range = document.getElementById('timeline-footer-range');
+            if (range) range.addEventListener('click', toggleFooterDrawer);
+
+            // Swipe vertical sur le footer
+            let swipeStartY = 0;
+            footer.addEventListener('touchstart', e => {
+                swipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+            footer.addEventListener('touchend', e => {
+                const diff = e.changedTouches[0].clientY - swipeStartY;
+                if (Math.abs(diff) > 30) {
+                    if (diff > 0 && window.footerExpanded)  toggleFooterDrawer(); // swipe bas → rentrer
+                    if (diff < 0 && !window.footerExpanded) toggleFooterDrawer(); // swipe haut → sortir
+                }
+            }, { passive: true });
+        }
+
         function toggleTimelineLegend() {
             window.showTimelineLegend = !window.showTimelineLegend;
             // Barre oblique via classe CSS — pas d'opacity, le bouton reste identique visuellement
@@ -4900,6 +4972,13 @@
                 if (btnL) btnL.classList.toggle('nav-legend-off', !window.showTimelineLegend);
                 renderTimelineChart();
                 renderHistory();
+                // Init drawer au premier passage, réapplique l'état aux suivants
+                if (!window._footerDrawerInited) {
+                    initFooterDrawer();
+                    window._footerDrawerInited = true;
+                } else {
+                    applyFooterState(false);
+                }
             }
             if (p === 'results') {
                 renderDailyCharts();
