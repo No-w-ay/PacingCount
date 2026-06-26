@@ -10,7 +10,7 @@ const ASSETS_TO_CACHE = [
   './icon-512.png'  // Ajout indispensable
 ];
 
-//Petite fonction pour envoyer des Log du SW à index.html 
+//Petite fonction pour envoyer des Log du SW à index.html
 function sendLogToPage(message) {
   self.clients.matchAll().then(clients => {
     clients.forEach(client => {
