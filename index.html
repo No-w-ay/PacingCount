@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -77,8 +77,6 @@
             --melange2: hsl(164, 61%, 48%);
             /* Fallback de mélange si nav ne comprends pas color-mix */
 
-            --nav-height: 52px; /* sync avec min-height de nav — utilisé par #timeline-footer */
-
         }
 
         body {
@@ -97,13 +95,11 @@
             justify-content: space-around;
             background: var(--card-bg);
             padding: 15px 0;
-            padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
             border-top: 1px solid var(--border);
             position: fixed;
             bottom: 0;
             width: 100%;
             z-index: 10;
-            min-height: var(--nav-height); /* hauteur garantie quelle que soit la police système */
         }
 
         nav button {
@@ -765,7 +761,7 @@
         </div>
 
         <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
-        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); padding: 10px 15px; margin-bottom: var(--nav-height, 52px);">
+        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); padding: 10px 15px;">
 
             <!-- Ligne 1 : plage de dates affichée -->
             <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; text-align: center;"></div>
@@ -791,7 +787,14 @@
             </div>
 
             <!-- Ligne 4 : total absolu — même style que la légende -->
-            <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center;"></div>
+            <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;"></div>
+
+            <!-- Spacer : copie invisible de la vraie barre nav — garantit que le footer
+                 se positionne exactement au-dessus d'elle, quelle que soit la plateforme.
+                 aria-hidden et visibility:hidden : ni visible ni accessible. -->
+            <nav aria-hidden="true" style="visibility: hidden; position: static; border-top: none; padding: 15px 0;">
+                <button>_</button>
+            </nav>
 
         </div>
     </div>
