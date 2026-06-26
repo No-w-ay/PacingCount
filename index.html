@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -511,13 +511,7 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
-            margin-bottom: 12px;
             flex-wrap: nowrap;
-            position: sticky;
-            top: 0;
-            z-index: 5;
-            background: var(--bg-color);
-            padding: 4px 0;
         }
 
         .history-nav-btn {
@@ -731,48 +725,48 @@
     </div>
 
 
-    <div id="page-timeline" class="page" style="padding-top: 10px; padding-bottom: 0; overflow: hidden;">
+    <div id="page-timeline" class="page" style="padding-top: 0; padding-bottom: 0; overflow: hidden;">
 
-        <!-- Zone scrollable : graphe + nav + légende + liste -->
+        <!-- Zone scrollable : graphe + légende + liste -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto; padding-bottom: 8px;">
-
-            <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
 
             <div class="chart-container"
                 style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
                 <canvas id="timelineChart"></canvas>
             </div>
 
-            <!-- Barre de navigation temporelle sticky — rendue par updateNavButtons() / populateHistoryDropdowns() -->
-            <!-- La légende est insérée dynamiquement après cette div par renderTimelineLegend() -->
-            <div class="history-nav" id="history-nav" style="margin-top: 8px; margin-bottom: 4px;">
+            <!-- La légende est insérée dynamiquement ici par renderTimelineLegend() (après chart-container) -->
+
+            <!-- Liste des périodes -->
+            <div id="history-list" style="margin-top: 12px;"></div>
+
+        </div>
+
+        <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
+        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 10px 15px;">
+
+            <!-- Ligne 1 : plage de dates affichée -->
+            <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center;"></div>
+
+            <!-- Ligne 2 : barre de navigation temporelle -->
+            <!-- La légende est dans la zone scroll (après le graphe), history-nav est ici dans le footer -->
+            <div class="history-nav" id="history-nav" style="margin-bottom: 6px;">
                 <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
                 <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
                 <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
                 <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
                 <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
                 <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
-                <button class="history-nav-btn" id="nav-today" onclick="goToToday()">↓</button>
+                <button class="history-nav-btn" id="nav-today" onclick="goToToday()">⬆</button>
             </div>
 
-            <!-- Liste des périodes — sans cadre history-card -->
-            <div id="history-list" style="margin-top: 12px;"></div>
-
-        </div>
-
-        <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
-        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); padding: 10px 15px;">
-
-            <!-- Ligne 1 : plage de dates affichée -->
-            <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; text-align: center;"></div>
-
-            <!-- Ligne 2 : bouton Ajouter -->
+            <!-- Ligne 3 : bouton Ajouter -->
             <button class="add-btn" onclick="openAddModal()"
                 style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
                 + Ajouter une période
             </button>
 
-            <!-- Ligne 3 : boutons Export / Import (export en premier) -->
+            <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
                 <button class="export-btn" onclick="exportCSV()" id="btn-export"
                     style="flex: 1; padding: 8px; margin: 0;">
@@ -786,12 +780,11 @@
                     style="display:none;" onchange="importCSV(event)">
             </div>
 
-            <!-- Ligne 4 : total absolu — même style que la légende -->
+            <!-- Ligne 5 : total absolu — même style que la légende -->
             <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;"></div>
 
             <!-- Spacer : copie invisible de la vraie barre nav — garantit que le footer
-                 se positionne exactement au-dessus d'elle, quelle que soit la plateforme.
-                 aria-hidden et visibility:hidden : ni visible ni accessible. -->
+                 se positionne exactement au-dessus d'elle, quelle que soit la plateforme. -->
             <nav aria-hidden="true" style="visibility: hidden; position: static; border-top: none; padding: 15px 0;">
                 <button>_</button>
             </nav>
@@ -2939,7 +2932,6 @@
 
             const t = (translations && settings) ? (translations[settings.lang] || translations['fr']) : {};
             document.getElementById('nav-timeline').innerText = t.timeline;
-            document.getElementById('title-timeline').innerText = t.timeline;
             document.getElementById('nav-measure').innerText = t.measure;
             document.getElementById('nav-results').innerText = t.results;
             document.getElementById('nav-settings').innerText = t.settings;
@@ -4729,9 +4721,9 @@
             </div>`;
             });
 
-            // Insère après history-nav (sous la barre de navigation)
-            const historyNav = document.getElementById('history-nav');
-            if (historyNav) historyNav.after(legend);
+            // Insère après le chart-container (dans la zone scrollable, sous le graphe)
+            const chartContainer = document.querySelector('#timeline-scroll .chart-container');
+            if (chartContainer) chartContainer.after(legend);
         }
 
         // État du toggle légende timeline — persisté pour la session (pas de reset au changement d'onglet)
