@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -77,6 +77,8 @@
             --melange2: hsl(164, 61%, 48%);
             /* Fallback de mélange si nav ne comprends pas color-mix */
 
+            --nav-height: 52px; /* sync avec min-height de nav — utilisé par #timeline-footer */
+
         }
 
         body {
@@ -95,11 +97,13 @@
             justify-content: space-around;
             background: var(--card-bg);
             padding: 15px 0;
+            padding-bottom: calc(15px + env(safe-area-inset-bottom, 0px));
             border-top: 1px solid var(--border);
             position: fixed;
             bottom: 0;
             width: 100%;
             z-index: 10;
+            min-height: var(--nav-height); /* hauteur garantie quelle que soit la police système */
         }
 
         nav button {
@@ -761,7 +765,7 @@
         </div>
 
         <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
-        <div id="timeline-footer" style="flex-shrink: 0; background: var(--card-bg); border-top: 1px solid var(--border); padding: 10px 15px; margin-bottom: var(--nav-height, 62px);">
+        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); padding: 10px 15px; margin-bottom: var(--nav-height, 52px);">
 
             <!-- Ligne 1 : plage de dates affichée -->
             <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 8px; text-align: center;"></div>
@@ -772,22 +776,22 @@
                 + Ajouter une période
             </button>
 
-            <!-- Ligne 3 : boutons Import / Export -->
+            <!-- Ligne 3 : boutons Export / Import (export en premier) -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                    style="flex: 1; padding: 8px; margin: 0;">
+                    Exporter CSV
+                </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
                     style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
                     Importer CSV
                 </button>
                 <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
                     style="display:none;" onchange="importCSV(event)">
-                <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                    style="flex: 1; padding: 8px; margin: 0;">
-                    Exporter CSV
-                </button>
             </div>
 
-            <!-- Ligne 4 : total absolu -->
-            <div id="timeline-footer-total" style="font-size: 0.82rem; opacity: 0.55; text-align: center;"></div>
+            <!-- Ligne 4 : total absolu — même style que la légende -->
+            <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center;"></div>
 
         </div>
     </div>
