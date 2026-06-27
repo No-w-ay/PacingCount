@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -488,17 +488,20 @@
 
         /* Animation points de suspension pour la période en cours */
         @keyframes dotFade {
-            0%, 100% { opacity: 0; }
-            50%       { opacity: 1; }
+            0%   { opacity: 0; }   /* masqué  */
+            10%  { opacity: 1; }   /* apparaît (transition ~0.6s) */
+            50%  { opacity: 1; }   /* visible jusqu'à 3s */
+            60%  { opacity: 0; }   /* disparaît (transition ~0.6s) */
+            100% { opacity: 0; }   /* masqué jusqu'à 6s */
         }
         .dot-anim {
             display: inline-block;
             opacity: 0;
-            animation: dotFade 1.5s infinite;
+            animation: dotFade 6s infinite;
         }
-        .dot-anim:nth-child(1) { animation-delay: 0s;    }
-        .dot-anim:nth-child(2) { animation-delay: 0.5s;  }
-        .dot-anim:nth-child(3) { animation-delay: 1.0s;  }
+        .dot-anim:nth-child(1) { animation-delay: 0s; }
+        .dot-anim:nth-child(2) { animation-delay: 1s; }
+        .dot-anim:nth-child(3) { animation-delay: 2s; }
 
         @keyframes bounce {
 
@@ -4662,7 +4665,10 @@
             if (window.timelineChartInstance) {
                 window.timelineChartInstance.data.labels = labels;
                 window.timelineChartInstance.data.datasets = datasets;
-                window.timelineChartInstance.update();
+                // Pas d'animation pour un décalage d'1 jour (flag posé par navigateHistory)
+                const noAnim = window._timelineNoAnim === true;
+                window._timelineNoAnim = false;
+                window.timelineChartInstance.update(noAnim ? 'none' : undefined);
             } else {
                 window.timelineChartInstance = new Chart(ctx, {
                     type: 'bar',
@@ -4846,6 +4852,8 @@
                 else { window.historyEndDate = candidate; }
             }
 
+            // Pas d'animation Chart.js pour un décalage d'1 seul jour (‹1 ou 1›)
+            if (Math.abs(days) === 1) window._timelineNoAnim = true;
             renderTimelineChart();
             renderHistory();
             updateNavButtons();
