@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4762,8 +4762,8 @@
             const footer = document.getElementById('timeline-footer');
             if (!footer) return;
 
-            // Applique l'état après rendu via requestAnimationFrame
-            requestAnimationFrame(() => applyFooterState());
+            // Applique l'état après layout complet (setTimeout garantit la résolution du flex)
+            setTimeout(() => applyFooterState(), 0);
 
             // Clic sur encoche ou ligne 1 → toggle
             const handle = document.getElementById('footer-handle');
@@ -4961,7 +4961,7 @@
                     initFooterDrawer();
                     window._footerDrawerInited = true;
                 } else {
-                    requestAnimationFrame(() => applyFooterState());
+                    setTimeout(() => applyFooterState(), 0);
                 }
             }
             if (p === 'results') {
