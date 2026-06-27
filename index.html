@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -483,6 +483,20 @@
             font-size: 3rem;
             /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
         }
+
+        /* Animation points de suspension pour la période en cours */
+        @keyframes dotFade {
+            0%, 100% { opacity: 0; }
+            50%       { opacity: 1; }
+        }
+        .dot-anim {
+            display: inline-block;
+            opacity: 0;
+            animation: dotFade 1.5s infinite;
+        }
+        .dot-anim:nth-child(1) { animation-delay: 0s;    }
+        .dot-anim:nth-child(2) { animation-delay: 0.5s;  }
+        .dot-anim:nth-child(3) { animation-delay: 1.0s;  }
 
         @keyframes bounce {
 
@@ -1315,7 +1329,7 @@
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
-                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours...",
+                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
@@ -3650,7 +3664,7 @@
                     let durationText = `${hours}h${mins}`;
 
                     // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
@@ -4763,7 +4777,7 @@
             if (!footer) return;
 
             // Applique l'état après layout complet (setTimeout garantit la résolution du flex)
-            setTimeout(() => applyFooterState(), 0);
+            setTimeout(() => applyFooterState(), 100);
 
             // Clic sur encoche ou ligne 1 → toggle
             const handle = document.getElementById('footer-handle');
@@ -4961,7 +4975,7 @@
                     initFooterDrawer();
                     window._footerDrawerInited = true;
                 } else {
-                    setTimeout(() => applyFooterState(), 0);
+                    setTimeout(() => applyFooterState(), 100);
                 }
             }
             if (p === 'results') {
