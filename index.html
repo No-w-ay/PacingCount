@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3674,7 +3674,7 @@
                     let durationText = `${hours}h${mins}`;
 
                     // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
