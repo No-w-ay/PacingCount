@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -746,7 +746,9 @@
     <div id="page-timeline" class="page" style="padding-top: 0; padding-bottom: 0; overflow: hidden;">
 
         <!-- Zone scrollable : graphe + légende + liste -->
-        <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto; padding-bottom: 8px;">
+        <!-- padding-bottom ajusté dynamiquement par initFooterDrawer() pour éviter que la liste
+             se cache derrière le footer fixe -->
+        <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
             <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique</div>
 
@@ -762,58 +764,66 @@
 
         </div>
 
-        <!-- Zone fixe en bas — toujours visible au-dessus de la barre d'onglets -->
-        <div id="timeline-footer" style="flex-shrink: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 10px 15px; margin-bottom: var(--nav-height);">
+    </div>
 
-            <!-- Encoche — clic ou swipe pour ouvrir/fermer la partie basse -->
-            <div id="footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
-                <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+    <!-- Footer fixe page Historique — position:fixed comme la barre d'onglets.
+         Le spacer <nav aria-hidden> en bas pousse le contenu visible exactement
+         au-dessus de la barre d'onglets, quelle que soit la plateforme. -->
+    <div id="timeline-footer" style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
+
+        <!-- Encoche — clic ou swipe pour ouvrir/fermer la partie basse -->
+        <div id="footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
+            <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+        </div>
+
+        <!-- Ligne 1 : plage de dates affichée -->
+        <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;"></div>
+
+        <!-- Ligne 2 : barre de navigation temporelle -->
+        <div class="history-nav" id="history-nav" style="margin-bottom: 6px;">
+            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
+            <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
+            <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
+            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
+            <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
+            <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
+            <button class="history-nav-btn" id="nav-today" onclick="goToToday()">⬆</button>
+        </div>
+
+        <!-- Ligne 3 : bouton Ajouter -->
+        <button class="add-btn" onclick="openAddModal()"
+            style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
+            + Ajouter une période
+        </button>
+
+        <!-- Partie collapsible : lignes 4+5 — animées à l'ouverture/fermeture -->
+        <div id="footer-collapsible" style="overflow: hidden; transition: max-height 0.3s ease; max-height: 200px;">
+
+            <!-- Ligne 4 : boutons Export / Import -->
+            <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                    style="flex: 1; padding: 8px; margin: 0;">
+                    Exporter CSV
+                </button>
+                <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
+                    Importer CSV
+                </button>
+                <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                    style="display:none;" onchange="importCSV(event)">
             </div>
 
-            <!-- Ligne 1 : plage de dates affichée -->
-            <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;"></div>
-
-            <!-- Ligne 2 : barre de navigation temporelle -->
-            <div class="history-nav" id="history-nav" style="margin-bottom: 6px;">
-                <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
-                <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
-                <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
-                <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
-                <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
-                <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
-                <button class="history-nav-btn" id="nav-today" onclick="goToToday()">⬆</button>
-            </div>
-
-            <!-- Ligne 3 : bouton Ajouter -->
-            <button class="add-btn" onclick="openAddModal()"
-                style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
-                + Ajouter une période
-            </button>
-
-            <!-- Partie collapsible : lignes 4+5 — animées à l'ouverture/fermeture -->
-            <div id="footer-collapsible" style="overflow: hidden; transition: max-height 0.3s ease; max-height: 200px;">
-
-                <!-- Ligne 4 : boutons Export / Import -->
-                <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                        style="flex: 1; padding: 8px; margin: 0;">
-                        Exporter CSV
-                    </button>
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
-                        Importer CSV
-                    </button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                        style="display:none;" onchange="importCSV(event)">
-                </div>
-
-                <!-- Ligne 5 : total absolu — même style que la légende -->
-                <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;"></div>
-
-            </div>
-
+            <!-- Ligne 5 : total absolu — même style que la légende -->
+            <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;"></div>
 
         </div>
+
+        <!-- Spacer : copie invisible de nav — aligne le bas du footer avec le bas de nav.
+             position:static pour rester dans le flux du footer fixe. -->
+        <nav aria-hidden="true" style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
+            <button>_</button>
+        </nav>
+
     </div>
 
     <!-- Modal d'édition des périodes -->
@@ -4770,13 +4780,22 @@
             applyFooterState();
         }
 
-        // Initialisation du drawer : état + interactions (une seule fois)
+        // Initialisation du drawer : affichage, padding-bottom scroll, état, interactions (une seule fois)
         function initFooterDrawer() {
             const footer = document.getElementById('timeline-footer');
-            if (!footer) return;
+            const scroll = document.getElementById('timeline-scroll');
+            if (!footer || !scroll) return;
 
-            // Applique l'état après layout complet (setTimeout garantit la résolution du flex)
-            setTimeout(() => applyFooterState(), 100);
+            // Rendre le footer visible (display:none au départ pour éviter un flash)
+            footer.style.display = 'block';
+
+            // Ajuster padding-bottom de la zone scroll pour que la liste
+            // ne se cache pas derrière le footer fixe.
+            // offsetHeight fiable ici car footer est position:fixed — déjà rendu par le navigateur.
+            scroll.style.paddingBottom = (footer.offsetHeight + 8) + 'px';
+
+            // Appliquer l'état drawer immédiatement — pas de timing, footer déjà positionné
+            applyFooterState();
 
             // Clic sur encoche ou ligne 1 → toggle
             const handle = document.getElementById('footer-handle');
@@ -4961,6 +4980,10 @@
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
 
+            // Afficher/masquer le footer fixe selon la page
+            const footer = document.getElementById('timeline-footer');
+            if (footer) footer.style.display = (p === 'timeline') ? 'block' : 'none';
+
             if (p === 'timeline') {
                 populateHistoryDropdowns();
                 updateNavButtons();
@@ -4974,7 +4997,7 @@
                     initFooterDrawer();
                     window._footerDrawerInited = true;
                 } else {
-                    setTimeout(() => applyFooterState(), 100);
+                    applyFooterState();
                 }
             }
             if (p === 'results') {
