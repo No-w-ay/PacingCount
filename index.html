@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -77,7 +77,8 @@
             --melange2: hsl(164, 61%, 48%);
             /* Fallback de mélange si nav ne comprends pas color-mix */
 
-            --nav-height: 58px; /* min-height de nav — utilisé par #timeline-footer */
+            --nav-height: 58px;
+            /* min-height de nav — utilisé par #timeline-footer */
 
         }
 
@@ -488,20 +489,50 @@
 
         /* Animation points de suspension pour la période en cours */
         @keyframes dotFade {
-            0%   { opacity: 0; }   /* masqué  */
-            10%  { opacity: 1; }   /* apparaît (transition ~0.6s) */
-            50%  { opacity: 1; }   /* visible jusqu'à 3s */
-            60%  { opacity: 0; }   /* disparaît (transition ~0.6s) */
-            100% { opacity: 0; }   /* masqué jusqu'à 6s */
+            0% {
+                opacity: 0;
+            }
+
+            /* masqué  */
+            10% {
+                opacity: 1;
+            }
+
+            /* apparaît (transition ~0.6s) */
+            50% {
+                opacity: 1;
+            }
+
+            /* visible jusqu'à 3s */
+            60% {
+                opacity: 0;
+            }
+
+            /* disparaît (transition ~0.6s) */
+            100% {
+                opacity: 0;
+            }
+
+            /* masqué jusqu'à 6s */
         }
+
         .dot-anim {
             display: inline-block;
             opacity: 0;
             animation: dotFade 6s infinite;
         }
-        .dot-anim:nth-child(1) { animation-delay: 0s; }
-        .dot-anim:nth-child(2) { animation-delay: 1s; }
-        .dot-anim:nth-child(3) { animation-delay: 2s; }
+
+        .dot-anim:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .dot-anim:nth-child(2) {
+            animation-delay: 1s;
+        }
+
+        .dot-anim:nth-child(3) {
+            animation-delay: 2s;
+        }
 
         @keyframes bounce {
 
@@ -544,8 +575,10 @@
             white-space: nowrap;
             transition: opacity 0.15s;
             flex-shrink: 0;
-            position: relative;  /* nécessaire pour le pseudo-élément ::after */
-            overflow: hidden;    /* la barre oblique s'arrête aux bords du bouton */
+            position: relative;
+            /* nécessaire pour le pseudo-élément ::after */
+            overflow: hidden;
+            /* la barre oblique s'arrête aux bords du bouton */
         }
 
         .history-nav-btn:disabled {
@@ -653,7 +686,8 @@
                 des boutons</label>
             <!-- Passe D : 6 slots avec toggle ON/OFF + input, rendus par renderTypesSettings() -->
             <div id="type-inputs-container"></div>
-            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils prédéfinis</label>
+            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
+                prédéfinis</label>
             <!-- Passe D : boutons de profil rendus par renderProfileSelector() -->
             <div id="profile-selector-container"></div>
         </div>
@@ -751,7 +785,8 @@
              se cache derrière le footer fixe -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-            <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique</div>
+            <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
+            </div>
 
             <div class="chart-container"
                 style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
@@ -770,7 +805,8 @@
     <!-- Footer fixe page Historique — position:fixed comme la barre d'onglets.
          Le spacer <nav aria-hidden> en bas pousse le contenu visible exactement
          au-dessus de la barre d'onglets, quelle que soit la plateforme. -->
-    <div id="timeline-footer" style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
+    <div id="timeline-footer"
+        style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
 
         <!-- Encoche — clic ou swipe pour ouvrir/fermer la partie basse -->
         <div id="footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
@@ -778,16 +814,19 @@
         </div>
 
         <!-- Ligne 1 : plage de dates affichée -->
-        <div id="timeline-footer-range" style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;"></div>
+        <div id="timeline-footer-range"
+            style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;">
+        </div>
 
         <!-- Ligne 2 : barre de navigation temporelle -->
         <div class="history-nav" id="history-nav" style="margin-bottom: 6px;">
-            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()" title="Afficher/masquer la légende">L</button>
-            <button class="history-nav-btn" id="nav-back7"  onclick="navigateHistory(-7)">«7</button>
-            <button class="history-nav-btn" id="nav-back1"  onclick="navigateHistory(-1)">‹1</button>
+            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()"
+                title="Afficher/masquer la légende">L</button>
+            <button class="history-nav-btn" id="nav-back7" onclick="navigateHistory(-7)">«7</button>
+            <button class="history-nav-btn" id="nav-back1" onclick="navigateHistory(-1)">‹1</button>
             <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
-            <button class="history-nav-btn" id="nav-fwd1"   onclick="navigateHistory(1)">1›</button>
-            <button class="history-nav-btn" id="nav-fwd7"   onclick="navigateHistory(7)">7»</button>
+            <button class="history-nav-btn" id="nav-fwd1" onclick="navigateHistory(1)">1›</button>
+            <button class="history-nav-btn" id="nav-fwd7" onclick="navigateHistory(7)">7»</button>
             <button class="history-nav-btn" id="nav-today" onclick="goToToday()">⬆</button>
         </div>
 
@@ -815,13 +854,16 @@
             </div>
 
             <!-- Ligne 5 : total absolu — même style que la légende -->
-            <div id="timeline-footer-total" style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;"></div>
+            <div id="timeline-footer-total"
+                style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;">
+            </div>
 
         </div>
 
         <!-- Spacer : copie invisible de nav — aligne le bas du footer avec le bas de nav.
              position:static pour rester dans le flux du footer fixe. -->
-        <nav aria-hidden="true" style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
+        <nav aria-hidden="true"
+            style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
             <button>_</button>
         </nav>
 
@@ -835,7 +877,8 @@
             <!-- Description du profil, rendue en paragraphes par openProfileModal() -->
             <div id="profile-modal-description" style="line-height:1.6; white-space:pre-wrap; font-size:0.93rem;"></div>
             <!-- Séparateur + message de confirmation — visible uniquement si profil non actif -->
-            <div id="profile-modal-confirm-section" style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #444; font-size:0.88rem; opacity:0.85;">
+            <div id="profile-modal-confirm-section"
+                style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #444; font-size:0.88rem; opacity:0.85;">
                 <span id="profile-modal-confirm-msg"></span>
             </div>
             <div style="display:flex; gap:10px; margin-top:20px;" id="profile-modal-buttons">
@@ -881,8 +924,7 @@
             <div style="border-top:1px solid #444; margin-bottom:16px;"></div>
 
             <!-- Bouton Remplacer -->
-            <button class="export-btn" id="btn-import-replace"
-                style="background:var(--red); margin-bottom:6px;"
+            <button class="export-btn" id="btn-import-replace" style="background:var(--red); margin-bottom:6px;"
                 onclick="processImport('replace')">
                 ⚠️ Remplacer l'historique
             </button>
@@ -892,8 +934,7 @@
             </p>
 
             <!-- Bouton Fusionner -->
-            <button class="export-btn" id="btn-import-merge"
-                style="background:var(--blue); margin-bottom:6px;"
+            <button class="export-btn" id="btn-import-merge" style="background:var(--blue); margin-bottom:6px;"
                 onclick="processImport('merge')">
                 ⚠️ Fusionner
             </button>
@@ -904,8 +945,7 @@
             </p>
 
             <!-- Bouton Annuler -->
-            <button class="export-btn" style="background:#444;"
-                onclick="closeImportModal()">Annuler</button>
+            <button class="export-btn" style="background:#444;" onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
 
@@ -1028,6 +1068,96 @@
         // ============================================================
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 
+
+        // ============================================================
+        // 1b. SURVEILLANCE DU STOCKAGE localStorage
+        // Toast d'alerte si on approche ou on atteint la saturation
+        // ============================================================
+
+        function getLocalStorageSize() {
+            let total = 0;
+            for (const key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += (localStorage[key].length + key.length) * 2; // UTF-16 : 2 octets/char
+                }
+            }
+            return total; // en octets
+        }
+
+        const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — limite typique navigateur
+        const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement
+
+        function showStorageWarningToast() {
+            if (document.getElementById('storage-warning-toast')) return; // évite les doublons
+            const lang = (settings && settings.lang) || 'fr';
+            const t = translations[lang] || translations['fr'];
+
+            const toast = document.createElement('div');
+            toast.id = 'storage-warning-toast';
+            toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
+            toast.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t.storageNearFull}</span>
+            <button onclick="document.getElementById('storage-warning-toast').remove()"
+                style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
+        </div>
+        <div style="margin-bottom:10px; line-height:1.5;">${t.storageNearFullDetail}</div>
+        <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
+            style="background:var(--orange); color:white; border:none; border-radius:6px;
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
+            💾 ${t.storageExport}
+        </button>
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
+            document.body.appendChild(toast);
+        }
+
+        function showStorageFullToast() {
+            if (document.getElementById('storage-full-toast')) return; // évite les doublons
+            const lang = (settings && settings.lang) || 'fr';
+            const t = translations[lang] || translations['fr'];
+
+            const toast = document.createElement('div');
+            toast.id = 'storage-full-toast';
+            toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
+            toast.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <span style="font-weight:bold; color:var(--red);">⚠️ ${t.storageFull}</span>
+            <button onclick="document.getElementById('storage-full-toast').remove()"
+                style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
+        </div>
+        <div style="margin-bottom:10px; line-height:1.5;">
+            <strong>${t.storageFullBold}</strong><br>${t.storageFullDetail}
+        </div>
+        <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
+            style="background:var(--red); color:white; border:none; border-radius:6px;
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
+            💾 ${t.storageExportFull}
+        </button>
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
+            document.body.appendChild(toast);
+        }
+
+        // Remplace localStorage.setItem dans saveState() et saveSettings()
+        function safeSave(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.error(`[safeSave] Erreur localStorage (${key}) :`, e.name, e.message);
+                showStorageFullToast();
+                return false;
+            }
+        }
+
+
         // ============================================================
         // 2. CONSTANTES ET VARIALBES GLOBALES
         // TYPE_COLORS : palette fixe 6 couleurs indexée par typeId (typeId 1 = index 0).
@@ -1054,12 +1184,12 @@
                     nl: `Een eenvoudig en 100% gedragsmatig profiel.\n\n3 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Actief liggend (bijv. lezen, podcast, telefoongesprek, smartphone, enz.)\n• Niet liggend (al het andere, in een niet-liggende positie)\n\nGeen interpretatie nodig, geen moeilijke nuances tussen de types. Eenvoudig, stabiel en duidelijk: ideaal voor objectieve opvolging op lange termijn.`
                 },
                 types: [
-                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation",  nl: "Liggend zonder stimulatie" }, active: true  },
-                    { id: 2, label: { fr: "Couché actif",             en: "Lying down, active",         nl: "Actief liggend"          }, active: true  },
-                    { id: 3, label: "",                                                                                                   active: false },
-                    { id: 4, label: { fr: "Non couché",               en: "Not lying down",             nl: "Niet liggend"            }, active: true  },
-                    { id: 5, label: "",                                                                                                   active: false },
-                    { id: 6, label: "",                                                                                                   active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true },
+                    { id: 2, label: { fr: "Couché actif", en: "Lying down, active", nl: "Actief liggend" }, active: true },
+                    { id: 3, label: "", active: false },
+                    { id: 4, label: { fr: "Non couché", en: "Not lying down", nl: "Niet liggend" }, active: true },
+                    { id: 5, label: "", active: false },
+                    { id: 6, label: "", active: false },
                 ]
             },
             uz_leuven_2018: {
@@ -1070,12 +1200,12 @@
                     nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
                 },
                 types: [
-                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true  },
-                    { id: 2, label: { fr: "Détente",                  en: "Relaxation",               nl: "Ontspanning"              }, active: true  },
-                    { id: 3, label: { fr: "Repas et hygiène",         en: "Meals and hygiene",         nl: "Maaltijden en hygiëne"    }, active: true  },
-                    { id: 4, label: { fr: "Activité physique",        en: "Physical activity",         nl: "Fysieke activiteit"       }, active: true  },
-                    { id: 5, label: { fr: "Activité mentale",         en: "Mental activity",           nl: "Mentale activiteit"       }, active: true  },
-                    { id: 6, label: "",                                                                                                  active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true },
+                    { id: 2, label: { fr: "Détente", en: "Relaxation", nl: "Ontspanning" }, active: true },
+                    { id: 3, label: { fr: "Repas et hygiène", en: "Meals and hygiene", nl: "Maaltijden en hygiëne" }, active: true },
+                    { id: 4, label: { fr: "Activité physique", en: "Physical activity", nl: "Fysieke activiteit" }, active: true },
+                    { id: 5, label: { fr: "Activité mentale", en: "Mental activity", nl: "Mentale activiteit" }, active: true },
+                    { id: 6, label: "", active: false },
                 ]
             },
             // Profil custom — types: null (dynamique, lu depuis settings.customProfiles[0]).
@@ -1121,12 +1251,12 @@
                     // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
                     // Labels FR par défaut (la langue n'était pas persistée non plus si absente).
                     types: [
-                        { id: 1, label: "Couché sans stimulation", active: true  },
-                        { id: 2, label: "Couché actif",             active: true  },
-                        { id: 3, label: "Non couché",               active: true  },
-                        { id: 4, label: "",                          active: false },
-                        { id: 5, label: "",                          active: false },
-                        { id: 6, label: "",                          active: false }
+                        { id: 1, label: "Couché sans stimulation", active: true },
+                        { id: 2, label: "Couché actif", active: true },
+                        { id: 3, label: "Non couché", active: true },
+                        { id: 4, label: "", active: false },
+                        { id: 5, label: "", active: false },
+                        { id: 6, label: "", active: false }
                     ]
                 };
                 localStorage.setItem('pacingSettings', JSON.stringify(bootstrapSettings));
@@ -1203,8 +1333,8 @@
 
                     // Sauvegarder le contenu de l'ancien typeId 3 (ex : "Non couché", orange)
                     const oldTypes = [...s.types];
-                    const oldType3    = oldTypes.find(t => t.id === 3);
-                    const savedLabel3  = oldType3?.label  || "";
+                    const oldType3 = oldTypes.find(t => t.id === 3);
+                    const savedLabel3 = oldType3?.label || "";
                     const savedActive3 = oldType3?.active ?? true;
 
                     // Reconstruire types[] : ajoute .color, insère slot yellow en id:3,
@@ -1311,8 +1441,8 @@
                 const id = i + 1;
                 const defaults = {
                     1: { label: "Couché sans stimulation", active: true },
-                    2: { label: "Couché actif",             active: true },
-                    4: { label: "Non couché",               active: true }
+                    2: { label: "Couché actif", active: true },
+                    4: { label: "Non couché", active: true }
                 };
                 return { id, label: defaults[id]?.label || "", active: defaults[id]?.active || false, color };
             })
@@ -1369,7 +1499,16 @@
                 alertModeWave: "Vagues croissantes (1, 2, 3…)",
                 alertEnabled: "Active",
                 alertNoAlerts: "Aucune alerte configurée.",
-                alertBody: '{n} min en période active.'
+                alertBody: '{n} min en période active.',
+                storageNearFull: "Stockage presque plein (≥90%)",
+                storageNearFullDetail: "Pensez à exporter vos données pour les archiver.",
+                storageFull: "Espace de stockage plein",
+                storageFullBold: "Vos nouvelles données ne peuvent plus être sauvegardées.",
+                storageFullDetail: "Exportez vos données maintenant pour les archiver et ne rien perdre.",
+                storageExport: "Exporter mes données",
+                storageExportFull: "Exporter mes données",
+                storageAfterExportWarn: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
+                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé."
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -1391,7 +1530,16 @@
                 resCouche: "Lying", resMoy3j: "3d avg",
                 resActif: "active period", resActifP: "active periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
-                resIncomplet: "Incomplete day"
+                resIncomplet: "Incomplete day",
+                storageNearFull: "Storage almost full (≥90%)",
+                storageNearFullDetail: "Consider exporting your data to archive it.",
+                storageFull: "Storage full",
+                storageFullBold: "Your new data can no longer be saved.",
+                storageFullDetail: "Export your data now to archive it and avoid any loss.",
+                storageExport: "Export my data",
+                storageExportFull: "Export my data",
+                storageAfterExportWarn: "After export: your CSV file is your archive. To keep using the app, the current history will soon need to be cleared or reduced.",
+                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced."
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
@@ -1413,7 +1561,16 @@
                 resCouche: "Liggend", resMoy3j: "3d gem",
                 resActif: "actieve periode", resActifP: "actieve periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
-                resIncomplet: "Onvolledige dag"
+                resIncomplet: "Onvolledige dag",
+                storageNearFull: "Opslag bijna vol (≥90%)",
+                storageNearFullDetail: "Denk eraan uw gegevens te exporteren als archief.",
+                storageFull: "Opslag vol",
+                storageFullBold: "Uw nieuwe gegevens kunnen niet meer worden opgeslagen.",
+                storageFullDetail: "Exporteer uw gegevens nu om ze te archiveren en niets te verliezen.",
+                storageExport: "Mijn gegevens exporteren",
+                storageExportFull: "Mijn gegevens exporteren",
+                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
             }
         };
 
@@ -2523,7 +2680,7 @@
         // ============================================================
 
         function saveState() {
-            localStorage.setItem('pacingState', JSON.stringify(state));
+            safeSave('pacingState', JSON.stringify(state));
         }
 
         function saveSettings() {
@@ -2550,7 +2707,7 @@
             }
             settings.activeProfile = detectedProfile;
 
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            safeSave('pacingSettings', JSON.stringify(settings));
             updateUI();
         }
 
@@ -3536,29 +3693,29 @@
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: default; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(week.totals).sort().map(type => {
-                                    const avgMins = week.totals[type] / n;
-                                    const perc = (avgMins / 1440) * 100;
-                                    // Passe C : lookup par typeId
-                                    const typeId = parseInt(type);
-                                    const color = colorMap[typeId] || getColorValueForId(typeId);
-                                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
-                                    const h = Math.floor(avgMins / 60);
-                                    const m = Math.round(avgMins % 60);
-                                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
-                                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
-                                    return perc > 0 ? `
+                    const avgMins = week.totals[type] / n;
+                    const perc = (avgMins / 1440) * 100;
+                    // Passe C : lookup par typeId
+                    const typeId = parseInt(type);
+                    const color = colorMap[typeId] || getColorValueForId(typeId);
+                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
+                    const h = Math.floor(avgMins / 60);
+                    const m = Math.round(avgMins % 60);
+                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
+                    return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
                                              onmousemove="showBarTooltip(event, '${tooltipText}')"
                                              onmouseout="hideBarTooltip()"
                                              ontouchstart="showBarTooltip(event, '${tooltipText}')"
                                              ontouchend="hideBarTooltip()">
                                         </div>` : '';
-                                }).join('')}
+                }).join('')}
                             </div>
                             <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
                                 ${Array.from({ length: 24 }).map(() =>
-                                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
-                                ).join('')}
+                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
+                ).join('')}
                             </div>
                         </div>
                     </div>
@@ -3609,9 +3766,9 @@
                 }
 
                 // Mise à jour du footer : plage de dates (ligne 1) + total (ligne 4)
-                const MONTH_SHORT = ['janv','fév','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+                const MONTH_SHORT = ['janv', 'fév', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
                 const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
-                const lastDay  = _ed;
+                const lastDay = _ed;
                 const fD = firstDay.getDate();
                 const fM = MONTH_SHORT[firstDay.getMonth()];
                 const lD = lastDay.getDate();
@@ -3630,7 +3787,7 @@
 
                 // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
                 // state.history n'est pas modifié — originalIndex reste valide
-                const windowEnd   = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() + 1).getTime();
+                const windowEnd = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() + 1).getTime();
                 const windowStart = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6).getTime();
                 const displayed = all.filter(e =>
                     e.inProgress ||
@@ -4815,7 +4972,7 @@
             footer.addEventListener('touchend', e => {
                 const diff = e.changedTouches[0].clientY - swipeStartY;
                 if (Math.abs(diff) > 30) {
-                    if (diff > 0 && window.footerExpanded)  toggleFooterDrawer(); // swipe bas → rentrer
+                    if (diff > 0 && window.footerExpanded) toggleFooterDrawer(); // swipe bas → rentrer
                     if (diff < 0 && !window.footerExpanded) toggleFooterDrawer(); // swipe haut → sortir
                 }
             }, { passive: true });
@@ -4899,8 +5056,8 @@
 
             // Boutons "en avant" et "aujourd'hui" désactivés si historyEndDate = aujourd'hui
             const atEnd = ed >= todayMidnight;
-            document.getElementById('nav-fwd1').disabled  = atEnd;
-            document.getElementById('nav-fwd7').disabled  = atEnd;
+            document.getElementById('nav-fwd1').disabled = atEnd;
+            document.getElementById('nav-fwd7').disabled = atEnd;
             document.getElementById('nav-today').disabled = atEnd;
         }
 
@@ -4935,7 +5092,7 @@
             const monthSel = document.getElementById('nav-month');
             if (!monthSel) return;
 
-            const MONTH_NAMES = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+            const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
             const monthsSet = new Set();
 
             // Toujours inclure le mois du 1er jour de la fenêtre affichée
@@ -5201,6 +5358,22 @@
             console.log(`[GoatCounter] Profil envoyé : ${profilePath}`);
 
             localStorage.setItem('lastDailyPingSent', Date.now());
+        }
+
+        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%)
+        // Réutilise _today déjà défini dans le daily ping ci-dessus
+        {
+            const _lastStorageWarn = localStorage.getItem('lastStorageWarningSent');
+            const _lastStorageWarnDay = _lastStorageWarn
+                ? new Date(parseInt(_lastStorageWarn)).toDateString()
+                : null;
+            if (_today !== _lastStorageWarnDay) {
+                const _ratio = getLocalStorageSize() / STORAGE_LIMIT_BYTES;
+                if (_ratio >= STORAGE_WARN_RATIO) {
+                    setTimeout(() => showStorageWarningToast(), 3000); // après chargement UI
+                    localStorage.setItem('lastStorageWarningSent', Date.now());
+                }
+            }
         }
 
         document.getElementById('lang-select').value = settings.lang;
