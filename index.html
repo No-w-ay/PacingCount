@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.24"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1097,21 +1097,21 @@
             toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
-        border-radius:8px; padding:16px 20px; font-size:0.92rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--orange); font-size:1rem;">⚠️ ${t.storageNearFull}</span>
+            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t.storageNearFull}</span>
             <button onclick="document.getElementById('storage-warning-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
         <div style="margin-bottom:10px; line-height:1.5;">${t.storageNearFullDetail}</div>
         <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
             style="background:var(--orange); color:white; border:none; border-radius:6px;
-                   padding:8px 14px; font-size:0.92rem; cursor:pointer; width:100%; margin-bottom:8px;">
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
             💾 ${t.storageExport}
         </button>
-        <div style="font-size:0.92rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
             document.body.appendChild(toast);
         }
 
@@ -1125,11 +1125,11 @@
             toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
-        border-radius:8px; padding:16px 20px; font-size:0.92rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--red); font-size:1rem;">⚠️ ${t.storageFull}</span>
+            <span style="font-weight:bold; color:var(--red);">⚠️ ${t.storageFull}</span>
             <button onclick="document.getElementById('storage-full-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
@@ -1138,10 +1138,10 @@
         </div>
         <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
             style="background:var(--red); color:white; border:none; border-radius:6px;
-                   padding:8px 14px; font-size:0.92rem; cursor:pointer; width:100%; margin-bottom:8px;">
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
             💾 ${t.storageExportFull}
         </button>
-        <div style="font-size:0.92rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
             document.body.appendChild(toast);
         }
 
@@ -1500,9 +1500,9 @@
                 alertEnabled: "Active",
                 alertNoAlerts: "Aucune alerte configurée.",
                 alertBody: '{n} min en période active.',
-                storageNearFull: "Mémoire de l'application presque pleine (≥90%)",
+                storageNearFull: "Stockage presque plein (≥90%)",
                 storageNearFullDetail: "Pensez à exporter vos données pour les archiver.",
-                storageFull: "Mémoire de l'application pleine",
+                storageFull: "Espace de stockage plein",
                 storageFullBold: "Vos nouvelles données ne peuvent plus être sauvegardées.",
                 storageFullDetail: "Exportez vos données maintenant pour les archiver et ne rien perdre.",
                 storageExport: "Exporter mes données",
@@ -1531,9 +1531,9 @@
                 resActif: "active period", resActifP: "active periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
-                storageNearFull: "App memory almost full (≥90%)",
+                storageNearFull: "Storage almost full (≥90%)",
                 storageNearFullDetail: "Consider exporting your data to archive it.",
-                storageFull: "App memory full",
+                storageFull: "Storage full",
                 storageFullBold: "Your new data can no longer be saved.",
                 storageFullDetail: "Export your data now to archive it and avoid any loss.",
                 storageExport: "Export my data",
@@ -1562,15 +1562,15 @@
                 resActif: "actieve periode", resActifP: "actieve periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
-                storageNearFull: "Geheugen van de app bijna vol (≥90%)",
+                storageNearFull: "Opslag bijna vol (≥90%)",
                 storageNearFullDetail: "Denk eraan uw gegevens te exporteren als archief.",
-                storageFull: "Geheugen van de app vol",
+                storageFull: "Opslag vol",
                 storageFullBold: "Uw nieuwe gegevens kunnen niet meer worden opgeslagen.",
                 storageFullDetail: "Exporteer uw gegevens nu om ze te archiveren en niets te verliezen.",
                 storageExport: "Mijn gegevens exporteren",
                 storageExportFull: "Mijn gegevens exporteren",
-                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige historiek binnenkort worden gewist of verkleind.",
-                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige historiek worden gewist of verkleind."
+                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
             }
         };
 
@@ -3094,6 +3094,13 @@
         // 10. FORMATAGE
         // ============================================================
 
+        // Retourne la locale JS correspondant à la langue de l'app.
+        // Utilisée partout où toLocaleDateString() a besoin d'une locale explicite.
+        function getLocale() {
+            const map = { fr: 'fr-FR', en: 'en-GB', nl: 'nl-BE' };
+            return map[settings.lang] || 'fr-FR';
+        }
+
         function formatDuration(ms) {
             const diff = Math.floor(ms / 1000);
             const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -3766,13 +3773,13 @@
                 }
 
                 // Mise à jour du footer : plage de dates (ligne 1) + total (ligne 4)
-                const MONTH_SHORT = ['janv', 'fév', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
                 const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
                 const lastDay = _ed;
+                const locale = getLocale();
                 const fD = firstDay.getDate();
-                const fM = MONTH_SHORT[firstDay.getMonth()];
+                const fM = firstDay.toLocaleDateString(locale, { month: 'long' });
                 const lD = lastDay.getDate();
-                const lM = MONTH_SHORT[lastDay.getMonth()];
+                const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
                 const rangeStr = firstDay.getMonth() === lastDay.getMonth()
                     ? `Vue du ${fD} au ${lD} ${lM}`
                     : `Vue du ${fD} ${fM} au ${lD} ${lM}`;
@@ -5092,7 +5099,7 @@
             const monthSel = document.getElementById('nav-month');
             if (!monthSel) return;
 
-            const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+            const locale = getLocale();
             const monthsSet = new Set();
 
             // Toujours inclure le mois du 1er jour de la fenêtre affichée
@@ -5114,7 +5121,11 @@
             const months = [...monthsSet].sort();
             monthSel.innerHTML = months.map(ym => {
                 const [y, m] = ym.split('-');
-                return `<option value="${ym}">${MONTH_NAMES[parseInt(m) - 1]} ${y}</option>`;
+                const monthName = new Date(parseInt(y), parseInt(m) - 1, 1)
+                    .toLocaleDateString(locale, { month: 'long' });
+                // Première lettre en majuscule (certains navigateurs retournent tout en minuscules)
+                const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                return `<option value="${ym}">${monthLabel} ${y}</option>`;
             }).join('');
 
             // Sélectionner l'option du mois du premier jour visible (historyEndDate - 6j).

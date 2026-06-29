@@ -3,7 +3,7 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.25-beta.24",
+      "id": "update-0.9.25-beta.25",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
       "maxVersion": "",
       "validFrom": "2026-05-13",
@@ -15,7 +15,7 @@
         "nl": "Update beschikbaar"
       },
       "body": {
-        "fr": "\n0.9.25:\n- Navigation temporelle dans l'historique (chantier en cours...)\n\n0.9.24:\n- Jusqu'à 6 types de périodes (au lieu de 3)\n- Profils prédéfinis et profil personnalisé\n- Import revu avec correspondance des types\n- Correction de bugs et petites améliorations diverses\n",
+        "fr": "\n0.9.25:\n- Navigation temporelle dans l'historique\n- Ergonomie onglet Historique\n- Test de saturation de la mémoire d'application\n\n0.9.24:\n- Jusqu'à 6 types de périodes (au lieu de 3)\n- Profils prédéfinis et profil personnalisé\n- Import revu avec correspondance des types\n",
         "en": "Bug fixes and minor improvements",
         "nl": "Bugfixes en kleine verbeteringen"
       }
