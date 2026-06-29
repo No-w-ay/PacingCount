@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -785,7 +785,7 @@
              se cache derrière le footer fixe -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-            <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
+            <div style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
             </div>
 
             <div class="chart-container"
@@ -4829,10 +4829,7 @@
             if (window.timelineChartInstance) {
                 window.timelineChartInstance.data.labels = labels;
                 window.timelineChartInstance.data.datasets = datasets;
-                // Pas d'animation pour un décalage d'1 jour (flag posé par navigateHistory)
-                const noAnim = window._timelineNoAnim === true;
-                window._timelineNoAnim = false;
-                window.timelineChartInstance.update(noAnim ? 'none' : undefined);
+                window.timelineChartInstance.update('none'); // pas d'animation
             } else {
                 window.timelineChartInstance = new Chart(ctx, {
                     type: 'bar',
@@ -4928,14 +4925,15 @@
             if (chartContainer) chartContainer.after(legend);
         }
 
-        // État du toggle légende timeline — persisté pour la session (pas de reset au changement d'onglet)
-        if (typeof window.showTimelineLegend === 'undefined') window.showTimelineLegend = true;
+        // État du toggle légende — lu depuis settings (persistance localStorage).
+        // Défaut : false (légende masquée — la liste des périodes en dessous suffit).
+        if (typeof settings.showTimelineLegend === 'undefined') settings.showTimelineLegend = false;
+        window.showTimelineLegend = settings.showTimelineLegend;
 
         // ── DRAWER FOOTER (page Historique) ────────────────────────────────
-        // Seules les lignes 4+5 (export/import + total) s'animent via #footer-collapsible.
-        // Les lignes 1-3 restent toujours visibles — seules les lignes 4+5 s'animent.
-        // État mémorisé pour la session. Défaut : sorti (true).
-        if (typeof window.footerExpanded === 'undefined') window.footerExpanded = true;
+        // État lu depuis settings (persistance localStorage). Défaut : sorti (true).
+        if (typeof settings.footerExpanded === 'undefined') settings.footerExpanded = true;
+        window.footerExpanded = settings.footerExpanded;
 
         function applyFooterState() {
             const collapsible = document.getElementById('footer-collapsible');
@@ -4945,6 +4943,8 @@
 
         function toggleFooterDrawer() {
             window.footerExpanded = !window.footerExpanded;
+            settings.footerExpanded = window.footerExpanded;
+            safeSave('pacingSettings', JSON.stringify(settings));
             applyFooterState();
         }
 
@@ -4987,6 +4987,8 @@
 
         function toggleTimelineLegend() {
             window.showTimelineLegend = !window.showTimelineLegend;
+            settings.showTimelineLegend = window.showTimelineLegend;
+            safeSave('pacingSettings', JSON.stringify(settings));
             // Barre oblique via classe CSS — pas d'opacity, le bouton reste identique visuellement
             const btn = document.getElementById('nav-legend');
             if (btn) btn.classList.toggle('nav-legend-off', !window.showTimelineLegend);
@@ -5016,8 +5018,6 @@
                 else { window.historyEndDate = candidate; }
             }
 
-            // Pas d'animation Chart.js pour un décalage d'1 seul jour (‹1 ou 1›)
-            if (Math.abs(days) === 1) window._timelineNoAnim = true;
             renderTimelineChart();
             renderHistory();
             updateNavButtons();
