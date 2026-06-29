@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.24-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -77,6 +77,9 @@
             --melange2: hsl(164, 61%, 48%);
             /* Fallback de mélange si nav ne comprends pas color-mix */
 
+            --nav-height: 58px;
+            /* min-height de nav — utilisé par #timeline-footer */
+
         }
 
         body {
@@ -115,6 +118,12 @@
             opacity: 1;
             font-weight: bold;
             color: var(--blue);
+        }
+
+        /* Override pour page-timeline : scroll interne + footer fixe en bas */
+        #page-timeline {
+            padding-bottom: 0;
+            overflow: hidden;
         }
 
         /* ── MODE DÉVELOPPEUR ──────────────────────────────────────────
@@ -176,10 +185,6 @@
 
         .measure-btn:active {
             transform: scale(0.98);
-        }
-
-        .measure-btn:hover {
-            filter: brightness(1.15);
         }
 
         /* btn-blue / btn-green / btn-orange supprimées — remplacées par --btn-color (Passe refactoring) */
@@ -314,7 +319,7 @@
         }
 
         .profile-custom-label {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             opacity: 0.65;
             align-self: center;
         }
@@ -482,6 +487,53 @@
             /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
         }
 
+        /* Animation points de suspension pour la période en cours */
+        @keyframes dotFade {
+            0% {
+                opacity: 0;
+            }
+
+            /* masqué  */
+            10% {
+                opacity: 1;
+            }
+
+            /* apparaît (transition ~0.6s) */
+            50% {
+                opacity: 1;
+            }
+
+            /* visible jusqu'à 3s */
+            60% {
+                opacity: 0;
+            }
+
+            /* disparaît (transition ~0.6s) */
+            100% {
+                opacity: 0;
+            }
+
+            /* masqué jusqu'à 6s */
+        }
+
+        .dot-anim {
+            display: inline-block;
+            opacity: 0;
+            animation: dotFade 6s infinite;
+        }
+
+        .dot-anim:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .dot-anim:nth-child(2) {
+            animation-delay: 1s;
+        }
+
+        .dot-anim:nth-child(3) {
+            animation-delay: 2s;
+        }
+
         @keyframes bounce {
 
             0%,
@@ -499,6 +551,65 @@
             60% {
                 transform: translateY(-7px);
             }
+        }
+
+        /* ── BARRE NAVIGATION TEMPORELLE (page Historique) ─────────────────
+           Placée entre le titre et le graphe timeline.
+           Boutons désactivés : opacity 0.3 + pointer-events none.         */
+        .history-nav {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+
+        .history-nav-btn {
+            background: transparent;
+            border: 1px solid #555;
+            color: var(--text-color);
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.15s;
+            flex-shrink: 0;
+            position: relative;
+            /* nécessaire pour le pseudo-élément ::after */
+            overflow: hidden;
+            /* la barre oblique s'arrête aux bords du bouton */
+        }
+
+        .history-nav-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Barre oblique sur le bouton L quand la légende est masquée */
+        .history-nav-btn.nav-legend-off::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -25%;
+            width: 150%;
+            height: 2px;
+            background: #888;
+            transform: translateY(-50%) rotate(-45deg);
+            pointer-events: none;
+        }
+
+        .history-nav select {
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid #555;
+            border-radius: 6px;
+            padding: 5px 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            /* reset largeur et marge hérités de la règle globale select */
+            width: auto;
+            margin-top: 0;
         }
     </style>
 </head>
@@ -575,7 +686,8 @@
                 des boutons</label>
             <!-- Passe D : 6 slots avec toggle ON/OFF + input, rendus par renderTypesSettings() -->
             <div id="type-inputs-container"></div>
-            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils prédéfinis</label>
+            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
+                prédéfinis</label>
             <!-- Passe D : boutons de profil rendus par renderProfileSelector() -->
             <div id="profile-selector-container"></div>
         </div>
@@ -666,44 +778,95 @@
     </div>
 
 
-    <div id="page-timeline" class="page" style="padding-top: 10px;">
-        <h1 id="title-timeline" style="margin-top: 0; margin-bottom: 15px;">Historique</h1>
+    <div id="page-timeline" class="page" style="padding-top: 0; padding-bottom: 0; overflow: hidden;">
 
-        <div class="chart-container"
-            style="position: relative; height: 48vh; width: 100%; margin-bottom: 10px; flex-shrink: 0;">
-            <canvas id="timelineChart"></canvas>
-        </div>
+        <!-- Zone scrollable : graphe + légende + liste -->
+        <!-- padding-bottom ajusté dynamiquement par initFooterDrawer() pour éviter que la liste
+             se cache derrière le footer fixe -->
+        <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-        <div class="history-card"
-            style="background: #2a2a2a; border-radius: 12px; padding: 15px; margin-top: 20px; border: 1px solid #444;">
-
-            <h3 id="title-history" style="margin: 0 0 15px 0; font-size: 1.1rem; text-align: center; color: #e0e0e0;">
-                Périodes enregistrées
-            </h3>
-
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-                <div style="display: flex; gap: 10px;">
-                    <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                        style="flex: 1; padding: 10px; margin: 0;"> Exporter CSV
-                    </button>
-
-                    <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                        style="background: var(--orange); flex: 1; padding: 10px; margin: 0;" id="btn-import">
-                        Importer CSV
-                    </button>
-                    <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                        style="display:none;" onchange="importCSV(event)">
-                </div>
-
-                <button class="add-btn" onclick="openAddModal()"
-                    style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin: 0;">
-                    + Ajouter une période
-                </button>
+            <div style="font-size: 0.95rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
             </div>
 
-            <div class="history-container" id="history-list" style="margin-top: 0;"></div>
+            <div class="chart-container"
+                style="position: relative; height: 48vh; width: 100%; margin-bottom: 0; flex-shrink: 0;">
+                <canvas id="timelineChart"></canvas>
+            </div>
+
+            <!-- La légende est insérée dynamiquement ici par renderTimelineLegend() (après chart-container) -->
+
+            <!-- Liste des périodes -->
+            <div id="history-list" style="margin-top: 12px;"></div>
 
         </div>
+
+    </div>
+
+    <!-- Footer fixe page Historique — position:fixed comme la barre d'onglets.
+         Le spacer <nav aria-hidden> en bas pousse le contenu visible exactement
+         au-dessus de la barre d'onglets, quelle que soit la plateforme. -->
+    <div id="timeline-footer"
+        style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
+
+        <!-- Encoche — clic ou swipe pour ouvrir/fermer la partie basse -->
+        <div id="footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
+            <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+        </div>
+
+        <!-- Ligne 1 : plage de dates affichée -->
+        <div id="timeline-footer-range"
+            style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;">
+        </div>
+
+        <!-- Ligne 2 : barre de navigation temporelle -->
+        <div class="history-nav" id="history-nav" style="margin-bottom: 6px;">
+            <button class="history-nav-btn" id="nav-legend" onclick="toggleTimelineLegend()"
+                title="Afficher/masquer la légende">L</button>
+            <button class="history-nav-btn" id="nav-back7" onclick="navigateHistory(-7)">«7</button>
+            <button class="history-nav-btn" id="nav-back1" onclick="navigateHistory(-1)">‹1</button>
+            <select id="nav-month" onchange="jumpToMonth(this.value)"></select>
+            <button class="history-nav-btn" id="nav-fwd1" onclick="navigateHistory(1)">1›</button>
+            <button class="history-nav-btn" id="nav-fwd7" onclick="navigateHistory(7)">7»</button>
+            <button class="history-nav-btn" id="nav-today" onclick="goToToday()">⬆</button>
+        </div>
+
+        <!-- Ligne 3 : bouton Ajouter -->
+        <button class="add-btn" onclick="openAddModal()"
+            style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
+            + Ajouter une période
+        </button>
+
+        <!-- Partie collapsible : lignes 4+5 — animées à l'ouverture/fermeture -->
+        <div id="footer-collapsible" style="overflow: hidden; transition: max-height 0.3s ease; max-height: 200px;">
+
+            <!-- Ligne 4 : boutons Export / Import -->
+            <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                    style="flex: 1; padding: 8px; margin: 0;">
+                    Exporter CSV
+                </button>
+                <button class="export-btn" onclick="document.getElementById('csv-file').click()"
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
+                    Importer CSV
+                </button>
+                <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
+                    style="display:none;" onchange="importCSV(event)">
+            </div>
+
+            <!-- Ligne 5 : total absolu — même style que la légende -->
+            <div id="timeline-footer-total"
+                style="font-size: 0.85rem; color: var(--chart-gray-text); text-align: center; margin-bottom: 4px;">
+            </div>
+
+        </div>
+
+        <!-- Spacer : copie invisible de nav — aligne le bas du footer avec le bas de nav.
+             position:static pour rester dans le flux du footer fixe. -->
+        <nav aria-hidden="true"
+            style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
+            <button>_</button>
+        </nav>
+
     </div>
 
     <!-- Modal d'édition des périodes -->
@@ -714,7 +877,8 @@
             <!-- Description du profil, rendue en paragraphes par openProfileModal() -->
             <div id="profile-modal-description" style="line-height:1.6; white-space:pre-wrap; font-size:0.93rem;"></div>
             <!-- Séparateur + message de confirmation — visible uniquement si profil non actif -->
-            <div id="profile-modal-confirm-section" style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #444; font-size:0.88rem; opacity:0.85;">
+            <div id="profile-modal-confirm-section"
+                style="display:none; margin-top:20px; padding-top:16px; border-top:1px solid #444; font-size:0.88rem; opacity:0.85;">
                 <span id="profile-modal-confirm-msg"></span>
             </div>
             <div style="display:flex; gap:10px; margin-top:20px;" id="profile-modal-buttons">
@@ -760,8 +924,7 @@
             <div style="border-top:1px solid #444; margin-bottom:16px;"></div>
 
             <!-- Bouton Remplacer -->
-            <button class="export-btn" id="btn-import-replace"
-                style="background:var(--red); margin-bottom:6px;"
+            <button class="export-btn" id="btn-import-replace" style="background:var(--red); margin-bottom:6px;"
                 onclick="processImport('replace')">
                 ⚠️ Remplacer l'historique
             </button>
@@ -771,8 +934,7 @@
             </p>
 
             <!-- Bouton Fusionner -->
-            <button class="export-btn" id="btn-import-merge"
-                style="background:var(--blue); margin-bottom:6px;"
+            <button class="export-btn" id="btn-import-merge" style="background:var(--blue); margin-bottom:6px;"
                 onclick="processImport('merge')">
                 ⚠️ Fusionner
             </button>
@@ -783,8 +945,7 @@
             </p>
 
             <!-- Bouton Annuler -->
-            <button class="export-btn" style="background:#444;"
-                onclick="closeImportModal()">Annuler</button>
+            <button class="export-btn" style="background:#444;" onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
 
@@ -907,6 +1068,96 @@
         // ============================================================
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 
+
+        // ============================================================
+        // 1b. SURVEILLANCE DU STOCKAGE localStorage
+        // Toast d'alerte si on approche ou on atteint la saturation (5 Mo)
+        // ============================================================
+
+        function getLocalStorageSize() {
+            let total = 0;
+            for (const key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += (localStorage[key].length + key.length) * 2; // UTF-16 : 2 octets/char
+                }
+            }
+            return total; // en octets
+        }
+
+        const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — capacité limite typique navigateur
+        const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
+
+        function showStorageWarningToast() {
+            if (document.getElementById('storage-warning-toast')) return; // évite les doublons
+            const lang = (settings && settings.lang) || 'fr';
+            const t = translations[lang] || translations['fr'];
+
+            const toast = document.createElement('div');
+            toast.id = 'storage-warning-toast';
+            toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
+            toast.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t.storageNearFull}</span>
+            <button onclick="document.getElementById('storage-warning-toast').remove()"
+                style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
+        </div>
+        <div style="margin-bottom:10px; line-height:1.5;">${t.storageNearFullDetail}</div>
+        <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
+            style="background:var(--orange); color:white; border:none; border-radius:6px;
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
+            💾 ${t.storageExport}
+        </button>
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
+            document.body.appendChild(toast);
+        }
+
+        function showStorageFullToast() {
+            if (document.getElementById('storage-full-toast')) return; // évite les doublons
+            const lang = (settings && settings.lang) || 'fr';
+            const t = translations[lang] || translations['fr'];
+
+            const toast = document.createElement('div');
+            toast.id = 'storage-full-toast';
+            toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
+            toast.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+            <span style="font-weight:bold; color:var(--red);">⚠️ ${t.storageFull}</span>
+            <button onclick="document.getElementById('storage-full-toast').remove()"
+                style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
+        </div>
+        <div style="margin-bottom:10px; line-height:1.5;">
+            <strong>${t.storageFullBold}</strong><br>${t.storageFullDetail}
+        </div>
+        <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
+            style="background:var(--red); color:white; border:none; border-radius:6px;
+                   padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
+            💾 ${t.storageExportFull}
+        </button>
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
+            document.body.appendChild(toast);
+        }
+
+        // Remplace localStorage.setItem dans saveState() et saveSettings()
+        function safeSave(key, value) {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (e) {
+                console.error(`[safeSave] Erreur localStorage (${key}) :`, e.name, e.message);
+                showStorageFullToast();
+                return false;
+            }
+        }
+
+
         // ============================================================
         // 2. CONSTANTES ET VARIALBES GLOBALES
         // TYPE_COLORS : palette fixe 6 couleurs indexée par typeId (typeId 1 = index 0).
@@ -933,12 +1184,12 @@
                     nl: `Een eenvoudig en 100% gedragsmatig profiel.\n\n3 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Actief liggend (bijv. lezen, podcast, telefoongesprek, smartphone, enz.)\n• Niet liggend (al het andere, in een niet-liggende positie)\n\nGeen interpretatie nodig, geen moeilijke nuances tussen de types. Eenvoudig, stabiel en duidelijk: ideaal voor objectieve opvolging op lange termijn.`
                 },
                 types: [
-                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation",  nl: "Liggend zonder stimulatie" }, active: true  },
-                    { id: 2, label: { fr: "Couché actif",             en: "Lying down, active",         nl: "Actief liggend"          }, active: true  },
-                    { id: 3, label: "",                                                                                                   active: false },
-                    { id: 4, label: { fr: "Non couché",               en: "Not lying down",             nl: "Niet liggend"            }, active: true  },
-                    { id: 5, label: "",                                                                                                   active: false },
-                    { id: 6, label: "",                                                                                                   active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true },
+                    { id: 2, label: { fr: "Couché actif", en: "Lying down, active", nl: "Actief liggend" }, active: true },
+                    { id: 3, label: "", active: false },
+                    { id: 4, label: { fr: "Non couché", en: "Not lying down", nl: "Niet liggend" }, active: true },
+                    { id: 5, label: "", active: false },
+                    { id: 6, label: "", active: false },
                 ]
             },
             uz_leuven_2018: {
@@ -949,12 +1200,12 @@
                     nl: `Profiel gedefinieerd en gebruikt door de ME/CFS-dienst van het UZ Leuven. Hier licht verfijnd om dubbelzinnigheden tussen periodetypen te verminderen.\n\n5 soorten periodes:\n• Liggend zonder stimulatie (ogen gesloten)\n• Ontspanning (aangename activiteit met weinig energieverbruik)\n• Maaltijden en hygiëne\n• Fysieke activiteit (overwegend fysiek energieverbruik)\n• Mentale activiteit (overwegend cognitief of emotioneel energieverbruik)\n\nHelpt bewust worden van de verdeling van de belangrijkste activiteitstypen.`
                 },
                 types: [
-                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true  },
-                    { id: 2, label: { fr: "Détente",                  en: "Relaxation",               nl: "Ontspanning"              }, active: true  },
-                    { id: 3, label: { fr: "Repas et hygiène",         en: "Meals and hygiene",         nl: "Maaltijden en hygiëne"    }, active: true  },
-                    { id: 4, label: { fr: "Activité physique",        en: "Physical activity",         nl: "Fysieke activiteit"       }, active: true  },
-                    { id: 5, label: { fr: "Activité mentale",         en: "Mental activity",           nl: "Mentale activiteit"       }, active: true  },
-                    { id: 6, label: "",                                                                                                  active: false },
+                    { id: 1, label: { fr: "Couché sans stimulation", en: "Lying without stimulation", nl: "Liggend zonder stimulatie" }, active: true },
+                    { id: 2, label: { fr: "Détente", en: "Relaxation", nl: "Ontspanning" }, active: true },
+                    { id: 3, label: { fr: "Repas et hygiène", en: "Meals and hygiene", nl: "Maaltijden en hygiëne" }, active: true },
+                    { id: 4, label: { fr: "Activité physique", en: "Physical activity", nl: "Fysieke activiteit" }, active: true },
+                    { id: 5, label: { fr: "Activité mentale", en: "Mental activity", nl: "Mentale activiteit" }, active: true },
+                    { id: 6, label: "", active: false },
                 ]
             },
             // Profil custom — types: null (dynamique, lu depuis settings.customProfiles[0]).
@@ -1000,12 +1251,12 @@
                     // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
                     // Labels FR par défaut (la langue n'était pas persistée non plus si absente).
                     types: [
-                        { id: 1, label: "Couché sans stimulation", active: true  },
-                        { id: 2, label: "Couché actif",             active: true  },
-                        { id: 3, label: "Non couché",               active: true  },
-                        { id: 4, label: "",                          active: false },
-                        { id: 5, label: "",                          active: false },
-                        { id: 6, label: "",                          active: false }
+                        { id: 1, label: "Couché sans stimulation", active: true },
+                        { id: 2, label: "Couché actif", active: true },
+                        { id: 3, label: "Non couché", active: true },
+                        { id: 4, label: "", active: false },
+                        { id: 5, label: "", active: false },
+                        { id: 6, label: "", active: false }
                     ]
                 };
                 localStorage.setItem('pacingSettings', JSON.stringify(bootstrapSettings));
@@ -1082,8 +1333,8 @@
 
                     // Sauvegarder le contenu de l'ancien typeId 3 (ex : "Non couché", orange)
                     const oldTypes = [...s.types];
-                    const oldType3    = oldTypes.find(t => t.id === 3);
-                    const savedLabel3  = oldType3?.label  || "";
+                    const oldType3 = oldTypes.find(t => t.id === 3);
+                    const savedLabel3 = oldType3?.label || "";
                     const savedActive3 = oldType3?.active ?? true;
 
                     // Reconstruire types[] : ajoute .color, insère slot yellow en id:3,
@@ -1171,6 +1422,14 @@
 
         if (!state.sentAlerts) state.sentAlerts = []; // sécurité
 
+        // Ancre temporelle — dernier jour affiché dans la vue Historique.
+        // La fenêtre affichée est toujours : historyEndDate - 6j → historyEndDate.
+        // Initialisé à aujourd'hui (minuit local, sans heure).
+        {
+            const _n = new Date();
+            window.historyEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+        }
+
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
             // Valeurs par défaut pour un nouvel utilisateur (aucun localStorage existant).
@@ -1182,8 +1441,8 @@
                 const id = i + 1;
                 const defaults = {
                     1: { label: "Couché sans stimulation", active: true },
-                    2: { label: "Couché actif",             active: true },
-                    4: { label: "Non couché",               active: true }
+                    2: { label: "Couché actif", active: true },
+                    4: { label: "Non couché", active: true }
                 };
                 return { id, label: defaults[id]?.label || "", active: defaults[id]?.active || false, color };
             })
@@ -1210,7 +1469,7 @@
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
-                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours...",
+                history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
@@ -1240,7 +1499,16 @@
                 alertModeWave: "Vagues croissantes (1, 2, 3…)",
                 alertEnabled: "Active",
                 alertNoAlerts: "Aucune alerte configurée.",
-                alertBody: '{n} min en période active.'
+                alertBody: '{n} min en période active.',
+                storageNearFull: "Stockage presque plein (≥90%)",
+                storageNearFullDetail: "Pensez à exporter vos données pour les archiver.",
+                storageFull: "Espace de stockage plein",
+                storageFullBold: "Vos nouvelles données ne peuvent plus être sauvegardées.",
+                storageFullDetail: "Exportez vos données maintenant pour les archiver et ne rien perdre.",
+                storageExport: "Exporter mes données",
+                storageExportFull: "Exporter mes données",
+                storageAfterExportWarn: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
+                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé."
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -1262,7 +1530,16 @@
                 resCouche: "Lying", resMoy3j: "3d avg",
                 resActif: "active period", resActifP: "active periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
-                resIncomplet: "Incomplete day"
+                resIncomplet: "Incomplete day",
+                storageNearFull: "Storage almost full (≥90%)",
+                storageNearFullDetail: "Consider exporting your data to archive it.",
+                storageFull: "Storage full",
+                storageFullBold: "Your new data can no longer be saved.",
+                storageFullDetail: "Export your data now to archive it and avoid any loss.",
+                storageExport: "Export my data",
+                storageExportFull: "Export my data",
+                storageAfterExportWarn: "After export: your CSV file is your archive. To keep using the app, the current history will soon need to be cleared or reduced.",
+                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced."
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
@@ -1284,7 +1561,16 @@
                 resCouche: "Liggend", resMoy3j: "3d gem",
                 resActif: "actieve periode", resActifP: "actieve periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
-                resIncomplet: "Onvolledige dag"
+                resIncomplet: "Onvolledige dag",
+                storageNearFull: "Opslag bijna vol (≥90%)",
+                storageNearFullDetail: "Denk eraan uw gegevens te exporteren als archief.",
+                storageFull: "Opslag vol",
+                storageFullBold: "Uw nieuwe gegevens kunnen niet meer worden opgeslagen.",
+                storageFullDetail: "Exporteer uw gegevens nu om ze te archiveren en niets te verliezen.",
+                storageExport: "Mijn gegevens exporteren",
+                storageExportFull: "Mijn gegevens exporteren",
+                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
             }
         };
 
@@ -1305,7 +1591,7 @@
         // Retourne le label d'un type par son id (y compris types inactifs/fantômes)
         function getLabelForId(typeId) {
             const t = settings.types.find(t => t.id === typeId);
-            return t ? t.label : `Type ${typeId}`;
+            return t ? t.label : `Type #${typeId}`;
         }
 
         // Retourne les types (actifs ou inactifs) ayant des données dans l'historique
@@ -2394,7 +2680,7 @@
         // ============================================================
 
         function saveState() {
-            localStorage.setItem('pacingState', JSON.stringify(state));
+            safeSave('pacingState', JSON.stringify(state));
         }
 
         function saveSettings() {
@@ -2421,7 +2707,7 @@
             }
             settings.activeProfile = detectedProfile;
 
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
+            safeSave('pacingSettings', JSON.stringify(settings));
             updateUI();
         }
 
@@ -2808,6 +3094,13 @@
         // 10. FORMATAGE
         // ============================================================
 
+        // Retourne la locale JS correspondant à la langue de l'app.
+        // Utilisée partout où toLocaleDateString() a besoin d'une locale explicite.
+        function getLocale() {
+            const map = { fr: 'fr-FR', en: 'en-GB', nl: 'nl-BE' };
+            return map[settings.lang] || 'fr-FR';
+        }
+
         function formatDuration(ms) {
             const diff = Math.floor(ms / 1000);
             const h = Math.floor(diff / 3600).toString().padStart(2, '0');
@@ -2838,7 +3131,6 @@
 
             const t = (translations && settings) ? (translations[settings.lang] || translations['fr']) : {};
             document.getElementById('nav-timeline').innerText = t.timeline;
-            document.getElementById('title-timeline').innerText = t.timeline;
             document.getElementById('nav-measure').innerText = t.measure;
             document.getElementById('nav-results').innerText = t.results;
             document.getElementById('nav-settings').innerText = t.settings;
@@ -3221,7 +3513,7 @@
                     // Passe C : lookup par typeId — correct même si les typeIds sont non-séquentiels
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
-                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
+                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
                     const h = Math.floor(mins / 60);
                     const m = Math.round(mins % 60);
                     const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
@@ -3249,7 +3541,7 @@
 
             // Légende — types ayant des données dans l'historique
             const tLegend = translations[settings.lang] || translations['fr'];
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -3408,29 +3700,29 @@
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: default; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(week.totals).sort().map(type => {
-                                    const avgMins = week.totals[type] / n;
-                                    const perc = (avgMins / 1440) * 100;
-                                    // Passe C : lookup par typeId
-                                    const typeId = parseInt(type);
-                                    const color = colorMap[typeId] || getColorValueForId(typeId);
-                                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type ${typeId}`;
-                                    const h = Math.floor(avgMins / 60);
-                                    const m = Math.round(avgMins % 60);
-                                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
-                                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
-                                    return perc > 0 ? `
+                    const avgMins = week.totals[type] / n;
+                    const perc = (avgMins / 1440) * 100;
+                    // Passe C : lookup par typeId
+                    const typeId = parseInt(type);
+                    const color = colorMap[typeId] || getColorValueForId(typeId);
+                    const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
+                    const h = Math.floor(avgMins / 60);
+                    const m = Math.round(avgMins % 60);
+                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
+                    return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
                                              onmousemove="showBarTooltip(event, '${tooltipText}')"
                                              onmouseout="hideBarTooltip()"
                                              ontouchstart="showBarTooltip(event, '${tooltipText}')"
                                              ontouchend="hideBarTooltip()">
                                         </div>` : '';
-                                }).join('')}
+                }).join('')}
                             </div>
                             <div style="position: absolute; inset: 0; display: flex; pointer-events: none; z-index: 2;">
                                 ${Array.from({ length: 24 }).map(() =>
-                                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
-                                ).join('')}
+                    `<div style="flex: 1; border-right: 1px solid rgba(0,0,0,0.15);"></div>`
+                ).join('')}
                             </div>
                         </div>
                     </div>
@@ -3440,7 +3732,7 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; gap: 15px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
+            html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
                 html += `
@@ -3471,19 +3763,46 @@
 
                 // On rassemble toutes les données (historique + période en cours éventuelle)
                 let all = [...state.history];
-                if (state.activeType) {
+
+                // La période en cours n'est incluse que si la fenêtre affiche aujourd'hui
+                const _ed = window.historyEndDate;
+                const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+                const isShowingToday = _ed >= todayMidnight;
+                if (state.activeType && isShowingToday) {
                     all.push({ typeId: state.activeType, start: state.startTime, inProgress: true });
                 }
 
-                // Mise à jour du titre avec le compteur de périodes
-                const titleElement = document.getElementById('title-history');
-                if (titleElement) {
-                    let baseText = t.history || "Périodes enregistrées";
-                    titleElement.innerText = `${baseText} (${all.length})`;
+                // Mise à jour du footer : plage de dates (ligne 1) + total (ligne 4)
+                const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+                const lastDay = _ed;
+                const locale = getLocale();
+                const fD = firstDay.getDate();
+                const fM = firstDay.toLocaleDateString(locale, { month: 'long' });
+                const lD = lastDay.getDate();
+                const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
+                const rangeStr = firstDay.getMonth() === lastDay.getMonth()
+                    ? `Vue du ${fD} au ${lD} ${lM}`
+                    : `Vue du ${fD} ${fM} au ${lD} ${lM}`;
+                const rangeEl = document.getElementById('timeline-footer-range');
+                if (rangeEl) rangeEl.innerText = rangeStr;
+
+                const totalEl = document.getElementById('timeline-footer-total');
+                if (totalEl) {
+                    const totalCount = state.history.length + (state.activeType ? 1 : 0);
+                    totalEl.innerText = `Total : ${totalCount} période${totalCount > 1 ? 's' : ''} enregistrée${totalCount > 1 ? 's' : ''}`;
                 }
 
+                // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
+                // state.history n'est pas modifié — originalIndex reste valide
+                const windowEnd = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() + 1).getTime();
+                const windowStart = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6).getTime();
+                const displayed = all.filter(e =>
+                    e.inProgress ||
+                    (e.start >= windowStart && e.start < windowEnd && e.end > e.start)
+                );
+
                 // On parcourt les données à l'envers (les plus récentes en premier)
-                all.reverse().forEach(e => {
+                displayed.reverse().forEach(e => {
                     const div = document.createElement('div');
                     div.className = "history-item";
 
@@ -3519,10 +3838,11 @@
                     let durationText = `${hours}h${mins}`;
 
                     // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.6">${inProgressText}</i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
+
             } catch (err) {
                 console.error("Erreur bloquée dans renderHistory :", err);
             }
@@ -3550,6 +3870,10 @@
                 renderTimelineChart();
                 //  renderResults();
                 if (typeof updateUI === "function") updateUI(); // Pour stopper l'interface du chrono si nécessaire
+                if (document.getElementById('page-timeline').classList.contains('active')) {
+                    populateHistoryDropdowns();
+                    updateNavButtons();
+                }
             }
         }
 
@@ -3789,6 +4113,8 @@
             // Rafraîchit l'historique seulement si la page timeline est déjà visible
             // (évite un appel inutile à Chart.js si on est sur une autre page)
             if (document.getElementById('page-timeline').classList.contains('active')) {
+                populateHistoryDropdowns();
+                updateNavButtons();
                 renderTimelineChart();
                 renderHistory();
             }
@@ -3886,7 +4212,7 @@
 
             let finalMsg = "";
 
-            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type ${typeId}`;
+            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type #${typeId}`;
             if (isEndInFuture) {
                 finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n\n";
                 finalMsg += `${typeLabel}\n`;
@@ -4429,7 +4755,9 @@
         function renderTimelineChart() {
             console.log("[renderTimelineChart] Rendu du graphique timeline");
             const ctx = document.getElementById('timelineChart').getContext('2d');
-            const now = new Date();
+            // endDate = dernier jour de la fenêtre affichée (piloté par historyEndDate).
+            // now (timestamp) reste utilisé uniquement pour la période en cours (Date.now()).
+            const endDate = window.historyEndDate;
             const labels = [];
             const daysStart = [];
 
@@ -4437,9 +4765,9 @@
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
 
-            // Création des 7 derniers jours avec format sur 2 lignes
+            // Création des 7 jours de la fenêtre : endDate - 6j → endDate
             for (let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+                let d = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - i);
                 const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
                 const dayNum = d.getDate().toString().padStart(2, '0');
 
@@ -4468,7 +4796,7 @@
                     let dayS = daysStart[i];
                     // Calcul du vrai minuit du jour suivant en heure locale
                     // (évite le bug du changement d'heure : un jour peut durer 23h ou 25h)
-                    let dayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+                    let dayDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (6 - i));
                     let nextDay = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate() + 1);
                     let dayE = nextDay.getTime();
 
@@ -4501,7 +4829,10 @@
             if (window.timelineChartInstance) {
                 window.timelineChartInstance.data.labels = labels;
                 window.timelineChartInstance.data.datasets = datasets;
-                window.timelineChartInstance.update();
+                // Pas d'animation pour un décalage d'1 jour (flag posé par navigateHistory)
+                const noAnim = window._timelineNoAnim === true;
+                window._timelineNoAnim = false;
+                window.timelineChartInstance.update(noAnim ? 'none' : undefined);
             } else {
                 window.timelineChartInstance = new Chart(ctx, {
                     type: 'bar',
@@ -4572,13 +4903,15 @@
         // Génère la légende colorée sous le graphique timeline.
         // typesWithData : résultat de getTypesWithHistoryData() — types avec données dans l'historique.
         function renderTimelineLegend(textColor, typesWithData) {
-            const chartContainer = document.querySelector('#page-timeline .chart-container');
             let existingLegend = document.getElementById('timeline-custom-legend');
             if (existingLegend) existingLegend.remove();
 
             const legend = document.createElement('div');
             legend.id = 'timeline-custom-legend';
-            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 15px; margin-top: 10px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+            legend.style.cssText = `display: flex; flex-wrap: wrap; justify-content: flex-start; row-gap: 2px; column-gap: 10px; margin-top: 6px; font-size: 0.85rem; color: ${textColor}; margin-left: 55px;`;
+
+            // Respecte l'état courant du toggle légende
+            if (!window.showTimelineLegend) legend.style.display = 'none';
 
             // Types ayant des données dans l'historique — actifs ou inactifs
             typesWithData.forEach(tp => {
@@ -4589,7 +4922,217 @@
                 <span>${label}</span>
             </div>`;
             });
-            chartContainer.after(legend);
+
+            // Insère après le chart-container (dans la zone scrollable, sous le graphe)
+            const chartContainer = document.querySelector('#timeline-scroll .chart-container');
+            if (chartContainer) chartContainer.after(legend);
+        }
+
+        // État du toggle légende timeline — persisté pour la session (pas de reset au changement d'onglet)
+        if (typeof window.showTimelineLegend === 'undefined') window.showTimelineLegend = true;
+
+        // ── DRAWER FOOTER (page Historique) ────────────────────────────────
+        // Seules les lignes 4+5 (export/import + total) s'animent via #footer-collapsible.
+        // Les lignes 1-3 restent toujours visibles — seules les lignes 4+5 s'animent.
+        // État mémorisé pour la session. Défaut : sorti (true).
+        if (typeof window.footerExpanded === 'undefined') window.footerExpanded = true;
+
+        function applyFooterState() {
+            const collapsible = document.getElementById('footer-collapsible');
+            if (!collapsible) return;
+            collapsible.style.maxHeight = window.footerExpanded ? '200px' : '0px';
+        }
+
+        function toggleFooterDrawer() {
+            window.footerExpanded = !window.footerExpanded;
+            applyFooterState();
+        }
+
+        // Initialisation du drawer : affichage, padding-bottom scroll, état, interactions (une seule fois)
+        function initFooterDrawer() {
+            const footer = document.getElementById('timeline-footer');
+            const scroll = document.getElementById('timeline-scroll');
+            if (!footer || !scroll) return;
+
+            // Rendre le footer visible (display:none au départ pour éviter un flash)
+            footer.style.display = 'block';
+
+            // Ajuster padding-bottom de la zone scroll pour que la liste
+            // ne se cache pas derrière le footer fixe.
+            // offsetHeight fiable ici car footer est position:fixed — déjà rendu par le navigateur.
+            scroll.style.paddingBottom = (footer.offsetHeight + 8) + 'px';
+
+            // Appliquer l'état drawer immédiatement — pas de timing, footer déjà positionné
+            applyFooterState();
+
+            // Clic sur encoche ou ligne 1 → toggle
+            const handle = document.getElementById('footer-handle');
+            if (handle) handle.addEventListener('click', toggleFooterDrawer);
+            const range = document.getElementById('timeline-footer-range');
+            if (range) range.addEventListener('click', toggleFooterDrawer);
+
+            // Swipe vertical sur le footer
+            let swipeStartY = 0;
+            footer.addEventListener('touchstart', e => {
+                swipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+            footer.addEventListener('touchend', e => {
+                const diff = e.changedTouches[0].clientY - swipeStartY;
+                if (Math.abs(diff) > 30) {
+                    if (diff > 0 && window.footerExpanded) toggleFooterDrawer(); // swipe bas → rentrer
+                    if (diff < 0 && !window.footerExpanded) toggleFooterDrawer(); // swipe haut → sortir
+                }
+            }, { passive: true });
+        }
+
+        function toggleTimelineLegend() {
+            window.showTimelineLegend = !window.showTimelineLegend;
+            // Barre oblique via classe CSS — pas d'opacity, le bouton reste identique visuellement
+            const btn = document.getElementById('nav-legend');
+            if (btn) btn.classList.toggle('nav-legend-off', !window.showTimelineLegend);
+            // Affiche ou masque la légende sans redessiner le graphe
+            const legend = document.getElementById('timeline-custom-legend');
+            if (legend) legend.style.display = window.showTimelineLegend ? 'flex' : 'none';
+        }
+
+        // ============================================================
+        // 21b. NAVIGATION TEMPORELLE — page Historique
+        // window.historyEndDate : dernier jour de la fenêtre de 7 jours affichée.
+        // Fenêtre = historyEndDate - 6j → historyEndDate (inclus).
+        // ============================================================
+
+        // Avance ou recule de `days` jours, avec clamp haut (aujourd'hui) et bas (1er jour historique).
+        function navigateHistory(days) {
+            const ed = window.historyEndDate;
+            const candidate = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + days);
+
+            // Clamp haut : ne dépasse pas aujourd'hui
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            if (candidate > todayMidnight) { window.historyEndDate = todayMidnight; }
+            // Clamp bas : ne descend pas sous historyStartDate (premier jour avec données)
+            else {
+                const minDate = _getHistoryStartDate();
+                if (minDate && candidate < minDate) { window.historyEndDate = minDate; }
+                else { window.historyEndDate = candidate; }
+            }
+
+            // Pas d'animation Chart.js pour un décalage d'1 seul jour (‹1 ou 1›)
+            if (Math.abs(days) === 1) window._timelineNoAnim = true;
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+            populateHistoryDropdowns();
+        }
+
+        // Remet historyEndDate à aujourd'hui.
+        function goToToday() {
+            const n = new Date();
+            window.historyEndDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+            populateHistoryDropdowns();
+        }
+
+        // Retourne la date (minuit local) du premier jour ayant des données,
+        // ou null si l'historique est vide.
+        function _getHistoryStartDate() {
+            if (!state.history.length) return null;
+            // state.history est trié chronologiquement
+            const first = state.history[0].start;
+            const d = new Date(first);
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        }
+
+        // Active/désactive les boutons de navigation selon la position courante.
+        function updateNavButtons() {
+            // Guard : les boutons n'existent que sur la page Historique
+            if (!document.getElementById('nav-back7')) return;
+
+            const ed = window.historyEndDate;
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const minDate = _getHistoryStartDate();
+
+            // Calcule le premier jour de la fenêtre affichée
+            const windowStart = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - 6);
+
+            // Boutons "en arrière" désactivés si on est déjà au bout de l'historique ou vide
+            const atStart = !minDate || windowStart <= minDate;
+            document.getElementById('nav-back7').disabled = atStart;
+            document.getElementById('nav-back1').disabled = atStart;
+
+            // Boutons "en avant" et "aujourd'hui" désactivés si historyEndDate = aujourd'hui
+            const atEnd = ed >= todayMidnight;
+            document.getElementById('nav-fwd1').disabled = atEnd;
+            document.getElementById('nav-fwd7').disabled = atEnd;
+            document.getElementById('nav-today').disabled = atEnd;
+        }
+
+        // Saute au premier jour avec données dans le mois sélectionné.
+        // value = "YYYY-MM" (format des options du select nav-month).
+        function jumpToMonth(value) {
+            if (!value) return;
+            const [y, m] = value.split('-').map(Number);
+            // Trouver le premier jour du mois ayant des données
+            const firstInMonth = state.history.find(e => {
+                const d = new Date(e.start);
+                return d.getFullYear() === y && d.getMonth() === m - 1;
+            });
+            if (!firstInMonth) return;
+            const d = new Date(firstInMonth.start);
+            const firstDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            // Le premier jour avec données est la colonne gauche du graphe → endDate = firstDay + 6j
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const candidate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + 6);
+            window.historyEndDate = candidate > todayMidnight ? todayMidnight : candidate;
+
+            renderTimelineChart();
+            renderHistory();
+            updateNavButtons();
+        }
+
+        // Peuple le select nav-month avec les mois ayant des données (format "Janvier 2026").
+        // Un seul select — l'année est incluse dans le libellé pour éviter toute ambiguïté.
+        // Appelée à l'ouverture de la page Historique et après tout changement de données.
+        function populateHistoryDropdowns() {
+            const monthSel = document.getElementById('nav-month');
+            if (!monthSel) return;
+
+            const locale = getLocale();
+            const monthsSet = new Set();
+
+            // Toujours inclure le mois du 1er jour de la fenêtre affichée
+            // (même sans données : premier lancement, données supprimées, etc.)
+            const _ed = window.historyEndDate;
+            const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+            const fY = firstDay.getFullYear();
+            const fM = (firstDay.getMonth() + 1).toString().padStart(2, '0');
+            monthsSet.add(`${fY}-${fM}`);
+
+            // Ajouter les mois ayant des données dans l'historique
+            state.history.forEach(e => {
+                const d = new Date(e.start);
+                const y = d.getFullYear();
+                const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                monthsSet.add(`${y}-${m}`);
+            });
+
+            const months = [...monthsSet].sort();
+            monthSel.innerHTML = months.map(ym => {
+                const [y, m] = ym.split('-');
+                const monthName = new Date(parseInt(y), parseInt(m) - 1, 1)
+                    .toLocaleDateString(locale, { month: 'long' });
+                // Première lettre en majuscule (certains navigateurs retournent tout en minuscules)
+                const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                return `<option value="${ym}">${monthLabel} ${y}</option>`;
+            }).join('');
+
+            // Sélectionner l'option du mois du premier jour visible (historyEndDate - 6j).
+            // Pas historyEndDate lui-même — le select doit refléter ce que le graphe montre à gauche.
+            const firstVisible = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - 6);
+            const curYM = `${firstVisible.getFullYear()}-${(firstVisible.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
         }
 
         // ============================================================
@@ -4611,9 +5154,25 @@
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
 
+            // Afficher/masquer le footer fixe selon la page
+            const footer = document.getElementById('timeline-footer');
+            if (footer) footer.style.display = (p === 'timeline') ? 'block' : 'none';
+
             if (p === 'timeline') {
+                populateHistoryDropdowns();
+                updateNavButtons();
+                // Synchronise l'état du bouton L avec l'état mémorisé du toggle
+                const btnL = document.getElementById('nav-legend');
+                if (btnL) btnL.classList.toggle('nav-legend-off', !window.showTimelineLegend);
                 renderTimelineChart();
                 renderHistory();
+                // Init drawer au premier passage, réapplique l'état aux suivants
+                if (!window._footerDrawerInited) {
+                    initFooterDrawer();
+                    window._footerDrawerInited = true;
+                } else {
+                    applyFooterState();
+                }
             }
             if (p === 'results') {
                 renderDailyCharts();
@@ -4812,6 +5371,22 @@
             localStorage.setItem('lastDailyPingSent', Date.now());
         }
 
+        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%)
+        // Réutilise _today déjà défini dans le daily ping ci-dessus
+        {
+            const _lastStorageWarn = localStorage.getItem('lastStorageWarningSent');
+            const _lastStorageWarnDay = _lastStorageWarn
+                ? new Date(parseInt(_lastStorageWarn)).toDateString()
+                : null;
+            if (_today !== _lastStorageWarnDay) {
+                const _ratio = getLocalStorageSize() / STORAGE_LIMIT_BYTES;
+                if (_ratio >= STORAGE_WARN_RATIO) {
+                    setTimeout(() => showStorageWarningToast(), 3000); // après chargement UI
+                    localStorage.setItem('lastStorageWarningSent', Date.now());
+                }
+            }
+        }
+
         document.getElementById('lang-select').value = settings.lang;
         // Passe B v0.9.24 : rendu dynamique des boutons (Mesure) et des inputs (Réglages)
         renderMeasureButtons();
@@ -4928,9 +5503,10 @@
             const observer = new MutationObserver(() => {
                 sleepTimer.innerText = mainTimer.innerText;
                 sleepTimer.className = mainTimer.className;
+                sleepTimer.style.color = mainTimer.style.color;
             });
 
-            observer.observe(mainTimer, { attributes: true, childList: true, characterData: true });
+            observer.observe(mainTimer, { attributes: true, childList: true, characterData: true, subtree: true });
         }
 
         // ============================================================
