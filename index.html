@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.22t"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1071,7 +1071,7 @@
 
         // ============================================================
         // 1b. SURVEILLANCE DU STOCKAGE localStorage
-        // Toast d'alerte si on approche ou on atteint la saturation
+        // Toast d'alerte si on approche ou on atteint la saturation (5 Mo)
         // ============================================================
 
         function getLocalStorageSize() {
@@ -1084,8 +1084,8 @@
             return total; // en octets
         }
 
-        const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — limite typique navigateur
-        const STORAGE_WARN_RATIO = 0.0090;             // Seuil avertissement
+        const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — capacité limite typique navigateur
+        const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
 
         function showStorageWarningToast() {
             if (document.getElementById('storage-warning-toast')) return; // évite les doublons
