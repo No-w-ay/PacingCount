@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.25-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1425,9 +1425,12 @@
         // Ancre temporelle — dernier jour affiché dans la vue Historique.
         // La fenêtre affichée est toujours : historyEndDate - 6j → historyEndDate.
         // Initialisé à aujourd'hui (minuit local, sans heure).
+        // lastHistoryCheckDay : dédiée à la détection de changement de jour dans visibilitychange —
+        // isolée de tout autre système (ex. lastDailyPingSent qui sert au ping analytics).
         {
             const _n = new Date();
             window.historyEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+            window.lastHistoryCheckDay = _n.toDateString();
         }
 
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
@@ -5595,17 +5598,15 @@
             // 1. Re-acquérir le Wake Lock si besoin
             if (wakeLock !== null) await requestWakeLock();
 
-            // 1b. Nouveau jour détecté pendant la veille → avancer historyEndDate à aujourd'hui.
-            // Réutilise lastDailyPingSent pour savoir si la date a changé — zéro flag supplémentaire.
+            // 1b. Nouveau jour détecté pendant la veille → avancer historyEndDate à aujourd'hui,
+            // systématiquement (même si l'utilisateur avait navigué dans le passé) : un nouveau jour
+            // affiche toujours "aujourd'hui" par défaut, plus prévisible pour l'utilisateur.
+            // Variable dédiée, isolée de tout autre système (ex. lastDailyPingSent).
             // Placé avant le guard activeType : doit s'exécuter même sans période active.
             {
-                const _todayStr = new Date().toDateString();
-                const _lastPingRaw = localStorage.getItem('lastDailyPingSent');
-                const _lastPingDay = _lastPingRaw
-                    ? new Date(parseInt(_lastPingRaw)).toDateString()
-                    : null;
-                if (_lastPingDay && _lastPingDay !== _todayStr) {
-                    const _n = new Date();
+                const _n = new Date();
+                const _todayStr = _n.toDateString();
+                if (window.lastHistoryCheckDay && window.lastHistoryCheckDay !== _todayStr) {
                     window.historyEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
                     console.log('[visibilitychange] Nouveau jour — historyEndDate avancé à aujourd\'hui');
                     if (document.getElementById('page-timeline').classList.contains('active')) {
@@ -5615,6 +5616,7 @@
                         renderHistory();
                     }
                 }
+                window.lastHistoryCheckDay = _todayStr;
             }
 
             // 2. Pas de période active → rien à faire
