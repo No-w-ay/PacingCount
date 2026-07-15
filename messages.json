@@ -3,7 +3,7 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.25-beta.27",
+      "id": "update-0.9.25-beta.30",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement.",
       "maxVersion": "",
       "validFrom": "2026-05-13",
