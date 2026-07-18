@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1544,6 +1544,8 @@
                 typeMinOneActive: "Au moins un type de période doit rester actif.",
                 typeInactivePlaceholder: "(inactif)",
                 typeNoNameOption: "(sans nom)",
+                customProfileConfigLabel: "Voici la dernière configuration enregistrée :",
+                customProfileTypeWord: "type(s) de période(s)",
 
                 // Historique — footer et suppression
                 entryDeleteConfirm: "Supprimer ?",
@@ -1553,6 +1555,7 @@
                 historyTotalPlural: "Total : {n} périodes enregistrées",
 
                 // Édition manuelle d'une période
+                editEndAfterStart: "L'heure de fin doit être après l'heure de début.",
                 editFutureEndNotice: "La fin de période est dans le futur, elle sera définie comme période en cours :",
                 editNewPeriodLabel: "Nouvelle période :",
                 editOverlapNotice: "Cette période empiète sur {n} autre(s) période(s) qui seront ajustées.",
@@ -1709,8 +1712,8 @@
 
         // Retourne le label d'un type par son id (y compris types inactifs/fantômes)
         function getLabelForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            return t ? t.label : `Type #${typeId}`;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            return tp ? tp.label : `Type #${typeId}`;
         }
 
         // Retourne les types (actifs ou inactifs) ayant des données dans l'historique
@@ -1736,9 +1739,9 @@
         // Retourne une valeur CSS utilisable en style inline pour n'importe quel typeId.
         // Gère tous les formats de couleur sans distinction en amont.
         function getColorForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            if (!t?.color) return 'var(--gray, #888)';
-            const c = t.color;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            if (!tp?.color) return 'var(--gray, #888)';
+            const c = tp.color;
             // Valeur CSS directe : hex (#...) ou fonction CSS (hsl(), rgb(), oklch()...)
             if (c.startsWith('#') || c.includes('(')) return c;
             // Nom de variable CSS prédéfinie → envelopper dans var(--)
@@ -1748,9 +1751,9 @@
         // Retourne la valeur de couleur calculée pour Chart.js (accepte hex, hsl, rgb nativement).
         // Pour les noms de variables CSS prédéfinies, résout via getCSSColor().
         function getColorValueForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            if (!t?.color) return '#888';
-            const c = t.color;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            if (!tp?.color) return '#888';
+            const c = tp.color;
             // Valeur CSS directe → Chart.js l'accepte telle quelle
             if (c.startsWith('#') || c.includes('(')) return c;
             // Nom de variable CSS → résoudre en valeur calculée
@@ -2877,7 +2880,7 @@
                 input.id = `type-input-${tp.id}`;
                 input.value = tp.label;
                 input.maxLength = 30;
-                input.placeholder = tp.active ? '' : '(inactif)';
+                input.placeholder = tp.active ? '' : t('typeInactivePlaceholder');
                 if (!tp.active) input.style.opacity = '0.4';
 
                 if (tp.active) {
@@ -2887,8 +2890,7 @@
                         const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
                         if (isLeavingBase) {
                             const profileName = PROFILES[currentProfile].name;
-                            const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
-                            if (!confirm(msg)) {
+                            if (!confirm(t('profileLeaveBaseConfirm', { name: profileName }))) {
                                 input.value = tp.label; // revert
                                 return;
                             }
@@ -2955,16 +2957,10 @@
             let description = profile.description?.[lang] || profile.description?.['fr'] || '';
             if (isCustom) {
                 const customSnap = settings.customProfiles && settings.customProfiles[0];
-                const activeCustomTypes = customSnap ? customSnap.types.filter(t => t.active) : [];
+                const activeCustomTypes = customSnap ? customSnap.types.filter(tp => tp.active) : [];
                 if (activeCustomTypes.length > 0) {
-                    const configLabel = lang === 'nl'
-                        ? 'Laatste opgeslagen configuratie :'
-                        : (lang === 'en' ? 'Last saved configuration:' : 'Voici la dernière configuration enregistrée :');
-                    const typeWord = lang === 'nl'
-                        ? 'periodetypen'
-                        : (lang === 'en' ? 'period type(s)' : 'type(s) de période(s)');
-                    description += `\n\n${configLabel}\n${activeCustomTypes.length} ${typeWord} :\n`
-                        + activeCustomTypes.map(t => `• ${t.label}`).join('\n');
+                    description += `\n\n${t('customProfileConfigLabel')}\n${activeCustomTypes.length} ${t('customProfileTypeWord')} :\n`
+                        + activeCustomTypes.map(tp => `• ${tp.label}`).join('\n');
                 }
             }
 
@@ -2979,14 +2975,14 @@
 
             if (!isActive) {
                 // Point 2 : message simplifié, sans mention du profil Personnalisé
-                confirmMsg.innerText = `Note : le profil actif s'applique à tout l'historique enregistré.`;
+                confirmMsg.innerText = t('profileNoteHistory');
                 confirmSection.style.display = 'block';
 
                 // Bouton Annuler
                 const btnCancel = document.createElement('button');
                 btnCancel.className = 'export-btn';
                 btnCancel.style.cssText = 'background:#444; margin:0;';
-                btnCancel.innerText = 'Annuler';
+                btnCancel.innerText = t('btnCancel');
                 btnCancel.onclick = () => closeProfileModal();
                 buttonsDiv.appendChild(btnCancel);
 
@@ -2994,7 +2990,7 @@
                 const btnApply = document.createElement('button');
                 btnApply.className = 'export-btn';
                 btnApply.style.cssText = 'margin:0;';
-                btnApply.innerText = 'Appliquer ce profil';
+                btnApply.innerText = t('profileApplyBtn');
                 btnApply.onclick = () => {
                     closeProfileModal();
                     if (isCustom) restoreCustomProfile(true);
@@ -3007,7 +3003,7 @@
                 const btnClose = document.createElement('button');
                 btnClose.className = 'export-btn';
                 btnClose.style.cssText = 'margin:0;';
-                btnClose.innerText = 'Fermer';
+                btnClose.innerText = t('btnClose');
                 btnClose.onclick = () => closeProfileModal();
                 buttonsDiv.appendChild(btnClose);
             }
@@ -3043,11 +3039,11 @@
         // Premier écart d'un profil de base : confirm() avant de modifier.
         // Activation d'un slot vide : cherche le label dans le profil actif (PROFILES).
         function toggleTypeActive(typeId) {
-            const tp = settings.types.find(t => t.id === typeId);
+            const tp = settings.types.find(tp => tp.id === typeId);
             if (!tp) return;
 
             if (tp.active && getActiveTypes().length <= 1) {
-                alert('Au moins un type de période doit rester actif.');
+                alert(t('typeMinOneActive'));
                 return;
             }
 
@@ -3056,8 +3052,7 @@
             const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
             if (isLeavingBase) {
                 const profileName = PROFILES[currentProfile].name;
-                const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileLeaveBaseConfirm', { name: profileName }))) return;
             }
 
             tp.active = !tp.active;
@@ -3085,8 +3080,7 @@
             if (!profile) return;
 
             if (!skipConfirm) {
-                const msg = `Appliquer le profil "${profile.name}" ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileApplyConfirm', { name: profile.name }))) return;
             }
 
             console.log(`[applyProfile] Application : ${profile.name}`);
@@ -3119,8 +3113,7 @@
             if (settings.activeProfile === 'custom') return; // déjà actif
 
             if (!skipConfirm) {
-                const msg = `Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileRestoreConfirm'))) return;
             }
 
             console.log('[restoreCustomProfile] Restauration du profil Personnalisé');
@@ -3870,8 +3863,6 @@
         function renderHistory() {
             console.log("[renderHistory] Rendu de la liste des périodes");
             try {
-                // Sécurité sur les traductions
-                const t = translations[settings.lang] || {};
                 const container = document.getElementById('history-list');
 
                 if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
@@ -3899,15 +3890,17 @@
                 const lD = lastDay.getDate();
                 const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
                 const rangeStr = firstDay.getMonth() === lastDay.getMonth()
-                    ? `Vue du ${fD} au ${lD} ${lM}`
-                    : `Vue du ${fD} ${fM} au ${lD} ${lM}`;
+                    ? t('historyRangeSameMonth', { fD, lD, lM })
+                    : t('historyRangeDiffMonth', { fD, fM, lD, lM });
                 const rangeEl = document.getElementById('timeline-footer-range');
                 if (rangeEl) rangeEl.innerText = rangeStr;
 
                 const totalEl = document.getElementById('timeline-footer-total');
                 if (totalEl) {
                     const totalCount = state.history.length + (state.activeType ? 1 : 0);
-                    totalEl.innerText = `Total : ${totalCount} période${totalCount > 1 ? 's' : ''} enregistrée${totalCount > 1 ? 's' : ''}`;
+                    totalEl.innerText = totalCount > 1
+                        ? t('historyTotalPlural', { n: totalCount })
+                        : t('historyTotalSingle', { n: totalCount });
                 }
 
                 // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
@@ -3929,10 +3922,7 @@
                     // qui n'a pas été modifié par le reverse (on travaille sur une copie [...state.history])
                     let originalIndex = state.history.indexOf(e);
 
-                    // Si c'est en cours, pas de boutons d'action. Sinon, on ajoute les boutons.
-                    //  let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
-
-                    // boutons d'action pout toutes les périodes enregistrées
+                    // boutons d'action pour toutes les périodes enregistrées
                     let actions = "";
                     if (e.inProgress) {
                         // Boutons pour le chrono en cours (on passe 'live' entre guillemets)
@@ -3945,18 +3935,16 @@
                     // Récupération du label et de la couleur — refactoring : getColorForId() unifié
                     let labelText = getLabelForId(e.typeId);
                     let colorVar = getColorForId(e.typeId);
-                    let inProgressText = t.inProgress || "En cours";
 
                     // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
-                    //let totalMin = Math.floor(durationMs / 60000); // Minutes entières tronquées
-                    let totalMin = Math.round(durationMs / 60000);   // Minutes entièrs arrondies
+                    let totalMin = Math.round(durationMs / 60000);   // Minutes entières arrondies
                     let hours = Math.floor(totalMin / 60);
                     let mins = (totalMin % 60).toString().padStart(2, '0');
                     let durationText = `${hours}h${mins}`;
 
-                    // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    // Construction de la ligne HTML
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString(locale)} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${t('inProgress')}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
@@ -3971,7 +3959,7 @@
         // ============================================================
 
         function deleteEntry(i) {
-            if (confirm("Supprimer ?")) {
+            if (confirm(t('entryDeleteConfirm'))) {
                 console.log(`[deleteEntry] Suppression de l'entrée : ${i}`);
 
                 if (i === 'live') {
@@ -4245,8 +4233,6 @@
         // ============================================================
 
         function saveManualEdit() {
-            const t = translations[settings.lang] || {};
-
             // On récupère l'index brut (peut être un nombre, ou "live" si on édite le chrono en cours)
             const rawIdx = document.getElementById('edit-index').value;
             const idx = rawIdx === 'live' ? 'live' : parseInt(rawIdx);
@@ -4267,11 +4253,11 @@
 
             let now = Date.now();
 
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+            if (end <= start) return alert(t('editEndAfterStart'));
 
             // --- TEST 1 : Toute la période est dans le futur ---
             if (start > now) {
-                return alert("Impossible d'enregistrer une période dans le futur.");
+                return alert(t('futureError'));
             }
 
             // --- TEST 2 : Uniquement la fin est dans le futur ---
@@ -4295,7 +4281,6 @@
             let isLiveActive = false;
             if (state.activeType !== null && idx !== 'live') {
                 basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-                //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: now, isLive: true });
                 isLiveActive = true;
             }
 
@@ -4330,22 +4315,22 @@
 
             let finalMsg = "";
 
-            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type #${typeId}`;
+            const typeLabel = settings.types.find(tp => tp.id === typeId)?.label || `Type #${typeId}`;
             if (isEndInFuture) {
-                finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n\n";
+                finalMsg += t('editFutureEndNotice') + '\n\n';
                 finalMsg += `${typeLabel}\n`;
-                finalMsg += `${dateS} ${hourS} → en cours...\n\n`;
+                finalMsg += `${dateS} ${hourS} → ${t('inProgress')}...\n\n`;
             } else {
-                finalMsg += "Nouvelle période :\n\n";
+                finalMsg += t('editNewPeriodLabel') + '\n\n';
                 finalMsg += `${typeLabel}\n`;
                 finalMsg += `${dateS} ${hourS} → ${dateE} ${hourE}\n\n`;
             }
 
             if (overlapCount > 0) {
-                finalMsg += `Cette période empiète sur ${overlapCount} autre(s) période(s) qui seront ajustées.\n\n`;
+                finalMsg += t('editOverlapNotice', { n: overlapCount }) + '\n\n';
             }
 
-            finalMsg += "Continuer ?";
+            finalMsg += t('continueQuestion');
 
             // On demande confirmation à l'utilisateur
             if (!confirm(finalMsg)) {
