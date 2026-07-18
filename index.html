@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1511,7 +1511,104 @@
                 storageExport: "Exporter mes données",
                 storageExportFull: "Exporter mes données",
                 storageAfterExportWarn: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
-                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé."
+                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé.",
+
+                // ============================================================
+                // NOUVELLES CLÉS — Audit traductions Bloc 2 (2026-07)
+                // FR uniquement pour l'instant. EN/NL viendront au Bloc 5,
+                // une fois le remplacement des chaînes en dur validé (Bloc 3/4).
+                // Certaines chaînes HTML statiques identiques à des clés déjà
+                // existantes (addManual, export, import, stop, alertType, custom,
+                // alertsTitle, timeline...) sont volontairement RÉUTILISÉES au
+                // lieu d'être dupliquées ici — elles seront juste câblées au Bloc 4.
+                // ============================================================
+
+                // Boutons génériques réutilisables dans plusieurs modals
+                btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
+                continueQuestion: "Continuer ?",
+
+                // Alertes de périodes
+                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                alertValidThreshold: "Seuil minimum : 1 min",
+                alertValidInterval: "Intervalle minimum : 1 min",
+                alertValidMaxCount: "Nombre de notifications : 1 à 5",
+                alertDeleteConfirm: "Supprimer cette alerte ?",
+                alertThresholdModalLabel: "1re alerte après (min)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "Vous allez modifier le profil \"{name}\".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?",
+                profileApplyConfirm: "Appliquer le profil \"{name}\" ?\nNote : le profil actif s'applique à tout l'historique enregistré.",
+                profileRestoreConfirm: "Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.",
+                profileNoteHistory: "Note : le profil actif s'applique à tout l'historique enregistré.",
+                profileApplyBtn: "Appliquer ce profil",
+                typeMinOneActive: "Au moins un type de période doit rester actif.",
+                typeInactivePlaceholder: "(inactif)",
+                typeNoNameOption: "(sans nom)",
+
+                // Historique — footer et suppression
+                entryDeleteConfirm: "Supprimer ?",
+                historyRangeSameMonth: "Vue du {fD} au {lD} {lM}",
+                historyRangeDiffMonth: "Vue du {fD} {fM} au {lD} {lM}",
+                historyTotalSingle: "Total : {n} période enregistrée",
+                historyTotalPlural: "Total : {n} périodes enregistrées",
+
+                // Édition manuelle d'une période
+                editFutureEndNotice: "La fin de période est dans le futur, elle sera définie comme période en cours :",
+                editNewPeriodLabel: "Nouvelle période :",
+                editOverlapNotice: "Cette période empiète sur {n} autre(s) période(s) qui seront ajustées.",
+
+                // Import CSV
+                importNoPeriods: "Aucune période importable.",
+                importSuccessCount: "{n} période(s) importée(s) avec succès.",
+                importMappingDesc: "Correspondances entre les types de périodes du fichier et ceux de l'application :",
+                importMappingLegend: "✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation",
+                importFusionWarning: "⚠️ Plusieurs types du fichier seront fusionnés en un seul type dans l'application ({target}).",
+                importFusionOk: "✅ Tous les types du fichier ont été reconnus automatiquement.",
+                importIgnoreOption: "— Ignorer ce type",
+                importModalTitle: "Importer un fichier CSV",
+                importReplaceBtn: "⚠️ Remplacer l'historique",
+                importReplaceDetail: "Efface tout l'historique actuel et importe le fichier. Cette action est irréversible.",
+                importMergeBtn: "⚠️ Fusionner",
+                importMergeDetail: "Ajoute les données du fichier à l'historique existant. Le fichier a priorité sur la plage temporelle qu'il couvre. Cette action est irréversible.",
+
+                // Mise à jour (modal "Vérifier mise à jour" + modal messages JSON type update)
+                updateTitle: "Mise à jour",
+                updateChecking: "🔄 Vérification en cours...",
+                updateAvailableTitle: "🔄 Mise à jour disponible",
+                updateCurrentVersionLabel: "Version actuelle :",
+                updateAvailableVersionLabel: "Version disponible :",
+                updateConseilLabel: "CONSEIL :",
+                updateConseilText: "Exportez vos données en CSV avant la mise à jour, par précaution. (tout redémarrage de l'app appliquera automatiquement la mise à jour)",
+                updateUpToDate: "✅ Vous avez la dernière version",
+                updateForceRestart: "En cas d'échec d'une mise à jour, forcez le redémarrage de l'application.",
+                updateOffline: "📡 Hors ligne — Impossible de vérifier",
+                updateInProgress: "⏳ Mise à jour en cours...",
+                updateWillRestart: "L'application va redémarrer dans quelques instants.",
+                btnUpdateNow: "🔄 Mettre à jour",
+                btnLater: "Plus tard",
+                btnExportBeforeUpdate: "💾 Exporter mes données (.csv)",
+
+                // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
+                titleResults: "Totaux par jour",
+                titleWeeklyAvg: "Moyennes par semaine",
+                titleDetailedResults: "Détails chiffrés",
+                titleProfiles: "Profils prédéfinis",
+                titleLanguage: "Langue",
+                titleCommunity: "Communauté & feedback",
+                titleAbout: "À propos",
+                communityIntro: "Rejoignez le <b>groupe Facebook des utilisateurs·trices</b> — le bon endroit pour poser une question ou partager un feedback sur l'application :",
+                communityLinkLabel: "👥 PacingCount : communauté & feedback (↗)",
+                aboutIntro: "<b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et objectiver leur niveau d'activité et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par une personne concernée par l'EM/SFC.",
+                aboutInvitation: "<i>Une invitation&nbsp;: n'utilisez pas cette app de façon trop perfectionniste — le pacing est avant tout une stratégie de repos et de récupération, dans un cadre de bienveillance envers soi-même.</i>",
+                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle.",
+                devModeIndicator: "🛠️ Mode développeur",
+                btnCheckUpdate: "Vérifier mise à jour",
+                editModalTitle: "Modifier l'entrée",
+                labelStart: "Début",
+                labelEnd: "Fin",
+                testNotifBtn: "🛠️ Test Notif Immédiate",
+                fullscreenBtn: "🛠️ Mode Plein Écran",
+                fullscreenExitBtn: "🛠️ Quitter le Plein Écran"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -1576,6 +1673,25 @@
                 storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
             }
         };
+
+        // ============================================================
+        // 5b. FONCTION DE TRADUCTION GLOBALE
+        // Remplace le pattern répété "const t = translations[settings.lang] || translations['fr']"
+        // recopié dans chaque fonction. Fallback en cascade : langue courante → fr → clé brute
+        // (la clé brute reste visible en cas de clé manquante = bug détectable au premier coup d'œil).
+        // Support de variables : t('overlapWarning', { n: 3 }) remplace {n} dans la chaîne trouvée.
+        // Convention déjà présente dans translations{} (ex: overlapWarning contient {n}, {start}, {end}).
+        // ============================================================
+        function t(key, vars) {
+            const dict = translations[settings.lang] || translations['fr'];
+            let str = dict[key] ?? translations['fr'][key] ?? key;
+            if (vars) {
+                Object.keys(vars).forEach(k => {
+                    str = str.replaceAll(`{${k}}`, vars[k]);
+                });
+            }
+            return str;
+        }
 
         // ============================================================
         // 6. FONCTIONS UTILITAIRES SUR LES TYPES
