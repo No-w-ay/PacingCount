@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1821,10 +1821,8 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                //alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
-                alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+                alert(t('alertDevWarning'));
             }
-            const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
 
             // Rempli le select des types
@@ -1835,15 +1833,16 @@
 
             // Valeurs par défaut ou existantes
             if (idx === -1) {
-                document.getElementById('alert-modal-title').innerText = t.alertNewTitle || 'Nouvelle alerte';
+                document.getElementById('alert-modal-title').innerText = t('alertNewTitle');
                 document.getElementById('alert-edit-index').value = -1;
-                document.getElementById('alert-type').value = active.some(t => t.id === 3) ? 3 : (active[0]?.id || 1); document.getElementById('alert-threshold').value = 40;
+                document.getElementById('alert-type').value = active.some(tp => tp.id === 3) ? 3 : (active[0]?.id || 1);
+                document.getElementById('alert-threshold').value = 40;
                 document.getElementById('alert-interval').value = 20;
                 document.getElementById('alert-maxcount').value = 3;
                 // document.getElementById('alert-wave-single').checked = true;
             } else {
                 const a = settings.alerts[idx];
-                document.getElementById('alert-modal-title').innerText = t.alertEditTitle || 'Modifier l\'alerte';
+                document.getElementById('alert-modal-title').innerText = t('alertEditTitle');
                 document.getElementById('alert-edit-index').value = idx;
                 document.getElementById('alert-type').value = a.typeId;
                 document.getElementById('alert-threshold').value = a.threshold;
@@ -1876,10 +1875,10 @@
 
 
             // Validation minimale
-            if (isNaN(threshold) || threshold < 1) return alert('Seuil minimum : 1 min');
-            if (isNaN(interval) || interval < 1) return alert('Intervalle minimum : 1 min');
+            if (isNaN(threshold) || threshold < 1) return alert(t('alertValidThreshold'));
+            if (isNaN(interval) || interval < 1) return alert(t('alertValidInterval'));
             if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
-                return alert('Nombre de notifications : 1 à 5');
+                return alert(t('alertValidMaxCount'));
 
             const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
 
@@ -1911,7 +1910,7 @@
 
         // Supprime une alerte
         function deleteAlert(idx) {
-            if (!confirm('Supprimer cette alerte ?')) return;
+            if (!confirm(t('alertDeleteConfirm'))) return;
 
             const typeId = settings.alerts[idx].typeId; // On mémorise le type avant suppression
             settings.alerts.splice(idx, 1);
