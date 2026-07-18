@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1590,6 +1590,8 @@
                 btnUpdateNow: "🔄 Mettre à jour",
                 btnLater: "Plus tard",
                 btnExportBeforeUpdate: "💾 Exporter mes données (.csv)",
+                updateNewVersionFallback: "nouvelle version",
+                msgDefaultBtn: "J'ai compris",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -2046,9 +2048,11 @@
         //         → si hors ligne : message spécifique
         // ============================================================
 
-        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 16px 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
-            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution. 
-            (tout redémarrage de l'app appliquera automatiquement la mise à jour)</p>`;
+        // Encadré conseil avant mise à jour — construit à l'appel pour respecter la langue active
+        function getConseilHTML() {
+            return `<p style="color:#ffcc55; margin:12px 0 16px 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
+                <b>${t('updateConseilLabel')}</b> ${t('updateConseilText')}</p>`;
+        }
 
         let waitingWorker = null; // Référence au SW en attente, si détecté
 
@@ -2092,25 +2096,14 @@
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
             <button onclick="exportCSV()" style="${btnExport}">
-                💾 Exporter mes données (.csv)
+                ${t('btnExportBeforeUpdate')}
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <button onclick="document.getElementById('updateModal').style.display='none'"
-                    style="${btnLater}">Plus tard</button>
+                    style="${btnLater}">${t('btnLater')}</button>
                 <button onclick="applyUpdate()"
-                    style="${btnUpdate}">Mettre à jour</button>
+                    style="${btnUpdate}">${t('btnUpdateNow')}</button>
             </div>`;
-
-
-            /*         const actionsCas1 = `
-                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                     <button onclick="document.getElementById('updateModal').style.display='none'"
-                         style="${btnLater}">Plus tard</button>
-                     <button onclick="applyUpdate()"
-                         style="${btnUpdate}">Mettre à jour</button>
-                 </div>`;
-             */
-
 
             if (!('serviceWorker' in navigator)) {
                 // Pas de SW supporté — cas très rare
@@ -2120,10 +2113,10 @@
             }
 
             // Affiche immédiatement le modal en état "chargement"
-            title.innerText = 'Mise à jour';
+            title.innerText = t('updateTitle');
             body.innerHTML = `
                 <div style="text-align:center; padding:10px 0; opacity:0.6;">
-                    🔄 Vérification en cours...
+                    ${t('updateChecking')}
                 </div>`;
             actions.innerHTML = '';
             modal.style.display = 'flex';
@@ -2167,19 +2160,19 @@
                     if (event.data && event.data.type === 'SW_VERSION') {
                         navigator.serviceWorker.removeEventListener('message', onMessage);
                         const newVersion = event.data.version.replace('PacingCount-v', '');
-                        title.innerText = '🔄 Mise à jour disponible';
+                        title.innerText = t('updateAvailableTitle');
                         body.innerHTML = `
                     <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
-                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                             <strong>${APP_VERSION}</strong>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:4px;">
-                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
                             <strong style="color:var(--blue);">${newVersion}</strong>
                         </div>
                     </div>
-                    ${CONSEIL_HTML}`;
+                    ${getConseilHTML()}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -2190,50 +2183,23 @@
                 setTimeout(() => {
                     navigator.serviceWorker.removeEventListener('message', onMessage);
                     if (modal.style.display !== 'flex') {
-                        title.innerText = '🔄 Mise à jour disponible';
+                        title.innerText = t('updateAvailableTitle');
                         body.innerHTML = `
             <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
                 <div style="display:flex; gap:8px;">
-                    <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                    <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                     <strong>${APP_VERSION}</strong>
                 </div>
                 <div style="display:flex; gap:8px; margin-top:4px;">
-                    <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                    <strong style="color:var(--blue);">nouvelle version</strong>
+                    <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
+                    <strong style="color:var(--blue);">${t('updateNewVersionFallback')}</strong>
                 </div>
             </div>
-            ${CONSEIL_HTML}`;
+            ${getConseilHTML()}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
                 }, 1500);
-
-                /*          // Fallback si GET_VERSION sans réponse (ancien SW)
-                          setTimeout(() => {
-                              navigator.serviceWorker.removeEventListener('message', onMessage);
-                              if (modal.style.display !== 'flex') {
-                                  title.innerText = '🔄 Mise à jour disponible';
-                                  body.innerHTML = `
-                              <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
-                                  <div style="display:flex; gap:8px;">
-                                      <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                                      <strong>${APP_VERSION}</strong>
-                                  </div>
-                                  <div style="display:flex; gap:8px; margin-top:4px;">
-                                      <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                                      <strong style="color:var(--blue);">nouvelle version</strong>
-                                  </div>
-                              </div>
-                              <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                          border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                  💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                  par précaution.
-                              </div>`;
-                                  actions.innerHTML = actionsCas1;
-                                  modal.style.display = 'flex';
-                              }
-                          }, 1500);
-                    */
 
             } else {
                 _showUpdateModalCas2(title, body, actions, btnLater);
@@ -2242,23 +2208,23 @@
         }
 
         function _showUpdateModalCas2(title, body, actions, btnLater) {
-            title.innerText = 'Mise à jour';
+            title.innerText = t('updateTitle');
             if (navigator.onLine) {
                 body.innerHTML = `
             <div style="text-align:center; padding:10px 0;">
-                ✅ Vous avez la dernière version<br>
+                ${t('updateUpToDate')}<br>
                 <span style="font-size:0.85rem; font-family:monospace; opacity:0.7; margin-top:6px; display:block;">
                     Version ${APP_VERSION}
                 </span>
                 <br><br><span style="font-size:0.9rem; opacity:0.85; display:block;">
-                En cas d'échec d'une mise à jour, forcez le rédémarrage de l'application</span>
+                ${t('updateForceRestart')}</span>
             </div>`;
             } else {
                 body.innerHTML = `
             <div style="text-align:center; padding:10px 0; color:#ffcc55;">
-                📡 Hors ligne — Impossible de vérifier<br>
+                ${t('updateOffline')}<br>
                 <span style="font-size:0.85rem; opacity:0.7; font-family:monospace; margin-top:6px; display:block;">
-                    Version actuelle : ${APP_VERSION}
+                    ${t('updateCurrentVersionLabel')} ${APP_VERSION}
                 </span>
             </div>`;
             }
@@ -2267,7 +2233,7 @@
             style="background:transparent; border-radius:6px; padding:10px 16px;
                    font-size:0.95rem; cursor:pointer; width:100%;
                    color:#aaa; border:1px solid #555;">
-            Fermer
+            ${t('btnClose')}
         </button>`;
         }
 
@@ -2279,17 +2245,16 @@
             //}
 
             if (waitingWorker) {
-                //localStorage.setItem('pendingUpdateFrom', APP_VERSION); // Plus nécessaire, géré dans [Init] pour être plus général
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 
                 // Affiche l'état d'attente pendant l'activation du nouveau SW
-                document.getElementById('update-modal-title').innerText = 'Mise à jour';
+                document.getElementById('update-modal-title').innerText = t('updateTitle');
                 document.getElementById('update-modal-body').innerHTML = `
                     <div style="text-align:center; padding:10px 0; opacity:0.6;">
-                        ⏳ Mise à jour en cours...<br>
+                        ${t('updateInProgress')}<br>
                         <span style="font-size:0.8rem; margin-top:6px; display:block;">
-                            L'application va redémarrer dans quelques instants.<br><br>
-                            En cas d'échec de la mise à jour, forcez le rédémarrage de l'application.
+                            ${t('updateWillRestart')}<br><br>
+                            ${t('updateForceRestart')}
                          </span>
                     </div>`;
                 document.getElementById('update-modal-actions').innerHTML = '';
@@ -2454,21 +2419,21 @@
             const versionBlock = document.getElementById('message-modal-version');
             const conseilBlock = document.getElementById('message-modal-conseil');
             if (msg.type === 'update') {
-                const versionLabel = newVersion || 'nouvelle version';
+                const versionLabel = newVersion || t('updateNewVersionFallback');
                 versionBlock.style.display = 'block';
                 versionBlock.innerHTML = `
                     <div style="font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
-                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                             <strong>${APP_VERSION}</strong>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:4px;">
-                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
                             <strong style="color:var(--blue);">${versionLabel}</strong>
                         </div>
                     </div>`;
                 conseilBlock.style.display = 'block';
-                conseilBlock.innerHTML = CONSEIL_HTML;
+                conseilBlock.innerHTML = getConseilHTML();
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
@@ -2489,18 +2454,18 @@
 
             if (msg.type === 'update') {
                 // Bouton export toujours présent pour update
-                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données (.csv)</button>`;
+                let html = `<button onclick="exportCSV()" style="${btnExport}">${t('btnExportBeforeUpdate')}</button>`;
                 html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
                 if (!isBlocking) {
                     // Non bloquant : bouton "Plus tard"
-                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
+                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">${t('btnLater')}</button>`;
                 }
-                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
+                html += `<button onclick="applyUpdate()" style="${btnPrimary}">${t('btnUpdateNow')}</button>`;
                 html += `</div>`;
                 actions.innerHTML = html;
             } else {
-                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
-                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
+                // welcome ou info : bouton configurable via JSON, fallback clé msgDefaultBtn
+                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || t('msgDefaultBtn');
                 actions.innerHTML = `
                     <div style="text-align:center;">
                         <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>
@@ -4611,7 +4576,7 @@
 
                 // ✅ Exact : même typeId ET même label normalisé
                 if (m.csvTypeId !== null && m.resolvedId === m.csvTypeId) {
-                    const appType = settings.types.find(t => t.id === m.csvTypeId);
+                    const appType = settings.types.find(tp => tp.id === m.csvTypeId);
                     if (appType && normLabel(appType.label) === normCsv) {
                         return { targetId: m.csvTypeId, isExact: true };
                     }
@@ -4619,16 +4584,16 @@
 
                 // 🔍 Migration connue : ancien label type 3 → type 4
                 if (m.csvTypeId === 3 && OLD_TYPE3_LABELS.some(l => normLabel(l) === normCsv)) {
-                    if (settings.types.find(t => t.id === 4)) return { targetId: 4, isExact: false };
+                    if (settings.types.find(tp => tp.id === 4)) return { targetId: 4, isExact: false };
                 }
 
                 // 🔍 Label normalisé identique, typeId différent (actifs en priorité)
-                const labelMatchActive = settings.types.find(t =>
-                    t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                const labelMatchActive = settings.types.find(tp =>
+                    tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
                 if (labelMatchActive) return { targetId: labelMatchActive.id, isExact: false };
 
-                const labelMatchInactive = settings.types.find(t =>
-                    !t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                const labelMatchInactive = settings.types.find(tp =>
+                    !tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
                 if (labelMatchInactive) return { targetId: labelMatchInactive.id, isExact: false };
 
                 // 🔍 typeId identique mais label différent (déjà dans resolvedId)
@@ -4642,12 +4607,12 @@
             function buildSelectOptions(selectedId) {
                 let opts = settings.types.map(tp => {
                     const sel = selectedId === tp.id ? ' selected' : '';
-                    const inactifNote = tp.active ? '' : ' (inactif)';
+                    const inactifNote = tp.active ? '' : ` ${t('typeInactivePlaceholder')}`;
                     // Point 5 : format #N pour les ids dans les options
-                    return `<option value="${tp.id}"${sel}>${tp.label || '(sans nom)'}${inactifNote} #${tp.id}</option>`;
+                    return `<option value="${tp.id}"${sel}>${tp.label || t('typeNoNameOption')}${inactifNote} #${tp.id}</option>`;
                 }).join('');
                 const ignoreSel = selectedId === null ? ' selected' : '';
-                opts += `<option value="ignore"${ignoreSel}>— Ignorer ce type</option>`;
+                opts += `<option value="ignore"${ignoreSel}>${t('importIgnoreOption')}</option>`;
                 return opts;
             }
 
@@ -4660,7 +4625,7 @@
             // Point 7 : un seul gris #666 pour inactif ET ignorer (supprime le test #555 vs #666)
             function borderColor(targetId) {
                 if (targetId === null) return '#666';
-                const tp = settings.types.find(t => t.id === targetId);
+                const tp = settings.types.find(tp => tp.id === targetId);
                 return tp?.active ? getColorForId(targetId) : '#666';
             }
 
@@ -4706,8 +4671,8 @@
 
             document.getElementById('import-mapping-table').innerHTML = `
                 <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
-                    Correspondances entre les types de périodes du fichier et ceux de l'application :
-                    ✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation
+                    ${t('importMappingDesc')}
+                    ${t('importMappingLegend')}
                 </p>
                 <table style="width:100%; border-collapse:collapse;">
                     <colgroup>
@@ -4719,9 +4684,9 @@
                     <thead>
                         <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
                             <th></th>
-                            <th style="padding:3px 0; text-align:left;">Dans le fichier</th>
+                            <th style="padding:3px 0; text-align:left;">${t('importFileHeader')}</th>
                             <th></th>
-                            <th style="padding:3px 4px; text-align:left;">Dans l'application</th>
+                            <th style="padding:3px 4px; text-align:left;">${t('importAppHeader')}</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -4752,7 +4717,6 @@
             console.log(`[processImport] Mode : ${mode}`);
             try {
                 if (!pendingImportData || !pendingImportMapping) return;
-                const t = translations[settings.lang] || {};
 
                 // Lecture des selects pour construire le mapping final (clé → typeId cible ou null)
                 const finalMapping = {};
@@ -4772,12 +4736,12 @@
                     .filter(p => p !== null);
 
                 if (resolvedPeriods.length === 0) {
-                    alert(t.importError || "Aucune période importable.");
+                    alert(t('importNoPeriods'));
                     closeImportModal();
                     return;
                 }
 
-                const successMessage = `${resolvedPeriods.length} période(s) importée(s) avec succès.`;
+                const successMessage = t('importSuccessCount', { n: resolvedPeriods.length });
 
                 if (mode === 'replace') {
                     reconstructHistory(resolvedPeriods);
@@ -4816,7 +4780,7 @@
                 // Vérifier si ce mapping est exact (même logique que resolveTarget isExact)
                 const m = pendingImportMapping[key];
                 const normL = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-                const appType = settings.types.find(t => t.id === parseInt(sel.value));
+                const appType = settings.types.find(tp => tp.id === parseInt(sel.value));
                 const isExact = appType && parseInt(sel.value) === m.csvTypeId
                     && normL(appType.label) === normL(m.csvLabel);
                 if (!isExact) allExact = false;
@@ -4826,16 +4790,15 @@
             const notice = document.getElementById('import-merge-notice');
 
             if (fusions.length > 0) {
-                const tp = settings.types.find(t => t.id === parseInt(fusions[0][0]));
+                const tp = settings.types.find(tp => tp.id === parseInt(fusions[0][0]));
                 const targetLabel = tp ? `"${tp.label}"` : `id ${fusions[0][0]}`;
                 notice.style.display = 'block';
                 notice.style.color = 'var(--orange)';
-                notice.innerHTML = `⚠️ Plusieurs types du fichier seront fusionnés en un seul`
-                    + ` type dans l'application (${targetLabel}).`;
+                notice.innerHTML = t('importFusionWarning', { target: targetLabel });
             } else if (allExact && Object.keys(pendingImportMapping).length > 0) {
                 notice.style.display = 'block';
                 notice.style.color = 'var(--green)';
-                notice.innerHTML = `✅ Tous les types du fichier ont été reconnus automatiquement.`;
+                notice.innerHTML = t('importFusionOk');
             } else {
                 notice.style.display = 'none';
             }
