@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1618,7 +1618,7 @@
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
                 export: "Export CSV", import: "Import CSV", custom: "Button Names",
                 stop: "Stop recording", confirmStop: "Stop current recording?",
-                history: "Recorded periods", prev: "Previous: ", inProgress: "(In progress)",
+                history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
                 futureError: "Cannot record a period in the future.",
                 overlapWarning: "This edit overlaps {n} existing period(s). They will be adjusted. Continue?",
@@ -1736,6 +1736,7 @@
                 titleLanguage: "Language",
                 titleCommunity: "Community & feedback",
                 communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                communityIntro: "Join the <b>PacingCount users' group</b> — the right place to ask a question or share feedback about the app:",
                 titleAbout: "About",
                 aboutIntro: "<b>PacingCount:</b> An application designed for people who wish to measure and objectify their activity and rest levels, in order to refine their pacing strategy. It was created by someone living with ME/CFS.",
                 aboutInvitation: "<i>An invitation: do not use this app in an overly perfectionist way — pacing is above all a rest and recovery strategy, in a spirit of self-compassion.</i>",
@@ -1753,7 +1754,7 @@
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
                 export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
                 stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
-                history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "(Bezig)",
+                history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
                 futureError: "Kan geen periode in de toekomst opnemen.",
                 overlapWarning: "Deze wijziging overlapt {n} bestaande periode(s). Ze worden aangepast. Doorgaan?",
@@ -1871,6 +1872,7 @@
                 titleLanguage: "Taal",
                 titleCommunity: "Community & feedback",
                 communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                communityIntro: "Sluit je aan bij de <b>Facebook-groep van gebruikers</b> — dé plek om een vraag te stellen of feedback te delen over de app:",
                 titleAbout: "Over",
                 aboutIntro: "<b>PacingCount:</b> Een app voor mensen die hun activiteits- en rustniveau willen meten en objectiveren, om hun pacing-strategie te verfijnen. Ze werd ontworpen door iemand die zelf betrokken is bij ME/CVS.",
                 aboutInvitation: "<i>Een uitnodiging: gebruik deze app niet te perfectionistisch — pacing is in de eerste plaats een strategie voor rust en herstel, vanuit zelfzorg.</i>",
@@ -2169,7 +2171,7 @@
                 // 1. On passe en plein écran (obligatoire AVANT de bloquer la rotation)
                 try {
                     await document.documentElement.requestFullscreen();
-                    btnFullscreen.innerText = "🛠️ Quitter le Plein Écran";
+                    btnFullscreen.innerText = t('fullscreenExitBtn');
 
                     // 2. On bloque la rotation (ici en mode 'portrait')
                     // Tu peux aussi mettre 'landscape' si tu préfères
@@ -2197,7 +2199,7 @@
 
                     // 2. On quitte le plein écran
                     await document.exitFullscreen();
-                    btnFullscreen.innerText = "🛠️ Mode Plein Écran";
+                    btnFullscreen.innerText = t('fullscreenBtn');
                 }
             }
         });
@@ -2205,7 +2207,7 @@
         // Gérer la sortie via le bouton "Retour" d'Android
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) {
-                btnFullscreen.innerText = "🛠️ Mode Plein Écran";
+                btnFullscreen.innerText = t('fullscreenBtn');
                 // Sécurité : on déverrouille aussi si on sort avec le bouton physique
                 if (screen.orientation && screen.orientation.unlock) {
                     screen.orientation.unlock();
@@ -3432,12 +3434,15 @@
             document.getElementById('title-timeline').innerText = t('timeline');
 
             // Page réglages — labels et boutons
+            document.getElementById('title-settings').innerText = t('settings');
             document.getElementById('label-language').innerText = t('titleLanguage');
             document.getElementById('label-custom').innerText = t('custom');
             document.getElementById('label-profiles').innerText = t('titleProfiles');
             document.getElementById('label-alerts').innerText = t('alertsTitle');
             document.getElementById('btn-add-alert').innerText = t('alertAdd');
             document.getElementById('label-community').innerText = t('titleCommunity');
+            const communityIntroEl = document.getElementById('community-intro');
+            if (communityIntroEl) communityIntroEl.innerHTML = t('communityIntro');
             document.getElementById('community-link').innerText = t('communityLinkLabel');
             document.getElementById('label-about').innerText = t('titleAbout');
             document.getElementById('btn-check-update').innerText = t('btnCheckUpdate');
