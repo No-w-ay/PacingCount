@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1643,7 +1643,111 @@
                 storageExport: "Export my data",
                 storageExportFull: "Export my data",
                 storageAfterExportWarn: "After export: your CSV file is your archive. To keep using the app, the current history will soon need to be cleared or reduced.",
-                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced."
+                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced.",
+
+                // Boutons génériques
+                btnCancel: "Cancel", btnSave: "Save", btnClose: "Close",
+                continueQuestion: "Continue?",
+
+                // Alertes de périodes
+                alertsTitle: "Period alerts",
+                alertAdd: "+ Add an alert",
+                alertEditTitle: "Edit alert",
+                alertNewTitle: "New alert",
+                alertType: "Period type",
+                alertThreshold: "After",
+                alertInterval: "Interval between reminders (min)",
+                alertMaxCount: "Total number of notifications",
+                alertModeSingle: "1 notification per reminder",
+                alertModeWave: "Rising waves (1, 2, 3…)",
+                alertEnabled: "Active",
+                alertNoAlerts: "No alerts configured.",
+                alertBody: "{n} min in active period.",
+                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible\n- the app remains in the foreground\n- on iPhone (untested): the app must be installed (iOS 16.4+)\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                alertValidThreshold: "Minimum threshold: 1 min",
+                alertValidInterval: "Minimum interval: 1 min",
+                alertValidMaxCount: "Number of notifications: 1 to 5",
+                alertDeleteConfirm: "Delete this alert?",
+                alertThresholdModalLabel: "1st alert after (min)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "You are about to modify the profile \"{name}\".\nYour configuration will be saved as a Custom profile, which will become active.\nNote: the active profile applies to all recorded history.\nContinue?",
+                profileApplyConfirm: "Apply the profile \"{name}\"?\nNote: the active profile applies to all recorded history.",
+                profileRestoreConfirm: "Restore the Custom profile?\nNote: the active profile applies to all recorded history.",
+                profileNoteHistory: "Note: the active profile applies to all recorded history.",
+                profileApplyBtn: "Apply this profile",
+                typeMinOneActive: "At least one period type must remain active.",
+                typeInactivePlaceholder: "(inactive)",
+                typeNoNameOption: "(no name)",
+                customProfileConfigLabel: "Last saved configuration:",
+                customProfileTypeWord: "period type(s)",
+
+                // Historique
+                entryDeleteConfirm: "Delete?",
+                historyRangeSameMonth: "View from {fD} to {lD} {lM}",
+                historyRangeDiffMonth: "View from {fD} {fM} to {lD} {lM}",
+                historyTotalSingle: "Total: {n} recorded period",
+                historyTotalPlural: "Total: {n} recorded periods",
+
+                // Édition manuelle
+                editEndAfterStart: "End time must be after start time.",
+                editFutureEndNotice: "Period end is in the future; it will be set as the current ongoing period:",
+                editNewPeriodLabel: "New period:",
+                editOverlapNotice: "This period overlaps {n} other period(s), which will be adjusted.",
+
+                // Import CSV
+                importNoPeriods: "No importable periods.",
+                importSuccessCount: "{n} period(s) imported successfully.",
+                importMappingDesc: "Matching between period types in the file and those in the app:",
+                importMappingLegend: "✅ = exact match detected; 🔍 = check before importing",
+                importFusionWarning: "⚠️ Multiple types from the file will be merged into one type in the app ({target}).",
+                importFusionOk: "✅ All types in the file have been automatically recognised.",
+                importIgnoreOption: "— Ignore this type",
+                importModalTitle: "Import a CSV file",
+                importReplaceBtn: "⚠️ Replace history",
+                importReplaceDetail: "Deletes all current history and imports the file. This action cannot be undone.",
+                importMergeBtn: "⚠️ Merge",
+                importMergeDetail: "Adds the file data to the existing history. The file takes priority over the time range it covers. This action cannot be undone.",
+
+                // Mise à jour
+                updateTitle: "Update",
+                updateChecking: "🔄 Checking for updates...",
+                updateAvailableTitle: "🔄 Update available",
+                updateCurrentVersionLabel: "Current version:",
+                updateAvailableVersionLabel: "Available version:",
+                updateConseilLabel: "TIP:",
+                updateConseilText: "Export your data to CSV before updating, as a precaution. (any restart of the app will automatically apply the update)",
+                updateUpToDate: "✅ You have the latest version",
+                updateForceRestart: "If an update fails, force-restart the app.",
+                updateOffline: "📡 Offline — Unable to check",
+                updateInProgress: "⏳ Updating...",
+                updateWillRestart: "The app will restart shortly.",
+                btnUpdateNow: "🔄 Update now",
+                btnLater: "Later",
+                btnExportBeforeUpdate: "💾 Export my data (.csv)",
+                updateNewVersionFallback: "new version",
+                msgDefaultBtn: "Got it",
+
+                // Titres et labels statiques
+                titleResults: "Daily totals",
+                titleWeeklyAvg: "Weekly averages",
+                titleDetailedResults: "Detailed figures",
+                titleProfiles: "Preset profiles",
+                titleLanguage: "Language",
+                titleCommunity: "Community & feedback",
+                communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                titleAbout: "About",
+                aboutIntro: "<b>PacingCount:</b> An application designed for people who wish to measure and objectify their activity and rest levels, in order to refine their pacing strategy. It was created by someone living with ME/CFS.",
+                aboutInvitation: "<i>An invitation: do not use this app in an overly perfectionist way — pacing is above all a rest and recovery strategy, in a spirit of self-compassion.</i>",
+                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account.",
+                devModeIndicator: "🛠️ Developer mode",
+                btnCheckUpdate: "Check for updates",
+                editModalTitle: "Edit entry",
+                labelStart: "Start",
+                labelEnd: "End",
+                testNotifBtn: "🛠️ Test Immediate Notif",
+                fullscreenBtn: "🛠️ Full Screen Mode",
+                fullscreenExitBtn: "🛠️ Exit Full Screen"
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
@@ -1667,14 +1771,118 @@
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 storageNearFull: "Opslag bijna vol (≥90%)",
-                storageNearFullDetail: "Denk eraan uw gegevens te exporteren als archief.",
+                storageNearFullDetail: "Denk eraan je gegevens te exporteren als archief.",
                 storageFull: "Opslag vol",
-                storageFullBold: "Uw nieuwe gegevens kunnen niet meer worden opgeslagen.",
-                storageFullDetail: "Exporteer uw gegevens nu om ze te archiveren en niets te verliezen.",
+                storageFullBold: "Je nieuwe gegevens kunnen niet meer worden opgeslagen.",
+                storageFullDetail: "Exporteer je gegevens nu om ze te archiveren en niets te verliezen.",
                 storageExport: "Mijn gegevens exporteren",
                 storageExportFull: "Mijn gegevens exporteren",
-                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis binnenkort worden gewist of verkleind.",
-                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
+                storageAfterExportWarn: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek worden gewist of verkleind.",
+
+                // Boutons génériques
+                btnCancel: "Annuleren", btnSave: "Opslaan", btnClose: "Sluiten",
+                continueQuestion: "Doorgaan?",
+
+                // Alertes de périodes
+                alertsTitle: "Periode-alertes",
+                alertAdd: "+ Alert toevoegen",
+                alertEditTitle: "Alert bewerken",
+                alertNewTitle: "Nieuwe alert",
+                alertType: "Periodetype",
+                alertThreshold: "Na",
+                alertInterval: "Interval tussen herinneringen (min)",
+                alertMaxCount: "Totaal aantal meldingen",
+                alertModeSingle: "1 melding per herinnering",
+                alertModeWave: "Stijgende golven (1, 2, 3…)",
+                alertEnabled: "Actief",
+                alertNoAlerts: "Geen alertes geconfigureerd.",
+                alertBody: "{n} min in actieve periode.",
+                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar\n- de app op de voorgrond blijft\n- op iPhone (niet getest): de app moet geïnstalleerd zijn (iOS 16.4+)\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                alertValidThreshold: "Minimale drempel: 1 min",
+                alertValidInterval: "Minimaal interval: 1 min",
+                alertValidMaxCount: "Aantal meldingen: 1 tot 5",
+                alertDeleteConfirm: "Deze alert verwijderen?",
+                alertThresholdModalLabel: "1e alert na (min)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "Je staat op het punt het profiel \"{name}\" te wijzigen.\nJe configuratie wordt opgeslagen als aangepast profiel, dat actief wordt.\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.\nDoorgaan?",
+                profileApplyConfirm: "Het profiel \"{name}\" toepassen?\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileRestoreConfirm: "Het aangepaste profiel herstellen?\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileNoteHistory: "Opmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileApplyBtn: "Dit profiel toepassen",
+                typeMinOneActive: "Minstens één periodetype moet actief blijven.",
+                typeInactivePlaceholder: "(inactief)",
+                typeNoNameOption: "(geen naam)",
+                customProfileConfigLabel: "Laatste opgeslagen configuratie:",
+                customProfileTypeWord: "periodetypen",
+
+                // Historique
+                entryDeleteConfirm: "Verwijderen?",
+                historyRangeSameMonth: "Weergave vanaf {fD} tot {lD} {lM}",
+                historyRangeDiffMonth: "Weergave vanaf {fD} {fM} tot {lD} {lM}",
+                historyTotalSingle: "Totaal: {n} geregistreerde periode",
+                historyTotalPlural: "Totaal: {n} geregistreerde periodes",
+
+                // Édition manuelle
+                editEndAfterStart: "Eindtijd moet na de begintijd liggen.",
+                editFutureEndNotice: "Het einde van de periode ligt in de toekomst; het wordt ingesteld als lopende periode:",
+                editNewPeriodLabel: "Nieuwe periode:",
+                editOverlapNotice: "Deze periode overlapt {n} andere periode(s), die worden aangepast.",
+
+                // Import CSV
+                importNoPeriods: "Geen importeerbare periodes.",
+                importSuccessCount: "{n} periode(s) succesvol geïmporteerd.",
+                importMappingDesc: "Overeenkomst tussen de periodetypen in het bestand en die in de app:",
+                importMappingLegend: "✅ = exacte overeenkomst gevonden; 🔍 = controleer vóór het importeren",
+                importFusionWarning: "⚠️ Meerdere types uit het bestand worden samengevoegd tot één type in de app ({target}).",
+                importFusionOk: "✅ Alle types in het bestand zijn automatisch herkend.",
+                importIgnoreOption: "— Dit type negeren",
+                importModalTitle: "Een CSV-bestand importeren",
+                importReplaceBtn: "⚠️ Historiek vervangen",
+                importReplaceDetail: "Wist alle huidige historiek en importeert het bestand. Deze actie kan niet ongedaan worden gemaakt.",
+                importMergeBtn: "⚠️ Samenvoegen",
+                importMergeDetail: "Voegt de bestandsgegevens toe aan de bestaande historiek. Het bestand heeft prioriteit over het tijdsbereik dat het bestrijkt. Deze actie kan niet ongedaan worden gemaakt.",
+
+                // Mise à jour
+                updateTitle: "Update",
+                updateChecking: "🔄 Controleren op updates...",
+                updateAvailableTitle: "🔄 Update beschikbaar",
+                updateCurrentVersionLabel: "Huidige versie:",
+                updateAvailableVersionLabel: "Beschikbare versie:",
+                updateConseilLabel: "TIP:",
+                updateConseilText: "Exporteer je gegevens als CSV vóór de update, voor alle zekerheid. (elke herstart van de app past de update automatisch toe)",
+                updateUpToDate: "✅ Je hebt de laatste versie",
+                updateForceRestart: "Als een update mislukt, forceer dan de herstart van de app.",
+                updateOffline: "📡 Offline — Kan niet controleren",
+                updateInProgress: "⏳ Bezig met updaten...",
+                updateWillRestart: "De app wordt over enkele ogenblikken herstart.",
+                btnUpdateNow: "🔄 Nu updaten",
+                btnLater: "Later",
+                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren (.csv)",
+                updateNewVersionFallback: "nieuwe versie",
+                msgDefaultBtn: "Begrepen",
+
+                // Titres et labels statiques
+                titleResults: "Dagelijkse totalen",
+                titleWeeklyAvg: "Wekelijkse gemiddelden",
+                titleDetailedResults: "Gedetailleerde cijfers",
+                titleProfiles: "Voorgedefinieerde profielen",
+                titleLanguage: "Taal",
+                titleCommunity: "Community & feedback",
+                communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                titleAbout: "Over",
+                aboutIntro: "<b>PacingCount:</b> Een app voor mensen die hun activiteits- en rustniveau willen meten en objectiveren, om hun pacing-strategie te verfijnen. Ze werd ontworpen door iemand die zelf betrokken is bij ME/CVS.",
+                aboutInvitation: "<i>Een uitnodiging: gebruik deze app niet te perfectionistisch — pacing is in de eerste plaats een strategie voor rust en herstel, vanuit zelfzorg.</i>",
+                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie.",
+                devModeIndicator: "🛠️ Ontwikkelaarsmodus",
+                btnCheckUpdate: "Controleren op updates",
+                editModalTitle: "Invoer bewerken",
+                labelStart: "Begin",
+                labelEnd: "Einde",
+                testNotifBtn: "🛠️ Directe melding testen",
+                fullscreenBtn: "🛠️ Volledig scherm",
+                fullscreenExitBtn: "🛠️ Volledig scherm verlaten"
             }
         };
 
