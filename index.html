@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1087,10 +1087,7 @@
         const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
 
         function showStorageWarningToast() {
-            if (document.getElementById('storage-warning-toast')) return; // évite les doublons
-            const lang = (settings && settings.lang) || 'fr';
-            const t = translations[lang] || translations['fr'];
-
+            if (document.getElementById('storage-warning-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-warning-toast';
             toast.style.cssText = `
@@ -1100,25 +1097,22 @@
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t.storageNearFull}</span>
+            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t('storageNearFull')}</span>
             <button onclick="document.getElementById('storage-warning-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
-        <div style="margin-bottom:10px; line-height:1.5;">${t.storageNearFullDetail}</div>
+        <div style="margin-bottom:10px; line-height:1.5;">${t('storageNearFullDetail')}</div>
         <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
             style="background:var(--orange); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t.storageExport}
+            💾 ${t('storageExport')}
         </button>
-        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportWarn')}</div>`;
             document.body.appendChild(toast);
         }
 
         function showStorageFullToast() {
-            if (document.getElementById('storage-full-toast')) return; // évite les doublons
-            const lang = (settings && settings.lang) || 'fr';
-            const t = translations[lang] || translations['fr'];
-
+            if (document.getElementById('storage-full-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-full-toast';
             toast.style.cssText = `
@@ -1128,19 +1122,19 @@
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--red);">⚠️ ${t.storageFull}</span>
+            <span style="font-weight:bold; color:var(--red);">⚠️ ${t('storageFull')}</span>
             <button onclick="document.getElementById('storage-full-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
         <div style="margin-bottom:10px; line-height:1.5;">
-            <strong>${t.storageFullBold}</strong><br>${t.storageFullDetail}
+            <strong>${t('storageFullBold')}</strong><br>${t('storageFullDetail')}
         </div>
         <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
             style="background:var(--red); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t.storageExportFull}
+            💾 ${t('storageExportFull')}
         </button>
-        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportFull')}</div>`;
             document.body.appendChild(toast);
         }
 
@@ -1522,8 +1516,9 @@
                 // lieu d'être dupliquées ici — elles seront juste câblées au Bloc 4.
                 // ============================================================
 
-                // Boutons génériques réutilisables dans plusieurs modals
-                btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
+                // Graphiques résultats
+                noDataAvailable: "Aucune donnée.",
+                notEnoughData: "Pas encore assez de données complètes.", btnSave: "Enregistrer", btnClose: "Fermer",
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
@@ -1533,6 +1528,14 @@
                 alertValidMaxCount: "Nombre de notifications : 1 à 5",
                 alertDeleteConfirm: "Supprimer cette alerte ?",
                 alertThresholdModalLabel: "1re alerte après (min)",
+                // Textes des notifications push (visibles sur l'écran du téléphone)
+                alertLastReminder: "Dernier rappel",
+                alertReminderN: "Rappel {n}",
+                alertNotifBody: "{mins} min en période {label} (rappel {n})",
+                alertCatchupN: "Catchup {n}",
+                alertLastCatchup: "Dernier catchup",
+                alertCatchupBody1: "{mins} min en période {label} (1 rappel manqué pendant la veille)",
+                alertCatchupBodyN: "{mins} min en période {label} ({n} rappels manqués pendant la veille)",
 
                 // Profils et types de périodes
                 profileLeaveBaseConfirm: "Vous allez modifier le profil \"{name}\".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?",
@@ -1646,6 +1649,8 @@
                 storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced.",
 
                 // Boutons génériques
+                noDataAvailable: "No data available.",
+                notEnoughData: "Not enough complete data yet.",
                 btnCancel: "Cancel", btnSave: "Save", btnClose: "Close",
                 continueQuestion: "Continue?",
 
@@ -1669,6 +1674,14 @@
                 alertValidMaxCount: "Number of notifications: 1 to 5",
                 alertDeleteConfirm: "Delete this alert?",
                 alertThresholdModalLabel: "1st alert after (min)",
+                // Push notification texts (visible on the phone screen)
+                alertLastReminder: "Last reminder",
+                alertReminderN: "Reminder {n}",
+                alertNotifBody: "{mins} min in period {label} (reminder {n})",
+                alertCatchupN: "Catch-up {n}",
+                alertLastCatchup: "Last catch-up",
+                alertCatchupBody1: "{mins} min in period {label} (1 missed reminder during sleep)",
+                alertCatchupBodyN: "{mins} min in period {label} ({n} missed reminders during sleep)",
 
                 // Profils et types de périodes
                 profileLeaveBaseConfirm: "You are about to modify the profile \"{name}\".\nYour configuration will be saved as a Custom profile, which will become active.\nNote: the active profile applies to all recorded history.\nContinue?",
@@ -1782,6 +1795,8 @@
                 storageAfterExportFull: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek worden gewist of verkleind.",
 
                 // Boutons génériques
+                noDataAvailable: "Geen gegevens.",
+                notEnoughData: "Nog niet genoeg volledige gegevens.",
                 btnCancel: "Annuleren", btnSave: "Opslaan", btnClose: "Sluiten",
                 continueQuestion: "Doorgaan?",
 
@@ -1805,6 +1820,14 @@
                 alertValidMaxCount: "Aantal meldingen: 1 tot 5",
                 alertDeleteConfirm: "Deze alert verwijderen?",
                 alertThresholdModalLabel: "1e alert na (min)",
+                // Teksten voor pushmeldingen (zichtbaar op het telefoonscherm)
+                alertLastReminder: "Laatste herinnering",
+                alertReminderN: "Herinnering {n}",
+                alertNotifBody: "{mins} min in periode {label} (herinnering {n})",
+                alertCatchupN: "Inhaalalert {n}",
+                alertLastCatchup: "Laatste inhaalalert",
+                alertCatchupBody1: "{mins} min in periode {label} (1 gemiste herinnering tijdens slaap)",
+                alertCatchupBodyN: "{mins} min in periode {label} ({n} gemiste herinneringen tijdens slaap)",
 
                 // Profils et types de périodes
                 profileLeaveBaseConfirm: "Je staat op het punt het profiel \"{name}\" te wijzigen.\nJe configuratie wordt opgeslagen als aangepast profiel, dat actief wordt.\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.\nDoorgaan?",
@@ -2798,7 +2821,6 @@
             const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
             if (!config) return;
 
-            const t = translations[settings.lang] || translations['fr'];
             const label = getLabelForId(typeId);
 
             // Annule les potentiels anciens chronomètres avant d'en créer de nouveaux
@@ -2842,15 +2864,11 @@
                         //const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
-                        //const title = `${bells} ${label}`;
                         const isLast = (i === config.maxCount - 1);
                         const title = isLast
-                            ? `${bells} ${label} (Dernier rappel)`
-                            : `${bells} ${label} (Rappel ${i + 1})`;
-
-                        // NOUVEAU : Texte personnalisé avec le nom de la période et le numéro du rappel
-                        const rappelNumero = i + 1;
-                        const body = `${mins} min en période ${label} (rappel ${rappelNumero})`;
+                            ? `${bells} ${label} (${t('alertLastReminder')})`
+                            : `${bells} ${label} (${t('alertReminderN', { n: i + 1 })})`;
+                        const body = t('alertNotifBody', { mins, label, n: i + 1 });
 
                         // 1. On résout le Service Worker pile au moment du déclenchement
                         const registration = await navigator.serviceWorker.ready;
@@ -3573,13 +3591,13 @@
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
             container.innerHTML = "";
-            const t = translations[settings.lang] || translations['fr'];
+            const locale = getLocale();
             // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export
             const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
 
             const reposIds = [1, 2];
             const actifId = 4;
-            const today = new Date().toLocaleDateString();
+            const today = new Date().toLocaleDateString(locale);
 
             let all = [...state.history];
             if (state.activeType) {
@@ -3589,7 +3607,7 @@
 
             const daysData = {};
             all.forEach(e => {
-                const d = new Date(e.start).toLocaleDateString();
+                const d = new Date(e.start).toLocaleDateString(locale);
                 const mins = (e.end - e.start) / 60000;
                 if (!daysData[d]) {
                     daysData[d] = {
@@ -3610,10 +3628,6 @@
                 if (e.typeId === actifId) daysData[d].actifPeriods.push(mins);
             });
 
-            // --- ÉTAPE 3 : calcul de la moyenne mobile centrée sur 3 jours ---
-            // Si J-1, J ou J+1 est incomplet, la moyenne n'est pas calculée pour ce triplet.
-            // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
-            // y compris pour "aujourd'hui".
             const isIncomplete = (key) => {
                 return daysData[key].totalMins < 23 * 60 - 1;
             };
@@ -3654,15 +3668,14 @@
                 });
                 html += `${ligne2}<br>`;
 
-                // Ligne 3 : sous-total repos
-                // Refactoring couleurs : style inline via getColorForId()
+                // Ligne 3 : sous-total repos + moyenne mobile 3 jours
                 let reposBullets = '';
                 reposIds.forEach(id => {
                     reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
-                    ? `&nbsp;&nbsp;~${t.resMoy3j} : ${formatMins(moy3j)}`
+                    ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
                     : '';
                 html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
 
@@ -3672,19 +3685,19 @@
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    // Refactoring couleurs : style inline via getColorForId()
+                    const periodLabel = periods.length > 1 ? t('resActifP') : t('resActif');
                     html += `<span style="font-size:0.9rem;">`;
-                    html += `${periods.length} période(s) <span style="color: ${getColorForId(actifId)}">●</span> : `;
-                    html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
-                    html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
-                    html += `<i>${t.resMin} ${formatMins(min)}</i>`;
+                    html += `${periods.length} ${periodLabel} <span style="color: ${getColorForId(actifId)}">●</span> : `;
+                    html += `<b>${t('resMoy')} ${formatMins(moy)}</b> · `;
+                    html += `<u>${t('resMax')} ${formatMins(max)}</u> · `;
+                    html += `<i>${t('resMin')} ${formatMins(min)}</i>`;
                     html += `</span><br>`;
                 }
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
                 if (d !== today && day.totalMins < 23 * 60) {
                     const enregistrees = formatMins(day.totalMins);
-                    html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t.resIncomplet} (${enregistrees})</span>`;
+                    html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t('resIncomplet')} (${enregistrees})</span>`;
                 }
 
                 div.innerHTML = html;
@@ -3747,7 +3760,6 @@
             });
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
-            const tLang = translations[settings.lang] || translations['fr'];
 
             // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
             const reposIds = [1, 2];
@@ -3775,7 +3787,7 @@
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
             if (sortedDates.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée.</p>";
+                container.innerHTML = `<p style='text-align:center; color:#888;'>${t('noDataAvailable')}</p>`;
                 return;
             }
 
@@ -3828,7 +3840,7 @@
                 // ne soit pas coupé par overflow:hidden des barres — on le place donc APRÈS
                 // les divs de barres, en position absolute sur le conteneur flex principal.
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
-                const avgLabel = avgPc !== null ? `~ ${tLang.resMoy3j} : ${formatMins(avgMins)}` : '';
+                const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
                 // NOUVEAU : On gère l'affichage (block ou none)
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
@@ -3885,7 +3897,6 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            const tLegend = translations[settings.lang] || translations['fr'];
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
@@ -3896,14 +3907,14 @@
                     </div>`;
             });
 
-            // NOUVEAU : La légende cliquable avec l'œil barré dynamique
+            // Légende cliquable pour les points de moyenne mobile
             const eyeSlash = window.showMoyDots ? '' : `<span style="position: absolute; top: 50%; left: -2px; right: -2px; height: 2px; background: var(--text-color); transform: rotate(-45deg);"></span>`;
-            const opacity = window.showMoyDots ? '1' : '0.5'; // Rend le texte un peu grisé si c'est masqué
+            const opacity = window.showMoyDots ? '1' : '0.5';
 
             html += `
                 <div onclick="toggleMoyDots()" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: ${opacity}; transition: opacity 0.2s;">
                     <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
-                    <span>~ ${tLegend.resMoy3j}</span>
+                    <span>~ ${t('resMoy3j')}</span>
                     <span style="position: relative; display: inline-block; margin-left: 4px; font-size: 1.1rem;">
                         👁️
                         ${eyeSlash}
@@ -4009,7 +4020,7 @@
             const sortedWeeks = Object.keys(weeksData).sort((a, b) => b.localeCompare(a));
 
             if (sortedWeeks.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Pas encore assez de données complètes.</p>";
+                container.innerHTML = `<p style='text-align:center; color:#888;'>${t('notEnoughData')}</p>`;
                 return;
             }
 
@@ -4810,8 +4821,7 @@
                     showImportModal();
 
                 } catch (err) {
-                    const t = translations[settings.lang] || {};
-                    alert(t.importError || "Erreur lors de l'importation. Vérifiez le format du fichier.");
+                    alert(t('importError'));
                     console.error("[importCSV] Erreur :", err);
                 }
                 event.target.value = ''; // Reset du champ fichier pour permettre un re-import du même fichier
@@ -5985,17 +5995,16 @@
                 const label = getLabelForId(state.activeType);
                 const mins = Math.floor((now - state.startTime) / 60000);
 
-                // Calculé une seule fois, réutilisé pour le titre et le Wake Lock
                 const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
                     state.startTime + config.threshold * 60000 + i * config.interval * 60000
                 ).some(fireAt => fireAt > now);
 
                 const title = hasMoreWaves
-                    ? `🔔 ${label} (Catchup ${missed})`
-                    : `🔔 ${label} (Dernier catchup)`;
+                    ? `🔔 ${label} (${t('alertCatchupN', { n: missed })})`
+                    : `🔔 ${label} (${t('alertLastCatchup')})`;
                 const body = missed === 1
-                    ? `${mins} min en période ${label} (catchup de 1 rappel manqué pendant la veille)`
-                    : `${mins} min en période ${label} (catchup de ${missed} rappels manqués pendant la veille)`;
+                    ? t('alertCatchupBody1', { mins, label })
+                    : t('alertCatchupBodyN', { mins, label, n: missed });
 
                 try {
                     const registration = await navigator.serviceWorker.ready;
