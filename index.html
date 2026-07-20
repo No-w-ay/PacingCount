@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1219,6 +1219,22 @@
         const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
 
         // ============================================================
+        // 2b. DÉTECTION DE LANGUE AU PREMIER LANCEMENT
+        // Lit navigator.languages (préférences OS/navigateur, par priorité).
+        // Retourne la première langue supportée trouvée, ou 'en' si aucune.
+        // Appelée uniquement lors du bootstrap (aucun localStorage existant).
+        // ============================================================
+        function detectInitialLang() {
+            const supported = ['fr', 'en', 'nl'];
+            const prefs = navigator.languages || [navigator.language || 'en'];
+            for (const lang of prefs) {
+                const code = lang.toLowerCase().split('-')[0]; // "nl-BE" → "nl"
+                if (supported.includes(code)) return code;
+            }
+            return 'en'; // fallback universel
+        }
+
+        // ============================================================
         // 3. MIGRATION DU LOCALSTORAGE
         // Tourne une seule fois au démarrage si l'ancienne structure est détectée.
         // Convertit : settings.labels[] → settings.types[]
@@ -1238,11 +1254,12 @@
             // ce qui reste valide même après réinstallation ou réimport de données.
             if (!localStorage.getItem('pacingSettings')) {
                 const bootstrapSettings = {
-                    lang: 'fr',
+                    lang: detectInitialLang(),
                     alerts: [],
                     // Ancien format intentionnel (sans .color) : déclenche la migration v0.9.24.
                     // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
-                    // Labels FR par défaut (la langue n'était pas persistée non plus si absente).
+                    // Labels en FR par défaut (la langue des boutons reste FR — l'utilisateur
+                    // peut les renommer, ou ré-appliquer un profil pour les obtenir dans sa langue).
                     types: [
                         { id: 1, label: "Couché sans stimulation", active: true },
                         { id: 2, label: "Couché actif", active: true },
@@ -1430,7 +1447,7 @@
             || {
             // Valeurs par défaut pour un nouvel utilisateur (aucun localStorage existant).
             // Inclut .color (palette v0.9.24) et la numérotation correcte (typeId 4 = Non couché).
-            lang: 'fr',
+            lang: detectInitialLang(),
             alerts: [],
             activeProfile: "pacingcount_standard",
             types: TYPE_COLORS.map((color, i) => {
@@ -3311,48 +3328,6 @@
 
             const newLang = document.getElementById('lang-select').value;
 
-            if (newLang === 'en') {
-                const confirmed = confirm("🏗️  Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
-                if (!confirmed) {
-                    document.getElementById('lang-select').value = 'fr';
-                    settings.lang = 'fr';
-                    settings.types.forEach(tp => {
-                        const activeProf = PROFILES[settings.activeProfile];
-                        if (activeProf && activeProf.types) {
-                            const profType = activeProf.types.find(pt => pt.id === tp.id);
-                            if (profType && typeof profType.label === 'object') {
-                                tp.label = profType.label['fr'] || tp.label;
-                            }
-                        }
-                    });
-                    settings.labels = settings.types.filter(tp => tp.active).map(tp => tp.label);
-                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
-                    updateUI();
-                    return;
-                }
-            }
-
-            if (newLang === 'nl') {
-                const confirmed = confirm("🏗️  Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
-                if (!confirmed) {
-                    document.getElementById('lang-select').value = 'fr';
-                    settings.lang = 'fr';
-                    settings.types.forEach(tp => {
-                        const activeProf = PROFILES[settings.activeProfile];
-                        if (activeProf && activeProf.types) {
-                            const profType = activeProf.types.find(pt => pt.id === tp.id);
-                            if (profType && typeof profType.label === 'object') {
-                                tp.label = profType.label['fr'] || tp.label;
-                            }
-                        }
-                    });
-                    settings.labels = settings.types.filter(tp => tp.active).map(tp => tp.label);
-                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
-                    updateUI();
-                    return;
-                }
-            }
-
             settings.lang = newLang;
             console.log(`[changeLang] Langue → ${settings.lang}`);
 
@@ -3801,11 +3776,11 @@
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
-                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
-                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
-                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
-                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
-                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24</span>
                     </div>
                     <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
@@ -3985,7 +3960,7 @@
 
                 if (!weeksData[weekKey]) {
                     weeksData[weekKey] = {
-                        label: `S${week}`,   // label affiché : "S21"
+                        label: `${settings.lang === 'fr' ? 'S' : 'W'}${week}`,   // S21 (fr) ou W21 (en/nl)
                         completeDays: 0,
                         totals: {},          // somme des minutes par type
                         totalMins: 0
@@ -4014,11 +3989,11 @@
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
-                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
-                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
-                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
-                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
-                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24</span>
                     </div>
                     <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
@@ -5098,7 +5073,7 @@
             // Création des 7 jours de la fenêtre : endDate - 6j → endDate
             for (let i = 6; i >= 0; i--) {
                 let d = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - i);
-                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+                const dayName = d.toLocaleDateString(getLocale(), { weekday: 'short' }).toUpperCase().replace('.', '');
                 const dayNum = d.getDate().toString().padStart(2, '0');
 
                 // Chart.js interprète un tableau de chaînes comme un label multi-ligne
@@ -5176,7 +5151,7 @@
                                 ticks: {
                                     stepSize: 2,
                                     color: textGray, // Couleur des heures
-                                    callback: v => v + 'h'
+                                    callback: v => v
                                 },
                                 grid: { color: gridColor } // Lignes de fond
                             },
