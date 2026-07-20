@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -653,7 +653,7 @@
     </div>
 
     <div id="page-results" class="page">
-        <h1 id="title-results">Totaux par jour</h1>
+        <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
 
         <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
 
@@ -1607,6 +1607,8 @@
                 labelStart: "Début",
                 labelEnd: "Fin",
                 testNotifBtn: "🛠️ Test Notif Immédiate",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "Si tu vois ça, le bouton de notification en direct marche !",
                 fullscreenBtn: "🛠️ Mode Plein Écran",
                 fullscreenExitBtn: "🛠️ Quitter le Plein Écran"
             },
@@ -1746,6 +1748,8 @@
                 labelStart: "Start",
                 labelEnd: "End",
                 testNotifBtn: "🛠️ Test Immediate Notif",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "If you see this, the immediate notification button works!",
                 fullscreenBtn: "🛠️ Full Screen Mode",
                 fullscreenExitBtn: "🛠️ Exit Full Screen"
             },
@@ -1885,6 +1889,8 @@
                 labelStart: "Begin",
                 labelEnd: "Einde",
                 testNotifBtn: "🛠️ Directe melding testen",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "Als je dit ziet, werkt de knop voor directe meldingen!",
                 fullscreenBtn: "🛠️ Volledig scherm",
                 fullscreenExitBtn: "🛠️ Volledig scherm verlaten"
             }
@@ -2158,8 +2164,8 @@
         document.getElementById('test-notif').addEventListener('click', () => {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification('Test Android', {
-                        body: 'Si tu vois ça, le bouton de notification en direct marche !'
+                    registration.showNotification(t('testNotifTitle'), {
+                        body: t('testNotifBody')
                     });
                 });
             }
