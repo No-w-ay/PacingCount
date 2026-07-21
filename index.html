@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1411,6 +1411,45 @@
                     }
 
                     console.log("[Migration v0.9.24] Terminée avec succès.");
+                }
+            }
+
+            // --- Cohérence langue/labels : premier lancement avec langue non-FR ---
+            // Si la langue détectée est EN ou NL et que le profil actif est prédéfini,
+            // remplace les labels qui sont encore en FR par leurs équivalents dans la
+            // bonne langue. Guard triple :
+            //   1. lang !== 'fr'         → ne touche pas les utilisateurs FR
+            //   2. activeProfile !== 'custom' → ne touche pas les labels personnalisés
+            //   3. tp.label === frLabel  → ne touche que les labels encore en FR (non renommés)
+            // Pour les utilisateurs existants : leurs labels sont déjà dans leur langue
+            // ou personnalisés → aucun de ces guards ne se déclenche.
+            {
+                const rawFinal = localStorage.getItem('pacingSettings');
+                if (rawFinal) {
+                    const sFinal = JSON.parse(rawFinal);
+                    if (sFinal.lang && sFinal.lang !== 'fr'
+                        && sFinal.activeProfile && sFinal.activeProfile !== 'custom') {
+                        const prof = PROFILES[sFinal.activeProfile];
+                        if (prof && prof.types) {
+                            let updated = false;
+                            sFinal.types.forEach(tp => {
+                                const profType = prof.types.find(pt => pt.id === tp.id);
+                                if (profType && typeof profType.label === 'object') {
+                                    const frLabel = profType.label['fr'] || '';
+                                    const targetLabel = profType.label[sFinal.lang] || frLabel;
+                                    if (tp.label === frLabel && targetLabel !== frLabel) {
+                                        tp.label = targetLabel;
+                                        updated = true;
+                                    }
+                                }
+                            });
+                            if (updated) {
+                                sFinal.labels = sFinal.types.filter(tp => tp.active).map(tp => tp.label);
+                                localStorage.setItem('pacingSettings', JSON.stringify(sFinal));
+                                console.log(`[Migration] Labels profil appliqués en "${sFinal.lang}"`);
+                            }
+                        }
+                    }
                 }
             }
 
