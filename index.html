@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3007,7 +3007,7 @@
         }
 
         function stopRecording() {
-            if (confirm(translations[settings.lang].confirmStop)) {
+            if (confirm(t('confirmStop'))) {
                 console.log("[stopRecording] Arrêt de l'enregistrement");
                 if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
                 state.activeType = null;
