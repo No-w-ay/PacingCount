@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1643,6 +1643,8 @@
                 btnExportBeforeUpdate: "💾 Exporter mes données (.csv)",
                 updateNewVersionFallback: "nouvelle version",
                 msgDefaultBtn: "J'ai compris",
+                updateInstalled: "Mise à jour installée",
+                legendToggleTitle: "Afficher/masquer la légende",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -1784,6 +1786,8 @@
                 btnExportBeforeUpdate: "💾 Export my data (.csv)",
                 updateNewVersionFallback: "new version",
                 msgDefaultBtn: "Got it",
+                updateInstalled: "Update installed",
+                legendToggleTitle: "Show/hide legend",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -1925,6 +1929,8 @@
                 btnExportBeforeUpdate: "💾 Mijn gegevens exporteren (.csv)",
                 updateNewVersionFallback: "nieuwe versie",
                 msgDefaultBtn: "Begrepen",
+                updateInstalled: "Update geïnstalleerd",
+                legendToggleTitle: "Legenda tonen/verbergen",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -3426,11 +3432,18 @@
         // Met à jour les textes, les couleurs du timer, les boutons, etc.
         // ============================================================
         function updateUI() {
+            // Langue du document — utile pour l'accessibilité (lecteurs d'écran, CSS :lang)
+            document.documentElement.lang = settings.lang;
+
             // Navigation
             document.getElementById('nav-timeline').innerText = t('timeline');
             document.getElementById('nav-measure').innerText = t('measure');
             document.getElementById('nav-results').innerText = t('results');
             document.getElementById('nav-settings').innerText = t('settings');
+
+            // Tooltip du bouton légende timeline
+            const navLegendEl = document.getElementById('nav-legend');
+            if (navLegendEl) navLegendEl.title = t('legendToggleTitle');
 
             // Footer historique
             document.getElementById('btn-export').innerText = t('export');
@@ -5645,7 +5658,7 @@
                 // Petit toast non bloquant
                 setTimeout(() => {
                     const toast = document.createElement('div');
-                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ Mise à jour installée</div>
+                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
                        <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
                     toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
