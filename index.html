@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1245,32 +1245,39 @@
             console.log("[Migration] Vérification du localStorage...");
 
             // --- Bootstrap : garantit l'existence de pacingSettings avant toute migration ---
-            // Cas concerné : utilisateur n'ayant jamais créé d'alerte ni modifié les réglages
-            // (saveSettings() n'a jamais été appelé → pacingSettings n'existe pas en localStorage).
-            // Solution : le créer en ANCIEN format (sans .color, type 3 = "Non couché")
-            // afin que le bloc v0.9.24 ci-dessous le détecte et l'upgrade normalement,
-            // en migrant aussi l'historique (typeId 3→4) si pacingState est présent.
-            // Ce choix est plus robuste qu'un flag : il se base sur l'architecture des données,
-            // ce qui reste valide même après réinstallation ou réimport de données.
+            // Cas concerné : premier lancement (aucun localStorage existant).
+            // Crée directement le format correct (avec .color, activeProfile, typeIds corrects)
+            // → la migration v0.9.24 ci-dessous ne se déclenche pas (son guard est s.types[0].color === undefined).
+            // La migration v0.9.24 reste utile pour les utilisateurs ayant l'ancien format.
             if (!localStorage.getItem('pacingSettings')) {
+                const lang = detectInitialLang();
+                const prof = PROFILES['pacingcount_standard'];
+                // Helper : label depuis le profil dans la langue détectée, fallback FR
+                const profLabel = (id) => {
+                    const pt = prof.types.find(p => p.id === id);
+                    return (pt && typeof pt.label === 'object')
+                        ? (pt.label[lang] || pt.label['fr'] || '')
+                        : '';
+                };
+                const bootstrapTypes = TYPE_COLORS.map((color, i) => {
+                    const id = i + 1;
+                    const profType = prof.types.find(p => p.id === id);
+                    return {
+                        id,
+                        label: profType?.active ? profLabel(id) : '',
+                        active: profType?.active ?? false,
+                        color
+                    };
+                });
                 const bootstrapSettings = {
-                    lang: detectInitialLang(),
+                    lang,
                     alerts: [],
-                    // Ancien format intentionnel (sans .color) : déclenche la migration v0.9.24.
-                    // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
-                    // Labels en FR par défaut (la langue des boutons reste FR — l'utilisateur
-                    // peut les renommer, ou ré-appliquer un profil pour les obtenir dans sa langue).
-                    types: [
-                        { id: 1, label: "Couché sans stimulation", active: true },
-                        { id: 2, label: "Couché actif", active: true },
-                        { id: 3, label: "Non couché", active: true },
-                        { id: 4, label: "", active: false },
-                        { id: 5, label: "", active: false },
-                        { id: 6, label: "", active: false }
-                    ]
+                    activeProfile: 'pacingcount_standard',
+                    labels: bootstrapTypes.filter(tp => tp.active).map(tp => tp.label),
+                    types: bootstrapTypes
                 };
                 localStorage.setItem('pacingSettings', JSON.stringify(bootstrapSettings));
-                console.log("[Migration] pacingSettings absent — bootstrap créé (ancien format, sans .color)");
+                console.log(`[Migration] Premier lancement — settings créés directement en "${lang}"`);
             }
 
             // --- Migration de settings ---
@@ -1414,45 +1421,6 @@
                 }
             }
 
-            // --- Cohérence langue/labels : premier lancement avec langue non-FR ---
-            // Si la langue détectée est EN ou NL et que le profil actif est prédéfini,
-            // remplace les labels qui sont encore en FR par leurs équivalents dans la
-            // bonne langue. Guard triple :
-            //   1. lang !== 'fr'         → ne touche pas les utilisateurs FR
-            //   2. activeProfile !== 'custom' → ne touche pas les labels personnalisés
-            //   3. tp.label === frLabel  → ne touche que les labels encore en FR (non renommés)
-            // Pour les utilisateurs existants : leurs labels sont déjà dans leur langue
-            // ou personnalisés → aucun de ces guards ne se déclenche.
-            {
-                const rawFinal = localStorage.getItem('pacingSettings');
-                if (rawFinal) {
-                    const sFinal = JSON.parse(rawFinal);
-                    if (sFinal.lang && sFinal.lang !== 'fr'
-                        && sFinal.activeProfile && sFinal.activeProfile !== 'custom') {
-                        const prof = PROFILES[sFinal.activeProfile];
-                        if (prof && prof.types) {
-                            let updated = false;
-                            sFinal.types.forEach(tp => {
-                                const profType = prof.types.find(pt => pt.id === tp.id);
-                                if (profType && typeof profType.label === 'object') {
-                                    const frLabel = profType.label['fr'] || '';
-                                    const targetLabel = profType.label[sFinal.lang] || frLabel;
-                                    if (tp.label === frLabel && targetLabel !== frLabel) {
-                                        tp.label = targetLabel;
-                                        updated = true;
-                                    }
-                                }
-                            });
-                            if (updated) {
-                                sFinal.labels = sFinal.types.filter(tp => tp.active).map(tp => tp.label);
-                                localStorage.setItem('pacingSettings', JSON.stringify(sFinal));
-                                console.log(`[Migration] Labels profil appliqués en "${sFinal.lang}"`);
-                            }
-                        }
-                    }
-                }
-            }
-
             console.log("[Migration] Terminée.");
         }
 
@@ -1489,15 +1457,19 @@
             lang: detectInitialLang(),
             alerts: [],
             activeProfile: "pacingcount_standard",
-            types: TYPE_COLORS.map((color, i) => {
-                const id = i + 1;
-                const defaults = {
-                    1: { label: "Couché sans stimulation", active: true },
-                    2: { label: "Couché actif", active: true },
-                    4: { label: "Non couché", active: true }
-                };
-                return { id, label: defaults[id]?.label || "", active: defaults[id]?.active || false, color };
-            })
+            types: (() => {
+                const lang = detectInitialLang();
+                const prof = PROFILES['pacingcount_standard'];
+                return TYPE_COLORS.map((color, i) => {
+                    const id = i + 1;
+                    const profType = prof.types.find(p => p.id === id);
+                    const label = profType && typeof profType.label === 'object'
+                        ? (profType.label[lang] || profType.label['fr'] || '')
+                        : '';
+                    const active = profType ? profType.active : false;
+                    return { id, label, active, color };
+                });
+            })()
         };
 
         // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
