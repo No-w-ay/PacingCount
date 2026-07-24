@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.25-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -653,15 +653,15 @@
     </div>
 
     <div id="page-results" class="page">
-        <h1 id="title-results">Totaux par jour</h1>
+        <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
 
         <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
 
         <!-- Graphe hebdomadaire — section 14b -->
-        <h2 style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
+        <h2 id="title-weekly" style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
         <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
 
-        <h3 style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
+        <h3 id="title-details" style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
             chiffrés</h3>
         <div id="results-list"></div>
     </div>
@@ -672,7 +672,7 @@
 
         <!-- Langue -->
         <div class="settings-group">
-            <label style="display:block; margin-bottom:10px; font-weight:bold;">Langue</label>
+            <label id="label-language" style="display:block; margin-bottom:10px; font-weight:bold;">Langue</label>
             <select id="lang-select" onchange="changeLang()">
                 <option value="fr">Français</option>
                 <option value="en">English</option>
@@ -686,7 +686,7 @@
                 des boutons</label>
             <!-- Passe D : 6 slots avec toggle ON/OFF + input, rendus par renderTypesSettings() -->
             <div id="type-inputs-container"></div>
-            <label style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
+            <label id="label-profiles" style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
                 prédéfinis</label>
             <!-- Passe D : boutons de profil rendus par renderProfileSelector() -->
             <div id="profile-selector-container"></div>
@@ -705,14 +705,14 @@
 
         <!-- Communauté et feedback -->
         <div class="settings-group">
-            <label style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp; feedback</label>
+            <label id="label-community" style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp; feedback</label>
             <div style="font-family: 'Lora', serif; font-size:0.93rem; line-height: 1.6; opacity:0.9;">
-                <p style="margin:0 0 12px 0;">
+                <p id="community-intro" style="margin:0 0 12px 0;">
                     Rejoignez le <b>groupe Facebook des utilisateurs·trices</b> — le bon endroit pour poser une question
                     ou partager un feedback sur l'application :
                 </p>
                 <p style="margin:0 0 12px 0; text-align:center;">
-                    <a href="https://www.facebook.com/groups/1478593046580774" target="_blank"
+                    <a id="community-link" href="https://www.facebook.com/groups/1478593046580774" target="_blank"
                         style="color:var(--blue); text-decoration:none; font-weight: bold;">
                         👥 PacingCount : communauté &amp; feedback (↗)
                     </a>
@@ -725,7 +725,7 @@
 
         <!-- À propos -->
         <div class="settings-group">
-            <label style="display:block; margin-bottom:10px; font-weight:bold;">À propos</label>
+            <label id="label-about" style="display:block; margin-bottom:10px; font-weight:bold;">À propos</label>
             <div id="app-version" class="version-display"
                 style="text-align:center; margin-bottom:15px; line-height:1.8;">
                 <div id="about-version" style="opacity:0.7; font-size:0.85rem;"></div>
@@ -738,18 +738,18 @@
             </div>
             <br>
             <div style="font-family: 'Lora', serif; font-size:0.93rem; line-height: 1.6; opacity:0.9;">
-                <p style="margin:0 0 10px 0;">
+                <p id="about-intro" style="margin:0 0 10px 0;">
                     <b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et
                     objectiver leur niveau
                     d'activité et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par
                     une personne concernée par l'EM/SFC.
                 </p>
-                <p style="margin:0 0 10px 0;">
+                <p id="about-invitation" style="margin:0 0 10px 0;">
                     <i>Une invitation&nbsp;: n'utilisez pas cette app de façon
                         trop perfectionniste — le pacing est avant tout une stratégie de repos
                         et de récupération, dans un cadre de bienveillance envers soi-même.</i>
                 </p>
-                <p style="margin:0 0 10px 0;">
+                <p id="about-disclaimer" style="margin:0 0 10px 0;">
                     Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
                     substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes
                     de vie ou de traitement, consultez votre médecin en tenant compte de votre situation
@@ -766,7 +766,7 @@
             <!-- Indicateur mode développeur — visible uniquement si mode dev actif -->
             <div id="dev-mode-indicator" class="dev-only"
                 style="align-items:center; justify-content:center; gap:10px; margin-top:18px; padding-top:12px; border-top:1px solid var(--border); font-size:0.85rem; opacity:0.75;">
-                <span>🛠️ Mode développeur</span>
+                <span id="label-dev-mode">🛠️ Mode développeur</span>
                 <div onclick="toggleDevMode(false)"
                     style="position:relative; width:44px; height:24px; border-radius:12px; background:var(--green); cursor:pointer; flex-shrink:0;">
                     <div
@@ -785,7 +785,7 @@
              se cache derrière le footer fixe -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-            <div style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
+            <div id="title-timeline" style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
             </div>
 
             <div class="chart-container"
@@ -831,7 +831,7 @@
         </div>
 
         <!-- Ligne 3 : bouton Ajouter -->
-        <button class="add-btn" onclick="openAddModal()"
+        <button id="btn-add-period" class="add-btn" onclick="openAddModal()"
             style="width: 100%; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 6px; font-weight: bold; margin-bottom: 6px; cursor: pointer;">
             + Ajouter une période
         </button>
@@ -891,18 +891,17 @@
         <div class="modal-content">
             <h3 id="modal-title" style="margin-top:0;">Modifier l'entrée</h3>
             <input type="hidden" id="edit-index">
-            <input type="hidden" id="edit-start-original"> <!-- champs cachés : valeur originale -->
-            <input type="hidden" id="edit-end-original"> <!-- champs cachés : valeur originale -->
-            <label for="edit-type">Type de période</label>
-            <!-- Passe B v0.9.24 : options remplies dynamiquement par openEditModal() / openAddModal() -->
+            <input type="hidden" id="edit-start-original">
+            <input type="hidden" id="edit-end-original">
+            <label id="label-edit-type" for="edit-type">Type de période</label>
             <select id="edit-type"></select>
-            <label for="edit-start" style="display:block; margin-top:15px;">Début</label>
+            <label id="label-edit-start" for="edit-start" style="display:block; margin-top:15px;">Début</label>
             <input type="datetime-local" id="edit-start" step="60">
-            <label for="edit-end" style="display:block; margin-top:15px;">Fin</label>
+            <label id="label-edit-end" for="edit-end" style="display:block; margin-top:15px;">Fin</label>
             <input type="datetime-local" id="edit-end" step="60">
             <div style="display:flex; gap:10px; margin-top:25px;">
-                <button class="export-btn" style="background:#444; margin:0;" onclick="closeModal()">Annuler</button>
-                <button class="export-btn" style="margin:0;" onclick="saveManualEdit()">Enregistrer</button>
+                <button id="btn-edit-cancel" class="export-btn" style="background:#444; margin:0;" onclick="closeModal()">Annuler</button>
+                <button id="btn-edit-save" class="export-btn" style="margin:0;" onclick="saveManualEdit()">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -911,7 +910,7 @@
          boutons Remplacer / Fusionner / Annuler en bas. Logique inchangée. -->
     <div id="importModal" class="modal">
         <div class="modal-content">
-            <h3 style="margin-top:0;">Importer un fichier CSV</h3>
+            <h3 id="import-modal-title" style="margin-top:0;">Importer un fichier CSV</h3>
 
             <!-- Tableau de correspondances — rempli dynamiquement par showImportModal() -->
             <div id="import-mapping-table" style="margin-bottom:16px;"></div>
@@ -928,7 +927,7 @@
                 onclick="processImport('replace')">
                 ⚠️ Remplacer l'historique
             </button>
-            <p style="font-size:0.85rem; margin:0 0 16px 0; opacity:0.82;">
+            <p id="import-replace-detail" style="font-size:0.85rem; margin:0 0 16px 0; opacity:0.82;">
                 Efface tout l'historique actuel et importe le fichier.
                 Cette action est irréversible.
             </p>
@@ -938,14 +937,14 @@
                 onclick="processImport('merge')">
                 ⚠️ Fusionner
             </button>
-            <p style="font-size:0.85rem; margin:0 0 16px 0; opacity:0.82;">
+            <p id="import-merge-detail" style="font-size:0.85rem; margin:0 0 16px 0; opacity:0.82;">
                 Ajoute les données du fichier à l'historique existant.
                 Le fichier a priorité sur la plage temporelle qu'il couvre.
                 Cette action est irréversible.
             </p>
 
             <!-- Bouton Annuler -->
-            <button class="export-btn" style="background:#444;" onclick="closeImportModal()">Annuler</button>
+            <button id="btn-import-cancel" class="export-btn" style="background:#444;" onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
 
@@ -955,20 +954,20 @@
             <h3 id="alert-modal-title" style="margin-top:0;">Nouvelle alerte</h3>
             <input type="hidden" id="alert-edit-index">
 
-            <label for="alert-type" style="display:block; margin-top:10px;">Type de période</label>
+            <label id="label-alert-type" for="alert-type" style="display:block; margin-top:10px;">Type de période</label>
             <select id="alert-type"></select>
 
-            <label for="alert-threshold" style="display:block; margin-top:15px;">
+            <label id="label-alert-threshold" for="alert-threshold" style="display:block; margin-top:15px;">
                 1re alerte après (min)
             </label>
             <input type="number" id="alert-threshold" min="5" max="480" step="5" value="40">
 
-            <label for="alert-interval" style="display:block; margin-top:15px;">
+            <label id="label-alert-interval" for="alert-interval" style="display:block; margin-top:15px;">
                 Intervalle entre rappels (min)
             </label>
             <input type="number" id="alert-interval" min="5" max="120" step="5" value="20">
 
-            <label for="alert-maxcount" style="display:block; margin-top:15px;">
+            <label id="label-alert-maxcount" for="alert-maxcount" style="display:block; margin-top:15px;">
                 Nombre total de notifications
             </label>
             <input type="number" id="alert-maxcount" min="1" max="5" step="1" value="3">
@@ -993,9 +992,9 @@
  -->
 
             <div style="display:flex; gap:10px; margin-top:25px;">
-                <button class="export-btn" style="background:#444; margin:0;"
+                <button id="btn-alert-cancel" class="export-btn" style="background:#444; margin:0;"
                     onclick="closeAlertModal()">Annuler</button>
-                <button class="export-btn" style="margin:0;" onclick="saveAlert()">Enregistrer</button>
+                <button id="btn-alert-save" class="export-btn" style="margin:0;" onclick="saveAlert()">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -1088,10 +1087,7 @@
         const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
 
         function showStorageWarningToast() {
-            if (document.getElementById('storage-warning-toast')) return; // évite les doublons
-            const lang = (settings && settings.lang) || 'fr';
-            const t = translations[lang] || translations['fr'];
-
+            if (document.getElementById('storage-warning-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-warning-toast';
             toast.style.cssText = `
@@ -1101,25 +1097,22 @@
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t.storageNearFull}</span>
+            <span style="font-weight:bold; color:var(--orange);">⚠️ ${t('storageNearFull')}</span>
             <button onclick="document.getElementById('storage-warning-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
-        <div style="margin-bottom:10px; line-height:1.5;">${t.storageNearFullDetail}</div>
+        <div style="margin-bottom:10px; line-height:1.5;">${t('storageNearFullDetail')}</div>
         <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
             style="background:var(--orange); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t.storageExport}
+            💾 ${t('storageExport')}
         </button>
-        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportWarn}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportWarn')}</div>`;
             document.body.appendChild(toast);
         }
 
         function showStorageFullToast() {
-            if (document.getElementById('storage-full-toast')) return; // évite les doublons
-            const lang = (settings && settings.lang) || 'fr';
-            const t = translations[lang] || translations['fr'];
-
+            if (document.getElementById('storage-full-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-full-toast';
             toast.style.cssText = `
@@ -1129,19 +1122,19 @@
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
-            <span style="font-weight:bold; color:var(--red);">⚠️ ${t.storageFull}</span>
+            <span style="font-weight:bold; color:var(--red);">⚠️ ${t('storageFull')}</span>
             <button onclick="document.getElementById('storage-full-toast').remove()"
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
         <div style="margin-bottom:10px; line-height:1.5;">
-            <strong>${t.storageFullBold}</strong><br>${t.storageFullDetail}
+            <strong>${t('storageFullBold')}</strong><br>${t('storageFullDetail')}
         </div>
         <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
             style="background:var(--red); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t.storageExportFull}
+            💾 ${t('storageExportFull')}
         </button>
-        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t.storageAfterExportFull}</div>`;
+        <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportFull')}</div>`;
             document.body.appendChild(toast);
         }
 
@@ -1226,6 +1219,22 @@
         const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
 
         // ============================================================
+        // 2b. DÉTECTION DE LANGUE AU PREMIER LANCEMENT
+        // Lit navigator.languages (préférences OS/navigateur, par priorité).
+        // Retourne la première langue supportée trouvée, ou 'en' si aucune.
+        // Appelée uniquement lors du bootstrap (aucun localStorage existant).
+        // ============================================================
+        function detectInitialLang() {
+            const supported = ['fr', 'en', 'nl'];
+            const prefs = navigator.languages || [navigator.language || 'en'];
+            for (const lang of prefs) {
+                const code = lang.toLowerCase().split('-')[0]; // "nl-BE" → "nl"
+                if (supported.includes(code)) return code;
+            }
+            return 'en'; // fallback universel
+        }
+
+        // ============================================================
         // 3. MIGRATION DU LOCALSTORAGE
         // Tourne une seule fois au démarrage si l'ancienne structure est détectée.
         // Convertit : settings.labels[] → settings.types[]
@@ -1236,31 +1245,39 @@
             console.log("[Migration] Vérification du localStorage...");
 
             // --- Bootstrap : garantit l'existence de pacingSettings avant toute migration ---
-            // Cas concerné : utilisateur n'ayant jamais créé d'alerte ni modifié les réglages
-            // (saveSettings() n'a jamais été appelé → pacingSettings n'existe pas en localStorage).
-            // Solution : le créer en ANCIEN format (sans .color, type 3 = "Non couché")
-            // afin que le bloc v0.9.24 ci-dessous le détecte et l'upgrade normalement,
-            // en migrant aussi l'historique (typeId 3→4) si pacingState est présent.
-            // Ce choix est plus robuste qu'un flag : il se base sur l'architecture des données,
-            // ce qui reste valide même après réinstallation ou réimport de données.
+            // Cas concerné : premier lancement (aucun localStorage existant).
+            // Crée directement le format correct (avec .color, activeProfile, typeIds corrects)
+            // → la migration v0.9.24 ci-dessous ne se déclenche pas (son guard est s.types[0].color === undefined).
+            // La migration v0.9.24 reste utile pour les utilisateurs ayant l'ancien format.
             if (!localStorage.getItem('pacingSettings')) {
+                const lang = detectInitialLang();
+                const prof = PROFILES['pacingcount_standard'];
+                // Helper : label depuis le profil dans la langue détectée, fallback FR
+                const profLabel = (id) => {
+                    const pt = prof.types.find(p => p.id === id);
+                    return (pt && typeof pt.label === 'object')
+                        ? (pt.label[lang] || pt.label['fr'] || '')
+                        : '';
+                };
+                const bootstrapTypes = TYPE_COLORS.map((color, i) => {
+                    const id = i + 1;
+                    const profType = prof.types.find(p => p.id === id);
+                    return {
+                        id,
+                        label: profType?.active ? profLabel(id) : '',
+                        active: profType?.active ?? false,
+                        color
+                    };
+                });
                 const bootstrapSettings = {
-                    lang: 'fr',
+                    lang,
                     alerts: [],
-                    // Ancien format intentionnel (sans .color) : déclenche la migration v0.9.24.
-                    // L'ancien typeId 3 ("Non couché") sera déplacé en typeId 4 par ce bloc.
-                    // Labels FR par défaut (la langue n'était pas persistée non plus si absente).
-                    types: [
-                        { id: 1, label: "Couché sans stimulation", active: true },
-                        { id: 2, label: "Couché actif", active: true },
-                        { id: 3, label: "Non couché", active: true },
-                        { id: 4, label: "", active: false },
-                        { id: 5, label: "", active: false },
-                        { id: 6, label: "", active: false }
-                    ]
+                    activeProfile: 'pacingcount_standard',
+                    labels: bootstrapTypes.filter(tp => tp.active).map(tp => tp.label),
+                    types: bootstrapTypes
                 };
                 localStorage.setItem('pacingSettings', JSON.stringify(bootstrapSettings));
-                console.log("[Migration] pacingSettings absent — bootstrap créé (ancien format, sans .color)");
+                console.log(`[Migration] Premier lancement — settings créés directement en "${lang}"`);
             }
 
             // --- Migration de settings ---
@@ -1437,18 +1454,22 @@
             || {
             // Valeurs par défaut pour un nouvel utilisateur (aucun localStorage existant).
             // Inclut .color (palette v0.9.24) et la numérotation correcte (typeId 4 = Non couché).
-            lang: 'fr',
+            lang: detectInitialLang(),
             alerts: [],
             activeProfile: "pacingcount_standard",
-            types: TYPE_COLORS.map((color, i) => {
-                const id = i + 1;
-                const defaults = {
-                    1: { label: "Couché sans stimulation", active: true },
-                    2: { label: "Couché actif", active: true },
-                    4: { label: "Non couché", active: true }
-                };
-                return { id, label: defaults[id]?.label || "", active: defaults[id]?.active || false, color };
-            })
+            types: (() => {
+                const lang = detectInitialLang();
+                const prof = PROFILES['pacingcount_standard'];
+                return TYPE_COLORS.map((color, i) => {
+                    const id = i + 1;
+                    const profType = prof.types.find(p => p.id === id);
+                    const label = profType && typeof profType.label === 'object'
+                        ? (profType.label[lang] || profType.label['fr'] || '')
+                        : '';
+                    const active = profType ? profType.active : false;
+                    return { id, label, active, color };
+                });
+            })()
         };
 
         // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
@@ -1478,31 +1499,24 @@
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
                 overlapLiveWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s), dont celle EN COURS, qui seront ajustées. Continuer ?",
                 importError: "Erreur lors de la lecture du fichier CSV.",
-                importSuccess: "Importation réussie !",
-                importUnknown: "Type inconnu — sera ignoré",
-                importWarning: "Les types inconnus ne seront pas importés.",
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
-                importReplace: "Remplacer", importReplaceDesc: "Supprime tout et remplace par le fichier.",
-                importMerge: "Fusionner", importMergeDesc: "Le fichier a la priorité en cas de conflit.",
                 importCancel: "Annuler",
-                resCouche: "Couché", resMoy3j: "moy.3j",
+                resMoy3j: "moy.3j",
                 resActif: "période active", resActifP: "périodes actives",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
-                // NOUVEAU pour alertes
+                // Alertes de périodes
                 alertsTitle: "Alertes de périodes",
                 alertAdd: "+ Ajouter une alerte",
                 alertEditTitle: "Modifier l'alerte",
                 alertNewTitle: "Nouvelle alerte",
                 alertType: "Type de période",
-                alertThreshold: "1re alerte après",
+                alertThreshold: "Après",
                 alertInterval: "Intervalle entre rappels (min)",
                 alertMaxCount: "Nombre total de notifications",
                 alertModeSingle: "1 notification par rappel",
                 alertModeWave: "Vagues croissantes (1, 2, 3…)",
-                alertEnabled: "Active",
                 alertNoAlerts: "Aucune alerte configurée.",
-                alertBody: '{n} min en période active.',
                 storageNearFull: "Stockage presque plein (≥90%)",
                 storageNearFullDetail: "Pensez à exporter vos données pour les archiver.",
                 storageFull: "Espace de stockage plein",
@@ -1511,26 +1525,136 @@
                 storageExport: "Exporter mes données",
                 storageExportFull: "Exporter mes données",
                 storageAfterExportWarn: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
-                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé."
+                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé.",
+
+                // ============================================================
+                // NOUVELLES CLÉS — Audit traductions Bloc 2 (2026-07)
+                // FR uniquement pour l'instant. EN/NL viendront au Bloc 5,
+                // une fois le remplacement des chaînes en dur validé (Bloc 3/4).
+                // Certaines chaînes HTML statiques identiques à des clés déjà
+                // existantes (addManual, export, import, stop, alertType, custom,
+                // alertsTitle, timeline...) sont volontairement RÉUTILISÉES au
+                // lieu d'être dupliquées ici — elles seront juste câblées au Bloc 4.
+                // ============================================================
+
+                // Graphiques résultats
+                noDataAvailable: "Aucune donnée.",
+                notEnoughData: "Pas encore assez de données complètes.", btnSave: "Enregistrer", btnClose: "Fermer",
+                continueQuestion: "Continuer ?",
+
+                // Alertes de périodes
+                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                alertValidThreshold: "Seuil minimum : 1 min",
+                alertValidInterval: "Intervalle minimum : 1 min",
+                alertValidMaxCount: "Nombre de notifications : 1 à 5",
+                alertDeleteConfirm: "Supprimer cette alerte ?",
+                alertThresholdModalLabel: "1re alerte après (min)",
+                // Textes des notifications push (visibles sur l'écran du téléphone)
+                alertLastReminder: "Dernier rappel",
+                alertReminderN: "Rappel {n}",
+                alertNotifBody: "{mins} min en période {label} (rappel {n})",
+                alertCatchupN: "Catchup {n}",
+                alertLastCatchup: "Dernier catchup",
+                alertCatchupBody1: "{mins} min en période {label} (1 rappel manqué pendant la veille)",
+                alertCatchupBodyN: "{mins} min en période {label} ({n} rappels manqués pendant la veille)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "Vous allez modifier le profil \"{name}\".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?",
+                profileApplyConfirm: "Appliquer le profil \"{name}\" ?\nNote : le profil actif s'applique à tout l'historique enregistré.",
+                profileRestoreConfirm: "Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.",
+                profileNoteHistory: "Note : le profil actif s'applique à tout l'historique enregistré.",
+                profileApplyBtn: "Appliquer ce profil",
+                typeMinOneActive: "Au moins un type de période doit rester actif.",
+                typeInactivePlaceholder: "(inactif)",
+                typeNoNameOption: "(sans nom)",
+                customProfileConfigLabel: "Voici la dernière configuration enregistrée :",
+                customProfileTypeWord: "type(s) de période(s)",
+
+                // Historique — footer et suppression
+                entryDeleteConfirm: "Supprimer ?",
+                historyRangeSameMonth: "Vue du {fD} au {lD} {lM}",
+                historyRangeDiffMonth: "Vue du {fD} {fM} au {lD} {lM}",
+                historyTotalSingle: "Total : {n} période enregistrée",
+                historyTotalPlural: "Total : {n} périodes enregistrées",
+
+                // Édition manuelle d'une période
+                editEndAfterStart: "L'heure de fin doit être après l'heure de début.",
+                editFutureEndNotice: "La fin de période est dans le futur, elle sera définie comme période en cours :",
+                editNewPeriodLabel: "Nouvelle période :",
+                editOverlapNotice: "Cette période empiète sur {n} autre(s) période(s) qui seront ajustées.",
+
+                // Import CSV
+                importNoPeriods: "Aucune période importable.",
+                importSuccessCount: "{n} période(s) importée(s) avec succès.",
+                importMappingDesc: "Correspondances entre les types de périodes du fichier et ceux de l'application :",
+                importMappingLegend: "✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation",
+                importFusionWarning: "⚠️ Plusieurs types du fichier seront fusionnés en un seul type dans l'application ({target}).",
+                importFusionOk: "✅ Tous les types du fichier ont été reconnus automatiquement.",
+                importIgnoreOption: "— Ignorer ce type",
+                importModalTitle: "Importer un fichier CSV",
+                importReplaceBtn: "⚠️ Remplacer l'historique",
+                importReplaceDetail: "Efface tout l'historique actuel et importe le fichier. Cette action est irréversible.",
+                importMergeBtn: "⚠️ Fusionner",
+                importMergeDetail: "Ajoute les données du fichier à l'historique existant. Le fichier a priorité sur la plage temporelle qu'il couvre. Cette action est irréversible.",
+
+                // Mise à jour (modal "Vérifier mise à jour" + modal messages JSON type update)
+                updateTitle: "Mise à jour",
+                updateChecking: "🔄 Vérification en cours...",
+                updateAvailableTitle: "🔄 Mise à jour disponible",
+                updateCurrentVersionLabel: "Version actuelle :",
+                updateAvailableVersionLabel: "Version disponible :",
+                updateConseilLabel: "CONSEIL :",
+                updateConseilText: "Exportez vos données en CSV avant la mise à jour, par précaution. (tout redémarrage de l'app appliquera automatiquement la mise à jour)",
+                updateUpToDate: "✅ Vous avez la dernière version",
+                updateForceRestart: "En cas d'échec d'une mise à jour, forcez le redémarrage de l'application.",
+                updateOffline: "📡 Hors ligne — Impossible de vérifier",
+                updateInProgress: "⏳ Mise à jour en cours...",
+                updateWillRestart: "L'application va redémarrer dans quelques instants.",
+                btnUpdateNow: "🔄 Mettre à jour",
+                btnLater: "Plus tard",
+                btnExportBeforeUpdate: "💾 Exporter mes données (.csv)",
+                updateNewVersionFallback: "nouvelle version",
+                msgDefaultBtn: "J'ai compris",
+                updateInstalled: "Mise à jour installée",
+                legendToggleTitle: "Afficher/masquer la légende",
+
+                // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
+                titleResults: "Totaux par jour",
+                titleWeeklyAvg: "Moyennes par semaine",
+                titleDetailedResults: "Détails chiffrés",
+                titleProfiles: "Profils prédéfinis",
+                titleLanguage: "Langue",
+                titleCommunity: "Communauté & feedback",
+                titleAbout: "À propos",
+                communityIntro: "Rejoignez le <b>groupe Facebook des utilisateurs·trices</b> — le bon endroit pour poser une question ou partager un feedback sur l'application :",
+                communityLinkLabel: "👥 PacingCount : communauté & feedback (↗)",
+                aboutIntro: "<b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et objectiver leur niveau d'activité et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par une personne concernée par l'EM/SFC.",
+                aboutInvitation: "<i>Une invitation&nbsp;: n'utilisez pas cette app de façon trop perfectionniste — le pacing est avant tout une stratégie de repos et de récupération, dans un cadre de bienveillance envers soi-même.</i>",
+                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle.",
+                devModeIndicator: "🛠️ Mode développeur",
+                btnCheckUpdate: "Vérifier mise à jour",
+                editModalTitle: "Modifier l'entrée",
+                labelStart: "Début",
+                labelEnd: "Fin",
+                testNotifBtn: "🛠️ Test Notif Immédiate",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "Si tu vois ça, le bouton de notification en direct marche !",
+                fullscreenBtn: "🛠️ Mode Plein Écran",
+                fullscreenExitBtn: "🛠️ Quitter le Plein Écran"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
                 export: "Export CSV", import: "Import CSV", custom: "Button Names",
                 stop: "Stop recording", confirmStop: "Stop current recording?",
-                history: "Recorded periods", prev: "Previous: ", inProgress: "(In progress)",
+                history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
                 futureError: "Cannot record a period in the future.",
                 overlapWarning: "This edit overlaps {n} existing period(s). They will be adjusted. Continue?",
                 overlapLiveWarning: "Warning, this edit overlaps {n} period(s), INCLUDING the current recording! The timer will be adjusted. Continue?",
                 importError: "Error reading CSV file.",
-                importSuccess: "Import successful!",
-                importUnknown: "Unknown type — will be ignored",
-                importWarning: "Unknown types will not be imported.",
                 importFileHeader: "In the file", importAppHeader: "In the app",
-                importReplace: "Replace", importReplaceDesc: "Deletes everything and replaces with the file.",
-                importMerge: "Merge", importMergeDesc: "File takes priority in case of conflict.",
                 importCancel: "Cancel",
-                resCouche: "Lying", resMoy3j: "3d avg",
+                resMoy3j: "3d avg",
                 resActif: "active period", resActifP: "active periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
@@ -1542,40 +1666,288 @@
                 storageExport: "Export my data",
                 storageExportFull: "Export my data",
                 storageAfterExportWarn: "After export: your CSV file is your archive. To keep using the app, the current history will soon need to be cleared or reduced.",
-                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced."
+                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced.",
+
+                // Boutons génériques
+                noDataAvailable: "No data available.",
+                notEnoughData: "Not enough complete data yet.",
+                btnCancel: "Cancel", btnSave: "Save", btnClose: "Close",
+                continueQuestion: "Continue?",
+
+                // Alertes de périodes
+                alertsTitle: "Period alerts",
+                alertAdd: "+ Add an alert",
+                alertEditTitle: "Edit alert",
+                alertNewTitle: "New alert",
+                alertType: "Period type",
+                alertThreshold: "After",
+                alertInterval: "Interval between reminders (min)",
+                alertMaxCount: "Total number of notifications",
+                alertModeSingle: "1 notification per reminder",
+                alertModeWave: "Rising waves (1, 2, 3…)",
+                alertNoAlerts: "No alerts configured.",
+                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible\n- the app remains in the foreground\n- on iPhone (untested): the app must be installed (iOS 16.4+)\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                alertValidThreshold: "Minimum threshold: 1 min",
+                alertValidInterval: "Minimum interval: 1 min",
+                alertValidMaxCount: "Number of notifications: 1 to 5",
+                alertDeleteConfirm: "Delete this alert?",
+                alertThresholdModalLabel: "1st alert after (min)",
+                // Push notification texts (visible on the phone screen)
+                alertLastReminder: "Last reminder",
+                alertReminderN: "Reminder {n}",
+                alertNotifBody: "{mins} min in period {label} (reminder {n})",
+                alertCatchupN: "Catch-up {n}",
+                alertLastCatchup: "Last catch-up",
+                alertCatchupBody1: "{mins} min in period {label} (1 missed reminder during sleep)",
+                alertCatchupBodyN: "{mins} min in period {label} ({n} missed reminders during sleep)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "You are about to modify the profile \"{name}\".\nYour configuration will be saved as a Custom profile, which will become active.\nNote: the active profile applies to all recorded history.\nContinue?",
+                profileApplyConfirm: "Apply the profile \"{name}\"?\nNote: the active profile applies to all recorded history.",
+                profileRestoreConfirm: "Restore the Custom profile?\nNote: the active profile applies to all recorded history.",
+                profileNoteHistory: "Note: the active profile applies to all recorded history.",
+                profileApplyBtn: "Apply this profile",
+                typeMinOneActive: "At least one period type must remain active.",
+                typeInactivePlaceholder: "(inactive)",
+                typeNoNameOption: "(no name)",
+                customProfileConfigLabel: "Last saved configuration:",
+                customProfileTypeWord: "period type(s)",
+
+                // Historique
+                entryDeleteConfirm: "Delete?",
+                historyRangeSameMonth: "View from {fD} to {lD} {lM}",
+                historyRangeDiffMonth: "View from {fD} {fM} to {lD} {lM}",
+                historyTotalSingle: "Total: {n} recorded period",
+                historyTotalPlural: "Total: {n} recorded periods",
+
+                // Édition manuelle
+                editEndAfterStart: "End time must be after start time.",
+                editFutureEndNotice: "Period end is in the future; it will be set as the current ongoing period:",
+                editNewPeriodLabel: "New period:",
+                editOverlapNotice: "This period overlaps {n} other period(s), which will be adjusted.",
+
+                // Import CSV
+                importNoPeriods: "No importable periods.",
+                importSuccessCount: "{n} period(s) imported successfully.",
+                importMappingDesc: "Matching between period types in the file and those in the app:",
+                importMappingLegend: "✅ = exact match detected; 🔍 = check before importing",
+                importFusionWarning: "⚠️ Multiple types from the file will be merged into one type in the app ({target}).",
+                importFusionOk: "✅ All types in the file have been automatically recognised.",
+                importIgnoreOption: "— Ignore this type",
+                importModalTitle: "Import a CSV file",
+                importReplaceBtn: "⚠️ Replace history",
+                importReplaceDetail: "Deletes all current history and imports the file. This action cannot be undone.",
+                importMergeBtn: "⚠️ Merge",
+                importMergeDetail: "Adds the file data to the existing history. The file takes priority over the time range it covers. This action cannot be undone.",
+
+                // Mise à jour
+                updateTitle: "Update",
+                updateChecking: "🔄 Checking for updates...",
+                updateAvailableTitle: "🔄 Update available",
+                updateCurrentVersionLabel: "Current version:",
+                updateAvailableVersionLabel: "Available version:",
+                updateConseilLabel: "TIP:",
+                updateConseilText: "Export your data to CSV before updating, as a precaution. (any restart of the app will automatically apply the update)",
+                updateUpToDate: "✅ You have the latest version",
+                updateForceRestart: "If an update fails, force-restart the app.",
+                updateOffline: "📡 Offline — Unable to check",
+                updateInProgress: "⏳ Updating...",
+                updateWillRestart: "The app will restart shortly.",
+                btnUpdateNow: "🔄 Update now",
+                btnLater: "Later",
+                btnExportBeforeUpdate: "💾 Export my data (.csv)",
+                updateNewVersionFallback: "new version",
+                msgDefaultBtn: "Got it",
+                updateInstalled: "Update installed",
+                legendToggleTitle: "Show/hide legend",
+
+                // Titres et labels statiques
+                titleResults: "Daily totals",
+                titleWeeklyAvg: "Weekly averages",
+                titleDetailedResults: "Detailed figures",
+                titleProfiles: "Preset profiles",
+                titleLanguage: "Language",
+                titleCommunity: "Community & feedback",
+                communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                communityIntro: "Join the <b>PacingCount users' group</b> — the right place to ask a question or share feedback about the app:",
+                titleAbout: "About",
+                aboutIntro: "<b>PacingCount:</b> An application designed for people who wish to measure and objectify their activity and rest levels, in order to refine their pacing strategy. It was created by someone living with ME/CFS.",
+                aboutInvitation: "<i>An invitation: do not use this app in an overly perfectionist way — pacing is above all a rest and recovery strategy, in a spirit of self-compassion.</i>",
+                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account.",
+                devModeIndicator: "🛠️ Developer mode",
+                btnCheckUpdate: "Check for updates",
+                editModalTitle: "Edit entry",
+                labelStart: "Start",
+                labelEnd: "End",
+                testNotifBtn: "🛠️ Test Immediate Notif",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "If you see this, the immediate notification button works!",
+                fullscreenBtn: "🛠️ Full Screen Mode",
+                fullscreenExitBtn: "🛠️ Exit Full Screen"
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
                 export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
                 stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
-                history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "(Bezig)",
+                history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
                 futureError: "Kan geen periode in de toekomst opnemen.",
                 overlapWarning: "Deze wijziging overlapt {n} bestaande periode(s). Ze worden aangepast. Doorgaan?",
                 overlapLiveWarning: "Let op, deze wijziging overlapt {n} periode(s), INCLUSIEF de huidige opname! De timer wordt aangepast. Doorgaan?",
                 importError: "Fout bij het lezen van het CSV-bestand.",
-                importSuccess: "Importeren geslaagd!",
-                importUnknown: "Onbekend type — wordt genegeerd",
-                importWarning: "Onbekende types worden niet geïmporteerd.",
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
-                importReplace: "Vervangen", importReplaceDesc: "Verwijdert alles en vervangt met het bestand.",
-                importMerge: "Samenvoegen", importMergeDesc: "Bestand heeft prioriteit bij conflict.",
                 importCancel: "Annuleren",
-                resCouche: "Liggend", resMoy3j: "3d gem",
+                resMoy3j: "3d gem",
                 resActif: "actieve periode", resActifP: "actieve periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 storageNearFull: "Opslag bijna vol (≥90%)",
-                storageNearFullDetail: "Denk eraan uw gegevens te exporteren als archief.",
+                storageNearFullDetail: "Denk eraan je gegevens te exporteren als archief.",
                 storageFull: "Opslag vol",
-                storageFullBold: "Uw nieuwe gegevens kunnen niet meer worden opgeslagen.",
-                storageFullDetail: "Exporteer uw gegevens nu om ze te archiveren en niets te verliezen.",
+                storageFullBold: "Je nieuwe gegevens kunnen niet meer worden opgeslagen.",
+                storageFullDetail: "Exporteer je gegevens nu om ze te archiveren en niets te verliezen.",
                 storageExport: "Mijn gegevens exporteren",
                 storageExportFull: "Mijn gegevens exporteren",
-                storageAfterExportWarn: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis binnenkort worden gewist of verkleind.",
-                storageAfterExportFull: "Na de export: uw CSV-bestand is uw archief. Om de app te blijven gebruiken, moet de huidige geschiedenis worden gewist of verkleind."
+                storageAfterExportWarn: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek worden gewist of verkleind.",
+
+                // Boutons génériques
+                noDataAvailable: "Geen gegevens.",
+                notEnoughData: "Nog niet genoeg volledige gegevens.",
+                btnCancel: "Annuleren", btnSave: "Opslaan", btnClose: "Sluiten",
+                continueQuestion: "Doorgaan?",
+
+                // Alertes de périodes
+                alertsTitle: "Periode-alertes",
+                alertAdd: "+ Alert toevoegen",
+                alertEditTitle: "Alert bewerken",
+                alertNewTitle: "Nieuwe alert",
+                alertType: "Periodetype",
+                alertThreshold: "Na",
+                alertInterval: "Interval tussen herinneringen (min)",
+                alertMaxCount: "Totaal aantal meldingen",
+                alertModeSingle: "1 melding per herinnering",
+                alertModeWave: "Stijgende golven (1, 2, 3…)",
+                alertNoAlerts: "Geen alertes geconfigureerd.",
+                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar\n- de app op de voorgrond blijft\n- op iPhone (niet getest): de app moet geïnstalleerd zijn (iOS 16.4+)\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                alertValidThreshold: "Minimale drempel: 1 min",
+                alertValidInterval: "Minimaal interval: 1 min",
+                alertValidMaxCount: "Aantal meldingen: 1 tot 5",
+                alertDeleteConfirm: "Deze alert verwijderen?",
+                alertThresholdModalLabel: "1e alert na (min)",
+                // Teksten voor pushmeldingen (zichtbaar op het telefoonscherm)
+                alertLastReminder: "Laatste herinnering",
+                alertReminderN: "Herinnering {n}",
+                alertNotifBody: "{mins} min in periode {label} (herinnering {n})",
+                alertCatchupN: "Inhaalalert {n}",
+                alertLastCatchup: "Laatste inhaalalert",
+                alertCatchupBody1: "{mins} min in periode {label} (1 gemiste herinnering tijdens slaap)",
+                alertCatchupBodyN: "{mins} min in periode {label} ({n} gemiste herinneringen tijdens slaap)",
+
+                // Profils et types de périodes
+                profileLeaveBaseConfirm: "Je staat op het punt het profiel \"{name}\" te wijzigen.\nJe configuratie wordt opgeslagen als aangepast profiel, dat actief wordt.\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.\nDoorgaan?",
+                profileApplyConfirm: "Het profiel \"{name}\" toepassen?\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileRestoreConfirm: "Het aangepaste profiel herstellen?\nOpmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileNoteHistory: "Opmerking: het actieve profiel is van toepassing op alle geregistreerde historiek.",
+                profileApplyBtn: "Dit profiel toepassen",
+                typeMinOneActive: "Minstens één periodetype moet actief blijven.",
+                typeInactivePlaceholder: "(inactief)",
+                typeNoNameOption: "(geen naam)",
+                customProfileConfigLabel: "Laatste opgeslagen configuratie:",
+                customProfileTypeWord: "periodetypen",
+
+                // Historique
+                entryDeleteConfirm: "Verwijderen?",
+                historyRangeSameMonth: "Weergave vanaf {fD} tot {lD} {lM}",
+                historyRangeDiffMonth: "Weergave vanaf {fD} {fM} tot {lD} {lM}",
+                historyTotalSingle: "Totaal: {n} geregistreerde periode",
+                historyTotalPlural: "Totaal: {n} geregistreerde periodes",
+
+                // Édition manuelle
+                editEndAfterStart: "Eindtijd moet na de begintijd liggen.",
+                editFutureEndNotice: "Het einde van de periode ligt in de toekomst; het wordt ingesteld als lopende periode:",
+                editNewPeriodLabel: "Nieuwe periode:",
+                editOverlapNotice: "Deze periode overlapt {n} andere periode(s), die worden aangepast.",
+
+                // Import CSV
+                importNoPeriods: "Geen importeerbare periodes.",
+                importSuccessCount: "{n} periode(s) succesvol geïmporteerd.",
+                importMappingDesc: "Overeenkomst tussen de periodetypen in het bestand en die in de app:",
+                importMappingLegend: "✅ = exacte overeenkomst gevonden; 🔍 = controleer vóór het importeren",
+                importFusionWarning: "⚠️ Meerdere types uit het bestand worden samengevoegd tot één type in de app ({target}).",
+                importFusionOk: "✅ Alle types in het bestand zijn automatisch herkend.",
+                importIgnoreOption: "— Dit type negeren",
+                importModalTitle: "Een CSV-bestand importeren",
+                importReplaceBtn: "⚠️ Historiek vervangen",
+                importReplaceDetail: "Wist alle huidige historiek en importeert het bestand. Deze actie kan niet ongedaan worden gemaakt.",
+                importMergeBtn: "⚠️ Samenvoegen",
+                importMergeDetail: "Voegt de bestandsgegevens toe aan de bestaande historiek. Het bestand heeft prioriteit over het tijdsbereik dat het bestrijkt. Deze actie kan niet ongedaan worden gemaakt.",
+
+                // Mise à jour
+                updateTitle: "Update",
+                updateChecking: "🔄 Controleren op updates...",
+                updateAvailableTitle: "🔄 Update beschikbaar",
+                updateCurrentVersionLabel: "Huidige versie:",
+                updateAvailableVersionLabel: "Beschikbare versie:",
+                updateConseilLabel: "TIP:",
+                updateConseilText: "Exporteer je gegevens als CSV vóór de update, voor alle zekerheid. (elke herstart van de app past de update automatisch toe)",
+                updateUpToDate: "✅ Je hebt de laatste versie",
+                updateForceRestart: "Als een update mislukt, forceer dan de herstart van de app.",
+                updateOffline: "📡 Offline — Kan niet controleren",
+                updateInProgress: "⏳ Bezig met updaten...",
+                updateWillRestart: "De app wordt over enkele ogenblikken herstart.",
+                btnUpdateNow: "🔄 Nu updaten",
+                btnLater: "Later",
+                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren (.csv)",
+                updateNewVersionFallback: "nieuwe versie",
+                msgDefaultBtn: "Begrepen",
+                updateInstalled: "Update geïnstalleerd",
+                legendToggleTitle: "Legenda tonen/verbergen",
+
+                // Titres et labels statiques
+                titleResults: "Dagelijkse totalen",
+                titleWeeklyAvg: "Wekelijkse gemiddelden",
+                titleDetailedResults: "Gedetailleerde cijfers",
+                titleProfiles: "Voorgedefinieerde profielen",
+                titleLanguage: "Taal",
+                titleCommunity: "Community & feedback",
+                communityLinkLabel: "👥 PacingCount: community & feedback (↗)",
+                communityIntro: "Sluit je aan bij de <b>Facebook-groep van gebruikers</b> — dé plek om een vraag te stellen of feedback te delen over de app:",
+                titleAbout: "Over",
+                aboutIntro: "<b>PacingCount:</b> Een app voor mensen die hun activiteits- en rustniveau willen meten en objectiveren, om hun pacing-strategie te verfijnen. Ze werd ontworpen door iemand die zelf betrokken is bij ME/CVS.",
+                aboutInvitation: "<i>Een uitnodiging: gebruik deze app niet te perfectionistisch — pacing is in de eerste plaats een strategie voor rust en herstel, vanuit zelfzorg.</i>",
+                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie.",
+                devModeIndicator: "🛠️ Ontwikkelaarsmodus",
+                btnCheckUpdate: "Controleren op updates",
+                editModalTitle: "Invoer bewerken",
+                labelStart: "Begin",
+                labelEnd: "Einde",
+                testNotifBtn: "🛠️ Directe melding testen",
+                testNotifTitle: "Test PacingCount",
+                testNotifBody: "Als je dit ziet, werkt de knop voor directe meldingen!",
+                fullscreenBtn: "🛠️ Volledig scherm",
+                fullscreenExitBtn: "🛠️ Volledig scherm verlaten"
             }
         };
+
+        // ============================================================
+        // 5b. FONCTION DE TRADUCTION GLOBALE
+        // Remplace le pattern répété "const t = translations[settings.lang] || translations['fr']"
+        // recopié dans chaque fonction. Fallback en cascade : langue courante → fr → clé brute
+        // (la clé brute reste visible en cas de clé manquante = bug détectable au premier coup d'œil).
+        // Support de variables : t('overlapWarning', { n: 3 }) remplace {n} dans la chaîne trouvée.
+        // Convention déjà présente dans translations{} (ex: overlapWarning contient {n}, {start}, {end}).
+        // ============================================================
+        function t(key, vars) {
+            const dict = translations[settings.lang] || translations['fr'];
+            let str = dict[key] ?? translations['fr'][key] ?? key;
+            if (vars) {
+                Object.keys(vars).forEach(k => {
+                    str = str.replaceAll(`{${k}}`, vars[k]);
+                });
+            }
+            return str;
+        }
 
         // ============================================================
         // 6. FONCTIONS UTILITAIRES SUR LES TYPES
@@ -1593,8 +1965,8 @@
 
         // Retourne le label d'un type par son id (y compris types inactifs/fantômes)
         function getLabelForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            return t ? t.label : `Type #${typeId}`;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            return tp ? tp.label : `Type #${typeId}`;
         }
 
         // Retourne les types (actifs ou inactifs) ayant des données dans l'historique
@@ -1620,9 +1992,9 @@
         // Retourne une valeur CSS utilisable en style inline pour n'importe quel typeId.
         // Gère tous les formats de couleur sans distinction en amont.
         function getColorForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            if (!t?.color) return 'var(--gray, #888)';
-            const c = t.color;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            if (!tp?.color) return 'var(--gray, #888)';
+            const c = tp.color;
             // Valeur CSS directe : hex (#...) ou fonction CSS (hsl(), rgb(), oklch()...)
             if (c.startsWith('#') || c.includes('(')) return c;
             // Nom de variable CSS prédéfinie → envelopper dans var(--)
@@ -1632,9 +2004,9 @@
         // Retourne la valeur de couleur calculée pour Chart.js (accepte hex, hsl, rgb nativement).
         // Pour les noms de variables CSS prédéfinies, résout via getCSSColor().
         function getColorValueForId(typeId) {
-            const t = settings.types.find(t => t.id === typeId);
-            if (!t?.color) return '#888';
-            const c = t.color;
+            const tp = settings.types.find(tp => tp.id === typeId);
+            if (!tp?.color) return '#888';
+            const c = tp.color;
             // Valeur CSS directe → Chart.js l'accepte telle quelle
             if (c.startsWith('#') || c.includes('(')) return c;
             // Nom de variable CSS → résoudre en valeur calculée
@@ -1653,22 +2025,18 @@
         function renderAlertsList() {
             const container = document.getElementById('alerts-list');
             if (!container) return;
-            const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
 
             if (!settings.alerts || settings.alerts.length === 0) {
                 container.innerHTML = `<p style="opacity:0.5; font-size:0.85rem; margin:0 0 6px 0;">
-                    ${t.alertNoAlerts || 'Aucune alerte configurée.'}</p>`;
+                    ${t('alertNoAlerts')}</p>`;
                 return;
             }
 
             container.innerHTML = settings.alerts.map((alert, idx) => {
-                // Refactoring couleurs : getColorForId() en style inline
                 const alertColor = getColorForId(alert.typeId);
                 const label = getLabelForId(alert.typeId);
-                const waveLabel = alert.wave
-                    ? (t.alertModeWave || 'Vagues croissantes')
-                    : (t.alertModeSingle || '1 notif/rappel');
+                const waveLabel = alert.wave ? t('alertModeWave') : t('alertModeSingle');
                 const toggleBg = alert.enabled ? 'var(--green)' : '#555';
                 const togglePos = alert.enabled ? '22px' : '2px';
 
@@ -1680,7 +2048,7 @@
                         <span style="font-weight:bold; margin-left:4px;">${label}</span>
                         <br>
                         <span style="font-size:0.8rem; opacity:0.7;">
-                            ${t.alertThreshold || 'Après'} ${alert.threshold} min ·
+                            ${t('alertThreshold')} ${alert.threshold} min ·
                             +${alert.interval} min · ${alert.maxCount}x · ${waveLabel}
                         </span>
                     </div>
@@ -1705,10 +2073,8 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                //alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
-                alert("🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.");
+                alert(t('alertDevWarning'));
             }
-            const t = translations[settings.lang] || translations['fr'];
             const active = getActiveTypes();
 
             // Rempli le select des types
@@ -1719,15 +2085,16 @@
 
             // Valeurs par défaut ou existantes
             if (idx === -1) {
-                document.getElementById('alert-modal-title').innerText = t.alertNewTitle || 'Nouvelle alerte';
+                document.getElementById('alert-modal-title').innerText = t('alertNewTitle');
                 document.getElementById('alert-edit-index').value = -1;
-                document.getElementById('alert-type').value = active.some(t => t.id === 3) ? 3 : (active[0]?.id || 1); document.getElementById('alert-threshold').value = 40;
+                document.getElementById('alert-type').value = active.some(tp => tp.id === 3) ? 3 : (active[0]?.id || 1);
+                document.getElementById('alert-threshold').value = 40;
                 document.getElementById('alert-interval').value = 20;
                 document.getElementById('alert-maxcount').value = 3;
                 // document.getElementById('alert-wave-single').checked = true;
             } else {
                 const a = settings.alerts[idx];
-                document.getElementById('alert-modal-title').innerText = t.alertEditTitle || 'Modifier l\'alerte';
+                document.getElementById('alert-modal-title').innerText = t('alertEditTitle');
                 document.getElementById('alert-edit-index').value = idx;
                 document.getElementById('alert-type').value = a.typeId;
                 document.getElementById('alert-threshold').value = a.threshold;
@@ -1760,10 +2127,10 @@
 
 
             // Validation minimale
-            if (isNaN(threshold) || threshold < 1) return alert('Seuil minimum : 1 min');
-            if (isNaN(interval) || interval < 1) return alert('Intervalle minimum : 1 min');
+            if (isNaN(threshold) || threshold < 1) return alert(t('alertValidThreshold'));
+            if (isNaN(interval) || interval < 1) return alert(t('alertValidInterval'));
             if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
-                return alert('Nombre de notifications : 1 à 5');
+                return alert(t('alertValidMaxCount'));
 
             const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
 
@@ -1795,7 +2162,7 @@
 
         // Supprime une alerte
         function deleteAlert(idx) {
-            if (!confirm('Supprimer cette alerte ?')) return;
+            if (!confirm(t('alertDeleteConfirm'))) return;
 
             const typeId = settings.alerts[idx].typeId; // On mémorise le type avant suppression
             settings.alerts.splice(idx, 1);
@@ -1831,8 +2198,8 @@
         document.getElementById('test-notif').addEventListener('click', () => {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(registration => {
-                    registration.showNotification('Test Android', {
-                        body: 'Si tu vois ça, le bouton de notification en direct marche !'
+                    registration.showNotification(t('testNotifTitle'), {
+                        body: t('testNotifBody')
                     });
                 });
             }
@@ -1846,7 +2213,7 @@
                 // 1. On passe en plein écran (obligatoire AVANT de bloquer la rotation)
                 try {
                     await document.documentElement.requestFullscreen();
-                    btnFullscreen.innerText = "🛠️ Quitter le Plein Écran";
+                    btnFullscreen.innerText = t('fullscreenExitBtn');
 
                     // 2. On bloque la rotation (ici en mode 'portrait')
                     // Tu peux aussi mettre 'landscape' si tu préfères
@@ -1874,7 +2241,7 @@
 
                     // 2. On quitte le plein écran
                     await document.exitFullscreen();
-                    btnFullscreen.innerText = "🛠️ Mode Plein Écran";
+                    btnFullscreen.innerText = t('fullscreenBtn');
                 }
             }
         });
@@ -1882,7 +2249,7 @@
         // Gérer la sortie via le bouton "Retour" d'Android
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) {
-                btnFullscreen.innerText = "🛠️ Mode Plein Écran";
+                btnFullscreen.innerText = t('fullscreenBtn');
                 // Sécurité : on déverrouille aussi si on sort avec le bouton physique
                 if (screen.orientation && screen.orientation.unlock) {
                     screen.orientation.unlock();
@@ -1928,9 +2295,11 @@
         //         → si hors ligne : message spécifique
         // ============================================================
 
-        const CONSEIL_HTML = `<p style="color:#ffcc55; margin:12px 0 16px 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
-            <b>CONSEIL :</b> Exportez vos données en CSV avant la mise à jour, par précaution. 
-            (tout redémarrage de l'app appliquera automatiquement la mise à jour)</p>`;
+        // Encadré conseil avant mise à jour — construit à l'appel pour respecter la langue active
+        function getConseilHTML() {
+            return `<p style="color:#ffcc55; margin:12px 0 16px 0; line-height:1.7; font-family:inherit; font-size:0.95rem;">
+                <b>${t('updateConseilLabel')}</b> ${t('updateConseilText')}</p>`;
+        }
 
         let waitingWorker = null; // Référence au SW en attente, si détecté
 
@@ -1974,25 +2343,14 @@
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
             <button onclick="exportCSV()" style="${btnExport}">
-                💾 Exporter mes données (.csv)
+                ${t('btnExportBeforeUpdate')}
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <button onclick="document.getElementById('updateModal').style.display='none'"
-                    style="${btnLater}">Plus tard</button>
+                    style="${btnLater}">${t('btnLater')}</button>
                 <button onclick="applyUpdate()"
-                    style="${btnUpdate}">Mettre à jour</button>
+                    style="${btnUpdate}">${t('btnUpdateNow')}</button>
             </div>`;
-
-
-            /*         const actionsCas1 = `
-                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                     <button onclick="document.getElementById('updateModal').style.display='none'"
-                         style="${btnLater}">Plus tard</button>
-                     <button onclick="applyUpdate()"
-                         style="${btnUpdate}">Mettre à jour</button>
-                 </div>`;
-             */
-
 
             if (!('serviceWorker' in navigator)) {
                 // Pas de SW supporté — cas très rare
@@ -2002,10 +2360,10 @@
             }
 
             // Affiche immédiatement le modal en état "chargement"
-            title.innerText = 'Mise à jour';
+            title.innerText = t('updateTitle');
             body.innerHTML = `
                 <div style="text-align:center; padding:10px 0; opacity:0.6;">
-                    🔄 Vérification en cours...
+                    ${t('updateChecking')}
                 </div>`;
             actions.innerHTML = '';
             modal.style.display = 'flex';
@@ -2049,19 +2407,19 @@
                     if (event.data && event.data.type === 'SW_VERSION') {
                         navigator.serviceWorker.removeEventListener('message', onMessage);
                         const newVersion = event.data.version.replace('PacingCount-v', '');
-                        title.innerText = '🔄 Mise à jour disponible';
+                        title.innerText = t('updateAvailableTitle');
                         body.innerHTML = `
                     <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
-                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                             <strong>${APP_VERSION}</strong>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:4px;">
-                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
                             <strong style="color:var(--blue);">${newVersion}</strong>
                         </div>
                     </div>
-                    ${CONSEIL_HTML}`;
+                    ${getConseilHTML()}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
@@ -2072,50 +2430,23 @@
                 setTimeout(() => {
                     navigator.serviceWorker.removeEventListener('message', onMessage);
                     if (modal.style.display !== 'flex') {
-                        title.innerText = '🔄 Mise à jour disponible';
+                        title.innerText = t('updateAvailableTitle');
                         body.innerHTML = `
             <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
                 <div style="display:flex; gap:8px;">
-                    <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                    <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                     <strong>${APP_VERSION}</strong>
                 </div>
                 <div style="display:flex; gap:8px; margin-top:4px;">
-                    <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                    <strong style="color:var(--blue);">nouvelle version</strong>
+                    <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
+                    <strong style="color:var(--blue);">${t('updateNewVersionFallback')}</strong>
                 </div>
             </div>
-            ${CONSEIL_HTML}`;
+            ${getConseilHTML()}`;
                         actions.innerHTML = actionsCas1;
                         modal.style.display = 'flex';
                     }
                 }, 1500);
-
-                /*          // Fallback si GET_VERSION sans réponse (ancien SW)
-                          setTimeout(() => {
-                              navigator.serviceWorker.removeEventListener('message', onMessage);
-                              if (modal.style.display !== 'flex') {
-                                  title.innerText = '🔄 Mise à jour disponible';
-                                  body.innerHTML = `
-                              <div style="margin-bottom:14px; font-family:monospace; font-size:0.9rem;">
-                                  <div style="display:flex; gap:8px;">
-                                      <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                                      <strong>${APP_VERSION}</strong>
-                                  </div>
-                                  <div style="display:flex; gap:8px; margin-top:4px;">
-                                      <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                                      <strong style="color:var(--blue);">nouvelle version</strong>
-                                  </div>
-                              </div>
-                              <div style="background:rgba(255,180,0,0.12); border:1px solid rgba(255,180,0,0.3);
-                                          border-radius:8px; padding:10px; font-size:0.85rem; color:#ffcc55;">
-                                  💾 Pensez à exporter vos données en CSV avant la mise à jour,
-                                  par précaution.
-                              </div>`;
-                                  actions.innerHTML = actionsCas1;
-                                  modal.style.display = 'flex';
-                              }
-                          }, 1500);
-                    */
 
             } else {
                 _showUpdateModalCas2(title, body, actions, btnLater);
@@ -2124,23 +2455,23 @@
         }
 
         function _showUpdateModalCas2(title, body, actions, btnLater) {
-            title.innerText = 'Mise à jour';
+            title.innerText = t('updateTitle');
             if (navigator.onLine) {
                 body.innerHTML = `
             <div style="text-align:center; padding:10px 0;">
-                ✅ Vous avez la dernière version<br>
+                ${t('updateUpToDate')}<br>
                 <span style="font-size:0.85rem; font-family:monospace; opacity:0.7; margin-top:6px; display:block;">
                     Version ${APP_VERSION}
                 </span>
                 <br><br><span style="font-size:0.9rem; opacity:0.85; display:block;">
-                En cas d'échec d'une mise à jour, forcez le rédémarrage de l'application</span>
+                ${t('updateForceRestart')}</span>
             </div>`;
             } else {
                 body.innerHTML = `
             <div style="text-align:center; padding:10px 0; color:#ffcc55;">
-                📡 Hors ligne — Impossible de vérifier<br>
+                ${t('updateOffline')}<br>
                 <span style="font-size:0.85rem; opacity:0.7; font-family:monospace; margin-top:6px; display:block;">
-                    Version actuelle : ${APP_VERSION}
+                    ${t('updateCurrentVersionLabel')} ${APP_VERSION}
                 </span>
             </div>`;
             }
@@ -2149,7 +2480,7 @@
             style="background:transparent; border-radius:6px; padding:10px 16px;
                    font-size:0.95rem; cursor:pointer; width:100%;
                    color:#aaa; border:1px solid #555;">
-            Fermer
+            ${t('btnClose')}
         </button>`;
         }
 
@@ -2161,17 +2492,16 @@
             //}
 
             if (waitingWorker) {
-                //localStorage.setItem('pendingUpdateFrom', APP_VERSION); // Plus nécessaire, géré dans [Init] pour être plus général
                 waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 
                 // Affiche l'état d'attente pendant l'activation du nouveau SW
-                document.getElementById('update-modal-title').innerText = 'Mise à jour';
+                document.getElementById('update-modal-title').innerText = t('updateTitle');
                 document.getElementById('update-modal-body').innerHTML = `
                     <div style="text-align:center; padding:10px 0; opacity:0.6;">
-                        ⏳ Mise à jour en cours...<br>
+                        ${t('updateInProgress')}<br>
                         <span style="font-size:0.8rem; margin-top:6px; display:block;">
-                            L'application va redémarrer dans quelques instants.<br><br>
-                            En cas d'échec de la mise à jour, forcez le rédémarrage de l'application.
+                            ${t('updateWillRestart')}<br><br>
+                            ${t('updateForceRestart')}
                          </span>
                     </div>`;
                 document.getElementById('update-modal-actions').innerHTML = '';
@@ -2336,21 +2666,21 @@
             const versionBlock = document.getElementById('message-modal-version');
             const conseilBlock = document.getElementById('message-modal-conseil');
             if (msg.type === 'update') {
-                const versionLabel = newVersion || 'nouvelle version';
+                const versionLabel = newVersion || t('updateNewVersionFallback');
                 versionBlock.style.display = 'block';
                 versionBlock.innerHTML = `
                     <div style="font-family:monospace; font-size:0.9rem;">
                         <div style="display:flex; gap:8px;">
-                            <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateCurrentVersionLabel')}</span>
                             <strong>${APP_VERSION}</strong>
                         </div>
                         <div style="display:flex; gap:8px; margin-top:4px;">
-                            <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
+                            <span style="opacity:0.6; min-width:130px;">${t('updateAvailableVersionLabel')}</span>
                             <strong style="color:var(--blue);">${versionLabel}</strong>
                         </div>
                     </div>`;
                 conseilBlock.style.display = 'block';
-                conseilBlock.innerHTML = CONSEIL_HTML;
+                conseilBlock.innerHTML = getConseilHTML();
             } else {
                 versionBlock.style.display = 'none';
                 versionBlock.innerHTML = '';
@@ -2371,18 +2701,18 @@
 
             if (msg.type === 'update') {
                 // Bouton export toujours présent pour update
-                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données (.csv)</button>`;
+                let html = `<button onclick="exportCSV()" style="${btnExport}">${t('btnExportBeforeUpdate')}</button>`;
                 html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
                 if (!isBlocking) {
                     // Non bloquant : bouton "Plus tard"
-                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
+                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">${t('btnLater')}</button>`;
                 }
-                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
+                html += `<button onclick="applyUpdate()" style="${btnPrimary}">${t('btnUpdateNow')}</button>`;
                 html += `</div>`;
                 actions.innerHTML = html;
             } else {
-                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
-                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
+                // welcome ou info : bouton configurable via JSON, fallback clé msgDefaultBtn
+                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || t('msgDefaultBtn');
                 actions.innerHTML = `
                     <div style="text-align:center;">
                         <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>
@@ -2510,7 +2840,6 @@
             const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
             if (!config) return;
 
-            const t = translations[settings.lang] || translations['fr'];
             const label = getLabelForId(typeId);
 
             // Annule les potentiels anciens chronomètres avant d'en créer de nouveaux
@@ -2554,15 +2883,11 @@
                         //const timerId = setTimeout(async () => {
                         const bells = '🔔'.repeat(count);
                         const mins = config.threshold + i * config.interval;
-                        //const title = `${bells} ${label}`;
                         const isLast = (i === config.maxCount - 1);
                         const title = isLast
-                            ? `${bells} ${label} (Dernier rappel)`
-                            : `${bells} ${label} (Rappel ${i + 1})`;
-
-                        // NOUVEAU : Texte personnalisé avec le nom de la période et le numéro du rappel
-                        const rappelNumero = i + 1;
-                        const body = `${mins} min en période ${label} (rappel ${rappelNumero})`;
+                            ? `${bells} ${label} (${t('alertLastReminder')})`
+                            : `${bells} ${label} (${t('alertReminderN', { n: i + 1 })})`;
+                        const body = t('alertNotifBody', { mins, label, n: i + 1 });
 
                         // 1. On résout le Service Worker pile au moment du déclenchement
                         const registration = await navigator.serviceWorker.ready;
@@ -2654,7 +2979,7 @@
         }
 
         function stopRecording() {
-            if (confirm(translations[settings.lang].confirmStop)) {
+            if (confirm(t('confirmStop'))) {
                 console.log("[stopRecording] Arrêt de l'enregistrement");
                 if (state.activeType !== null) closePeriod(state.activeType, state.startTime, Date.now());
                 state.activeType = null;
@@ -2762,7 +3087,7 @@
                 input.id = `type-input-${tp.id}`;
                 input.value = tp.label;
                 input.maxLength = 30;
-                input.placeholder = tp.active ? '' : '(inactif)';
+                input.placeholder = tp.active ? '' : t('typeInactivePlaceholder');
                 if (!tp.active) input.style.opacity = '0.4';
 
                 if (tp.active) {
@@ -2772,8 +3097,7 @@
                         const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
                         if (isLeavingBase) {
                             const profileName = PROFILES[currentProfile].name;
-                            const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
-                            if (!confirm(msg)) {
+                            if (!confirm(t('profileLeaveBaseConfirm', { name: profileName }))) {
                                 input.value = tp.label; // revert
                                 return;
                             }
@@ -2840,16 +3164,10 @@
             let description = profile.description?.[lang] || profile.description?.['fr'] || '';
             if (isCustom) {
                 const customSnap = settings.customProfiles && settings.customProfiles[0];
-                const activeCustomTypes = customSnap ? customSnap.types.filter(t => t.active) : [];
+                const activeCustomTypes = customSnap ? customSnap.types.filter(tp => tp.active) : [];
                 if (activeCustomTypes.length > 0) {
-                    const configLabel = lang === 'nl'
-                        ? 'Laatste opgeslagen configuratie :'
-                        : (lang === 'en' ? 'Last saved configuration:' : 'Voici la dernière configuration enregistrée :');
-                    const typeWord = lang === 'nl'
-                        ? 'periodetypen'
-                        : (lang === 'en' ? 'period type(s)' : 'type(s) de période(s)');
-                    description += `\n\n${configLabel}\n${activeCustomTypes.length} ${typeWord} :\n`
-                        + activeCustomTypes.map(t => `• ${t.label}`).join('\n');
+                    description += `\n\n${t('customProfileConfigLabel')}\n${activeCustomTypes.length} ${t('customProfileTypeWord')} :\n`
+                        + activeCustomTypes.map(tp => `• ${tp.label}`).join('\n');
                 }
             }
 
@@ -2864,14 +3182,14 @@
 
             if (!isActive) {
                 // Point 2 : message simplifié, sans mention du profil Personnalisé
-                confirmMsg.innerText = `Note : le profil actif s'applique à tout l'historique enregistré.`;
+                confirmMsg.innerText = t('profileNoteHistory');
                 confirmSection.style.display = 'block';
 
                 // Bouton Annuler
                 const btnCancel = document.createElement('button');
                 btnCancel.className = 'export-btn';
                 btnCancel.style.cssText = 'background:#444; margin:0;';
-                btnCancel.innerText = 'Annuler';
+                btnCancel.innerText = t('btnCancel');
                 btnCancel.onclick = () => closeProfileModal();
                 buttonsDiv.appendChild(btnCancel);
 
@@ -2879,7 +3197,7 @@
                 const btnApply = document.createElement('button');
                 btnApply.className = 'export-btn';
                 btnApply.style.cssText = 'margin:0;';
-                btnApply.innerText = 'Appliquer ce profil';
+                btnApply.innerText = t('profileApplyBtn');
                 btnApply.onclick = () => {
                     closeProfileModal();
                     if (isCustom) restoreCustomProfile(true);
@@ -2892,7 +3210,7 @@
                 const btnClose = document.createElement('button');
                 btnClose.className = 'export-btn';
                 btnClose.style.cssText = 'margin:0;';
-                btnClose.innerText = 'Fermer';
+                btnClose.innerText = t('btnClose');
                 btnClose.onclick = () => closeProfileModal();
                 buttonsDiv.appendChild(btnClose);
             }
@@ -2928,11 +3246,11 @@
         // Premier écart d'un profil de base : confirm() avant de modifier.
         // Activation d'un slot vide : cherche le label dans le profil actif (PROFILES).
         function toggleTypeActive(typeId) {
-            const tp = settings.types.find(t => t.id === typeId);
+            const tp = settings.types.find(tp => tp.id === typeId);
             if (!tp) return;
 
             if (tp.active && getActiveTypes().length <= 1) {
-                alert('Au moins un type de période doit rester actif.');
+                alert(t('typeMinOneActive'));
                 return;
             }
 
@@ -2941,8 +3259,7 @@
             const isLeavingBase = currentProfile !== 'custom' && PROFILES[currentProfile];
             if (isLeavingBase) {
                 const profileName = PROFILES[currentProfile].name;
-                const msg = `Vous allez modifier le profil "${profileName}".\nVotre configuration sera sauvegardée comme profil Personnalisé qui deviendra actif.\nNote : le profil actif s'applique à tout l'historique enregistré.\nContinuer ?`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileLeaveBaseConfirm', { name: profileName }))) return;
             }
 
             tp.active = !tp.active;
@@ -2970,8 +3287,7 @@
             if (!profile) return;
 
             if (!skipConfirm) {
-                const msg = `Appliquer le profil "${profile.name}" ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileApplyConfirm', { name: profile.name }))) return;
             }
 
             console.log(`[applyProfile] Application : ${profile.name}`);
@@ -3004,8 +3320,7 @@
             if (settings.activeProfile === 'custom') return; // déjà actif
 
             if (!skipConfirm) {
-                const msg = `Restaurer le profil Personnalisé ?\nNote : le profil actif s'applique à tout l'historique enregistré.`;
-                if (!confirm(msg)) return;
+                if (!confirm(t('profileRestoreConfirm'))) return;
             }
 
             console.log('[restoreCustomProfile] Restauration du profil Personnalisé');
@@ -3030,48 +3345,6 @@
 
             const newLang = document.getElementById('lang-select').value;
 
-            if (newLang === 'en') {
-                const confirmed = confirm("🏗️  Partial translation — The English translation is not fully complete. Some parts may still appear in French.\nPress OK to continue, or Cancel to go back to French.");
-                if (!confirmed) {
-                    document.getElementById('lang-select').value = 'fr';
-                    settings.lang = 'fr';
-                    settings.types.forEach(t => {
-                        const activeProf = PROFILES[settings.activeProfile];
-                        if (activeProf && activeProf.types) {
-                            const profType = activeProf.types.find(pt => pt.id === t.id);
-                            if (profType && typeof profType.label === 'object') {
-                                t.label = profType.label['fr'] || t.label;
-                            }
-                        }
-                    });
-                    settings.labels = settings.types.filter(t => t.active).map(t => t.label);
-                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
-                    updateUI();
-                    return;
-                }
-            }
-
-            if (newLang === 'nl') {
-                const confirmed = confirm("🏗️  Gedeeltelijke vertaling — De Nederlandse vertaling is nog niet volledig. Sommige onderdelen kunnen in het Frans verschijnen.\nDruk op OK om door te gaan, of op Annuleren om terug naar het Frans te gaan.");
-                if (!confirmed) {
-                    document.getElementById('lang-select').value = 'fr';
-                    settings.lang = 'fr';
-                    settings.types.forEach(t => {
-                        const activeProf = PROFILES[settings.activeProfile];
-                        if (activeProf && activeProf.types) {
-                            const profType = activeProf.types.find(pt => pt.id === t.id);
-                            if (profType && typeof profType.label === 'object') {
-                                t.label = profType.label['fr'] || t.label;
-                            }
-                        }
-                    });
-                    settings.labels = settings.types.filter(t => t.active).map(t => t.label);
-                    localStorage.setItem('pacingSettings', JSON.stringify(settings));
-                    updateUI();
-                    return;
-                }
-            }
-
             settings.lang = newLang;
             console.log(`[changeLang] Langue → ${settings.lang}`);
 
@@ -3079,15 +3352,15 @@
             // Les profils custom ont des labels utilisateur — on ne les écrase pas au changement de langue
             const activeProf = PROFILES[settings.activeProfile];
             if (activeProf && activeProf.types) {
-                settings.types.forEach(t => {
-                    const profType = activeProf.types.find(pt => pt.id === t.id);
+                settings.types.forEach(tp => {
+                    const profType = activeProf.types.find(pt => pt.id === tp.id);
                     if (profType && typeof profType.label === 'object') {
-                        t.label = profType.label[settings.lang] || profType.label['fr'] || t.label;
+                        tp.label = profType.label[settings.lang] || profType.label['fr'] || tp.label;
                     }
                 });
             }
             // Mise à jour de settings.labels pour compatibilité avec les fonctions graphiques
-            settings.labels = settings.types.filter(t => t.active).map(t => t.label);
+            settings.labels = settings.types.filter(tp => tp.active).map(tp => tp.label);
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             updateUI();
             if (document.getElementById('page-results').classList.contains('active')) renderResults();
@@ -3131,25 +3404,94 @@
         // Met à jour les textes, les couleurs du timer, les boutons, etc.
         // ============================================================
         function updateUI() {
+            // Langue du document — utile pour l'accessibilité (lecteurs d'écran, CSS :lang)
+            document.documentElement.lang = settings.lang;
 
-            const t = (translations && settings) ? (translations[settings.lang] || translations['fr']) : {};
-            document.getElementById('nav-timeline').innerText = t.timeline;
-            document.getElementById('nav-measure').innerText = t.measure;
-            document.getElementById('nav-results').innerText = t.results;
-            document.getElementById('nav-settings').innerText = t.settings;
-            document.getElementById('btn-export').innerText = t.export;
-            document.getElementById('btn-import').innerText = t.import;
-            document.getElementById('label-custom').innerText = t.custom;
-            document.getElementById('btn-stop').innerText = t.stop;
+            // Navigation
+            document.getElementById('nav-timeline').innerText = t('timeline');
+            document.getElementById('nav-measure').innerText = t('measure');
+            document.getElementById('nav-results').innerText = t('results');
+            document.getElementById('nav-settings').innerText = t('settings');
 
-            // Mise à jour des labels dans les inputs Réglages (Passe D : TOUS les slots, actifs et inactifs)
+            // Tooltip du bouton légende timeline
+            const navLegendEl = document.getElementById('nav-legend');
+            if (navLegendEl) navLegendEl.title = t('legendToggleTitle');
+
+            // Footer historique
+            document.getElementById('btn-export').innerText = t('export');
+            document.getElementById('btn-import').innerText = t('import');
+            document.getElementById('btn-add-period').innerText = t('addManual');
+
+            // Page mesure
+            document.getElementById('btn-stop').innerText = t('stop');
+            document.getElementById('test-notif').innerText = t('testNotifBtn');
+            document.getElementById('toggle-fullscreen').innerText = t('fullscreenBtn');
+
+            // Page résultats
+            document.getElementById('title-results').innerText = t('titleResults');
+            document.getElementById('title-weekly').innerText = t('titleWeeklyAvg');
+            document.getElementById('title-details').innerText = t('titleDetailedResults');
+
+            // Page timeline
+            document.getElementById('title-timeline').innerText = t('timeline');
+
+            // Page réglages — labels et boutons
+            document.getElementById('title-settings').innerText = t('settings');
+            document.getElementById('label-language').innerText = t('titleLanguage');
+            document.getElementById('label-custom').innerText = t('custom');
+            document.getElementById('label-profiles').innerText = t('titleProfiles');
+            document.getElementById('label-alerts').innerText = t('alertsTitle');
+            document.getElementById('btn-add-alert').innerText = t('alertAdd');
+            document.getElementById('label-community').innerText = t('titleCommunity');
+            const communityIntroEl = document.getElementById('community-intro');
+            if (communityIntroEl) communityIntroEl.innerHTML = t('communityIntro');
+            document.getElementById('community-link').innerText = t('communityLinkLabel');
+            document.getElementById('label-about').innerText = t('titleAbout');
+            document.getElementById('btn-check-update').innerText = t('btnCheckUpdate');
+
+            // À propos — paragraphes (innerHTML pour balises <b>, <i>, &nbsp;)
+            const aboutIntroEl = document.getElementById('about-intro');
+            if (aboutIntroEl) aboutIntroEl.innerHTML = t('aboutIntro');
+            const aboutInvEl = document.getElementById('about-invitation');
+            if (aboutInvEl) aboutInvEl.innerHTML = t('aboutInvitation');
+            const aboutDisclEl = document.getElementById('about-disclaimer');
+            if (aboutDisclEl) aboutDisclEl.innerHTML = t('aboutDisclaimer');
+
+            // Mode développeur (dev-only — élément absent si mode inactif)
+            const devLabelEl = document.getElementById('label-dev-mode');
+            if (devLabelEl) devLabelEl.innerText = t('devModeIndicator');
+
+            // Modal édition de période
+            document.getElementById('modal-title').innerText = t('editModalTitle');
+            document.getElementById('label-edit-type').innerText = t('alertType');
+            document.getElementById('label-edit-start').innerText = t('labelStart');
+            document.getElementById('label-edit-end').innerText = t('labelEnd');
+            document.getElementById('btn-edit-cancel').innerText = t('btnCancel');
+            document.getElementById('btn-edit-save').innerText = t('btnSave');
+
+            // Modal import CSV
+            document.getElementById('import-modal-title').innerText = t('importModalTitle');
+            document.getElementById('btn-import-replace').innerText = t('importReplaceBtn');
+            document.getElementById('import-replace-detail').innerText = t('importReplaceDetail');
+            document.getElementById('btn-import-merge').innerText = t('importMergeBtn');
+            document.getElementById('import-merge-detail').innerText = t('importMergeDetail');
+            document.getElementById('btn-import-cancel').innerText = t('btnCancel');
+
+            // Modal alertes de période
+            document.getElementById('label-alert-type').innerText = t('alertType');
+            document.getElementById('label-alert-threshold').innerText = t('alertThresholdModalLabel');
+            document.getElementById('label-alert-interval').innerText = t('alertInterval');
+            document.getElementById('label-alert-maxcount').innerText = t('alertMaxCount');
+            document.getElementById('btn-alert-cancel').innerText = t('btnCancel');
+            document.getElementById('btn-alert-save').innerText = t('btnSave');
+
+            // Mise à jour des labels dans les inputs Réglages (TOUS les slots, actifs et inactifs)
             settings.types.forEach(tp => {
                 const input = document.getElementById(`type-input-${tp.id}`);
                 if (input) input.value = tp.label;
             });
 
-            // Mise à jour des boutons Mesure (Passe B : IDs btn-{typeId})
-            // active-indicator : compare state.activeType au tp.id réel (ex : 4, pas 3)
+            // Mise à jour des boutons Mesure + active-indicator
             getActiveTypes().forEach(tp => {
                 const btn = document.getElementById(`btn-${tp.id}`);
                 if (btn) {
@@ -3157,25 +3499,27 @@
                     btn.classList.toggle('active-indicator', state.activeType === tp.id);
                 }
             });
+
+            // Chronomètre principal
             document.getElementById('btn-stop').style.display = state.activeType ? 'block' : 'none';
             const mainTimer = document.getElementById('main-timer');
-            // Refactoring couleurs : style inline au lieu de class text-* — compatible tout format
             mainTimer.className = 'timer-display';
             mainTimer.style.color = state.activeType
                 ? getColorForId(state.activeType)
                 : 'var(--text-color)';
             if (!state.activeType) mainTimer.innerText = "00:00:00";
+
+            // Timer précédent
             const prevTimer = document.getElementById('prev-timer');
             if (state.history.length > 0) {
                 const last = state.history[state.history.length - 1];
                 prevTimer.style.display = 'block';
-                prevTimer.innerText = `${t.prev} ${formatDuration(last.end - last.start)}`;
-                // Refactoring couleurs : style inline au lieu de class text-*
+                prevTimer.innerText = `${t('prev')} ${formatDuration(last.end - last.start)}`;
                 prevTimer.className = 'timer-previous';
                 prevTimer.style.color = getColorForId(last.typeId);
             } else prevTimer.style.display = 'none';
 
-            // CORRECTIF — chaque enfant est ciblé directement
+            // Section À propos — nom, copyright, version (ciblage direct)
             const aboutTitle = document.getElementById('about-title');
             if (aboutTitle) aboutTitle.innerText = APP_NAME;
             const aboutCopyright = document.getElementById('about-copyright');
@@ -3231,13 +3575,13 @@
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
             container.innerHTML = "";
-            const t = translations[settings.lang] || translations['fr'];
+            const locale = getLocale();
             // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export
             const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
 
             const reposIds = [1, 2];
             const actifId = 4;
-            const today = new Date().toLocaleDateString();
+            const today = new Date().toLocaleDateString(locale);
 
             let all = [...state.history];
             if (state.activeType) {
@@ -3247,7 +3591,7 @@
 
             const daysData = {};
             all.forEach(e => {
-                const d = new Date(e.start).toLocaleDateString();
+                const d = new Date(e.start).toLocaleDateString(locale);
                 const mins = (e.end - e.start) / 60000;
                 if (!daysData[d]) {
                     daysData[d] = {
@@ -3268,10 +3612,6 @@
                 if (e.typeId === actifId) daysData[d].actifPeriods.push(mins);
             });
 
-            // --- ÉTAPE 3 : calcul de la moyenne mobile centrée sur 3 jours ---
-            // Si J-1, J ou J+1 est incomplet, la moyenne n'est pas calculée pour ce triplet.
-            // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
-            // y compris pour "aujourd'hui".
             const isIncomplete = (key) => {
                 return daysData[key].totalMins < 23 * 60 - 1;
             };
@@ -3312,15 +3652,14 @@
                 });
                 html += `${ligne2}<br>`;
 
-                // Ligne 3 : sous-total repos
-                // Refactoring couleurs : style inline via getColorForId()
+                // Ligne 3 : sous-total repos + moyenne mobile 3 jours
                 let reposBullets = '';
                 reposIds.forEach(id => {
                     reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
                 });
                 const moy3j = moyMobile[d];
                 const moy3jStr = moy3j !== null
-                    ? `&nbsp;&nbsp;~${t.resMoy3j} : ${formatMins(moy3j)}`
+                    ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
                     : '';
                 html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
 
@@ -3330,19 +3669,19 @@
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    // Refactoring couleurs : style inline via getColorForId()
+                    const periodLabel = periods.length > 1 ? t('resActifP') : t('resActif');
                     html += `<span style="font-size:0.9rem;">`;
-                    html += `${periods.length} période(s) <span style="color: ${getColorForId(actifId)}">●</span> : `;
-                    html += `<b>${t.resMoy} ${formatMins(moy)}</b> · `;
-                    html += `<u>${t.resMax} ${formatMins(max)}</u> · `;
-                    html += `<i>${t.resMin} ${formatMins(min)}</i>`;
+                    html += `${periods.length} ${periodLabel} <span style="color: ${getColorForId(actifId)}">●</span> : `;
+                    html += `<b>${t('resMoy')} ${formatMins(moy)}</b> · `;
+                    html += `<u>${t('resMax')} ${formatMins(max)}</u> · `;
+                    html += `<i>${t('resMin')} ${formatMins(min)}</i>`;
                     html += `</span><br>`;
                 }
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
                 if (d !== today && day.totalMins < 23 * 60) {
                     const enregistrees = formatMins(day.totalMins);
-                    html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t.resIncomplet} (${enregistrees})</span>`;
+                    html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t('resIncomplet')} (${enregistrees})</span>`;
                 }
 
                 div.innerHTML = html;
@@ -3405,7 +3744,6 @@
             });
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
-            const tLang = translations[settings.lang] || translations['fr'];
 
             // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
             const reposIds = [1, 2];
@@ -3433,7 +3771,7 @@
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
             if (sortedDates.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Aucune donnée.</p>";
+                container.innerHTML = `<p style='text-align:center; color:#888;'>${t('noDataAvailable')}</p>`;
                 return;
             }
 
@@ -3462,11 +3800,11 @@
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
-                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
-                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
-                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
-                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
-                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24</span>
                     </div>
                     <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
@@ -3486,7 +3824,7 @@
                 // ne soit pas coupé par overflow:hidden des barres — on le place donc APRÈS
                 // les divs de barres, en position absolute sur le conteneur flex principal.
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
-                const avgLabel = avgPc !== null ? `~ ${tLang.resMoy3j} : ${formatMins(avgMins)}` : '';
+                const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
                 // NOUVEAU : On gère l'affichage (block ou none)
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
@@ -3543,7 +3881,6 @@
             html += `</div></div>`;
 
             // Légende — types ayant des données dans l'historique
-            const tLegend = translations[settings.lang] || translations['fr'];
             html += `<div style="display: flex; flex-wrap: wrap; justify-content: flex-start; margin-left: 55px; row-gap: 2px; column-gap: 10px; margin-top: 5px; font-size: 0.85rem; color: ${textGray};">`;
             getTypesWithHistoryData().forEach(tp => {
                 const label = tp.label || `Type #${tp.id}`;
@@ -3554,14 +3891,14 @@
                     </div>`;
             });
 
-            // NOUVEAU : La légende cliquable avec l'œil barré dynamique
+            // Légende cliquable pour les points de moyenne mobile
             const eyeSlash = window.showMoyDots ? '' : `<span style="position: absolute; top: 50%; left: -2px; right: -2px; height: 2px; background: var(--text-color); transform: rotate(-45deg);"></span>`;
-            const opacity = window.showMoyDots ? '1' : '0.5'; // Rend le texte un peu grisé si c'est masqué
+            const opacity = window.showMoyDots ? '1' : '0.5';
 
             html += `
                 <div onclick="toggleMoyDots()" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: ${opacity}; transition: opacity 0.2s;">
                     <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
-                    <span>~ ${tLegend.resMoy3j}</span>
+                    <span>~ ${t('resMoy3j')}</span>
                     <span style="position: relative; display: inline-block; margin-left: 4px; font-size: 1.1rem;">
                         👁️
                         ${eyeSlash}
@@ -3647,7 +3984,7 @@
 
                 if (!weeksData[weekKey]) {
                     weeksData[weekKey] = {
-                        label: `S${week}`,   // label affiché : "S21"
+                        label: `${settings.lang === 'fr' ? 'S' : 'W'}${week}`,   // S21 (fr) ou W21 (en/nl)
                         completeDays: 0,
                         totals: {},          // somme des minutes par type
                         totalMins: 0
@@ -3667,7 +4004,7 @@
             const sortedWeeks = Object.keys(weeksData).sort((a, b) => b.localeCompare(a));
 
             if (sortedWeeks.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#888;'>Pas encore assez de données complètes.</p>";
+                container.innerHTML = `<p style='text-align:center; color:#888;'>${t('notEnoughData')}</p>`;
                 return;
             }
 
@@ -3676,11 +4013,11 @@
             let html = `
                 <div style="position: relative; margin-bottom: 20px;">
                     <div style="display: flex; margin-left: 55px; position: relative; color: ${textGray}; font-size: 0.75rem; height: 18px; font-weight: bold;">
-                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0h</span>
-                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6h</span>
-                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12h</span>
-                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18h</span>
-                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24h</span>
+                        <span style="position: absolute; left: 0%; transform: translateX(-50%);">0</span>
+                        <span style="position: absolute; left: 25%; transform: translateX(-50%);">6</span>
+                        <span style="position: absolute; left: 50%; transform: translateX(-50%);">12</span>
+                        <span style="position: absolute; left: 75%; transform: translateX(-50%);">18</span>
+                        <span style="position: absolute; left: 100%; transform: translateX(-50%);">24</span>
                     </div>
                     <div style="position: relative; padding-top: 8px; padding-bottom: 2px;">
                         <div style="position: absolute; top: 0; bottom: 0; left: 55px; right: 0; pointer-events: none; z-index: 0;">
@@ -3755,8 +4092,6 @@
         function renderHistory() {
             console.log("[renderHistory] Rendu de la liste des périodes");
             try {
-                // Sécurité sur les traductions
-                const t = translations[settings.lang] || {};
                 const container = document.getElementById('history-list');
 
                 if (!container) return; // Si on n'est pas sur la bonne page, on arrête tout
@@ -3784,15 +4119,17 @@
                 const lD = lastDay.getDate();
                 const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
                 const rangeStr = firstDay.getMonth() === lastDay.getMonth()
-                    ? `Vue du ${fD} au ${lD} ${lM}`
-                    : `Vue du ${fD} ${fM} au ${lD} ${lM}`;
+                    ? t('historyRangeSameMonth', { fD, lD, lM })
+                    : t('historyRangeDiffMonth', { fD, fM, lD, lM });
                 const rangeEl = document.getElementById('timeline-footer-range');
                 if (rangeEl) rangeEl.innerText = rangeStr;
 
                 const totalEl = document.getElementById('timeline-footer-total');
                 if (totalEl) {
                     const totalCount = state.history.length + (state.activeType ? 1 : 0);
-                    totalEl.innerText = `Total : ${totalCount} période${totalCount > 1 ? 's' : ''} enregistrée${totalCount > 1 ? 's' : ''}`;
+                    totalEl.innerText = totalCount > 1
+                        ? t('historyTotalPlural', { n: totalCount })
+                        : t('historyTotalSingle', { n: totalCount });
                 }
 
                 // Filtre temporel : fenêtre historyEndDate - 6j → historyEndDate
@@ -3814,10 +4151,7 @@
                     // qui n'a pas été modifié par le reverse (on travaille sur une copie [...state.history])
                     let originalIndex = state.history.indexOf(e);
 
-                    // Si c'est en cours, pas de boutons d'action. Sinon, on ajoute les boutons.
-                    //  let actions = e.inProgress ? "" : `<div class="history-actions"><button class="btn-icon" onclick="openEditModal(${originalIndex})">✏️</button><button class="btn-icon" onclick="deleteEntry(${originalIndex})">🗑️</button></div>`;
-
-                    // boutons d'action pout toutes les périodes enregistrées
+                    // boutons d'action pour toutes les périodes enregistrées
                     let actions = "";
                     if (e.inProgress) {
                         // Boutons pour le chrono en cours (on passe 'live' entre guillemets)
@@ -3830,18 +4164,16 @@
                     // Récupération du label et de la couleur — refactoring : getColorForId() unifié
                     let labelText = getLabelForId(e.typeId);
                     let colorVar = getColorForId(e.typeId);
-                    let inProgressText = t.inProgress || "En cours";
 
                     // --- CALCUL DE LA DURÉE ---
                     let durationMs = e.inProgress ? (Date.now() - e.start) : (e.end - e.start);
-                    //let totalMin = Math.floor(durationMs / 60000); // Minutes entières tronquées
-                    let totalMin = Math.round(durationMs / 60000);   // Minutes entièrs arrondies
+                    let totalMin = Math.round(durationMs / 60000);   // Minutes entières arrondies
                     let hours = Math.floor(totalMin / 60);
                     let mins = (totalMin % 60).toString().padStart(2, '0');
                     let durationText = `${hours}h${mins}`;
 
-                    // Construction de la ligne HTML (Modifiée pour inclure la durée entre parenthèses)
-                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString()} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${inProgressText}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
+                    // Construction de la ligne HTML
+                    div.innerHTML = `<div style="flex-grow:1;"><span class="history-time">${new Date(e.start).toLocaleDateString(locale)} ${formatTime(e.start)} → ${e.inProgress ? `<i style="opacity:0.7;font-weight: bold;">${t('inProgress')}<span class="dot-anim">.</span><span class="dot-anim">.</span><span class="dot-anim">.</span></i>` : formatTime(e.end)}</span><span style="color:${colorVar};font-weight:bold;">${labelText} (${durationText})</span></div>${actions}`;
 
                     container.appendChild(div);
                 });
@@ -3856,7 +4188,7 @@
         // ============================================================
 
         function deleteEntry(i) {
-            if (confirm("Supprimer ?")) {
+            if (confirm(t('entryDeleteConfirm'))) {
                 console.log(`[deleteEntry] Suppression de l'entrée : ${i}`);
 
                 if (i === 'live') {
@@ -4130,8 +4462,6 @@
         // ============================================================
 
         function saveManualEdit() {
-            const t = translations[settings.lang] || {};
-
             // On récupère l'index brut (peut être un nombre, ou "live" si on édite le chrono en cours)
             const rawIdx = document.getElementById('edit-index').value;
             const idx = rawIdx === 'live' ? 'live' : parseInt(rawIdx);
@@ -4152,11 +4482,11 @@
 
             let now = Date.now();
 
-            if (end <= start) return alert("L'heure de fin doit être après l'heure de début.");
+            if (end <= start) return alert(t('editEndAfterStart'));
 
             // --- TEST 1 : Toute la période est dans le futur ---
             if (start > now) {
-                return alert("Impossible d'enregistrer une période dans le futur.");
+                return alert(t('futureError'));
             }
 
             // --- TEST 2 : Uniquement la fin est dans le futur ---
@@ -4180,7 +4510,6 @@
             let isLiveActive = false;
             if (state.activeType !== null && idx !== 'live') {
                 basePeriods.push({ typeId: state.activeType, start: state.startTime, end: now, isLive: true });
-                //basePeriods.push({ typeId: state.activeType, start: Math.floor(state.startTime / 1000) * 1000, end: now, isLive: true });
                 isLiveActive = true;
             }
 
@@ -4215,22 +4544,22 @@
 
             let finalMsg = "";
 
-            const typeLabel = settings.types.find(t => t.id === typeId)?.label || `Type #${typeId}`;
+            const typeLabel = settings.types.find(tp => tp.id === typeId)?.label || `Type #${typeId}`;
             if (isEndInFuture) {
-                finalMsg += "La fin de période est dans le futur, elle sera définie comme période en cours :\n\n";
+                finalMsg += t('editFutureEndNotice') + '\n\n';
                 finalMsg += `${typeLabel}\n`;
-                finalMsg += `${dateS} ${hourS} → en cours...\n\n`;
+                finalMsg += `${dateS} ${hourS} → ${t('inProgress')}...\n\n`;
             } else {
-                finalMsg += "Nouvelle période :\n\n";
+                finalMsg += t('editNewPeriodLabel') + '\n\n';
                 finalMsg += `${typeLabel}\n`;
                 finalMsg += `${dateS} ${hourS} → ${dateE} ${hourE}\n\n`;
             }
 
             if (overlapCount > 0) {
-                finalMsg += `Cette période empiète sur ${overlapCount} autre(s) période(s) qui seront ajustées.\n\n`;
+                finalMsg += t('editOverlapNotice', { n: overlapCount }) + '\n\n';
             }
 
-            finalMsg += "Continuer ?";
+            finalMsg += t('continueQuestion');
 
             // On demande confirmation à l'utilisateur
             if (!confirm(finalMsg)) {
@@ -4476,8 +4805,7 @@
                     showImportModal();
 
                 } catch (err) {
-                    const t = translations[settings.lang] || {};
-                    alert(t.importError || "Erreur lors de l'importation. Vérifiez le format du fichier.");
+                    alert(t('importError'));
                     console.error("[importCSV] Erreur :", err);
                 }
                 event.target.value = ''; // Reset du champ fichier pour permettre un re-import du même fichier
@@ -4511,7 +4839,7 @@
 
                 // ✅ Exact : même typeId ET même label normalisé
                 if (m.csvTypeId !== null && m.resolvedId === m.csvTypeId) {
-                    const appType = settings.types.find(t => t.id === m.csvTypeId);
+                    const appType = settings.types.find(tp => tp.id === m.csvTypeId);
                     if (appType && normLabel(appType.label) === normCsv) {
                         return { targetId: m.csvTypeId, isExact: true };
                     }
@@ -4519,16 +4847,16 @@
 
                 // 🔍 Migration connue : ancien label type 3 → type 4
                 if (m.csvTypeId === 3 && OLD_TYPE3_LABELS.some(l => normLabel(l) === normCsv)) {
-                    if (settings.types.find(t => t.id === 4)) return { targetId: 4, isExact: false };
+                    if (settings.types.find(tp => tp.id === 4)) return { targetId: 4, isExact: false };
                 }
 
                 // 🔍 Label normalisé identique, typeId différent (actifs en priorité)
-                const labelMatchActive = settings.types.find(t =>
-                    t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                const labelMatchActive = settings.types.find(tp =>
+                    tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
                 if (labelMatchActive) return { targetId: labelMatchActive.id, isExact: false };
 
-                const labelMatchInactive = settings.types.find(t =>
-                    !t.active && normLabel(t.label) === normCsv && t.id !== m.csvTypeId);
+                const labelMatchInactive = settings.types.find(tp =>
+                    !tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
                 if (labelMatchInactive) return { targetId: labelMatchInactive.id, isExact: false };
 
                 // 🔍 typeId identique mais label différent (déjà dans resolvedId)
@@ -4542,12 +4870,12 @@
             function buildSelectOptions(selectedId) {
                 let opts = settings.types.map(tp => {
                     const sel = selectedId === tp.id ? ' selected' : '';
-                    const inactifNote = tp.active ? '' : ' (inactif)';
+                    const inactifNote = tp.active ? '' : ` ${t('typeInactivePlaceholder')}`;
                     // Point 5 : format #N pour les ids dans les options
-                    return `<option value="${tp.id}"${sel}>${tp.label || '(sans nom)'}${inactifNote} #${tp.id}</option>`;
+                    return `<option value="${tp.id}"${sel}>${tp.label || t('typeNoNameOption')}${inactifNote} #${tp.id}</option>`;
                 }).join('');
                 const ignoreSel = selectedId === null ? ' selected' : '';
-                opts += `<option value="ignore"${ignoreSel}>— Ignorer ce type</option>`;
+                opts += `<option value="ignore"${ignoreSel}>${t('importIgnoreOption')}</option>`;
                 return opts;
             }
 
@@ -4560,7 +4888,7 @@
             // Point 7 : un seul gris #666 pour inactif ET ignorer (supprime le test #555 vs #666)
             function borderColor(targetId) {
                 if (targetId === null) return '#666';
-                const tp = settings.types.find(t => t.id === targetId);
+                const tp = settings.types.find(tp => tp.id === targetId);
                 return tp?.active ? getColorForId(targetId) : '#666';
             }
 
@@ -4606,8 +4934,8 @@
 
             document.getElementById('import-mapping-table').innerHTML = `
                 <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
-                    Correspondances entre les types de périodes du fichier et ceux de l'application :
-                    ✅ = correspondance exacte détectée ; 🔍 = vérifier avant importation
+                    ${t('importMappingDesc')}
+                    ${t('importMappingLegend')}
                 </p>
                 <table style="width:100%; border-collapse:collapse;">
                     <colgroup>
@@ -4619,9 +4947,9 @@
                     <thead>
                         <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
                             <th></th>
-                            <th style="padding:3px 0; text-align:left;">Dans le fichier</th>
+                            <th style="padding:3px 0; text-align:left;">${t('importFileHeader')}</th>
                             <th></th>
-                            <th style="padding:3px 4px; text-align:left;">Dans l'application</th>
+                            <th style="padding:3px 4px; text-align:left;">${t('importAppHeader')}</th>
                         </tr>
                     </thead>
                     <tbody>${tableRows}</tbody>
@@ -4652,7 +4980,6 @@
             console.log(`[processImport] Mode : ${mode}`);
             try {
                 if (!pendingImportData || !pendingImportMapping) return;
-                const t = translations[settings.lang] || {};
 
                 // Lecture des selects pour construire le mapping final (clé → typeId cible ou null)
                 const finalMapping = {};
@@ -4672,12 +4999,12 @@
                     .filter(p => p !== null);
 
                 if (resolvedPeriods.length === 0) {
-                    alert(t.importError || "Aucune période importable.");
+                    alert(t('importNoPeriods'));
                     closeImportModal();
                     return;
                 }
 
-                const successMessage = `${resolvedPeriods.length} période(s) importée(s) avec succès.`;
+                const successMessage = t('importSuccessCount', { n: resolvedPeriods.length });
 
                 if (mode === 'replace') {
                     reconstructHistory(resolvedPeriods);
@@ -4716,7 +5043,7 @@
                 // Vérifier si ce mapping est exact (même logique que resolveTarget isExact)
                 const m = pendingImportMapping[key];
                 const normL = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-                const appType = settings.types.find(t => t.id === parseInt(sel.value));
+                const appType = settings.types.find(tp => tp.id === parseInt(sel.value));
                 const isExact = appType && parseInt(sel.value) === m.csvTypeId
                     && normL(appType.label) === normL(m.csvLabel);
                 if (!isExact) allExact = false;
@@ -4726,16 +5053,15 @@
             const notice = document.getElementById('import-merge-notice');
 
             if (fusions.length > 0) {
-                const tp = settings.types.find(t => t.id === parseInt(fusions[0][0]));
+                const tp = settings.types.find(tp => tp.id === parseInt(fusions[0][0]));
                 const targetLabel = tp ? `"${tp.label}"` : `id ${fusions[0][0]}`;
                 notice.style.display = 'block';
                 notice.style.color = 'var(--orange)';
-                notice.innerHTML = `⚠️ Plusieurs types du fichier seront fusionnés en un seul`
-                    + ` type dans l'application (${targetLabel}).`;
+                notice.innerHTML = t('importFusionWarning', { target: targetLabel });
             } else if (allExact && Object.keys(pendingImportMapping).length > 0) {
                 notice.style.display = 'block';
                 notice.style.color = 'var(--green)';
-                notice.innerHTML = `✅ Tous les types du fichier ont été reconnus automatiquement.`;
+                notice.innerHTML = t('importFusionOk');
             } else {
                 notice.style.display = 'none';
             }
@@ -4771,7 +5097,7 @@
             // Création des 7 jours de la fenêtre : endDate - 6j → endDate
             for (let i = 6; i >= 0; i--) {
                 let d = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - i);
-                const dayName = d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase().replace('.', '');
+                const dayName = d.toLocaleDateString(getLocale(), { weekday: 'short' }).toUpperCase().replace('.', '');
                 const dayNum = d.getDate().toString().padStart(2, '0');
 
                 // Chart.js interprète un tableau de chaînes comme un label multi-ligne
@@ -4849,7 +5175,7 @@
                                 ticks: {
                                     stepSize: 2,
                                     color: textGray, // Couleur des heures
-                                    callback: v => v + 'h'
+                                    callback: v => v
                                 },
                                 grid: { color: gridColor } // Lignes de fond
                             },
@@ -5304,7 +5630,7 @@
                 // Petit toast non bloquant
                 setTimeout(() => {
                     const toast = document.createElement('div');
-                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ Mise à jour installée</div>
+                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
                        <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
                     toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
@@ -5653,17 +5979,16 @@
                 const label = getLabelForId(state.activeType);
                 const mins = Math.floor((now - state.startTime) / 60000);
 
-                // Calculé une seule fois, réutilisé pour le titre et le Wake Lock
                 const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
                     state.startTime + config.threshold * 60000 + i * config.interval * 60000
                 ).some(fireAt => fireAt > now);
 
                 const title = hasMoreWaves
-                    ? `🔔 ${label} (Catchup ${missed})`
-                    : `🔔 ${label} (Dernier catchup)`;
+                    ? `🔔 ${label} (${t('alertCatchupN', { n: missed })})`
+                    : `🔔 ${label} (${t('alertLastCatchup')})`;
                 const body = missed === 1
-                    ? `${mins} min en période ${label} (catchup de 1 rappel manqué pendant la veille)`
-                    : `${mins} min en période ${label} (catchup de ${missed} rappels manqués pendant la veille)`;
+                    ? t('alertCatchupBody1', { mins, label })
+                    : t('alertCatchupBodyN', { mins, label, n: missed });
 
                 try {
                     const registration = await navigator.serviceWorker.ready;
