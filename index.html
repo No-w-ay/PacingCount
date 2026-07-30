@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1693,8 +1693,11 @@
                 alertModeSingle: "1 notification per reminder",
                 alertModeWave: "Rising waves (1, 2, 3…)",
                 alertNoAlerts: "No alerts configured.",
-                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible ({status})\n- the app remains in the foreground\n- on iPhone (untested): the app must be installed (iOS 16.4+)\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
-                notifStatusDefault: "to be confirmed further on, when creating an alert",
+                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible ({status})\n- the app remains in the foreground{iosLine}\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                iosLineLabel: "on iPhone (iOS 16.4+)",
+                iosInstallDone: "✅ installed successfully",
+                iosInstallTodo: "⚠️ installation needed: tap the Share button ⬆️ in the browser, then select \"Add to Home Screen\"",
+                notifStatusDefault: "➡️ to be confirmed further on, when creating an alert",
                 notifStatusGranted: "✅ already granted",
                 notifStatusDenied: "⚠️ currently denied — can be re-enabled in your device settings",
                 notifStatusUnsupported: "not available in this browser",
@@ -1840,8 +1843,11 @@
                 alertModeSingle: "1 melding per herinnering",
                 alertModeWave: "Stijgende golven (1, 2, 3…)",
                 alertNoAlerts: "Geen alertes geconfigureerd.",
-                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar ({status})\n- de app op de voorgrond blijft\n- op iPhone (niet getest): de app moet geïnstalleerd zijn (iOS 16.4+)\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
-                notifStatusDefault: "wordt verderop bevestigd, bij het aanmaken van een alert",
+                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar ({status})\n- de app op de voorgrond blijft{iosLine}\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                iosLineLabel: "op iPhone (iOS 16.4+)",
+                iosInstallDone: "✅ installatie geslaagd",
+                iosInstallTodo: "⚠️ installatie nog nodig: tik op de deelknop ⬆️ in de browser en kies vervolgens \"Zet op beginscherm\"",
+                notifStatusDefault: "➡️ wordt verderop bevestigd, bij het aanmaken van een alert",
                 notifStatusGranted: "✅ al toegestaan",
                 notifStatusDenied: "⚠️ momenteel geweigerd — opnieuw in te schakelen via de instellingen van je toestel",
                 notifStatusUnsupported: "niet beschikbaar in deze browser",
@@ -2088,7 +2094,7 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                alert(t('alertDevWarning', { status: getNotifStatusLabel() }));
+                alert(t('alertDevWarning', { status: getNotifStatusLabel(), iosLine: getIosLineText() }));
             }
             const active = getActiveTypes();
 
@@ -2840,6 +2846,26 @@
             if (Notification.permission === 'granted') return t('notifStatusGranted');
             if (Notification.permission === 'denied') return t('notifStatusDenied');
             return t('notifStatusDefault');
+        }
+
+        // Détecte iOS/iPadOS (iPadOS 13+ se présente comme "MacIntel" avec support tactile)
+        function isIOSDevice() {
+            const ua = navigator.userAgent;
+            if (/iPhone|iPod|iPad/.test(ua)) return true;
+            return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+        }
+
+        // Détecte si l'app tourne en mode installé (standalone) — navigator.standalone est spécifique iOS
+        function isPWAInstalled() {
+            return window.navigator.standalone === true
+                || window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        // Construit la ligne iOS pour alertDevWarning — vide si pas sur iOS (clé {iosLine})
+        function getIosLineText() {
+            if (!isIOSDevice()) return '';
+            const status = isPWAInstalled() ? t('iosInstallDone') : t('iosInstallTodo');
+            return `\n- ${t('iosLineLabel')} : ${status}`;
         }
 
         // Tableau pour stocker les IDs des setTimeout() locaux
