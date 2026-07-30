@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1539,11 +1539,15 @@
 
                 // Graphiques résultats
                 noDataAvailable: "Aucune donnée.",
-                notEnoughData: "Pas encore assez de données complètes.", btnSave: "Enregistrer", btnClose: "Fermer",
+                notEnoughData: "Pas encore assez de données complètes.", btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
-                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles ({status})\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                notifStatusDefault: "autorisation à valider plus loin, lors de la création d'une alerte",
+                notifStatusGranted: "✅ déjà accordée",
+                notifStatusDenied: "⚠️ actuellement refusée — réactivable dans les réglages de l'appareil",
+                notifStatusUnsupported: "non disponible sur ce navigateur",
                 alertValidThreshold: "Seuil minimum : 1 min",
                 alertValidInterval: "Intervalle minimum : 1 min",
                 alertValidMaxCount: "Nombre de notifications : 1 à 5",
@@ -1686,7 +1690,11 @@
                 alertModeSingle: "1 notification per reminder",
                 alertModeWave: "Rising waves (1, 2, 3…)",
                 alertNoAlerts: "No alerts configured.",
-                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible\n- the app remains in the foreground\n- on iPhone (untested): the app must be installed (iOS 16.4+)\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible ({status})\n- the app remains in the foreground\n- on iPhone (untested): the app must be installed (iOS 16.4+)\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                notifStatusDefault: "to be confirmed further on, when creating an alert",
+                notifStatusGranted: "✅ already granted",
+                notifStatusDenied: "⚠️ currently denied — can be re-enabled in your device settings",
+                notifStatusUnsupported: "not available in this browser",
                 alertValidThreshold: "Minimum threshold: 1 min",
                 alertValidInterval: "Minimum interval: 1 min",
                 alertValidMaxCount: "Number of notifications: 1 to 5",
@@ -1829,7 +1837,11 @@
                 alertModeSingle: "1 melding per herinnering",
                 alertModeWave: "Stijgende golven (1, 2, 3…)",
                 alertNoAlerts: "Geen alertes geconfigureerd.",
-                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar\n- de app op de voorgrond blijft\n- op iPhone (niet getest): de app moet geïnstalleerd zijn (iOS 16.4+)\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar ({status})\n- de app op de voorgrond blijft\n- op iPhone (niet getest): de app moet geïnstalleerd zijn (iOS 16.4+)\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                notifStatusDefault: "wordt verderop bevestigd, bij het aanmaken van een alert",
+                notifStatusGranted: "✅ al toegestaan",
+                notifStatusDenied: "⚠️ momenteel geweigerd — opnieuw in te schakelen via de instellingen van je toestel",
+                notifStatusUnsupported: "niet beschikbaar in deze browser",
                 alertValidThreshold: "Minimale drempel: 1 min",
                 alertValidInterval: "Minimaal interval: 1 min",
                 alertValidMaxCount: "Aantal meldingen: 1 tot 5",
@@ -2073,7 +2085,7 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                alert(t('alertDevWarning'));
+                alert(t('alertDevWarning', { status: getNotifStatusLabel() }));
             }
             const active = getActiveTypes();
 
@@ -2117,6 +2129,7 @@
 
         // Sauvegarde une alerte (nouvelle ou éditée)
         function saveAlert() {
+            requestNotificationPermission(); // Demande liée au geste "Enregistrer" — requis par iOS/Safari
             const idx = parseInt(document.getElementById('alert-edit-index').value);
             const typeId = parseInt(document.getElementById('alert-type').value);
             const threshold = parseInt(document.getElementById('alert-threshold').value);
@@ -2808,13 +2821,22 @@
         // FIN 8d. SYSTÈME DE MESSAGES JSON
         // ============================================================
 
-        // Demande la permission notifications (appelée au démarrage)
+        // Demande la permission notifications — appelée depuis un geste utilisateur (ex: saveAlert())
         async function requestNotificationPermission() {
             if (!('Notification' in window)) return;
             if (Notification.permission === 'default') {
                 const perm = await Notification.requestPermission();
                 console.log('[Notif] Permission :', perm);
             }
+        }
+
+        // Retourne un texte lisible décrivant l'état actuel de la permission notif,
+        // pour affichage dans alertDevWarning (clé {status}).
+        function getNotifStatusLabel() {
+            if (!('Notification' in window)) return t('notifStatusUnsupported');
+            if (Notification.permission === 'granted') return t('notifStatusGranted');
+            if (Notification.permission === 'denied') return t('notifStatusDenied');
+            return t('notifStatusDefault');
         }
 
         // Tableau pour stocker les IDs des setTimeout() locaux
@@ -5746,7 +5768,9 @@
         updateUI();
 
         // Demande la permission notifications au 1er lancement
-        requestNotificationPermission();
+        // Retiré : un appel sans geste utilisateur ne fonctionne jamais sur iOS/Safari.
+        // Déplacé dans saveAlert(), lié au clic sur "Enregistrer" une alerte.
+        // requestNotificationPermission();
 
         // Affiche le premier message JSON éligible après 2500ms
         // (laisse le temps à l'UI de se charger et à l'utilisateur de poser les yeux dessus)
