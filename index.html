@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1543,8 +1543,11 @@
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
-                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles ({status})\n- l'application reste active en premier plan\n- sur iPhone (non testé) : l'application doit être installée (iOS 16.4+)\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
-                notifStatusDefault: "autorisation à valider plus loin, lors de la création d'une alerte",
+                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles ({status})\n- l'application reste active en premier plan{iosLine}\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                iosLineLabel: "sur iPhone (iOS 16.4+)",
+                iosInstallDone: "✅ installation réussie",
+                iosInstallTodo: "⚠️ installation à faire : Appuyer sur le bouton de partage ⬆️ dans le navigateur, puis sélectionner « Sur l'écran d'accueil »",
+                notifStatusDefault: "➡️ autorisation à valider plus loin, lors de la création d'une alerte",
                 notifStatusGranted: "✅ déjà accordée",
                 notifStatusDenied: "⚠️ actuellement refusée — réactivable dans les réglages de l'appareil",
                 notifStatusUnsupported: "non disponible sur ce navigateur",
