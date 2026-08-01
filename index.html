@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.26-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1543,7 +1543,7 @@
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
-                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n- les notifications de l'application soient autorisées et visibles ({status})\n- l'application reste active en premier plan{iosLine}\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
+                alertDevWarning: "🏗️  Fonctionnalité en développement\n\nLes alertes de périodes sont utilisables à condition que :\n\n{iosLine}- les notifications de l'application soient autorisées et visibles{notifParen}\n- l'application reste active en premier plan\n\nPour garder l'application en premier plan, il suffit de ne pas y toucher. Si une alerte est active, un mode assombri se mettra en route après quelques instants.\n\nSi aucune alerte n'est active, le téléphone pourra se mettre en veille normalement.",
                 iosLineLabel: "sur iPhone (iOS 16.4+)",
                 iosInstallDone: "✅ installation réussie",
                 iosInstallTodo: "⚠️ installation à faire : Appuyer sur le bouton de partage ⬆️ dans le navigateur, puis sélectionner « Sur l'écran d'accueil »",
@@ -1693,7 +1693,7 @@
                 alertModeSingle: "1 notification per reminder",
                 alertModeWave: "Rising waves (1, 2, 3…)",
                 alertNoAlerts: "No alerts configured.",
-                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n- app notifications are authorised and visible ({status})\n- the app remains in the foreground{iosLine}\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
+                alertDevWarning: "🏗️  Feature in development\n\nPeriod alerts can be used provided:\n\n{iosLine}- app notifications are authorised and visible{notifParen}\n- the app remains in the foreground\n\nTo keep the app in the foreground, simply don't touch it. If an alert is active, a dimmed mode will activate after a few moments.\n\nIf no alert is active, the phone can go to sleep normally.",
                 iosLineLabel: "on iPhone (iOS 16.4+)",
                 iosInstallDone: "✅ installed successfully",
                 iosInstallTodo: "⚠️ installation needed: tap the Share button ⬆️ in the browser, then select \"Add to Home Screen\"",
@@ -1843,7 +1843,7 @@
                 alertModeSingle: "1 melding per herinnering",
                 alertModeWave: "Stijgende golven (1, 2, 3…)",
                 alertNoAlerts: "Geen alertes geconfigureerd.",
-                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n- de meldingen van de app zijn toegestaan en zichtbaar ({status})\n- de app op de voorgrond blijft{iosLine}\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
+                alertDevWarning: "🏗️  Functie in ontwikkeling\n\nPeriode-alertes kunnen worden gebruikt op voorwaarde dat:\n\n{iosLine}- de meldingen van de app zijn toegestaan en zichtbaar{notifParen}\n- de app op de voorgrond blijft\n\nOm de app op de voorgrond te houden, hoef je hem gewoon niet aan te raken. Als er een alert actief is, wordt na enkele seconden een verduisterde modus geactiveerd.\n\nAls er geen alert actief is, kan de telefoon normaal in slaapstand gaan.",
                 iosLineLabel: "op iPhone (iOS 16.4+)",
                 iosInstallDone: "✅ installatie geslaagd",
                 iosInstallTodo: "⚠️ installatie nog nodig: tik op de deelknop ⬆️ in de browser en kies vervolgens \"Zet op beginscherm\"",
@@ -2094,7 +2094,7 @@
         // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
         function openAlertModal(idx) {
             if (idx === -1) {
-                alert(t('alertDevWarning', { status: getNotifStatusLabel(), iosLine: getIosLineText() }));
+                alert(t('alertDevWarning', { notifParen: getNotifParenText(), iosLine: getIosLineText() }));
             }
             const active = getActiveTypes();
 
@@ -2861,11 +2861,18 @@
                 || window.matchMedia('(display-mode: standalone)').matches;
         }
 
-        // Construit la ligne iOS pour alertDevWarning — vide si pas sur iOS (clé {iosLine})
+        // Construit la ligne iOS pour alertDevWarning — 1er tiret, vide si pas sur iOS (clé {iosLine})
         function getIosLineText() {
             if (!isIOSDevice()) return '';
             const status = isPWAInstalled() ? t('iosInstallDone') : t('iosInstallTodo');
-            return `\n- ${t('iosLineLabel')} : ${status}`;
+            return `- ${t('iosLineLabel')} : ${status}\n`;
+        }
+
+        // Construit la parenthèse de statut notif — masquée si iOS et pas encore installé
+        // (le 1er tiret l'indique déjà, pas la peine de la répéter ici)
+        function getNotifParenText() {
+            if (isIOSDevice() && !isPWAInstalled()) return '';
+            return ` (${getNotifStatusLabel()})`;
         }
 
         // Tableau pour stocker les IDs des setTimeout() locaux
