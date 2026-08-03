@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1062,6 +1062,25 @@
         }
 
         // ============================================================
+        // 0b. CAPTURE PRÉCOCE DE L'ÉVÉNEMENT D'INSTALLATION PWA
+        // Posé tôt car beforeinstallprompt peut survenir dès le chargement.
+        // preventDefault() systématique : c'est toujours notre UI (splash / bouton
+        // Réglages) qui pilote l'installation, jamais le bandeau natif du navigateur.
+        // La référence n'est utilisable qu'une fois — window.deferredInstallPrompt
+        // est remis à null après usage (prompt() consommé) ou après installation effective.
+        // ============================================================
+        window.deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            console.log('[Install] beforeinstallprompt capturé');
+        });
+        window.addEventListener('appinstalled', () => {
+            window.deferredInstallPrompt = null;
+            console.log('[Install] App installée (appinstalled)');
+        });
+
+        // ============================================================
         // 1. OUTIL DE LECTURE CSS
         // Permet de lire les variables CSS définies dans :root depuis JS.
         // ============================================================
@@ -1150,6 +1169,39 @@
             }
         }
 
+        // ============================================================
+        // 1c. DÉTECTION INSTALLATION PWA — appareil et disponibilité
+        // isPWAInstalled() et isIOSDevice() sont déjà définies plus bas dans ce fichier
+        // (section notifications) — les déclarations de fonction sont hissées (hoisting),
+        // donc utilisables ici sans problème.
+        // ============================================================
+
+        // Vrai pour un smartphone/tablette, faux pour un ordinateur.
+        // Signal principal : pointeur imprécis (doigt) sans possibilité de survol —
+        // un laptop tactile a un trackpad (hover:hover) et est donc traité comme "ordinateur".
+        function isHandheldDevice() {
+            if (window.matchMedia('(pointer: coarse)').matches
+                && window.matchMedia('(hover: none)').matches) return true;
+            if (isIOSDevice()) return true; // couvre l'iPad, qui échappe parfois aux media queries ci-dessus
+            return /Mobi|Android/i.test(navigator.userAgent);
+        }
+
+        // Détermine le "tier" d'installation disponible :
+        //   'A' — prompt natif capturé (beforeinstallprompt) → un clic suffit
+        //   'B' — famille Chromium (Chrome/Edge/Samsung Internet...) mais prompt pas
+        //         encore capturé → instructions manuelles via le menu du navigateur
+        //   'C' — iOS Safari → instructions Partager → Sur l'écran d'accueil
+        //   'D' — aucun chemin identifié (ex. Firefox Android) → pas de bouton one-clic ;
+        //         le bouton Réglages propose alors d'ouvrir le lien dans Chrome
+        function getInstallTier() {
+            if (isIOSDevice()) return 'C';
+            const ua = navigator.userAgent;
+            const isChromiumFamily = /Chrome|Chromium|Edg\//.test(ua) && !/Firefox/i.test(ua);
+            if (isChromiumFamily) {
+                return window.deferredInstallPrompt ? 'A' : 'B';
+            }
+            return 'D';
+        }
 
         // ============================================================
         // 2. CONSTANTES ET VARIALBES GLOBALES
