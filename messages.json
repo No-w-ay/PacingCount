@@ -44,19 +44,19 @@
     },
     {
       "type": "info",
-      "id": "info-export-tip-v1",
+      "id": "info-export-tip-v2",
       "_comment": "Astuce export — affiché une seule fois, pendant la période de validité.",
       "validFrom": "2026-05-01",
-      "validUntil": "2026-05-01",
+      "validUntil": "",
       "title": {
-        "fr": "💡 Le saviez-vous ?",
-        "en": "💡 Did you know?",
-        "nl": "💡 Wist u dat?"
+        "fr": "💡 Astuce : sauvez vos données de temps en temps",
+        "en": "💡 Tip: save your data from time to time",
+        "nl": "💡 Tip: sla uw gegevens van tijd tot tijd op"
       },
       "body": {
-        "fr": "Vous pouvez exporter vos données en format .csv (compatible tableur) depuis l'onglet Historique, pour les sauvegarder, les importer ultérieurement dans l'app, ou les partager avec des tiers.",
-        "en": "You can export your data in .csv format (spreadsheet-compatible) from the History tab, to save it, re-import it into the app later, or share it with others.",
-        "nl": "U kunt uw gegevens exporteren in .csv-formaat (compatibel met spreadsheets) via het tabblad Historiek, om ze op te slaan, later opnieuw in de app te importeren, of te delen met anderen."
+        "fr": "Vous pouvez exporter vos données en format .csv (compatible tableur) depuis l'onglet Historique. Ceci crée un fichier de sauvegarde, qui peut être rechargé ultérieurement dans l'app (via le bouton Importer).\n\nIl est conseillé de sauvegarder ainsi ses données à intervalle régulier.",
+        "en": "You can export your data in .csv format (spreadsheet-compatible) from the History tab. This creates a backup file, which can be reloaded into the app later (via the Import button).\n\nIt is recommended to back up your data regularly in this way.",
+        "nl": "U kunt uw gegevens exporteren in .csv-formaat (compatibel met spreadsheets) via het tabblad Historiek. Dit maakt een reservekopie aan, die later opnieuw in de app geladen kan worden (via de knop Importeren).\n\nHet is raadzaam om uw gegevens op deze manier regelmatig op te slaan."
       },
       "button": {
         "fr": "J'ai compris",
