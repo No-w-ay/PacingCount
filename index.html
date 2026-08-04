@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -485,6 +485,103 @@
         #sleep-overlay .swipe-hint .arrow {
             font-size: 3rem;
             /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
+        }
+
+        /* --- SPLASH D'INSTALLATION PWA ---
+           Injecté dynamiquement par showInstallSplash() (voir script, section dédiée).
+           Réutilise les variables CSS et classes existantes (--bg-color, --blue, .export-btn,
+           même esprit visuel que #sleep-overlay) plutôt qu'une identité graphique à part. */
+        #install-splash {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            z-index: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px 24px;
+            animation: installSplashFadeIn 0.25s ease;
+        }
+
+        @keyframes installSplashFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #install-splash-logo {
+            width: 84px;
+            height: 84px;
+            border-radius: 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            margin-bottom: 18px;
+        }
+
+        #install-splash-appname {
+            font-family: 'Lora', serif;
+            /* Même police que le nom de l'app en À propos — cohérence de marque */
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--text-color);
+            margin-bottom: 6px;
+        }
+
+        #install-splash-slogan {
+            font-size: 0.88rem;
+            opacity: 0.6;
+            font-style: italic;
+            margin-bottom: 28px;
+        }
+
+        #install-splash-reminder-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            opacity: 0.88;
+            max-width: 320px;
+            margin-bottom: 24px;
+        }
+
+        #install-splash-cta-area {
+            width: 100%;
+            max-width: 320px;
+            margin-bottom: 18px;
+        }
+
+        .install-splash-instructions {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 16px 18px;
+            text-align: left;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .install-splash-instructions p {
+            margin: 0 0 8px 0;
+            font-weight: bold;
+            opacity: 0.85;
+        }
+
+        .install-splash-export-box {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        .install-splash-export-box p {
+            font-size: 0.85rem;
+            opacity: 0.85;
+            margin: 0 0 10px 0;
+            line-height: 1.5;
+        }
+
+        #install-splash-dismiss {
+            font-size: 0.85rem;
+            opacity: 0.55;
+            cursor: pointer;
+            padding: 8px;
         }
 
         /* Animation points de suspension pour la période en cours */
@@ -1203,6 +1300,140 @@
             return 'D';
         }
 
+        const INSTALL_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours entre deux rappels
+
+        // Détermine si le splash d'installation doit être affiché à ce lancement.
+        // Ne tranche pas entre variante "premier lancement" / "rappel" — Bloc 3 s'en charge
+        // via window.isFirstEverLaunch (déjà disponible globalement).
+        function shouldShowInstallSplash() {
+            if (isPWAInstalled()) return false;      // déjà installée : rien à proposer
+            if (!isHandheldDevice()) return false;   // desktop : seul le bouton Réglages agit
+            if (getInstallTier() === 'D') return false; // aucun chemin d'installation identifié
+
+            if (window.isFirstEverLaunch) return true; // tout premier lancement absolu
+
+            const lastDismiss = parseInt(localStorage.getItem('installPromptLastDismissAt') || '0', 10);
+            if (!lastDismiss) return true; // jamais vu depuis l'existence de cette fonctionnalité
+            return (Date.now() - lastDismiss) >= INSTALL_REMINDER_INTERVAL_MS;
+        }
+
+        // Enregistre la fermeture du splash (quel que soit le bouton pressé) — sert de base
+        // au rappel à 7 jours. Un seul point d'appel pour toutes les issues du splash.
+        function recordInstallPromptDismiss() {
+            localStorage.setItem('installPromptLastDismissAt', Date.now().toString());
+        }
+
+        // ============================================================
+        // 1d. SPLASH D'INSTALLATION PWA (Bloc 3)
+        // Construit dynamiquement au moment de l'affichage — jamais présent dans le DOM
+        // sinon. Pas encore appelé automatiquement au démarrage (voir Bloc 4 — séquencement
+        // avec checkMessages()) ; testable manuellement via showInstallSplash() en console.
+        // ============================================================
+
+        const INSTALL_SPLASH_SHOW_SLOGAN = true; // passer à false pour retirer le slogan sans autre changement
+        const INSTALL_EXPORT_MIN_PERIODS = 5;
+        const INSTALL_EXPORT_MIN_MINUTES = 10;
+
+        // Vrai si on doit suggérer un export CSV avant d'installer (tier C / iOS) —
+        // condition combinée pour éviter de le proposer après quelques clics de test.
+        function shouldSuggestExportBeforeInstall() {
+            const periods = state.history.length;
+            if (periods < INSTALL_EXPORT_MIN_PERIODS) return false;
+            const totalMs = state.history.reduce((sum, e) => sum + (e.end - e.start), 0);
+            return (totalMs / 60000) >= INSTALL_EXPORT_MIN_MINUTES;
+        }
+
+        function showInstallSplash() {
+            if (document.getElementById('install-splash')) return; // déjà affiché
+            const isReminder = !window.isFirstEverLaunch;
+            const tier = getInstallTier(); // gardé pour le log diagnostic — le rendu ne tranche plus A/B ici
+
+            let ctaHTML = '';
+            if (tier === 'C') {
+                // iOS : aucun événement à attendre, les instructions sont correctes dès le départ
+                const exportBox = shouldSuggestExportBeforeInstall() ? `
+                    <div class="install-splash-export-box">
+                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>` : '';
+                ctaHTML = `
+                    <div class="install-splash-instructions">
+                        <p>${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierCStep1')}</div>
+                        <div>- ${t('installTierCStep2')}</div>
+                        <div>- ${t('installTierCStep3')}</div>
+                        ${exportBox}
+                    </div>`;
+            } else {
+                // Chromium (tier A ou B) : toujours le bouton, de façon optimiste.
+                // La décision A/B réelle se prend au clic — voir handleInstallButtonClick()
+                // — pour laisser le maximum de temps à beforeinstallprompt d'arriver.
+                ctaHTML = `<button class="export-btn" onclick="handleInstallButtonClick()">${t('installTierAButton')}</button>`;
+            }
+
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <img id="install-splash-logo" src="icon-192.png" alt="">
+                <div id="install-splash-appname">${APP_NAME}</div>
+                ${INSTALL_SPLASH_SHOW_SLOGAN ? `<div id="install-splash-slogan">${t('installSplashSlogan')}</div>` : ''}
+                ${isReminder ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
+                <div id="install-splash-cta-area">${ctaHTML}</div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+            `;
+            document.body.appendChild(overlay);
+            console.log(`[Install] Splash affiché — variante:${isReminder ? 'rappel' : 'premier lancement'} tier:${tier}`);
+        }
+
+        function closeInstallSplash() {
+            recordInstallPromptDismiss();
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
+        }
+
+        // Clic sur le bouton "Installer" (famille Chromium, tier A ou B) — la décision se
+        // prend ici, au tout dernier moment, pas au rendu du splash (voir showInstallSplash()).
+        async function handleInstallButtonClick() {
+            if (window.deferredInstallPrompt) {
+                await triggerNativeInstallPrompt(); // gère aussi la fermeture du splash
+                return;
+            }
+            // Toujours pas de prompt natif disponible au moment du clic → repli instructions
+            // manuelles, à la place du bouton, sans fermer le splash.
+            const ctaArea = document.getElementById('install-splash-cta-area');
+            if (ctaArea) {
+                ctaArea.innerHTML = `
+                    <div class="install-splash-instructions">
+                        <p>${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierBStep1')}</div>
+                        <div>- ${t('installTierBStep2')}</div>
+                    </div>`;
+            }
+            console.log('[Install] Clic sans prompt natif disponible — repli instructions manuelles');
+        }
+
+        // Déclenche le prompt natif — appelée uniquement quand window.deferredInstallPrompt
+        // existe déjà (voir handleInstallButtonClick()). La référence n'est utilisable qu'une
+        // fois, elle est remise à null juste après quel que soit le choix de l'utilisateur.
+        async function triggerNativeInstallPrompt() {
+            if (!window.deferredInstallPrompt) {
+                console.warn('[Install] Aucune référence beforeinstallprompt disponible');
+                closeInstallSplash();
+                return;
+            }
+            window.deferredInstallPrompt.prompt();
+            try {
+                const choice = await window.deferredInstallPrompt.userChoice;
+                console.log(`[Install] Choix utilisateur : ${choice.outcome}`);
+            } catch (e) {
+                console.warn('[Install] Erreur lors du prompt natif :', e);
+            }
+            window.deferredInstallPrompt = null;
+            closeInstallSplash();
+        }
+
         // ============================================================
         // 2. CONSTANTES ET VARIALBES GLOBALES
         // TYPE_COLORS : palette fixe 6 couleurs indexée par typeId (typeId 1 = index 0).
@@ -1476,6 +1707,11 @@
             console.log("[Migration] Terminée.");
         }
 
+        // Capturé AVANT migrateLocalStorage() : sert à distinguer le tout premier lancement
+        // absolu (aucun localStorage existant) — utilisé notamment par le splash d'installation
+        // pour savoir s'il doit afficher sa variante "premier lancement" (voir section 1c).
+        window.isFirstEverLaunch = !localStorage.getItem('pacingSettings');
+
         // On lance la migration AVANT de charger state et settings
         migrateLocalStorage();
 
@@ -1699,7 +1935,26 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "Si tu vois ça, le bouton de notification en direct marche !",
                 fullscreenBtn: "🛠️ Mode Plein Écran",
-                fullscreenExitBtn: "🛠️ Quitter le Plein Écran"
+                fullscreenExitBtn: "🛠️ Quitter le Plein Écran",
+
+                // ============================================================
+                // SPLASH D'INSTALLATION PWA (Bloc 3) — EN/NL à compléter au Bloc 6.
+                // t() retombe automatiquement sur le FR tant que ces clés sont absentes
+                // des dictionnaires en/nl, donc rien ne s'affiche vide entre-temps.
+                // ============================================================
+                installSplashSlogan: "Mesurer son pacing en douceur",
+                installSplashReminderText: "Vous utilisez PacingCount depuis votre navigateur, nous vous conseillons de passer à la version installée pour une expérience plus complète et plus fluide",
+                installSplashDismissFirst: "Tester dans le navigateur",
+                installSplashDismissReminder: "Continuer dans le navigateur",
+                installTierAButton: "Installer l'application",
+                installStepsHeading: "Pour installer :",
+                installTierBStep1: "ouvrir le menu ⋮ en haut du navigateur",
+                installTierBStep2: "choisir l'option d'installation (« Installer l'application » ou équivalent)",
+                installTierCStep1: "appuyer sur le bouton Partager",
+                installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
+                installTierCStep3: "confirmer par « Ajouter »",
+                installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
+                installTierCExportBtn: "💾 Exporter mes données (.csv)"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -5762,6 +6017,12 @@
                 sendToGoatCounter('update-to-' + APP_VERSION);
             }
 
+            // Event "NewUser" — un seul envoi, à la toute première utilisation de l'app
+            // (window.isFirstEverLaunch, capturé avant migrateLocalStorage() — voir Bloc 2)
+            if (window.isFirstEverLaunch && navigator.onLine) {
+                sendToGoatCounter('NewUser');
+            }
+
             localStorage.setItem('lastSeenVersion', APP_VERSION);
         } catch (e) {
             console.warn('[Init] ⚠️ localStorage inaccessible — toast et events version désactivés', e);
@@ -5773,6 +6034,10 @@
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
         if (_today !== _lastPingDay && navigator.onLine) {
+            // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
+            // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
+            sendToGoatCounter('DailyUser-Total');
+
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
 
