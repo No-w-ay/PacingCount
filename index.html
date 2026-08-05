@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -502,6 +502,9 @@
             justify-content: center;
             text-align: center;
             padding: 30px 24px;
+            gap: 16px;
+            /* Espacement uniforme entre les blocs directement présents (logo/nom/slogan/corps) —
+               fiable quelle que soit la combinaison affichée, sans marges à ajuster au cas par cas. */
             animation: installSplashFadeIn 0.25s ease;
         }
 
@@ -515,7 +518,6 @@
             height: 84px;
             border-radius: 20px;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-            margin-bottom: 18px;
         }
 
         #install-splash-appname {
@@ -524,28 +526,34 @@
             font-size: 1.6rem;
             font-weight: bold;
             color: var(--text-color);
-            margin-bottom: 6px;
         }
 
         #install-splash-slogan {
             font-size: 0.88rem;
             opacity: 0.6;
             font-style: italic;
-            margin-bottom: 28px;
+        }
+
+        /* Corps dynamique (reminder / instructions / CTA / lien du bas) — reconstruit par
+           renderInstallSplashButtonScreen() ou renderInstallSplashInstructions(). Gap plus
+           resserré qu'au niveau supérieur : ces éléments sont plus étroitement liés entre eux. */
+        #install-splash-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            gap: 10px;
         }
 
         #install-splash-reminder-text {
             font-size: 0.95rem;
             line-height: 1.6;
             opacity: 0.88;
-            max-width: 320px;
-            margin-bottom: 24px;
         }
 
         #install-splash-cta-area {
             width: 100%;
-            max-width: 320px;
-            margin-bottom: 18px;
         }
 
         .install-splash-instructions {
@@ -579,7 +587,7 @@
 
         #install-splash-dismiss {
             font-size: 0.85rem;
-            opacity: 0.55;
+            opacity: 0.65;
             cursor: pointer;
             padding: 8px;
         }
@@ -1283,7 +1291,16 @@
             return /Mobi|Android/i.test(navigator.userAgent);
         }
 
+        // Vrai dans le navigateur intégré de Facebook (WebView "in-app browser") — ni le prompt
+        // natif Android ni "Sur l'écran d'accueil" iOS ne fonctionnent depuis ce contexte,
+        // quelle que soit la plateforme sous-jacente. Traité à part de A/B/C/D (voir tier 'F').
+        function isFacebookInAppBrowser() {
+            return /FBAN|FBAV/i.test(navigator.userAgent);
+        }
+
         // Détermine le "tier" d'installation disponible :
+        //   'F' — navigateur intégré Facebook : aucune installation possible depuis ce contexte,
+        //         quelle que soit la plateforme — priorité sur tout le reste (voir checkFacebookBrowserBlock())
         //   'A' — prompt natif capturé (beforeinstallprompt) → un clic suffit
         //   'B' — famille Chromium (Chrome/Edge/Samsung Internet...) mais prompt pas
         //         encore capturé → instructions manuelles via le menu du navigateur
@@ -1291,6 +1308,7 @@
         //   'D' — aucun chemin identifié (ex. Firefox Android) → pas de bouton one-clic ;
         //         le bouton Réglages propose alors d'ouvrir le lien dans Chrome
         function getInstallTier() {
+            if (isFacebookInAppBrowser()) return 'F';
             if (isIOSDevice()) return 'C';
             const ua = navigator.userAgent;
             const isChromiumFamily = /Chrome|Chromium|Edg\//.test(ua) && !/Firefox/i.test(ua);
@@ -1334,6 +1352,10 @@
         const INSTALL_EXPORT_MIN_PERIODS = 5;
         const INSTALL_EXPORT_MIN_MINUTES = 10;
 
+        // Icône générique "Partager" (flèche sortant d'un cadre) — convention d'interface
+        // universelle, pas un logo propriétaire. currentColor hérite de l'opacité du texte parent.
+        const INSTALL_SHARE_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-left:2px;"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>`;
+
         // Vrai si on doit suggérer un export CSV avant d'installer (tier C / iOS) —
         // condition combinée pour éviter de le proposer après quelques clics de test.
         function shouldSuggestExportBeforeInstall() {
@@ -1345,32 +1367,12 @@
 
         function showInstallSplash() {
             if (document.getElementById('install-splash')) return; // déjà affiché
-            const isReminder = !window.isFirstEverLaunch;
-            const tier = getInstallTier(); // gardé pour le log diagnostic — le rendu ne tranche plus A/B ici
-
-            let ctaHTML = '';
-            if (tier === 'C') {
-                // iOS : aucun événement à attendre, les instructions sont correctes dès le départ
-                const exportBox = shouldSuggestExportBeforeInstall() ? `
-                    <div class="install-splash-export-box">
-                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
-                        <button class="export-btn"
-                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
-                    </div>` : '';
-                ctaHTML = `
-                    <div class="install-splash-instructions">
-                        <p>${t('installStepsHeading')}</p>
-                        <div>- ${t('installTierCStep1')}</div>
-                        <div>- ${t('installTierCStep2')}</div>
-                        <div>- ${t('installTierCStep3')}</div>
-                        ${exportBox}
-                    </div>`;
-            } else {
-                // Chromium (tier A ou B) : toujours le bouton, de façon optimiste.
-                // La décision A/B réelle se prend au clic — voir handleInstallButtonClick()
-                // — pour laisser le maximum de temps à beforeinstallprompt d'arriver.
-                ctaHTML = `<button class="export-btn" onclick="handleInstallButtonClick()">${t('installTierAButton')}</button>`;
+            const tier = getInstallTier();
+            if (tier === 'D') {
+                // Le splash ne gère jamais ce cas (voir bouton Réglages, Bloc 5).
+                // Ce garde protège aussi un appel manuel direct en console (hors séquencement Bloc 4).
+                console.warn('[Install] showInstallSplash() appelé en tier D — aucun affichage (voir bouton Réglages)');
+                return;
             }
 
             const overlay = document.createElement('div');
@@ -1379,12 +1381,78 @@
                 <img id="install-splash-logo" src="icon-192.png" alt="">
                 <div id="install-splash-appname">${APP_NAME}</div>
                 ${INSTALL_SPLASH_SHOW_SLOGAN ? `<div id="install-splash-slogan">${t('installSplashSlogan')}</div>` : ''}
-                ${isReminder ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
-                <div id="install-splash-cta-area">${ctaHTML}</div>
-                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+                <div id="install-splash-body"></div>
             `;
             document.body.appendChild(overlay);
-            console.log(`[Install] Splash affiché — variante:${isReminder ? 'rappel' : 'premier lancement'} tier:${tier}`);
+
+            // Tier C (iOS) : aucun bouton préalable, les instructions sont l'unique écran.
+            // Tier A/B : écran "bouton" d'abord — la décision A/B réelle se prend au clic.
+            if (tier === 'C') {
+                renderInstallSplashInstructions('C', false);
+            } else {
+                renderInstallSplashButtonScreen();
+            }
+            console.log(`[Install] Splash affiché — variante:${window.isFirstEverLaunch ? 'premier lancement' : 'rappel'} tier:${tier}`);
+        }
+
+        // Écran "bouton" (tier A ou B, avant toute tentative) — seul écran où le texte de
+        // rappel ("vous utilisez... navigateur") apparaît, et seul point de fermeture directe.
+        function renderInstallSplashButtonScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            const isReminder = !window.isFirstEverLaunch;
+            body.innerHTML = `
+                ${isReminder ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
+                <div id="install-splash-cta-area">
+                    <button class="export-btn" onclick="handleInstallButtonClick()">${t('installTierAButton')}</button>
+                </div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+            `;
+        }
+
+        // Écran "instructions" — tier C dès le départ, ou tier B après un clic infructueux.
+        // Jamais de texte de rappel ici (redondant avec les instructions elles-mêmes).
+        // cameFromButton détermine le lien du bas : "Retour" (navigation interne, pas de
+        // dismiss enregistré) si on vient de l'écran bouton, fermeture normale sinon (tier C).
+        function renderInstallSplashInstructions(tier, cameFromButton) {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            let stepsHTML;
+            let exportBox = '';
+            if (tier === 'C') {
+                stepsHTML = `
+                    <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
+                    <div>- ${t('installTierCStep2')}</div>
+                    <div>- ${t('installTierCStep3')}</div>`;
+                if (shouldSuggestExportBeforeInstall()) {
+                    exportBox = `
+                        <div class="install-splash-export-box">
+                            <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                            <button class="export-btn"
+                                style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                                onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                        </div>`;
+                }
+            } else {
+                stepsHTML = `
+                    <div>- ${t('installTierBStep1')}</div>
+                    <div>- ${t('installTierBStep2')}</div>`;
+            }
+
+            const isReminder = !window.isFirstEverLaunch;
+            const bottomLink = cameFromButton
+                ? `<div id="install-splash-dismiss" onclick="renderInstallSplashButtonScreen()">${t('installSplashBack')}</div>`
+                : `<div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>`;
+
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <p>${t('installStepsHeading')}</p>
+                    ${stepsHTML}
+                    ${exportBox}
+                </div>
+                ${bottomLink}
+            `;
         }
 
         function closeInstallSplash() {
@@ -1400,17 +1468,9 @@
                 await triggerNativeInstallPrompt(); // gère aussi la fermeture du splash
                 return;
             }
-            // Toujours pas de prompt natif disponible au moment du clic → repli instructions
-            // manuelles, à la place du bouton, sans fermer le splash.
-            const ctaArea = document.getElementById('install-splash-cta-area');
-            if (ctaArea) {
-                ctaArea.innerHTML = `
-                    <div class="install-splash-instructions">
-                        <p>${t('installStepsHeading')}</p>
-                        <div>- ${t('installTierBStep1')}</div>
-                        <div>- ${t('installTierBStep2')}</div>
-                    </div>`;
-            }
+            // Toujours pas de prompt natif disponible au moment du clic → écran instructions,
+            // avec "Retour" pour revenir à l'écran bouton (pas de dismiss enregistré ici).
+            renderInstallSplashInstructions('B', true);
             console.log('[Install] Clic sans prompt natif disponible — repli instructions manuelles');
         }
 
@@ -1432,6 +1492,93 @@
             }
             window.deferredInstallPrompt = null;
             closeInstallSplash();
+        }
+
+        // ============================================================
+        // 1e. NAVIGATEUR INTÉGRÉ FACEBOOK (tier F)
+        // Flux entièrement séparé du splash A/B/C/D — pas de cycle premier lancement/rappel,
+        // pas de bouton "Retour". Deux cas selon la présence de données réelles (même seuil
+        // que shouldSuggestExportBeforeInstall(), même question au fond) :
+        //   - pas de données significatives → blocage total, systématique, aucune fermeture
+        //   - données réelles → avertissement + tentative export, une fois par jour calendaire,
+        //     fermeture via "Continuer quand même" (choix légitime, pas un pis-aller)
+        // Appelé tout en haut de la séquence de démarrage, avant checkMessages() — voir section 23.
+        // ============================================================
+
+        function showFacebookBrowserBlock() {
+            if (document.getElementById('install-splash')) return;
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <img id="install-splash-logo" src="icon-192.png" alt="">
+                <div id="install-splash-appname">${APP_NAME}</div>
+                <div id="install-splash-body">
+                    <div class="install-splash-instructions">
+                        <p>${t('installFBBlockIntro')}</p>
+                        <p>${t('installFBStepsHeadingBlock')}</p>
+                        <div>- ${t('installFBStep1')}</div>
+                        <div>- ${t('installFBStep2')}</div>
+                        <p style="font-weight:normal; margin-top:10px;">${t('installFBOutro')}</p>
+                    </div>
+                </div>
+            `;
+            // Pas de lien de fermeture ici — blocage volontairement sans issue de contournement.
+            document.body.appendChild(overlay);
+            console.log('[Install] Blocage navigateur Facebook affiché (pas de données significatives)');
+        }
+
+        function showFacebookBrowserWarning() {
+            if (document.getElementById('install-splash')) return;
+            const persistNote = isIOSDevice() ? ` ${t('installFBPersistIOSNote')}` : '';
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <img id="install-splash-logo" src="icon-192.png" alt="">
+                <div id="install-splash-appname">${APP_NAME}</div>
+                <div id="install-splash-body">
+                    <div class="install-splash-instructions">
+                        <p>${t('installFBWarningIntro')}</p>
+                        <p style="font-weight:normal;">${t('installFBPersistText')}${persistNote}</p>
+                        <p>${t('installFBStepsHeadingWarning')}</p>
+                        <div>- ${t('installFBStep1')}</div>
+                        <div>- ${t('installFBStep2')}</div>
+                        <div class="install-splash-export-box">
+                            <p>${t('installFBExportWarning')}</p>
+                            <button class="export-btn"
+                                style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                                onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                        </div>
+                    </div>
+                    <div id="install-splash-dismiss" onclick="closeFacebookBrowserWarning()">${t('installFBContinueAnyway')}</div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            console.log('[Install] Avertissement navigateur Facebook affiché (données existantes)');
+        }
+
+        // Fermeture dédiée — volontairement séparée de closeInstallSplash() : ce flux n'a
+        // aucun lien avec le cycle de rappel du splash d'installation standard.
+        function closeFacebookBrowserWarning() {
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
+        }
+
+        // Point d'entrée — à appeler tout en haut de la séquence de démarrage.
+        // Retourne true si le navigateur Facebook a été détecté (et donc pris la main sur cet
+        // affichage) : l'appelant doit alors sauter le reste de la séquence habituelle
+        // (checkMessages(), splash d'installation standard) pour ce lancement.
+        function checkFacebookBrowserBlock() {
+            if (!isFacebookInAppBrowser()) return false;
+
+            if (shouldSuggestExportBeforeInstall()) {
+                const today = new Date().toDateString();
+                if (localStorage.getItem('installFBWarningLastShownDay') === today) return false;
+                localStorage.setItem('installFBWarningLastShownDay', today);
+                showFacebookBrowserWarning();
+            } else {
+                showFacebookBrowserBlock();
+            }
+            return true;
         }
 
         // ============================================================
@@ -1946,6 +2093,7 @@
                 installSplashReminderText: "Vous utilisez PacingCount depuis votre navigateur, nous vous conseillons de passer à la version installée pour une expérience plus complète et plus fluide",
                 installSplashDismissFirst: "Tester dans le navigateur",
                 installSplashDismissReminder: "Continuer dans le navigateur",
+                installSplashBack: "Retour",
                 installTierAButton: "Installer l'application",
                 installStepsHeading: "Pour installer :",
                 installTierBStep1: "ouvrir le menu ⋮ en haut du navigateur",
@@ -1954,7 +2102,20 @@
                 installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
                 installTierCStep3: "confirmer par « Ajouter »",
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
-                installTierCExportBtn: "💾 Exporter mes données (.csv)"
+                installTierCExportBtn: "💾 Exporter mes données (.csv)",
+
+                // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
+                installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
+                installFBStepsHeadingBlock: "Pour continuer :",
+                installFBOutro: "Vous pourrez ensuite installer PacingCount pour une expérience stable et complète.",
+                installFBWarningIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook. Ce n'est pas idéal : cela peut limiter la conservation de vos données dans le temps, et elles ne pourront pas être transférées automatiquement vers un autre navigateur.",
+                installFBPersistText: "Vos données actuelles restent accessibles tant que vous continuez à ouvrir l'application depuis Facebook.",
+                installFBPersistIOSNote: "Sur iPhone, ouvrez-la au moins une fois par semaine environ pour éviter toute suppression automatique.",
+                installFBStepsHeadingWarning: "Pour une expérience stable et complète, il est préférable d'installer l'application :",
+                installFBStep1: "toucher le menu ⋯ en haut à droite",
+                installFBStep2: "choisir « Ouvrir dans le navigateur »",
+                installFBExportWarning: "⚠️ Vos données actuelles ne vous suivront pas automatiquement — exportez-les par précaution avant de changer.",
+                installFBContinueAnyway: "Continuer quand même"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -6127,7 +6288,11 @@
 
         // Affiche le premier message JSON éligible après 2500ms
         // (laisse le temps à l'UI de se charger et à l'utilisateur de poser les yeux dessus)
-        setTimeout(() => checkMessages(), 2500);
+        // Priorité absolue au check navigateur Facebook — s'il prend la main sur cet affichage,
+        // on saute le reste de la séquence habituelle pour ce lancement (pas de double affichage).
+        if (!checkFacebookBrowserBlock()) {
+            setTimeout(() => checkMessages(), 2500);
+        }
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.
