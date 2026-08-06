@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -546,18 +546,20 @@
             gap: 10px;
         }
 
-        // Espace réservé pour le paragraphe de contexte du Splash 1 — même vide, garde une
-        // hauteur constante pour que le bouton en dessous ne bouge pas selon les cas.
+        /* Espace réservé pour le paragraphe de contexte du Splash 1 — même nombre de "lignes"
+           affiché avec ou sans texte (voir renderInstallSplashButtonScreen()), pour que le
+           bouton en dessous ne bouge jamais selon le cas. */
         #install-splash-context {
-            min-height: 56px;
-            display: flex;
-            align-items: center;
             width: 100%;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .install-splash-context-line {
+            line-height: 1.6;
         }
 
         #install-splash-reminder-text {
-            font-size: 0.95rem;
-            line-height: 1.6;
             opacity: 0.88;
         }
 
@@ -565,10 +567,10 @@
             width: 100%;
         }
 
+        /* Conteneur neutre — pas de fond propre, le texte de contexte (intro/outro) reste
+           directement sur le fond de l'overlay. Le fond bleu est uniquement sur
+           .install-splash-steps ci-dessous (les étapes concrètes), jamais ici. */
         .install-splash-instructions {
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 16px 18px;
             text-align: left;
             font-size: 0.9rem;
             line-height: 1.7;
@@ -579,9 +581,16 @@
         }
 
         /* Enveloppe le titre "Pour... :" + les lignes d'étapes — font-weight hérité
-           par tous les enfants (propriété CSS héritée), pas besoin de règle par élément. */
+           par tous les enfants (propriété CSS héritée), pas besoin de règle par élément.
+           Fond bleu à faible opacité : relie visuellement ces étapes au bouton bleu
+           d'installation qui y mène. color-mix() avec repli rgba pour compatibilité. */
         .install-splash-steps {
             font-weight: bold;
+            background: rgba(33, 150, 243, 0.2);
+            background: color-mix(in srgb, var(--blue) 20%, transparent);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin: 8px 0;
         }
 
         .install-splash-export-box {
@@ -965,12 +974,12 @@
             <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
                 <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                    style="flex: 1; padding: 8px; margin: 0;">
-                    Exporter CSV
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">
+                    Exporter (.csv)
                 </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
-                    Importer CSV
+                    style="flex: 1; padding: 8px; margin: 0;" id="btn-import">
+                    Importer (.csv)
                 </button>
                 <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
                     style="display:none;" onchange="importCSV(event)">
@@ -1370,7 +1379,7 @@
         // avec checkMessages()) ; testable manuellement via showInstallSplash() en console.
         // ============================================================
 
-        const INSTALL_SPLASH_SHOW_SLOGAN = false; // repasser à true pour réafficher le slogan sans autre changement
+        const INSTALL_SPLASH_SHOW_SLOGAN = true; // passer à false pour retirer le slogan sans autre changement
         const INSTALL_EXPORT_MIN_PERIODS = 5;
         const INSTALL_EXPORT_MIN_MINUTES = 10;
 
@@ -1430,10 +1439,21 @@
             // possible sur iOS). Tier A/B : décision réelle au clic, voir handleInstallButtonClick().
             const onClick = tier === 'C' ? "renderInstallSplashInstructions('C')" : 'handleInstallButtonClick()';
 
+            // Slogan uniquement sur ce premier écran — masqué sur Splash 2/3 (voir ces fonctions).
+            // Restauré ici au cas où on revient via "Retour".
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = INSTALL_SPLASH_SHOW_SLOGAN ? '' : 'none';
+
+            // Espace réservé : 1 ligne vide + texte + 1 ligne vide si affiché,
+            // sinon 6 lignes vides équivalentes — même hauteur totale dans les deux cas,
+            // pour que le bouton en dessous ne bouge jamais.
+            const blankLine = '<div class="install-splash-context-line">&nbsp;</div>';
+            const contextHTML = showContext
+                ? `${blankLine}<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>${blankLine}`
+                : blankLine.repeat(6);
+
             body.innerHTML = `
-                <div id="install-splash-context">
-                    ${showContext ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
-                </div>
+                <div id="install-splash-context">${contextHTML}</div>
                 <div id="install-splash-cta-area">
                     <button class="export-btn" onclick="${onClick}">${t('installTierAButton')}</button>
                 </div>
@@ -1448,6 +1468,10 @@
         function renderInstallSplashInstructions(tier) {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
+
+            // Slogan réservé au Splash 1 uniquement.
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = 'none';
 
             let stepsHTML;
             if (tier === 'C') {
@@ -1500,6 +1524,11 @@
             const body = document.getElementById('install-splash-body');
             if (!body) return;
 
+            // Slogan réservé au Splash 1 uniquement (pertinent si on arrive ici depuis le
+            // Splash 2 dans le même overlay — le cas variant 'AB' frais n'en crée pas).
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = 'none';
+
             let exportBox = '';
             if (variant === 'C' && shouldSuggestExportBeforeInstall()) {
                 exportBox = `
@@ -1511,12 +1540,14 @@
                     </div>`;
             }
 
+            const closeLabel = variant === 'C' ? t('installConfirmCloseBtnC') : t('btnClose');
+
             body.innerHTML = `
                 <div class="install-splash-instructions">
                     <p>${variant === 'C' ? t('installConfirmTextIOS') : t('installConfirmTextAB')}</p>
                     ${exportBox}
                 </div>
-                <div id="install-splash-dismiss" onclick="closeInstallSplashConfirmation()">${t('btnClose')}</div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplashConfirmation()">${closeLabel}</div>
             `;
             console.log(`[Install] Splash 3 (confirmation) affiché — variante:${variant}`);
         }
@@ -1600,8 +1631,8 @@
                             <p>${t('installFBStepsHeadingBlock')}</p>
                             <div>- ${t('installFBStep1')}</div>
                             <div>- ${t('installFBStep2')}</div>
+                            <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
                         </div>
-                        <p>${t('installFBOutro')}</p>
                     </div>
                 </div>
             `;
@@ -2125,7 +2156,7 @@
         const translations = {
             fr: {
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
-                export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
+                export: "Exporter (.csv)", import: "Importer (.csv)", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
@@ -2295,7 +2326,7 @@
                 installSplashBack: "Retour",
                 installTierAButton: "Installer l'application",
                 installStepsHeading: "Pour installer :",
-                installTierBStep1: "ouvrir le menu ⋮ en haut du navigateur",
+                installTierBStep1: "ouvrir le menu&emsp;⋮&emsp;en haut du navigateur",
                 installTierBStep2: "choisir l'option d'installation (« Installer l'application » ou équivalent)",
                 installTierCStep1: "appuyer sur le bouton Partager",
                 installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
@@ -2303,8 +2334,9 @@
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
                 installTierCExportBtn: "💾 Exporter mes données (.csv)",
                 installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
-                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie.",
+                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur.",
                 installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur.",
+                installConfirmCloseBtnC: "Retour dans le navigateur",
 
                 // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
                 installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
@@ -2314,7 +2346,7 @@
                 installFBPersistText: "Vos données actuelles restent accessibles tant que vous continuez à ouvrir l'application depuis Facebook.",
                 installFBPersistIOSNote: "Sur iPhone, ouvrez-la au moins une fois par semaine environ pour éviter toute suppression automatique.",
                 installFBStepsHeadingWarning: "Pour une expérience stable et complète, il est préférable d'installer l'application :",
-                installFBStep1: "toucher le menu ⋯ en haut à droite",
+                installFBStep1: "toucher le menu&emsp;⋮&emsp;en haut à droite",
                 installFBStep2: "choisir « Ouvrir dans un navigateur externe »",
                 installFBExportWarning: "⚠️ Vos données actuelles ne vous suivront pas automatiquement — exportez-les par précaution avant de changer.",
                 installFBContinueAnyway: "Continuer quand même",
@@ -2329,7 +2361,7 @@
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
-                export: "Export CSV", import: "Import CSV", custom: "Button Names",
+                export: "Export (.csv)", import: "Import (.csv)", custom: "Button Names",
                 stop: "Stop recording", confirmStop: "Stop current recording?",
                 history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
@@ -2479,7 +2511,7 @@
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
-                export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
+                export: "Exporteren (.csv)", import: "Importeren (.csv)", custom: "Knopnamen",
                 stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
                 history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
