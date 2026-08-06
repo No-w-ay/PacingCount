@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -544,6 +544,15 @@
             width: 100%;
             max-width: 320px;
             gap: 10px;
+        }
+
+        // Espace réservé pour le paragraphe de contexte du Splash 1 — même vide, garde une
+        // hauteur constante pour que le bouton en dessous ne bouge pas selon les cas.
+        #install-splash-context {
+            min-height: 56px;
+            display: flex;
+            align-items: center;
+            width: 100%;
         }
 
         #install-splash-reminder-text {
@@ -1192,6 +1201,10 @@
         window.addEventListener('appinstalled', () => {
             window.deferredInstallPrompt = null;
             console.log('[Install] App installée (appinstalled)');
+            // Détection réelle, fiable pour toute la famille Chromium (tier A ou B, peu importe
+            // comment l'installation a été déclenchée) — voir showInstallSplashConfirmation().
+            // Fonction définie plus bas (hissée) — callable ici sans problème.
+            showInstallSplashConfirmation('AB');
         });
 
         // ============================================================
@@ -1357,7 +1370,7 @@
         // avec checkMessages()) ; testable manuellement via showInstallSplash() en console.
         // ============================================================
 
-        const INSTALL_SPLASH_SHOW_SLOGAN = true; // passer à false pour retirer le slogan sans autre changement
+        const INSTALL_SPLASH_SHOW_SLOGAN = false; // repasser à true pour réafficher le slogan sans autre changement
         const INSTALL_EXPORT_MIN_PERIODS = 5;
         const INSTALL_EXPORT_MIN_MINUTES = 10;
 
@@ -1367,6 +1380,8 @@
 
         // Vrai si on doit suggérer un export CSV avant d'installer (tier C / iOS) —
         // condition combinée pour éviter de le proposer après quelques clics de test.
+        // Sert aussi désormais de déclencheur pour le paragraphe de contexte du Splash 1
+        // (remplace l'ancienne logique basée sur premier lancement/rappel).
         function shouldSuggestExportBeforeInstall() {
             const periods = state.history.length;
             if (periods < INSTALL_EXPORT_MIN_PERIODS) return false;
@@ -1394,65 +1409,61 @@
             `;
             document.body.appendChild(overlay);
 
-            // Tier C (iOS) : aucun bouton préalable, les instructions sont l'unique écran.
-            // Tier A/B : écran "bouton" d'abord — la décision A/B réelle se prend au clic.
-            if (tier === 'C') {
-                renderInstallSplashInstructions('C', false);
-            } else {
-                renderInstallSplashButtonScreen();
-            }
+            // Splash 1 unifié pour A/B/C — même écran partout, seule la cible du clic diffère
+            // (voir renderInstallSplashButtonScreen()). Tier C n'a plus de raccourci direct
+            // vers les instructions : il passe désormais aussi par cet écran.
+            renderInstallSplashButtonScreen();
             console.log(`[Install] Splash affiché — variante:${window.isFirstEverLaunch ? 'premier lancement' : 'rappel'} tier:${tier}`);
         }
 
-        // Écran "bouton" (tier A ou B, avant toute tentative) — seul écran où le texte de
-        // rappel ("vous utilisez... navigateur") apparaît, et seul point de fermeture directe.
+        // Splash 1 — écran commun A/B/C. Le paragraphe de contexte n'apparaît que si
+        // shouldSuggestExportBeforeInstall() est vrai (données réelles en jeu), plus lié au
+        // cycle premier lancement/rappel. Espace réservé (#install-splash-context) même vide,
+        // pour que la position du logo/nom en haut et du bouton en bas ne bouge pas.
         function renderInstallSplashButtonScreen() {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
+            const tier = getInstallTier();
             const isReminder = !window.isFirstEverLaunch;
+            const showContext = shouldSuggestExportBeforeInstall();
+            // Tier C : le clic mène toujours directement aux instructions (jamais de prompt natif
+            // possible sur iOS). Tier A/B : décision réelle au clic, voir handleInstallButtonClick().
+            const onClick = tier === 'C' ? "renderInstallSplashInstructions('C')" : 'handleInstallButtonClick()';
+
             body.innerHTML = `
-                ${isReminder ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
+                <div id="install-splash-context">
+                    ${showContext ? `<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>` : ''}
+                </div>
                 <div id="install-splash-cta-area">
-                    <button class="export-btn" onclick="handleInstallButtonClick()">${t('installTierAButton')}</button>
+                    <button class="export-btn" onclick="${onClick}">${t('installTierAButton')}</button>
                 </div>
                 <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
             `;
         }
 
-        // Écran "instructions" — tier C dès le départ, ou tier B après un clic infructueux.
-        // Jamais de texte de rappel ici (redondant avec les instructions elles-mêmes).
-        // cameFromButton détermine le lien du bas : "Retour" (navigation interne, pas de
-        // dismiss enregistré) si on vient de l'écran bouton, fermeture normale sinon (tier C).
-        function renderInstallSplashInstructions(tier, cameFromButton) {
+        // Splash 2 — instructions, toujours atteint depuis Splash 1 (bouton). "Retour" y ramène
+        // (pas de dismiss enregistré, navigation interne). Tier C ajoute un second bouton
+        // "J'ai pu suivre ces instructions" qui mène au Splash 3 auto-déclaré — aucune détection
+        // automatique n'existant sur iOS. Plus d'export CSV ici : déplacé au Splash 3 (désencombre).
+        function renderInstallSplashInstructions(tier) {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
 
             let stepsHTML;
-            let exportBox = '';
             if (tier === 'C') {
                 stepsHTML = `
                     <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
                     <div>- ${t('installTierCStep2')}</div>
                     <div>- ${t('installTierCStep3')}</div>`;
-                if (shouldSuggestExportBeforeInstall()) {
-                    exportBox = `
-                        <div class="install-splash-export-box">
-                            <p>${t('installTierCExportText', { n: state.history.length })}</p>
-                            <button class="export-btn"
-                                style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                                onclick="exportCSV()">${t('installTierCExportBtn')}</button>
-                        </div>`;
-                }
             } else {
                 stepsHTML = `
                     <div>- ${t('installTierBStep1')}</div>
                     <div>- ${t('installTierBStep2')}</div>`;
             }
 
-            const isReminder = !window.isFirstEverLaunch;
-            const bottomLink = cameFromButton
-                ? `<div id="install-splash-dismiss" onclick="renderInstallSplashButtonScreen()">${t('installSplashBack')}</div>`
-                : `<div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>`;
+            const confirmBtn = tier === 'C'
+                ? `<button class="export-btn" style="margin:0 0 10px 0;" onclick="renderInstallSplashConfirmationBody('C')">${t('installConfirmSelfReportBtn')}</button>`
+                : '';
 
             body.innerHTML = `
                 <div class="install-splash-instructions">
@@ -1460,10 +1471,61 @@
                         <p>${t('installStepsHeading')}</p>
                         ${stepsHTML}
                     </div>
+                </div>
+                ${confirmBtn}
+                <div id="install-splash-dismiss" onclick="renderInstallSplashButtonScreen()">${t('installSplashBack')}</div>
+            `;
+        }
+
+        // Splash 3 — confirmation. variant 'C' = auto-déclaré (iOS, aucune détection possible),
+        // variant 'AB' = confirmé automatiquement via appinstalled (voir écouteur global).
+        // showInstallSplashConfirmation() crée l'overlay s'il n'existe pas déjà (cas 'AB' déclenché
+        // hors de tout flux splash en cours, ex. installation via le menu du navigateur).
+        function showInstallSplashConfirmation(variant) {
+            let overlay = document.getElementById('install-splash');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'install-splash';
+                overlay.innerHTML = `
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    <div id="install-splash-body"></div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            renderInstallSplashConfirmationBody(variant);
+        }
+
+        function renderInstallSplashConfirmationBody(variant) {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            let exportBox = '';
+            if (variant === 'C' && shouldSuggestExportBeforeInstall()) {
+                exportBox = `
+                    <div class="install-splash-export-box">
+                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>`;
+            }
+
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <p>${variant === 'C' ? t('installConfirmTextIOS') : t('installConfirmTextAB')}</p>
                     ${exportBox}
                 </div>
-                ${bottomLink}
+                <div id="install-splash-dismiss" onclick="closeInstallSplashConfirmation()">${t('btnClose')}</div>
             `;
+            console.log(`[Install] Splash 3 (confirmation) affiché — variante:${variant}`);
+        }
+
+        // Pas de checkMessages() ici, volontairement — cohérent avec l'idée que l'utilisateur
+        // passera par l'app installée à partir de maintenant, quel que soit le chemin emprunté.
+        function closeInstallSplashConfirmation() {
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
         }
 
         // skipMessages : true si l'installation vient d'être acceptée — dans ce cas, on ne
@@ -1477,16 +1539,17 @@
             if (!skipMessages) checkMessages();
         }
 
-        // Clic sur le bouton "Installer" (famille Chromium, tier A ou B) — la décision se
-        // prend ici, au tout dernier moment, pas au rendu du splash (voir showInstallSplash()).
+        // Clic sur le bouton "Installer" (tier A ou B uniquement — tier C ne passe jamais ici,
+        // voir renderInstallSplashButtonScreen()). La décision se prend ici, au tout dernier
+        // moment, pas au rendu du splash.
         async function handleInstallButtonClick() {
             if (window.deferredInstallPrompt) {
                 await triggerNativeInstallPrompt(); // gère aussi la fermeture du splash
                 return;
             }
             // Toujours pas de prompt natif disponible au moment du clic → écran instructions,
-            // avec "Retour" pour revenir à l'écran bouton (pas de dismiss enregistré ici).
-            renderInstallSplashInstructions('B', true);
+            // "Retour" pour revenir à l'écran bouton (pas de dismiss enregistré ici).
+            renderInstallSplashInstructions('B');
             console.log('[Install] Clic sans prompt natif disponible — repli instructions manuelles');
         }
 
@@ -2239,6 +2302,9 @@
                 installTierCStep3: "confirmer par « Ajouter »",
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
                 installTierCExportBtn: "💾 Exporter mes données (.csv)",
+                installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
+                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie.",
+                installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur.",
 
                 // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
                 installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
