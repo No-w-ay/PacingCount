@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -567,8 +567,12 @@
 
         .install-splash-instructions p {
             margin: 0 0 8px 0;
+        }
+
+        /* Enveloppe le titre "Pour... :" + les lignes d'étapes — font-weight hérité
+           par tous les enfants (propriété CSS héritée), pas besoin de règle par élément. */
+        .install-splash-steps {
             font-weight: bold;
-            opacity: 0.85;
         }
 
         .install-splash-export-box {
@@ -774,6 +778,11 @@
 
     <div id="page-settings" class="page">
         <h1 id="title-settings">Réglages</h1>
+
+        <!-- Installation PWA (Bloc 5) — masquée si déjà installée, remplie par renderSettingsInstallCard() -->
+        <div class="settings-group" id="settings-install-card" style="display:none;">
+            <div id="settings-install-body"></div>
+        </div>
 
         <!-- Langue -->
         <div class="settings-group">
@@ -1447,18 +1456,25 @@
 
             body.innerHTML = `
                 <div class="install-splash-instructions">
-                    <p>${t('installStepsHeading')}</p>
-                    ${stepsHTML}
+                    <div class="install-splash-steps">
+                        <p>${t('installStepsHeading')}</p>
+                        ${stepsHTML}
+                    </div>
                     ${exportBox}
                 </div>
                 ${bottomLink}
             `;
         }
 
-        function closeInstallSplash() {
+        // skipMessages : true si l'installation vient d'être acceptée — dans ce cas, on ne
+        // montre plus rien dans cet onglet navigateur, l'utilisateur est censé basculer vers
+        // l'app installée à partir de maintenant. Sinon, checkMessages() prend le relais ici :
+        // le splash d'installation a priorité d'affichage sur les messages JSON, jamais l'inverse.
+        function closeInstallSplash(skipMessages) {
             recordInstallPromptDismiss();
             const overlay = document.getElementById('install-splash');
             if (overlay) overlay.remove();
+            if (!skipMessages) checkMessages();
         }
 
         // Clic sur le bouton "Installer" (famille Chromium, tier A ou B) — la décision se
@@ -1484,14 +1500,16 @@
                 return;
             }
             window.deferredInstallPrompt.prompt();
+            let accepted = false;
             try {
                 const choice = await window.deferredInstallPrompt.userChoice;
                 console.log(`[Install] Choix utilisateur : ${choice.outcome}`);
+                accepted = choice.outcome === 'accepted';
             } catch (e) {
                 console.warn('[Install] Erreur lors du prompt natif :', e);
             }
             window.deferredInstallPrompt = null;
-            closeInstallSplash();
+            closeInstallSplash(accepted);
         }
 
         // ============================================================
@@ -1515,10 +1533,12 @@
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
                         <p>${t('installFBBlockIntro')}</p>
-                        <p>${t('installFBStepsHeadingBlock')}</p>
-                        <div>- ${t('installFBStep1')}</div>
-                        <div>- ${t('installFBStep2')}</div>
-                        <p style="font-weight:normal; margin-top:10px;">${t('installFBOutro')}</p>
+                        <div class="install-splash-steps">
+                            <p>${t('installFBStepsHeadingBlock')}</p>
+                            <div>- ${t('installFBStep1')}</div>
+                            <div>- ${t('installFBStep2')}</div>
+                        </div>
+                        <p>${t('installFBOutro')}</p>
                     </div>
                 </div>
             `;
@@ -1538,10 +1558,12 @@
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
                         <p>${t('installFBWarningIntro')}</p>
-                        <p style="font-weight:normal;">${t('installFBPersistText')}${persistNote}</p>
-                        <p>${t('installFBStepsHeadingWarning')}</p>
-                        <div>- ${t('installFBStep1')}</div>
-                        <div>- ${t('installFBStep2')}</div>
+                        <p>${t('installFBPersistText')}${persistNote}</p>
+                        <div class="install-splash-steps">
+                            <p>${t('installFBStepsHeadingWarning')}</p>
+                            <div>- ${t('installFBStep1')}</div>
+                            <div>- ${t('installFBStep2')}</div>
+                        </div>
                         <div class="install-splash-export-box">
                             <p>${t('installFBExportWarning')}</p>
                             <button class="export-btn"
@@ -1579,6 +1601,120 @@
                 showFacebookBrowserBlock();
             }
             return true;
+        }
+
+        // ============================================================
+        // 1f. CARTE PERMANENTE D'INSTALLATION — ONGLET RÉGLAGES (Bloc 5)
+        // Contrairement au splash : visible sur toutes plateformes (desktop inclus), jamais
+        // silencieuse (tier D et F ont chacun leur contenu ici, pas d'exclusion). Appelée à
+        // chaque affichage de la page Réglages (voir showPage()).
+        // ============================================================
+
+        function renderSettingsInstallCard() {
+            const card = document.getElementById('settings-install-card');
+            if (!card) return;
+            if (isPWAInstalled()) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+            const body = document.getElementById('settings-install-body');
+            body.innerHTML = `
+                <p style="margin:0 0 12px 0; font-size:0.93rem;">${t('installSettingsBannerText')}</p>
+                <button class="export-btn" style="margin:0;" onclick="handleSettingsInstallClick()">${t('installSettingsBannerBtn')}</button>
+            `;
+        }
+
+        // Clic sur le bouton — décision tier prise ici, au clic, jamais au rendu (même principe
+        // qu'au Bloc 3). Tier F (Facebook) prioritaire dans getInstallTier(), donc géré ici sans
+        // logique séparée à dupliquer.
+        async function handleSettingsInstallClick() {
+            const tier = getInstallTier();
+            if (tier === 'A' && window.deferredInstallPrompt) {
+                await triggerNativeInstallPromptFromSettings();
+                return;
+            }
+            renderSettingsInstallInstructions(tier);
+        }
+
+        // Variante dédiée à ce contexte — volontairement séparée de triggerNativeInstallPrompt()
+        // (Bloc 3) : ne doit pas fermer de splash ni enregistrer un dismiss du cycle de rappel,
+        // ce sont deux flux indépendants.
+        async function triggerNativeInstallPromptFromSettings() {
+            if (!window.deferredInstallPrompt) return;
+            window.deferredInstallPrompt.prompt();
+            try {
+                const choice = await window.deferredInstallPrompt.userChoice;
+                console.log(`[Install] (Réglages) Choix utilisateur : ${choice.outcome}`);
+            } catch (e) {
+                console.warn('[Install] (Réglages) Erreur lors du prompt natif :', e);
+            }
+            window.deferredInstallPrompt = null;
+            renderSettingsInstallCard(); // revient à l'état bouton par défaut
+        }
+
+        function renderSettingsInstallInstructions(tier) {
+            const body = document.getElementById('settings-install-body');
+            if (!body) return;
+
+            let content = '';
+            if (tier === 'F') {
+                content = `
+                    <p style="margin:0 0 10px 0; font-size:0.93rem;">${t('installSettingsFBText')}</p>
+                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
+                        <p style="margin:0 0 6px 0;">${t('installFBStepsHeadingBlock')}</p>
+                        <div>- ${t('installFBStep1')}</div>
+                        <div>- ${t('installFBStep2')}</div>
+                    </div>`;
+            } else if (tier === 'C') {
+                const exportBox = shouldSuggestExportBeforeInstall() ? `
+                    <div class="install-splash-export-box">
+                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>` : '';
+                content = `
+                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
+                        <p style="margin:0 0 6px 0;">${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
+                        <div>- ${t('installTierCStep2')}</div>
+                        <div>- ${t('installTierCStep3')}</div>
+                    </div>
+                    ${exportBox}`;
+            } else if (tier === 'D') {
+                content = `
+                    <p style="margin:0 0 8px 0; font-size:0.93rem; font-weight:bold;">${t('installTierDText')}</p>
+                    <p style="margin:0 0 12px 0; font-size:0.85rem; opacity:0.8; word-break:break-all;">${window.location.href}</p>
+                    <button class="export-btn" style="margin:0;" id="settings-install-copy-btn"
+                        onclick="copyInstallLink()">${t('installCopyLinkBtn')}</button>`;
+            } else {
+                // Tier B (prompt pas encore disponible au moment du clic)
+                content = `
+                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
+                        <p style="margin:0 0 6px 0;">${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierBStep1')}</div>
+                        <div>- ${t('installTierBStep2')}</div>
+                    </div>`;
+            }
+
+            body.innerHTML = content;
+        }
+
+        // Copie le lien de l'app dans le presse-papier (tier D) — best-effort, échoue
+        // silencieusement si l'API n'est pas disponible ou refusée par le navigateur.
+        async function copyInstallLink() {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                const btn = document.getElementById('settings-install-copy-btn');
+                if (btn) {
+                    const original = btn.textContent;
+                    btn.textContent = t('installLinkCopied');
+                    setTimeout(() => { btn.textContent = original; }, 2000);
+                }
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
         }
 
         // ============================================================
@@ -2113,9 +2249,17 @@
                 installFBPersistIOSNote: "Sur iPhone, ouvrez-la au moins une fois par semaine environ pour éviter toute suppression automatique.",
                 installFBStepsHeadingWarning: "Pour une expérience stable et complète, il est préférable d'installer l'application :",
                 installFBStep1: "toucher le menu ⋯ en haut à droite",
-                installFBStep2: "choisir « Ouvrir dans le navigateur »",
+                installFBStep2: "choisir « Ouvrir dans un navigateur externe »",
                 installFBExportWarning: "⚠️ Vos données actuelles ne vous suivront pas automatiquement — exportez-les par précaution avant de changer.",
-                installFBContinueAnyway: "Continuer quand même"
+                installFBContinueAnyway: "Continuer quand même",
+
+                // Carte permanente Réglages (Bloc 5)
+                installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
+                installSettingsBannerBtn: "Installer PacingCount",
+                installSettingsFBText: "Vous êtes dans le navigateur intégré de Facebook, qui ne permet pas d'installer l'application.",
+                installTierDText: "Ouvrir ce lien dans Chrome pour installer l'application :",
+                installCopyLinkBtn: "Copier le lien",
+                installLinkCopied: "Lien copié !"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
@@ -3248,7 +3392,7 @@
             } catch (e) {
                 // Offline ou fichier absent — silencieux, pas de message cette fois
                 console.log('[Messages] Fetch messages.json échoué (offline ?) :', e.message);
-                return;
+                return false;
             }
 
             const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
@@ -3288,10 +3432,11 @@
                     if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
                 }
                 showMessage(msg, newVersion);
-                return; // Un seul message par lancement
+                return true; // Un seul message par lancement
             }
 
             console.log('[Messages] Aucun message éligible à afficher.');
+            return false;
         }
 
         // ============================================================
@@ -6038,6 +6183,7 @@
                 renderAlertsList();
                 renderTypesSettings();
                 renderProfileSelector();
+                renderSettingsInstallCard();
             }
         }
 
@@ -6286,12 +6432,20 @@
         // Déplacé dans saveAlert(), lié au clic sur "Enregistrer" une alerte.
         // requestNotificationPermission();
 
-        // Affiche le premier message JSON éligible après 2500ms
-        // (laisse le temps à l'UI de se charger et à l'utilisateur de poser les yeux dessus)
-        // Priorité absolue au check navigateur Facebook — s'il prend la main sur cet affichage,
-        // on saute le reste de la séquence habituelle pour ce lancement (pas de double affichage).
+        // Priorité d'affichage, du plus prioritaire au moins prioritaire, après 2500ms
+        // (laisse le temps à l'UI de se charger) :
+        //   1. Navigateur Facebook (checkFacebookBrowserBlock) — remplace tout le reste si détecté
+        //   2. Splash d'installation standard (shouldShowInstallSplash) — passe devant les messages JSON
+        //   3. Message JSON (checkMessages) — seulement si rien des deux precédents ne s'affiche,
+        //      ou déclenché depuis closeInstallSplash() une fois le splash refermé
         if (!checkFacebookBrowserBlock()) {
-            setTimeout(() => checkMessages(), 2500);
+            setTimeout(() => {
+                if (shouldShowInstallSplash()) {
+                    showInstallSplash();
+                } else {
+                    checkMessages();
+                }
+            }, 2500);
         }
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
