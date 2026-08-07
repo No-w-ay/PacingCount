@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1146,7 +1146,7 @@
         <div class="modal-content">
             <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
             <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:6px;">
-                Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (ou similaire) :
+                Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (extension .csv) :
             </p>
             <p id="manual-export-filename" style="font-size:0.85rem; font-family:monospace; opacity:0.75; margin-bottom:12px;"></p>
             <textarea id="manual-export-textarea" readonly
@@ -1667,6 +1667,30 @@
             // Pas de lien de fermeture ici — blocage volontairement sans issue de contournement.
             document.body.appendChild(overlay);
             console.log('[Install] Blocage navigateur Facebook affiché (pas de données significatives)');
+
+            // ⚠️ TEMPORAIRE — TEST UNIQUEMENT — À RETIRER AVANT MISE EN PROD ⚠️
+            // 7 taps sur l'icône pour contourner le blocage (impossible de tester l'export
+            // manuel autrement, ce blocage étant volontairement sans issue). Voir demande
+            // explicite de test — ne pas laisser ce bypass en production.
+            attachFacebookBlockDebugBypass();
+        }
+
+        function attachFacebookBlockDebugBypass() {
+            const logo = document.getElementById('install-splash-logo');
+            if (!logo) return;
+            let tapCount = 0;
+            let tapTimer = null;
+            logo.addEventListener('click', () => {
+                tapCount++;
+                clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
+                if (tapCount >= 7) {
+                    tapCount = 0;
+                    console.warn('[DEBUG TEST] 7 taps — fermeture forcée du blocage Facebook (bypass temporaire de test)');
+                    const overlay = document.getElementById('install-splash');
+                    if (overlay) overlay.remove();
+                }
+            });
         }
 
         // Cas 2 (données existantes) — deux écrans, comme les autres tiers : avertissement
@@ -2403,7 +2427,7 @@
 
                 // Modal de repli export manuel (navigateur Facebook)
                 manualExportTitle: "Export manuel des données enregistrées",
-                manualExportInstructions: "Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (ou similaire) :",
+                manualExportInstructions: "Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (extension .csv) :",
                 manualExportCopyBtn: "Copier",
                 manualExportCopied: "Copié !",
 
