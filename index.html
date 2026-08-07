@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1138,6 +1138,27 @@
             <h3 id="update-modal-title" style="margin-top:0;">Mise à jour</h3>
             <div id="update-modal-body" style="margin-bottom:20px; line-height:1.7; font-size:0.95rem;"></div>
             <div id="update-modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- Modal de repli export manuel — navigateur Facebook (téléchargement blob bloqué) -->
+    <div id="manualExportModal" class="modal">
+        <div class="modal-content">
+            <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
+            <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:6px;">
+                Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (ou similaire) :
+            </p>
+            <p id="manual-export-filename" style="font-size:0.85rem; font-family:monospace; opacity:0.75; margin-bottom:12px;"></p>
+            <textarea id="manual-export-textarea" readonly
+                style="width:100%; height:160px; box-sizing:border-box; background:#111; color:var(--text-color);
+                       border:1px solid #444; border-radius:6px; padding:10px; font-family:monospace;
+                       font-size:0.78rem; resize:vertical; margin-bottom:12px;"></textarea>
+            <div style="display:flex; gap:10px;">
+                <button id="manual-export-copy-btn" class="export-btn" style="margin:0;"
+                    onclick="copyManualExportText()">Copier</button>
+                <button class="export-btn" style="background:#444; margin:0;" id="btn-manual-export-close"
+                    onclick="closeManualExportModal()">Fermer</button>
+            </div>
         </div>
     </div>
 
@@ -2379,6 +2400,12 @@
                 installFBTransferData: "Transférer mes données déjà enregistrées",
                 installFBTempReturn: "Retour temporaire dans le navigateur Facebook",
                 installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur Facebook. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
+
+                // Modal de repli export manuel (navigateur Facebook)
+                manualExportTitle: "Export manuel des données enregistrées",
+                manualExportInstructions: "Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (ou similaire) :",
+                manualExportCopyBtn: "Copier",
+                manualExportCopied: "Copié !",
 
                 // Carte permanente Réglages (Bloc 5)
                 installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
@@ -4275,6 +4302,12 @@
             document.getElementById('import-merge-detail').innerText = t('importMergeDetail');
             document.getElementById('btn-import-cancel').innerText = t('btnCancel');
 
+            // Modal export manuel (repli navigateur Facebook)
+            document.getElementById('manual-export-title').innerText = t('manualExportTitle');
+            document.getElementById('manual-export-instructions').innerText = t('manualExportInstructions');
+            document.getElementById('manual-export-copy-btn').innerText = t('manualExportCopyBtn');
+            document.getElementById('btn-manual-export-close').innerText = t('btnClose');
+
             // Modal alertes de période
             document.getElementById('label-alert-type').innerText = t('alertType');
             document.getElementById('label-alert-threshold').innerText = t('alertThresholdModalLabel');
@@ -5410,27 +5443,44 @@
         // Sans BOM UTF-8 : compatible Google Sheets ET Excel moderne.
         // La colonne Minutes est conservée pour la lisibilité tableur.
         // ============================================================
+        // Construit la chaîne CSV — séparée du téléchargement pour être réutilisable
+        // par le repli manuel (voir showManualExportModal()).
+        function buildCSVString() {
+            let csv = "sep=,\n";
+            csv += "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
+
+            let allPeriods = [...state.history];
+            if (state.activeType) {
+                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(e => {
+                const d = new Date(e.start);
+                // Format ISO AAAA-MM-JJ : meilleur tri et compatibilité internationale
+                const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const label = getLabelForId(e.typeId);
+                const minutes = Math.round((e.end - e.start) / 60000);
+                csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${e.typeId},${label},${minutes}\n`;
+            });
+
+            return csv;
+        }
+
         function exportCSV() {
             console.log("[exportCSV] Début de l'export");
+
+            // Détection en amont, pas après-coup — le téléchargement blob est un mécanisme
+            // "à l'aveugle" (aucun signal succès/échec renvoyé par le navigateur), donc pas
+            // de détection fiable possible une fois la tentative faite. On sait par contre,
+            // par construction, que ça échoue dans le navigateur intégré Facebook.
+            if (isFacebookInAppBrowser()) {
+                console.log("[exportCSV] Navigateur Facebook détecté — repli manuel direct");
+                showManualExportModal(buildCSVString());
+                return;
+            }
+
             try {
-                //let csv = "Date,Debut,Fin,TypeId,TypeLabel,Minutes\n";
-                //let csv = "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
-                let csv = "sep=,\n";
-                csv += "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
-
-                let allPeriods = [...state.history];
-                if (state.activeType) {
-                    allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
-                }
-
-                allPeriods.forEach(e => {
-                    const d = new Date(e.start);
-                    // Format ISO AAAA-MM-JJ : meilleur tri et compatibilité internationale
-                    const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                    const label = getLabelForId(e.typeId);
-                    const minutes = Math.round((e.end - e.start) / 60000);
-                    csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${e.typeId},${label},${minutes}\n`;
-                });
+                const csv = buildCSVString();
 
                 // BOM UTF-8 : assure la compatibilité Excel (Windows/Mac) et LibreOffice
                 // const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });  
@@ -5463,6 +5513,48 @@
                 console.log("[exportCSV] Export terminé");
             } catch (err) {
                 console.error("[exportCSV] Erreur :", err);
+            }
+        }
+
+        // ============================================================
+        // 19b. REPLI EXPORT MANUEL (navigateur Facebook)
+        // Le presse-papier est lui-même documenté comme bloqué dans ce contexte (bug connu,
+        // Facebook/Messenger Android) — donc bouton "Copier" en tentative best-effort seulement,
+        // la vraie garantie reste le texte affiché en clair, sélectionnable manuellement,
+        // qui ne dépend d'aucune API susceptible d'être bridée.
+        // ============================================================
+
+        function showManualExportModal(csv) {
+            document.getElementById('manual-export-filename').textContent =
+                `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            const textarea = document.getElementById('manual-export-textarea');
+            textarea.value = csv;
+            document.getElementById('manualExportModal').style.display = 'flex';
+
+            // Sélectionne tout le texte au premier tap/clic — facilite la copie manuelle
+            textarea.onclick = () => textarea.select();
+            setTimeout(() => textarea.select(), 50); // sélection immédiate à l'ouverture aussi
+
+            if (navigator.onLine) sendToGoatCounter('export-csv-manual-fallback');
+        }
+
+        function closeManualExportModal() {
+            document.getElementById('manualExportModal').style.display = 'none';
+        }
+
+        // Tentative presse-papier — best-effort, peut échouer silencieusement selon le contexte
+        // (voir commentaire de section ci-dessus). Le texte affiché reste la vraie garantie.
+        async function copyManualExportText() {
+            const textarea = document.getElementById('manual-export-textarea');
+            textarea.select();
+            try {
+                await navigator.clipboard.writeText(textarea.value);
+                const btn = document.getElementById('manual-export-copy-btn');
+                const original = btn.textContent;
+                btn.textContent = t('manualExportCopied');
+                setTimeout(() => { btn.textContent = original; }, 2000);
+            } catch (e) {
+                console.warn('[showManualExportModal] Copie presse-papier échouée (attendu dans ce contexte) :', e);
             }
         }
 
