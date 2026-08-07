@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -607,7 +607,8 @@
             line-height: 1.5;
         }
 
-        #install-splash-dismiss {
+        #install-splash-dismiss,
+        .install-splash-link {
             font-size: 0.85rem;
             opacity: 0.65;
             cursor: pointer;
@@ -1540,14 +1541,19 @@
                     </div>`;
             }
 
-            const closeLabel = variant === 'C' ? t('installConfirmCloseBtnC') : t('btnClose');
+            // Tier C : ramène au Splash 1, où se trouve déjà le vrai lien "continuer dans le
+            // navigateur" — pas besoin d'un second mécanisme de fermeture distinct.
+            // Tier AB : fermeture directe, revenir à un Splash 1 "navigateur" n'aurait pas de sens
+            // puisque l'installation vient d'aboutir.
+            const closeAction = variant === 'C' ? 'renderInstallSplashButtonScreen()' : 'closeInstallSplashConfirmation()';
+            const closeLabel = variant === 'C' ? t('installSplashBack') : t('btnClose');
 
             body.innerHTML = `
                 <div class="install-splash-instructions">
                     <p>${variant === 'C' ? t('installConfirmTextIOS') : t('installConfirmTextAB')}</p>
                     ${exportBox}
                 </div>
-                <div id="install-splash-dismiss" onclick="closeInstallSplashConfirmation()">${closeLabel}</div>
+                <div id="install-splash-dismiss" onclick="${closeAction}">${closeLabel}</div>
             `;
             console.log(`[Install] Splash 3 (confirmation) affiché — variante:${variant}`);
         }
@@ -1619,6 +1625,7 @@
 
         function showFacebookBrowserBlock() {
             if (document.getElementById('install-splash')) return;
+            const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
@@ -1630,7 +1637,7 @@
                         <div class="install-splash-steps">
                             <p>${t('installFBStepsHeadingBlock')}</p>
                             <div>- ${t('installFBStep1')}</div>
-                            <div>- ${t('installFBStep2')}</div>
+                            <div>- ${step2}</div>
                             <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
                         </div>
                     </div>
@@ -1641,35 +1648,58 @@
             console.log('[Install] Blocage navigateur Facebook affiché (pas de données significatives)');
         }
 
+        // Cas 2 (données existantes) — deux écrans, comme les autres tiers : avertissement
+        // (renderFacebookWarningScreen) puis export dédié (renderFacebookExportScreen),
+        // accessible via "Transférer mes données déjà enregistrées". showFacebookBrowserWarning()
+        // crée l'overlay une seule fois, les deux fonctions de rendu se relaient dans le même corps.
         function showFacebookBrowserWarning() {
             if (document.getElementById('install-splash')) return;
-            const persistNote = isIOSDevice() ? ` ${t('installFBPersistIOSNote')}` : '';
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
                 <img id="install-splash-logo" src="icon-192.png" alt="">
                 <div id="install-splash-appname">${APP_NAME}</div>
-                <div id="install-splash-body">
-                    <div class="install-splash-instructions">
-                        <p>${t('installFBWarningIntro')}</p>
-                        <p>${t('installFBPersistText')}${persistNote}</p>
-                        <div class="install-splash-steps">
-                            <p>${t('installFBStepsHeadingWarning')}</p>
-                            <div>- ${t('installFBStep1')}</div>
-                            <div>- ${t('installFBStep2')}</div>
-                        </div>
-                        <div class="install-splash-export-box">
-                            <p>${t('installFBExportWarning')}</p>
-                            <button class="export-btn"
-                                style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                                onclick="exportCSV()">${t('installTierCExportBtn')}</button>
-                        </div>
-                    </div>
-                    <div id="install-splash-dismiss" onclick="closeFacebookBrowserWarning()">${t('installFBContinueAnyway')}</div>
-                </div>
+                <div id="install-splash-body"></div>
             `;
             document.body.appendChild(overlay);
+            renderFacebookWarningScreen();
+        }
+
+        function renderFacebookWarningScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <p>${t('installFBBlockIntro')}</p>
+                    <div class="install-splash-steps">
+                        <p>${t('installFBStepsHeadingWarning')}</p>
+                        <div>- ${t('installFBStep1')}</div>
+                        <div>- ${step2}</div>
+                        <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
+                    </div>
+                </div>
+                <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
+                <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn')}</div>
+            `;
             console.log('[Install] Avertissement navigateur Facebook affiché (données existantes)');
+        }
+
+        function renderFacebookExportScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <div class="install-splash-export-box" style="margin-top:0; padding-top:0; border-top:none;">
+                        <p>${t('installFBExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>
+                </div>
+                <div class="install-splash-link" onclick="renderFacebookWarningScreen()">${t('installSplashBack')}</div>
+            `;
+            console.log('[Install] Écran export Facebook affiché');
         }
 
         // Fermeture dédiée — volontairement séparée de closeInstallSplash() : ce flux n'a
@@ -1753,12 +1783,13 @@
 
             let content = '';
             if (tier === 'F') {
+                const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
                 content = `
                     <p style="margin:0 0 10px 0; font-size:0.93rem;">${t('installSettingsFBText')}</p>
                     <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
                         <p style="margin:0 0 6px 0;">${t('installFBStepsHeadingBlock')}</p>
                         <div>- ${t('installFBStep1')}</div>
-                        <div>- ${t('installFBStep2')}</div>
+                        <div>- ${step2}</div>
                     </div>`;
             } else if (tier === 'C') {
                 const exportBox = shouldSuggestExportBeforeInstall() ? `
@@ -2336,20 +2367,18 @@
                 installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
                 installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur.",
                 installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur.",
-                installConfirmCloseBtnC: "Retour dans le navigateur",
 
                 // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
                 installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
                 installFBStepsHeadingBlock: "Pour continuer :",
                 installFBOutro: "Vous pourrez ensuite installer PacingCount pour une expérience stable et complète.",
-                installFBWarningIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook. Ce n'est pas idéal : cela peut limiter la conservation de vos données dans le temps, et elles ne pourront pas être transférées automatiquement vers un autre navigateur.",
-                installFBPersistText: "Vos données actuelles restent accessibles tant que vous continuez à ouvrir l'application depuis Facebook.",
-                installFBPersistIOSNote: "Sur iPhone, ouvrez-la au moins une fois par semaine environ pour éviter toute suppression automatique.",
-                installFBStepsHeadingWarning: "Pour une expérience stable et complète, il est préférable d'installer l'application :",
+                installFBStepsHeadingWarning: "Pour une expérience stable et complète, installez l'application :",
                 installFBStep1: "toucher le menu&emsp;⋮&emsp;en haut à droite",
-                installFBStep2: "choisir « Ouvrir dans un navigateur externe »",
-                installFBExportWarning: "⚠️ Vos données actuelles ne vous suivront pas automatiquement — exportez-les par précaution avant de changer.",
-                installFBContinueAnyway: "Continuer quand même",
+                installFBStep2IOS: "choisir « Ouvrir dans un navigateur externe » (Safari)",
+                installFBStep2Android: "choisir « Ouvrir dans un navigateur externe » (Chrome)",
+                installFBTransferData: "Transférer mes données déjà enregistrées",
+                installFBTempReturn: "Retour temporaire dans le navigateur Facebook",
+                installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur Facebook. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
 
                 // Carte permanente Réglages (Bloc 5)
                 installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
