@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -418,7 +418,10 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 100;
+            /* Au-dessus du splash d'installation (500) et des toasts (550) : un modal ouvert
+               par une action utilisateur explicite doit toujours pouvoir s'afficher, même si
+               ces éléments étaient déjà présents — protection structurelle, pas conventionnelle. */
+            z-index: 560;
             left: 0;
             top: 0;
             width: 100%;
@@ -506,6 +509,12 @@
             /* Espacement uniforme entre les blocs directement présents (logo/nom/slogan/corps) —
                fiable quelle que soit la combinaison affichée, sans marges à ajuster au cas par cas. */
             animation: installSplashFadeIn 0.25s ease;
+        }
+
+        /* z-index supérieur à #install-splash (500) — ce modal peut être déclenché depuis
+           l'intérieur même du splash (écran export Facebook), il doit toujours passer au-dessus. */
+        #manualExportModal {
+            z-index: 600;
         }
 
         @keyframes installSplashFadeIn {
@@ -1145,10 +1154,7 @@
     <div id="manualExportModal" class="modal">
         <div class="modal-content">
             <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
-            <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:6px;">
-                Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (extension .csv) :
-            </p>
-            <p id="manual-export-filename" style="font-size:0.85rem; font-family:monospace; opacity:0.75; margin-bottom:12px;"></p>
+            <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:12px;"></p>
             <textarea id="manual-export-textarea" readonly
                 style="width:100%; height:160px; box-sizing:border-box; background:#111; color:var(--text-color);
                        border:1px solid #444; border-radius:6px; padding:10px; font-family:monospace;
@@ -1270,7 +1276,7 @@
             toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
-        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -1295,7 +1301,7 @@
             toast.style.cssText = `
         position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
-        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -1313,6 +1319,41 @@
         </button>
         <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportFull')}</div>`;
             document.body.appendChild(toast);
+        }
+
+        // Toast "mise à jour installée" — extrait de son ancien setTimeout autonome (section 23)
+        // pour être appelé au bon moment par showStartupToasts(), dans l'ordre convenu
+        // (splash > toasts > message JSON).
+        function showUpdateInstalledToast() {
+            const toast = document.createElement('div');
+            toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
+               <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
+            toast.style.cssText = `
+        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
+        border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
+        min-width:220px; z-index:550; opacity:1; transition:opacity 1s;
+        white-space:nowrap;`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; }, 5000);
+            setTimeout(() => { toast.remove(); }, 6000);
+        }
+
+        // Enchaîné après résolution du splash (ou immédiatement si aucun splash à montrer) —
+        // respecte l'ordre convenu : splash > toasts > message JSON. Les toasts ne bloquent pas
+        // l'interaction (contrairement aux modals) : on ne les "attend" pas avant d'enchaîner,
+        // l'essentiel est qu'ils ne soient jamais masqués par un splash déjà ouvert (z-index)
+        // ni concurrents d'un modal — voir durcissement des z-index (section CSS).
+        function showStartupToasts() {
+            if (window._pendingUpdateInstalledToast) {
+                showUpdateInstalledToast();
+                window._pendingUpdateInstalledToast = false;
+            }
+            if (window._pendingStorageWarningToast) {
+                showStorageWarningToast();
+                window._pendingStorageWarningToast = false;
+            }
+            checkMessages();
         }
 
         // Remplace localStorage.setItem dans saveState() et saveSettings()
@@ -1371,21 +1412,38 @@
             return 'D';
         }
 
-        const INSTALL_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours entre deux rappels
+        const INSTALL_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours entre deux rappels (tiers A/B)
+        const INSTALL_INTENSIVE_PERIOD_DAYS = 14; // fin de la période "insistante" (tiers C/D)
+        const INSTALL_INTENSIVE_INTERVAL_DAYS = 3; // cadence pendant cette période, après J1→J2 quotidien
 
-        // Détermine si le splash d'installation doit être affiché à ce lancement.
-        // Ne tranche pas entre variante "premier lancement" / "rappel" — Bloc 3 s'en charge
-        // via window.isFirstEverLaunch (déjà disponible globalement).
-        function shouldShowInstallSplash() {
-            if (isPWAInstalled()) return false;      // déjà installée : rien à proposer
-            if (!isHandheldDevice()) return false;   // desktop : seul le bouton Réglages agit
-            if (getInstallTier() === 'D') return false; // aucun chemin d'installation identifié
+        // Détermine si le splash doit être affiché à ce lancement, selon le tier.
+        // A/B (Chromium) : cycle premier lancement + rappel 7 jours, inchangé.
+        // C/D (export+import requis pour changer de voie) : plus insistant en tout début
+        // d'usage — jour 1 et jour 2 systématiques, puis tous les 3 jours pendant 2 semaines,
+        // puis rejoint le cycle standard à 7 jours. Jamais deux fois le même jour civil.
+        function shouldShowSplashForTier(tier) {
+            if (tier === 'A' || tier === 'B') {
+                if (window.isFirstEverLaunch) return true;
+                const lastDismiss = parseInt(localStorage.getItem('installPromptLastDismissAt') || '0', 10);
+                if (!lastDismiss) return true;
+                return (Date.now() - lastDismiss) >= INSTALL_REMINDER_INTERVAL_MS;
+            }
 
-            if (window.isFirstEverLaunch) return true; // tout premier lancement absolu
+            const todayStr = new Date().toDateString();
+            const lastShownStr = localStorage.getItem('installPromptLastShownDay');
+            if (lastShownStr === todayStr) return false; // jamais deux fois le même jour civil
+            if (!lastShownStr) return true; // jamais montré — couvre le tout premier affichage
 
-            const lastDismiss = parseInt(localStorage.getItem('installPromptLastDismissAt') || '0', 10);
-            if (!lastDismiss) return true; // jamais vu depuis l'existence de cette fonctionnalité
-            return (Date.now() - lastDismiss) >= INSTALL_REMINDER_INTERVAL_MS;
+            const firstDateStr = localStorage.getItem('installFirstLaunchDate') || todayStr;
+            const daysSinceFirst = Math.round((new Date(todayStr) - new Date(firstDateStr)) / 86400000);
+            const daysSinceLastShown = Math.round((new Date(todayStr) - new Date(lastShownStr)) / 86400000);
+
+            let requiredInterval;
+            if (daysSinceFirst <= 1) requiredInterval = 1; // jour 1 et jour 2 : tous les jours
+            else if (daysSinceFirst <= INSTALL_INTENSIVE_PERIOD_DAYS) requiredInterval = INSTALL_INTENSIVE_INTERVAL_DAYS;
+            else requiredInterval = 7; // rejoint le cycle standard
+
+            return daysSinceLastShown >= requiredInterval;
         }
 
         // Enregistre la fermeture du splash (quel que soit le bouton pressé) — sert de base
@@ -1423,11 +1481,16 @@
         function showInstallSplash() {
             if (document.getElementById('install-splash')) return; // déjà affiché
             const tier = getInstallTier();
-            if (tier === 'D') {
-                // Le splash ne gère jamais ce cas (voir bouton Réglages, Bloc 5).
-                // Ce garde protège aussi un appel manuel direct en console (hors séquencement Bloc 4).
-                console.warn('[Install] showInstallSplash() appelé en tier D — aucun affichage (voir bouton Réglages)');
+            if (tier === 'F') {
+                // Ne devrait jamais arriver ici — Facebook est intercepté en amont, dans
+                // checkAndShowInstallSplash(), avant même l'appel à cette fonction.
+                console.warn('[Install] showInstallSplash() appelé en tier F — voir checkFacebookBrowserBlock()');
                 return;
+            }
+
+            // Base de la cadence par jour civil (tiers C/D uniquement — voir shouldShowSplashForTier()).
+            if (tier === 'C' || tier === 'D') {
+                localStorage.setItem('installPromptLastShownDay', new Date().toDateString());
             }
 
             const overlay = document.createElement('div');
@@ -1441,11 +1504,62 @@
             document.body.appendChild(overlay);
 
             // Splash 1 unifié pour A/B/C — même écran partout, seule la cible du clic diffère
-            // (voir renderInstallSplashButtonScreen()). Tier C n'a plus de raccourci direct
-            // vers les instructions : il passe désormais aussi par cet écran.
-            renderInstallSplashButtonScreen();
+            // (voir renderInstallSplashButtonScreen()). Tier D a son propre écran dédié
+            // (renderInstallSplashTierD()) : pas de bouton d'installation possible, juste un
+            // lien à copier — pas un blocage comme Facebook, Firefox reste un choix légitime.
+            if (tier === 'D') {
+                renderInstallSplashTierD();
+            } else {
+                renderInstallSplashButtonScreen();
+            }
             console.log(`[Install] Splash affiché — variante:${window.isFirstEverLaunch ? 'premier lancement' : 'rappel'} tier:${tier}`);
         }
+
+        // Tier D (ex. Firefox) — écran informatif unique, pas de bouton d'installation possible.
+        // Contrairement à Facebook : pas un blocage, juste l'absence de voie d'installation —
+        // "continuer dans ce navigateur" reste donc une sortie pleinement légitime.
+        function renderInstallSplashTierD() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = INSTALL_SPLASH_SHOW_SLOGAN ? '' : 'none';
+
+            const isReminder = !window.isFirstEverLaunch;
+            const showContext = shouldSuggestExportBeforeInstall();
+            const blankLine = '<div class="install-splash-context-line">&nbsp;</div>';
+            const contextHTML = showContext
+                ? `${blankLine}<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>${blankLine}`
+                : blankLine.repeat(6);
+
+            body.innerHTML = `
+                <div id="install-splash-context">${contextHTML}</div>
+                <div class="install-splash-instructions">
+                    <p style="font-weight:bold;">${t('installTierDText')}</p>
+                    <p style="font-size:0.85rem; opacity:0.8; word-break:break-all;">${window.location.href}</p>
+                    <button class="export-btn" style="margin-top:8px;" id="install-splash-copy-btn"
+                        onclick="copyInstallLinkFromSplash()">${t('installCopyLinkBtn')}</button>
+                </div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+            `;
+        }
+
+        // Copie dédiée au splash (distincte de copyInstallLink() en Réglages, qui cible un
+        // autre bouton) — best-effort, échoue silencieusement selon le contexte.
+        async function copyInstallLinkFromSplash() {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                const btn = document.getElementById('install-splash-copy-btn');
+                if (btn) {
+                    const original = btn.textContent;
+                    btn.textContent = t('installLinkCopied');
+                    setTimeout(() => { btn.textContent = original; }, 2000);
+                }
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
+        }
+
 
         // Splash 1 — écran commun A/B/C. Le paragraphe de contexte n'apparaît que si
         // shouldSuggestExportBeforeInstall() est vrai (données réelles en jeu), plus lié au
@@ -1588,13 +1702,13 @@
 
         // skipMessages : true si l'installation vient d'être acceptée — dans ce cas, on ne
         // montre plus rien dans cet onglet navigateur, l'utilisateur est censé basculer vers
-        // l'app installée à partir de maintenant. Sinon, checkMessages() prend le relais ici :
-        // le splash d'installation a priorité d'affichage sur les messages JSON, jamais l'inverse.
+        // l'app installée à partir de maintenant. Sinon, showStartupToasts() prend le relais :
+        // toasts puis message JSON, dans cet ordre — le splash reste toujours prioritaire.
         function closeInstallSplash(skipMessages) {
             recordInstallPromptDismiss();
             const overlay = document.getElementById('install-splash');
             if (overlay) overlay.remove();
-            if (!skipMessages) checkMessages();
+            if (!skipMessages) showStartupToasts();
         }
 
         // Clic sur le bouton "Installer" (tier A ou B uniquement — tier C ne passe jamais ici,
@@ -1754,10 +1868,9 @@
             if (overlay) overlay.remove();
         }
 
-        // Point d'entrée — à appeler tout en haut de la séquence de démarrage.
-        // Retourne true si le navigateur Facebook a été détecté (et donc pris la main sur cet
-        // affichage) : l'appelant doit alors sauter le reste de la séquence habituelle
-        // (checkMessages(), splash d'installation standard) pour ce lancement.
+        // Appelée par checkAndShowInstallSplash() en tout premier — ne plus appeler directement
+        // depuis la séquence de démarrage (voir plus bas). Retourne true si le navigateur
+        // Facebook a été détecté (et donc pris la main sur cet affichage).
         function checkFacebookBrowserBlock() {
             if (!isFacebookInAppBrowser()) return false;
 
@@ -1769,6 +1882,34 @@
             } else {
                 showFacebookBrowserBlock();
             }
+            return true;
+        }
+
+        // ============================================================
+        // POINT D'ENTRÉE UNIQUE — regroupe tout l'arbre de décision du splash d'installation
+        // (Facebook, desktop, tiers A/B/C/D, cadences respectives) en un seul endroit, plutôt
+        // que deux systèmes parallèles à synchroniser par convention. Seule fonction à appeler
+        // depuis la séquence de démarrage (section 23) — retourne true si un splash a pris la
+        // main sur cet affichage (l'appelant doit alors sauter le reste de la séquence, la suite
+        // étant enchaînée depuis la fermeture du splash lui-même).
+        //
+        // Arbre :
+        //   1. Déjà installée ? → rien
+        //   2. Navigateur Facebook ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
+        //   3. Desktop ? → rien (carte Réglages seule, jamais de splash proactif)
+        //   4. Cadence du tier détecté (A/B : 7 jours ; C/D : jour civil, voir shouldShowSplashForTier())
+        // ============================================================
+        function checkAndShowInstallSplash() {
+            if (isPWAInstalled()) return false;
+
+            if (checkFacebookBrowserBlock()) return true;
+
+            if (!isHandheldDevice()) return false;
+
+            const tier = getInstallTier();
+            if (!shouldShowSplashForTier(tier)) return false;
+
+            showInstallSplash();
             return true;
         }
 
@@ -2165,6 +2306,13 @@
         // pour savoir s'il doit afficher sa variante "premier lancement" (voir section 1c).
         window.isFirstEverLaunch = !localStorage.getItem('pacingSettings');
 
+        // Base de la cadence par jour civil (tiers C/D, voir shouldShowSplashForTier()).
+        // Pour un utilisateur déjà existant au moment de l'ajout de cette fonctionnalité,
+        // par défaut "aujourd'hui" — pas d'historique réel disponible, point de départ raisonnable.
+        if (!localStorage.getItem('installFirstLaunchDate')) {
+            localStorage.setItem('installFirstLaunchDate', new Date().toDateString());
+        }
+
         // On lance la migration AVANT de charger state et settings
         migrateLocalStorage();
 
@@ -2427,7 +2575,7 @@
 
                 // Modal de repli export manuel (navigateur Facebook)
                 manualExportTitle: "Export manuel des données enregistrées",
-                manualExportInstructions: "Sélectionnez tout, copiez, puis collez dans une note ou un e-mail. Enregistrez ensuite ce texte sous le nom suivant (extension .csv) :",
+                manualExportInstructions: "1) Copiez, puis collez toutes les données suivantes dans un éditeur de texte brut (Bloc-Note, TextEdit ou un outil en ligne comme <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Enregistrez en format .txt, puis remplacez l'extension du fichier par .csv (nom de fichier proposé : {filename}).",
                 manualExportCopyBtn: "Copier",
                 manualExportCopied: "Copié !",
 
@@ -4326,9 +4474,9 @@
             document.getElementById('import-merge-detail').innerText = t('importMergeDetail');
             document.getElementById('btn-import-cancel').innerText = t('btnCancel');
 
-            // Modal export manuel (repli navigateur Facebook)
+            // Modal export manuel (repli navigateur Facebook) — le paragraphe d'instructions est
+            // construit dynamiquement par showManualExportModal() (nom de fichier intégré au texte)
             document.getElementById('manual-export-title').innerText = t('manualExportTitle');
-            document.getElementById('manual-export-instructions').innerText = t('manualExportInstructions');
             document.getElementById('manual-export-copy-btn').innerText = t('manualExportCopyBtn');
             document.getElementById('btn-manual-export-close').innerText = t('btnClose');
 
@@ -5549,8 +5697,9 @@
         // ============================================================
 
         function showManualExportModal(csv) {
-            document.getElementById('manual-export-filename').textContent =
-                `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            const filename = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.getElementById('manual-export-instructions').innerHTML =
+                t('manualExportInstructions', { filename });
             const textarea = document.getElementById('manual-export-textarea');
             textarea.value = csv;
             document.getElementById('manualExportModal').style.display = 'flex';
@@ -6534,29 +6683,16 @@
             }
         }
 
-        // Message "toast" de mise à jour réussie - reste 5 secondes puis disparaît sans clic
-        // try catch de sécurité pour ne pas bloquer une mise à jour
+        // Détection de mise à jour — le toast lui-même est affiché plus tard par
+        // showStartupToasts() (voir section 23, fin), pour respecter l'ordre convenu
+        // (splash > toasts > message JSON). try/catch de sécurité pour ne pas bloquer une mise à jour.
+        window._pendingUpdateInstalledToast = false;
         try {
             const lastSeenVersion = localStorage.getItem('lastSeenVersion');
             if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
                 localStorage.removeItem('pendingUpdateFrom'); // On pourra retirer ça à un moment (ancienne migration)
                 console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
-
-                // Petit toast non bloquant
-                setTimeout(() => {
-                    const toast = document.createElement('div');
-                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
-                       <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
-                    toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
-        background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
-        border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
-        min-width:220px; z-index:200; opacity:1; transition:opacity 1s;
-        white-space:nowrap;`;
-                    document.body.appendChild(toast);
-                    setTimeout(() => { toast.style.opacity = '0'; }, 5000);
-                    setTimeout(() => { toast.remove(); }, 6000);
-                }, 500);
+                window._pendingUpdateInstalledToast = true;
             }
 
             // Détection : première installation (pas de lastSeenVersion) OU changement de version
@@ -6625,8 +6761,10 @@
             localStorage.setItem('lastDailyPingSent', Date.now());
         }
 
-        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%)
+        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%) — le toast est
+        // affiché plus tard par showStartupToasts() (voir section 23, fin), pas immédiatement ici.
         // Réutilise _today déjà défini dans le daily ping ci-dessus
+        window._pendingStorageWarningToast = false;
         {
             const _lastStorageWarn = localStorage.getItem('lastStorageWarningSent');
             const _lastStorageWarnDay = _lastStorageWarn
@@ -6635,7 +6773,7 @@
             if (_today !== _lastStorageWarnDay) {
                 const _ratio = getLocalStorageSize() / STORAGE_LIMIT_BYTES;
                 if (_ratio >= STORAGE_WARN_RATIO) {
-                    setTimeout(() => showStorageWarningToast(), 3000); // après chargement UI
+                    window._pendingStorageWarningToast = true;
                     localStorage.setItem('lastStorageWarningSent', Date.now());
                 }
             }
@@ -6676,20 +6814,15 @@
         // requestNotificationPermission();
 
         // Priorité d'affichage, du plus prioritaire au moins prioritaire, après 2500ms
-        // (laisse le temps à l'UI de se charger) :
-        //   1. Navigateur Facebook (checkFacebookBrowserBlock) — remplace tout le reste si détecté
-        //   2. Splash d'installation standard (shouldShowInstallSplash) — passe devant les messages JSON
-        //   3. Message JSON (checkMessages) — seulement si rien des deux precédents ne s'affiche,
-        //      ou déclenché depuis closeInstallSplash() une fois le splash refermé
-        if (!checkFacebookBrowserBlock()) {
-            setTimeout(() => {
-                if (shouldShowInstallSplash()) {
-                    showInstallSplash();
-                } else {
-                    checkMessages();
-                }
-            }, 2500);
-        }
+        // (laisse le temps à l'UI de se charger) : splash (Facebook ou standard) > toasts >
+        // message JSON. checkAndShowInstallSplash() gère tout l'arbre de décision en un seul
+        // point d'entrée (voir sections 1c-1f). Si un splash prend la main, la suite (toasts
+        // puis message JSON) est enchaînée depuis sa propre fermeture — jamais ici directement.
+        setTimeout(() => {
+            if (!checkAndShowInstallSplash()) {
+                showStartupToasts();
+            }
+        }, 2500);
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.
