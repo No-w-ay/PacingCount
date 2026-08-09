@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1889,6 +1889,13 @@
             if (overlay) overlay.remove();
         }
 
+        // Fonction pure (aucun effet de bord) — permet à checkFacebookBrowserBlock() et au
+        // diagnostic (debugInstallState()) de partager exactement la même règle de cadence,
+        // sans dupliquer la logique ni risquer une divergence entre les deux.
+        function shouldShowFacebookWarningToday() {
+            return localStorage.getItem('installFBWarningLastShownDay') !== new Date().toDateString();
+        }
+
         // Appelée par checkAndShowInstallSplash() en tout premier — ne plus appeler directement
         // depuis la séquence de démarrage (voir plus bas). Retourne true si le navigateur
         // Facebook a été détecté (et donc pris la main sur cet affichage).
@@ -1896,9 +1903,8 @@
             if (!isFacebookInAppBrowser()) return false;
 
             if (shouldSuggestExportBeforeInstall()) {
-                const today = new Date().toDateString();
-                if (localStorage.getItem('installFBWarningLastShownDay') === today) return false;
-                localStorage.setItem('installFBWarningLastShownDay', today);
+                if (!shouldShowFacebookWarningToday()) return false;
+                localStorage.setItem('installFBWarningLastShownDay', new Date().toDateString());
                 showFacebookBrowserWarning();
             } else {
                 showFacebookBrowserBlock();
@@ -1932,6 +1938,75 @@
 
             showInstallSplash();
             return true;
+        }
+
+        // ============================================================
+        // OUTIL DE DIAGNOSTIC (console) — debugInstallState()
+        // Lecture seule, aucun effet de bord : n'appelle jamais checkFacebookBrowserBlock() ni
+        // checkAndShowInstallSplash() directement (elles écrivent en localStorage et déclenchent
+        // l'affichage réel) — reconstruit le même résultat à partir des fonctions pures
+        // partagées (isPWAInstalled, shouldShowSplashForTier, shouldShowFacebookWarningToday...),
+        // donc sans risque de divergence avec la vraie logique.
+        // ============================================================
+        function debugInstallState() {
+            const g = (label, value) => console.log(`%c${label} :`, 'font-weight:bold', value);
+
+            console.log('%c=== ÉTAT DE L\'ARBRE D\'INSTALLATION ===', 'font-size:14px; font-weight:bold; color:#4da3ff;');
+
+            console.group('🌍 Environnement détecté');
+            g('isPWAInstalled()', isPWAInstalled());
+            g('isHandheldDevice()', isHandheldDevice());
+            g('isIOSDevice()', isIOSDevice());
+            g('isFacebookInAppBrowser()', isFacebookInAppBrowser());
+            g('getInstallTier()', getInstallTier());
+            g('window.deferredInstallPrompt', window.deferredInstallPrompt ? 'présent' : 'absent');
+            console.groupEnd();
+
+            console.group('📊 Données utilisateur');
+            const totalMin = Math.round(state.history.reduce((s, e) => s + (e.end - e.start), 0) / 60000);
+            g('Périodes enregistrées', state.history.length);
+            g('Minutes cumulées', totalMin);
+            g('shouldSuggestExportBeforeInstall()', shouldSuggestExportBeforeInstall());
+            console.groupEnd();
+
+            console.group('🕒 Cadence — valeurs brutes (localStorage)');
+            g('window.isFirstEverLaunch', window.isFirstEverLaunch);
+            g('installFirstLaunchDate', localStorage.getItem('installFirstLaunchDate'));
+            const lastDismiss = localStorage.getItem('installPromptLastDismissAt');
+            g('installPromptLastDismissAt (tiers A/B)', lastDismiss ? new Date(parseInt(lastDismiss)).toLocaleString() : null);
+            g('installPromptLastShownDay (tiers C/D)', localStorage.getItem('installPromptLastShownDay'));
+            g('installFBWarningLastShownDay (tier F, Cas 2)', localStorage.getItem('installFBWarningLastShownDay'));
+            console.groupEnd();
+
+            console.group('🌳 Résultat de l\'arbre — recalculé à la volée, sans effet de bord');
+            let branch, wouldShow;
+            if (isPWAInstalled()) {
+                branch = 'Déjà installée';
+                wouldShow = false;
+            } else if (isFacebookInAppBrowser()) {
+                const hasData = shouldSuggestExportBeforeInstall();
+                branch = hasData ? 'Facebook — Cas 2 (avertissement, données)' : 'Facebook — Cas 1 (blocage, pas de données)';
+                wouldShow = hasData ? shouldShowFacebookWarningToday() : true;
+            } else if (!isHandheldDevice()) {
+                branch = 'Desktop';
+                wouldShow = false;
+            } else {
+                const tier = getInstallTier();
+                branch = `Tier ${tier}`;
+                wouldShow = shouldShowSplashForTier(tier);
+            }
+            g('Branche empruntée', branch);
+            g('Le splash serait affiché maintenant ?', wouldShow);
+            console.groupEnd();
+
+            console.group('🖥️ Affichage actuel dans la page');
+            const overlay = document.getElementById('install-splash');
+            g('#install-splash présent dans le DOM', !!overlay);
+            if (overlay) {
+                const bodyText = document.getElementById('install-splash-body')?.innerText.trim() || '';
+                g('Contenu actuel (aperçu texte)', bodyText.slice(0, 250) + (bodyText.length > 250 ? '…' : ''));
+            }
+            console.groupEnd();
         }
 
         // ============================================================
