@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1269,12 +1269,22 @@
         const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — capacité limite typique navigateur
         const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
 
+        // Calcule le décalage vertical du prochain toast — évite que plusieurs toasts se
+        // superposent exactement au même endroit s'ils apparaissent ensemble (ex. mise à jour
+        // + alerte stockage au démarrage, via showStartupToasts()). Incrément généreux (150px)
+        // pour couvrir les toasts les plus hauts (stockage, avec bouton).
+        function getNextToastBottomOffset() {
+            const existing = document.querySelectorAll('.pacing-toast').length;
+            return 80 + existing * 150;
+        }
+
         function showStorageWarningToast() {
             if (document.getElementById('storage-warning-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-warning-toast';
+            toast.className = 'pacing-toast';
             toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
         border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
@@ -1298,8 +1308,9 @@
             if (document.getElementById('storage-full-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-full-toast';
+            toast.className = 'pacing-toast';
             toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
         border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
@@ -1326,10 +1337,11 @@
         // (splash > toasts > message JSON).
         function showUpdateInstalledToast() {
             const toast = document.createElement('div');
+            toast.className = 'pacing-toast';
             toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
                <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
             toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
         border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
         min-width:220px; z-index:550; opacity:1; transition:opacity 1s;
@@ -1601,6 +1613,42 @@
         // (pas de dismiss enregistré, navigation interne). Tier C ajoute un second bouton
         // "J'ai pu suivre ces instructions" qui mène au Splash 3 auto-déclaré — aucune détection
         // automatique n'existant sur iOS. Plus d'export CSV ici : déplacé au Splash 3 (désencombre).
+        // Construit le bloc "titre + étapes" — partagé entre le splash plein écran et la carte
+        // Réglages. Le contenu ne vit qu'ici ; chaque appelant garde sa propre mise en scène
+        // autour (plein écran vs carte compacte, export en ligne ou non), pour que le contenu
+        // ne puisse plus diverger entre les deux comme c'est arrivé par le passé.
+        function buildInstallStepsHTML(tier) {
+            if (tier === 'F') {
+                const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
+                const heading = shouldSuggestExportBeforeInstall()
+                    ? t('installFBStepsHeadingWarning')
+                    : t('installFBStepsHeadingBlock');
+                return `
+                    <div class="install-splash-steps">
+                        <p>${heading}</p>
+                        <div>- ${t('installFBStep1')}</div>
+                        <div>- ${step2}</div>
+                        <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
+                    </div>`;
+            }
+            if (tier === 'C') {
+                return `
+                    <div class="install-splash-steps">
+                        <p>${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
+                        <div>- ${t('installTierCStep2')}</div>
+                        <div>- ${t('installTierCStep3')}</div>
+                    </div>`;
+            }
+            // Tier B (par défaut)
+            return `
+                <div class="install-splash-steps">
+                    <p>${t('installStepsHeading')}</p>
+                    <div>- ${t('installTierBStep1')}</div>
+                    <div>- ${t('installTierBStep2')}</div>
+                </div>`;
+        }
+
         function renderInstallSplashInstructions(tier) {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
@@ -1609,28 +1657,13 @@
             const sloganEl = document.getElementById('install-splash-slogan');
             if (sloganEl) sloganEl.style.display = 'none';
 
-            let stepsHTML;
-            if (tier === 'C') {
-                stepsHTML = `
-                    <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
-                    <div>- ${t('installTierCStep2')}</div>
-                    <div>- ${t('installTierCStep3')}</div>`;
-            } else {
-                stepsHTML = `
-                    <div>- ${t('installTierBStep1')}</div>
-                    <div>- ${t('installTierBStep2')}</div>`;
-            }
-
             const confirmBtn = tier === 'C'
                 ? `<button class="export-btn" style="margin:0 0 10px 0;" onclick="renderInstallSplashConfirmationBody('C')">${t('installConfirmSelfReportBtn')}</button>`
                 : '';
 
             body.innerHTML = `
                 <div class="install-splash-instructions">
-                    <div class="install-splash-steps">
-                        <p>${t('installStepsHeading')}</p>
-                        ${stepsHTML}
-                    </div>
+                    ${buildInstallStepsHTML(tier)}
                 </div>
                 ${confirmBtn}
                 <div id="install-splash-dismiss" onclick="renderInstallSplashButtonScreen()">${t('installSplashBack')}</div>
@@ -1760,7 +1793,6 @@
 
         function showFacebookBrowserBlock() {
             if (document.getElementById('install-splash')) return;
-            const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
@@ -1769,12 +1801,7 @@
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
                         <p>${t('installFBBlockIntro')}</p>
-                        <div class="install-splash-steps">
-                            <p>${t('installFBStepsHeadingBlock')}</p>
-                            <div>- ${t('installFBStep1')}</div>
-                            <div>- ${step2}</div>
-                            <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
-                        </div>
+                        ${buildInstallStepsHTML('F')}
                     </div>
                 </div>
             `;
@@ -1827,16 +1854,10 @@
         function renderFacebookWarningScreen() {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
-            const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
             body.innerHTML = `
                 <div class="install-splash-instructions">
                     <p>${t('installFBBlockIntro')}</p>
-                    <div class="install-splash-steps">
-                        <p>${t('installFBStepsHeadingWarning')}</p>
-                        <div>- ${t('installFBStep1')}</div>
-                        <div>- ${step2}</div>
-                        <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
-                    </div>
+                    ${buildInstallStepsHTML('F')}
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
                 <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn')}</div>
@@ -1969,13 +1990,19 @@
 
             let content = '';
             if (tier === 'F') {
-                const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
+                const hasData = shouldSuggestExportBeforeInstall();
+                const exportBox = hasData ? `
+                    <div class="install-splash-export-box">
+                        <p>${t('installFBExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>` : '';
                 content = `
-                    <p style="margin:0 0 10px 0; font-size:0.93rem;">${t('installSettingsFBText')}</p>
-                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
-                        <p style="margin:0 0 6px 0;">${t('installFBStepsHeadingBlock')}</p>
-                        <div>- ${t('installFBStep1')}</div>
-                        <div>- ${step2}</div>
+                    <div class="install-splash-instructions">
+                        <p>${t('installFBBlockIntro')}</p>
+                        ${buildInstallStepsHTML('F')}
+                        ${exportBox}
                     </div>`;
             } else if (tier === 'C') {
                 const exportBox = shouldSuggestExportBeforeInstall() ? `
@@ -1986,13 +2013,10 @@
                             onclick="exportCSV()">${t('installTierCExportBtn')}</button>
                     </div>` : '';
                 content = `
-                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
-                        <p style="margin:0 0 6px 0;">${t('installStepsHeading')}</p>
-                        <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
-                        <div>- ${t('installTierCStep2')}</div>
-                        <div>- ${t('installTierCStep3')}</div>
-                    </div>
-                    ${exportBox}`;
+                    <div class="install-splash-instructions">
+                        ${buildInstallStepsHTML('C')}
+                        ${exportBox}
+                    </div>`;
             } else if (tier === 'D') {
                 content = `
                     <p style="margin:0 0 8px 0; font-size:0.93rem; font-weight:bold;">${t('installTierDText')}</p>
@@ -2001,12 +2025,7 @@
                         onclick="copyInstallLink()">${t('installCopyLinkBtn')}</button>`;
             } else {
                 // Tier B (prompt pas encore disponible au moment du clic)
-                content = `
-                    <div class="install-splash-steps" style="font-size:0.9rem; line-height:1.7;">
-                        <p style="margin:0 0 6px 0;">${t('installStepsHeading')}</p>
-                        <div>- ${t('installTierBStep1')}</div>
-                        <div>- ${t('installTierBStep2')}</div>
-                    </div>`;
+                content = `<div class="install-splash-instructions">${buildInstallStepsHTML('B')}</div>`;
             }
 
             body.innerHTML = content;
@@ -2558,8 +2577,8 @@
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
                 installTierCExportBtn: "💾 Exporter mes données (.csv)",
                 installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
-                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur.",
-                installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur.",
+                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur et passer par l'icône installée !",
+                installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur et passer par l'icône installée !",
 
                 // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
                 installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
@@ -2582,7 +2601,6 @@
                 // Carte permanente Réglages (Bloc 5)
                 installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
                 installSettingsBannerBtn: "Installer PacingCount",
-                installSettingsFBText: "Vous êtes dans le navigateur intégré de Facebook, qui ne permet pas d'installer l'application.",
                 installTierDText: "Ouvrir ce lien dans Chrome pour installer l'application :",
                 installCopyLinkBtn: "Copier le lien",
                 installLinkCopied: "Lien copié !"
