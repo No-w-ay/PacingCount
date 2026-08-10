@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -36,6 +36,11 @@
 
     <!-- -->
     <script src="chart.js"></script>
+
+    <!-- inapp-spy v5.0.10 (MIT) — détection des navigateurs intégrés (réseaux sociaux).
+         Vendorisé comme chart.js : fichier local, pas de CDN (offline-first).
+         Expose window.InAppSpy(). Voir https://github.com/khang0910/inapp-spy -->
+    <script src="inapp-spy.js"></script>
 
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
@@ -512,7 +517,7 @@
         }
 
         /* z-index supérieur à #install-splash (500) — ce modal peut être déclenché depuis
-           l'intérieur même du splash (écran export Facebook), il doit toujours passer au-dessus. */
+           l'intérieur même du splash (écran export navigateur intégré), il doit toujours passer au-dessus. */
         #manualExportModal {
             z-index: 600;
         }
@@ -808,7 +813,10 @@
         <h1 id="title-settings">Réglages</h1>
 
         <!-- Installation PWA (Bloc 5) — masquée si déjà installée, remplie par renderSettingsInstallCard() -->
-        <div class="settings-group" id="settings-install-card" style="display:none;">
+        <!-- Fond bleu léger (contrairement aux autres blocs) : relie visuellement à l'action d'installation -->
+        <div class="settings-group" id="settings-install-card"
+            style="display:none; background:color-mix(in srgb, var(--blue) 10%, var(--card-bg));">
+            <label id="label-settings-install" style="display:block; margin-bottom:10px; font-weight:bold;">Instructions d'installation</label>
             <div id="settings-install-body"></div>
         </div>
 
@@ -1150,7 +1158,7 @@
         </div>
     </div>
 
-    <!-- Modal de repli export manuel — navigateur Facebook (téléchargement blob bloqué) -->
+    <!-- Modal de repli export manuel — navigateurs intégrés (téléchargement blob souvent bloqué) -->
     <div id="manualExportModal" class="modal">
         <div class="modal-content">
             <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
@@ -1238,9 +1246,10 @@
         window.addEventListener('appinstalled', () => {
             window.deferredInstallPrompt = null;
             console.log('[Install] App installée (appinstalled)');
+            // sendNewUserInstalledOnce définie plus bas (hissée) — callable ici sans problème.
+            sendNewUserInstalledOnce();
             // Détection réelle, fiable pour toute la famille Chromium (tier A ou B, peu importe
             // comment l'installation a été déclenchée) — voir showInstallSplashConfirmation().
-            // Fonction définie plus bas (hissée) — callable ici sans problème.
             showInstallSplashConfirmation('AB');
         });
 
@@ -1397,16 +1406,78 @@
             return /Mobi|Android/i.test(navigator.userAgent);
         }
 
-        // Vrai dans le navigateur intégré de Facebook (WebView "in-app browser") — ni le prompt
-        // natif Android ni "Sur l'écran d'accueil" iOS ne fonctionnent depuis ce contexte,
-        // quelle que soit la plateforme sous-jacente. Traité à part de A/B/C/D (voir tier 'F').
+        // Détecte le navigateur intégré réel via inapp-spy (bibliothèque vendorisée, licence MIT
+        // — voir inapp-spy.js et le <script> qui la charge). Couvre Facebook, Messenger, Instagram,
+        // Twitter/X, LinkedIn, TikTok, Snapchat, LINE, WeChat, Threads, GSA, WhatsApp, Reddit et
+        // Telegram (détection par mécanisme séparé, pas une regex), + repli générique pour toute
+        // webview non nommément identifiée (isInApp:true, appKey:undefined). Retourne toujours un
+        // objet — {isInApp:false} si la bibliothèque n'a pas pu charger (ne devrait pas arriver).
+        function detectInAppBrowser() {
+            if (typeof window.InAppSpy !== 'function') return { isInApp: false };
+            return window.InAppSpy();
+        }
+
+        // Nom d'affichage de l'app détectée, pour les textes génériques ("{appName}" dans les
+        // traductions) — repli neutre si webview générique non identifiée nommément.
+        function getInAppBrowserName() {
+            const info = detectInAppBrowser();
+            return info.appName || t('installWebviewGenericName');
+        }
+
+        // Vrai dans N'IMPORTE QUEL navigateur intégré connu (WebView "in-app browser" d'un réseau
+        // social) — ni le prompt natif Android ni "Sur l'écran d'accueil" iOS n'y fonctionnent,
+        // quelle que soit la plateforme sous-jacente ou l'app en cause. Nom conservé tel quel
+        // (Facebook reste la référence "historique" et la plus immédiatement reconnaissable dans
+        // le code) même si la détection sous-jacente est désormais généralisée (inapp-spy) — voir
+        // detectInAppBrowser() ci-dessus. Traité à part de A/B/C/D (voir tier 'F', généralisé lui
+        // aussi — voir getInstallTier()).
         function isFacebookInAppBrowser() {
-            return /FBAN|FBAV/i.test(navigator.userAgent);
+            return detectInAppBrowser().isInApp;
+        }
+
+        // Détermine le canal navigateur pour les events GoatCounter (NewUser-browser-*/-webview-*,
+        // DailyUser-browser-*/-webview-*) — appelée uniquement quand on sait déjà que ce n'est pas
+        // un cas "installed" (voir les appelants). Un tag dédié par app connue d'inapp-spy (liste
+        // complète, coût quasi nul si jamais déclenché) ; Chrome/Safari détectés par signature UA
+        // (pas d'API dédiée) ; "browser-Other" regroupe les vrais navigateurs alternatifs (Firefox,
+        // Edge, Samsung Internet...) — distinct de "webview-*" qui couvre les apps sociales.
+        const INAPP_GOATCOUNTER_TAGS = {
+            facebook: 'Facebook', messenger: 'Messenger', instagram: 'Instagram',
+            twitter: 'Twitter', linkedin: 'LinkedIn', tiktok: 'TikTok', snapchat: 'Snapchat',
+            line: 'Line', wechat: 'WeChat', threads: 'Threads', gsa: 'GSA',
+            whatsapp: 'WhatsApp', reddit: 'Reddit', telegram: 'Telegram'
+        };
+
+        function detectNewUserChannel() {
+            const inapp = detectInAppBrowser();
+            if (inapp.isInApp) {
+                return 'webview-' + (INAPP_GOATCOUNTER_TAGS[inapp.appKey] || 'Other');
+            }
+            const ua = navigator.userAgent;
+            if (/Chrome|CriOS|Chromium/.test(ua) && !/Edg\/|OPR\/|SamsungBrowser/.test(ua)) return 'browser-Chrome';
+            if (/Safari/.test(ua) && !/Chrome|CriOS|Chromium|Edg\/|OPR\/|SamsungBrowser|FxiOS/.test(ua)) return 'browser-Safari';
+            return 'browser-Other';
+        }
+
+        // Compteur "NewUser-installed" — capture toute installation du point de vue utilisateur,
+        // peu importe le mécanisme technique sous-jacent (qui varie par plateforme, pas par choix
+        // utilisateur) : premier lancement directement en mode installé (iOS, si le stockage
+        // n'est pas partagé avec Safari) OU confirmation appinstalled (Android/Chromium,
+        // conversion depuis le navigateur). Flag anti-doublon : un seul envoi, peu importe lequel
+        // des deux déclencheurs arrive en premier.
+        function sendNewUserInstalledOnce() {
+            if (localStorage.getItem('newUserInstalledSent')) return;
+            localStorage.setItem('newUserInstalledSent', '1');
+            if (navigator.onLine) sendToGoatCounter('NewUser-installed');
         }
 
         // Détermine le "tier" d'installation disponible :
-        //   'F' — navigateur intégré Facebook : aucune installation possible depuis ce contexte,
-        //         quelle que soit la plateforme — priorité sur tout le reste (voir checkFacebookBrowserBlock())
+        //   'F' — n'importe quel navigateur intégré connu (Facebook, Reddit, WhatsApp, Instagram,
+        //         etc. — voir detectInAppBrowser()/isFacebookInAppBrowser()) : aucune installation
+        //         possible depuis ce contexte, quelle que soit la plateforme — priorité sur tout
+        //         le reste (voir checkFacebookBrowserBlock()). La lettre 'F' reste inchangée par
+        //         commodité (Facebook = cas le plus reconnaissable/historique dans le code), même
+        //         si la détection sous-jacente couvre désormais bien plus large.
         //   'A' — prompt natif capturé (beforeinstallprompt) → un clic suffit
         //   'B' — famille Chromium (Chrome/Edge/Samsung Internet...) mais prompt pas
         //         encore capturé → instructions manuelles via le menu du navigateur
@@ -1494,7 +1565,7 @@
             if (document.getElementById('install-splash')) return; // déjà affiché
             const tier = getInstallTier();
             if (tier === 'F') {
-                // Ne devrait jamais arriver ici — Facebook est intercepté en amont, dans
+                // Ne devrait jamais arriver ici — tout navigateur intégré est intercepté en amont, dans
                 // checkAndShowInstallSplash(), avant même l'appel à cette fonction.
                 console.warn('[Install] showInstallSplash() appelé en tier F — voir checkFacebookBrowserBlock()');
                 return;
@@ -1518,7 +1589,7 @@
             // Splash 1 unifié pour A/B/C — même écran partout, seule la cible du clic diffère
             // (voir renderInstallSplashButtonScreen()). Tier D a son propre écran dédié
             // (renderInstallSplashTierD()) : pas de bouton d'installation possible, juste un
-            // lien à copier — pas un blocage comme Facebook, Firefox reste un choix légitime.
+            // lien à copier — pas un blocage comme pour un navigateur intégré, Firefox reste un choix légitime.
             if (tier === 'D') {
                 renderInstallSplashTierD();
             } else {
@@ -1528,7 +1599,7 @@
         }
 
         // Tier D (ex. Firefox) — écran informatif unique, pas de bouton d'installation possible.
-        // Contrairement à Facebook : pas un blocage, juste l'absence de voie d'installation —
+        // Contrairement à un navigateur intégré : pas un blocage, juste l'absence de voie d'installation —
         // "continuer dans ce navigateur" reste donc une sortie pleinement légitime.
         function renderInstallSplashTierD() {
             const body = document.getElementById('install-splash-body');
@@ -1793,6 +1864,9 @@
 
         function showFacebookBrowserBlock() {
             if (document.getElementById('install-splash')) return;
+            const appName = getInAppBrowserName();
+            const autoEscapeBtn = isIOSDevice() ? '' :
+                `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
@@ -1800,14 +1874,15 @@
                 <div id="install-splash-appname">${APP_NAME}</div>
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro')}</p>
+                        <p>${t('installFBBlockIntro', { appName })}</p>
+                        ${autoEscapeBtn}
                         ${buildInstallStepsHTML('F')}
                     </div>
                 </div>
             `;
             // Pas de lien de fermeture ici — blocage volontairement sans issue de contournement.
             document.body.appendChild(overlay);
-            console.log('[Install] Blocage navigateur Facebook affiché (pas de données significatives)');
+            console.log(`[Install] Blocage navigateur intégré affiché (${appName}, pas de données significatives)`);
 
             // ⚠️ TEMPORAIRE — TEST UNIQUEMENT — À RETIRER AVANT MISE EN PROD ⚠️
             // 7 taps sur l'icône pour contourner le blocage (impossible de tester l'export
@@ -1827,7 +1902,7 @@
                 tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
                 if (tapCount >= 7) {
                     tapCount = 0;
-                    console.warn('[DEBUG TEST] 7 taps — fermeture forcée du blocage Facebook (bypass temporaire de test)');
+                    console.warn('[DEBUG TEST] 7 taps — fermeture forcée du blocage navigateur intégré (bypass temporaire de test)');
                     const overlay = document.getElementById('install-splash');
                     if (overlay) overlay.remove();
                 }
@@ -1854,24 +1929,29 @@
         function renderFacebookWarningScreen() {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
+            const appName = getInAppBrowserName();
+            const autoEscapeBtn = isIOSDevice() ? '' :
+                `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             body.innerHTML = `
                 <div class="install-splash-instructions">
-                    <p>${t('installFBBlockIntro')}</p>
+                    <p>${t('installFBBlockIntro', { appName })}</p>
+                    ${autoEscapeBtn}
                     ${buildInstallStepsHTML('F')}
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
-                <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn')}</div>
+                <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn', { appName })}</div>
             `;
-            console.log('[Install] Avertissement navigateur Facebook affiché (données existantes)');
+            console.log(`[Install] Avertissement navigateur intégré affiché (${appName}, données existantes)`);
         }
 
         function renderFacebookExportScreen() {
             const body = document.getElementById('install-splash-body');
             if (!body) return;
+            const appName = getInAppBrowserName();
             body.innerHTML = `
                 <div class="install-splash-instructions">
                     <div class="install-splash-export-box" style="margin-top:0; padding-top:0; border-top:none;">
-                        <p>${t('installFBExportText', { n: state.history.length })}</p>
+                        <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
                             onclick="exportCSV()">${t('installTierCExportBtn')}</button>
@@ -1879,7 +1959,7 @@
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookWarningScreen()">${t('installSplashBack')}</div>
             `;
-            console.log('[Install] Écran export Facebook affiché');
+            console.log(`[Install] Écran export navigateur intégré affiché (${appName})`);
         }
 
         // Fermeture dédiée — volontairement séparée de closeInstallSplash() : ce flux n'a
@@ -1894,6 +1974,31 @@
         // sans dupliquer la logique ni risquer une divergence entre les deux.
         function shouldShowFacebookWarningToday() {
             return localStorage.getItem('installFBWarningLastShownDay') !== new Date().toDateString();
+        }
+
+        // Tentative de sortie automatique du navigateur intégré — Android uniquement (le schéma
+        // intent:// n'a pas d'équivalent iOS ; Apple ne permet à aucune page de forcer l'ouverture
+        // d'une autre app). Technique standard, repérée dans InAppBrowser-Escaper (licence MIT) —
+        // réimplémentée ici en une seule stratégie simple, cohérent avec notre philosophie "reste
+        // simple" plutôt que leur cascade de plusieurs tentatives. Certaines apps bloquent
+        // volontairement cette navigation pour garder l'utilisateur dans leur webview — dans ce
+        // cas, rien ne se passe et nos instructions manuelles (toujours affichées à côté) restent
+        // le repli garanti. Copie aussi le lien en filet de sécurité silencieux (même idée reprise
+        // d'Escaper) : même si la redirection échoue, le lien est déjà prêt à coller manuellement.
+        // Doit toujours être déclenchée par un vrai clic (jamais au chargement de page) — certaines
+        // apps (Instagram iOS notamment, documenté dans Escaper) bloquent les tentatives non liées
+        // à un geste utilisateur réel ; notre architecture ne l'appelle de toute façon que depuis
+        // des boutons, jamais automatiquement.
+        async function attemptAndroidAutoEscape() {
+            const url = window.location.href;
+            try {
+                await navigator.clipboard.writeText(url);
+            } catch (e) {
+                // Best-effort, silencieux — cf. limites déjà connues du presse-papier dans
+                // certaines webviews (voir showManualExportModal()).
+            }
+            const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+            window.location.href = intentUrl;
         }
 
         // Appelée par checkAndShowInstallSplash() en tout premier — ne plus appeler directement
@@ -1922,7 +2027,7 @@
         //
         // Arbre :
         //   1. Déjà installée ? → rien
-        //   2. Navigateur Facebook ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
+        //   2. Navigateur intégré connu (Facebook, Reddit, WhatsApp...) ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
         //   3. Desktop ? → rien (carte Réglages seule, jamais de splash proactif)
         //   4. Cadence du tier détecté (A/B : 7 jours ; C/D : jour civil, voir shouldShowSplashForTier())
         // ============================================================
@@ -1958,6 +2063,7 @@
             g('isHandheldDevice()', isHandheldDevice());
             g('isIOSDevice()', isIOSDevice());
             g('isFacebookInAppBrowser()', isFacebookInAppBrowser());
+            g('detectInAppBrowser()', detectInAppBrowser());
             g('getInstallTier()', getInstallTier());
             g('window.deferredInstallPrompt', window.deferredInstallPrompt ? 'présent' : 'absent');
             console.groupEnd();
@@ -1985,7 +2091,8 @@
                 wouldShow = false;
             } else if (isFacebookInAppBrowser()) {
                 const hasData = shouldSuggestExportBeforeInstall();
-                branch = hasData ? 'Facebook — Cas 2 (avertissement, données)' : 'Facebook — Cas 1 (blocage, pas de données)';
+                const appName = getInAppBrowserName();
+                branch = hasData ? `${appName} — Cas 2 (avertissement, données)` : `${appName} — Cas 1 (blocage, pas de données)`;
                 wouldShow = hasData ? shouldShowFacebookWarningToday() : true;
             } else if (!isHandheldDevice()) {
                 branch = 'Desktop';
@@ -2032,7 +2139,7 @@
         }
 
         // Clic sur le bouton — décision tier prise ici, au clic, jamais au rendu (même principe
-        // qu'au Bloc 3). Tier F (Facebook) prioritaire dans getInstallTier(), donc géré ici sans
+        // qu'au Bloc 3). Tier F (navigateur intégré, ex Facebook) prioritaire dans getInstallTier(), donc géré ici sans
         // logique séparée à dupliquer.
         async function handleSettingsInstallClick() {
             const tier = getInstallTier();
@@ -2065,17 +2172,18 @@
 
             let content = '';
             if (tier === 'F') {
+                const appName = getInAppBrowserName();
                 const hasData = shouldSuggestExportBeforeInstall();
                 const exportBox = hasData ? `
                     <div class="install-splash-export-box">
-                        <p>${t('installFBExportText', { n: state.history.length })}</p>
+                        <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
                             onclick="exportCSV()">${t('installTierCExportBtn')}</button>
                     </div>` : '';
                 content = `
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro')}</p>
+                        <p>${t('installFBBlockIntro', { appName })}</p>
                         ${buildInstallStepsHTML('F')}
                         ${exportBox}
                     </div>`;
@@ -2655,8 +2763,9 @@
                 installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur et passer par l'icône installée !",
                 installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur et passer par l'icône installée !",
 
-                // Tier F — navigateur intégré Facebook (aucune installation possible depuis ce contexte)
-                installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de Facebook, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
+                // Tier F — navigateur intégré connu, généralisé via inapp-spy (Facebook, Reddit, WhatsApp,
+                // Instagram, etc. — aucune installation possible depuis ce contexte, quelle que soit l'app)
+                installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de {appName}, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
                 installFBStepsHeadingBlock: "Pour continuer :",
                 installFBOutro: "Vous pourrez ensuite installer PacingCount pour une expérience stable et complète.",
                 installFBStepsHeadingWarning: "Pour une expérience stable et complète, installez l'application :",
@@ -2664,16 +2773,19 @@
                 installFBStep2IOS: "choisir « Ouvrir dans un navigateur externe » (Safari)",
                 installFBStep2Android: "choisir « Ouvrir dans un navigateur externe » (Chrome)",
                 installFBTransferData: "Transférer mes données déjà enregistrées",
-                installFBTempReturn: "Retour temporaire dans le navigateur Facebook",
-                installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur Facebook. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
+                installFBTempReturn: "Retour temporaire dans le navigateur de {appName}",
+                installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur {appName}. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
+                installWebviewGenericName: "cette application",
+                installWebviewAutoEscapeBtn: "Essayer une ouverture automatique",
 
-                // Modal de repli export manuel (navigateur Facebook)
+                // Modal de repli export manuel (navigateurs intégrés en général)
                 manualExportTitle: "Export manuel des données enregistrées",
                 manualExportInstructions: "1) Copiez, puis collez toutes les données suivantes dans un éditeur de texte brut (Bloc-Note, TextEdit ou un outil en ligne comme <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Enregistrez en format .txt, puis remplacez l'extension du fichier par .csv (nom de fichier proposé : {filename}).",
                 manualExportCopyBtn: "Copier",
                 manualExportCopied: "Copié !",
 
                 // Carte permanente Réglages (Bloc 5)
+                installSettingsCardTitle: "Instructions d'installation",
                 installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
                 installSettingsBannerBtn: "Installer PacingCount",
                 installTierDText: "Ouvrir ce lien dans Chrome pour installer l'application :",
@@ -4527,6 +4639,7 @@
 
             // Page réglages — labels et boutons
             document.getElementById('title-settings').innerText = t('settings');
+            document.getElementById('label-settings-install').innerText = t('installSettingsCardTitle');
             document.getElementById('label-language').innerText = t('titleLanguage');
             document.getElementById('label-custom').innerText = t('custom');
             document.getElementById('label-profiles').innerText = t('titleProfiles');
@@ -4567,7 +4680,7 @@
             document.getElementById('import-merge-detail').innerText = t('importMergeDetail');
             document.getElementById('btn-import-cancel').innerText = t('btnCancel');
 
-            // Modal export manuel (repli navigateur Facebook) — le paragraphe d'instructions est
+            // Modal export manuel (repli navigateurs intégrés) — le paragraphe d'instructions est
             // construit dynamiquement par showManualExportModal() (nom de fichier intégré au texte)
             document.getElementById('manual-export-title').innerText = t('manualExportTitle');
             document.getElementById('manual-export-copy-btn').innerText = t('manualExportCopyBtn');
@@ -5737,9 +5850,9 @@
             // Détection en amont, pas après-coup — le téléchargement blob est un mécanisme
             // "à l'aveugle" (aucun signal succès/échec renvoyé par le navigateur), donc pas
             // de détection fiable possible une fois la tentative faite. On sait par contre,
-            // par construction, que ça échoue dans le navigateur intégré Facebook.
+            // par construction, que ça échoue dans les navigateurs intégrés connus (Facebook, Reddit, etc.).
             if (isFacebookInAppBrowser()) {
-                console.log("[exportCSV] Navigateur Facebook détecté — repli manuel direct");
+                console.log(`[exportCSV] Navigateur intégré détecté (${getInAppBrowserName()}) — repli manuel direct`);
                 showManualExportModal(buildCSVString());
                 return;
             }
@@ -5782,9 +5895,9 @@
         }
 
         // ============================================================
-        // 19b. REPLI EXPORT MANUEL (navigateur Facebook)
+        // 19b. REPLI EXPORT MANUEL (navigateurs intégrés — Facebook, Reddit, WhatsApp, etc.)
         // Le presse-papier est lui-même documenté comme bloqué dans ce contexte (bug connu,
-        // Facebook/Messenger Android) — donc bouton "Copier" en tentative best-effort seulement,
+        // certains navigateurs intégrés Android) — donc bouton "Copier" en tentative best-effort seulement,
         // la vraie garantie reste le texte affiché en clair, sélectionnable manuellement,
         // qui ne dépend d'aucune API susceptible d'être bridée.
         // ============================================================
@@ -6796,10 +6909,19 @@
                 sendToGoatCounter('update-to-' + APP_VERSION);
             }
 
-            // Event "NewUser" — un seul envoi, à la toute première utilisation de l'app
-            // (window.isFirstEverLaunch, capturé avant migrateLocalStorage() — voir Bloc 2)
-            if (window.isFirstEverLaunch && navigator.onLine) {
-                sendToGoatCounter('NewUser');
+            // Events "NewUser-*" — un seul envoi, à la toute première utilisation de l'app
+            // (window.isFirstEverLaunch, capturé avant migrateLocalStorage() — voir Bloc 2).
+            // Pas de total agrégé : un même utilisateur peut légitimement déclencher plusieurs
+            // premiers lancements distincts (navigateur normal, navigateur intégré, app
+            // installée = stockages séparés), donc sommer les canaux serait trompeur.
+            if (window.isFirstEverLaunch) {
+                if (isPWAInstalled()) {
+                    // sendNewUserInstalledOnce() protège aussi contre un doublon avec l'écouteur
+                    // appinstalled, si jamais les deux conditions se produisaient dans la même session.
+                    sendNewUserInstalledOnce();
+                } else if (navigator.onLine) {
+                    sendToGoatCounter('NewUser-' + detectNewUserChannel());
+                }
             }
 
             localStorage.setItem('lastSeenVersion', APP_VERSION);
@@ -6823,6 +6945,17 @@
             // 2. Mode d'accès (installed / browser)
             const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
             sendToGoatCounter('DailyUser-' + mode);
+
+            // 2b. Canal navigateur — uniquement en mode navigateur (pas de sens une fois installé).
+            // "browser-Other" volontairement exclu au quotidien (fourre-tout de navigateurs
+            // alternatifs, peu stratégique à répéter chaque jour) — mais tous les "webview-*"
+            // restent inclus, liste complète comme pour NewUser, coût quasi nul si peu déclenchés.
+            if (mode === 'browser') {
+                const channel = detectNewUserChannel();
+                if (channel !== 'browser-Other') {
+                    sendToGoatCounter('DailyUser-' + channel);
+                }
+            }
 
             // 3. Profil actif
             // Normalise un label pour GoatCounter : retire accents, remplace espaces par _,
@@ -6907,7 +7040,7 @@
         // requestNotificationPermission();
 
         // Priorité d'affichage, du plus prioritaire au moins prioritaire, après 2500ms
-        // (laisse le temps à l'UI de se charger) : splash (Facebook ou standard) > toasts >
+        // (laisse le temps à l'UI de se charger) : splash (navigateur intégré ou standard) > toasts >
         // message JSON. checkAndShowInstallSplash() gère tout l'arbre de décision en un seul
         // point d'entrée (voir sections 1c-1f). Si un splash prend la main, la suite (toasts
         // puis message JSON) est enchaînée depuis sa propre fermeture — jamais ici directement.
