@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1454,9 +1454,19 @@
                 return 'webview-' + (INAPP_GOATCOUNTER_TAGS[inapp.appKey] || 'Other');
             }
             const ua = navigator.userAgent;
-            if (/Chrome|CriOS|Chromium/.test(ua) && !/Edg\/|OPR\/|SamsungBrowser/.test(ua)) return 'browser-Chrome';
-            if (/Safari/.test(ua) && !/Chrome|CriOS|Chromium|Edg\/|OPR\/|SamsungBrowser|FxiOS/.test(ua)) return 'browser-Safari';
-            return 'browser-Other';
+            // Ordre important : Brave, Samsung Internet et Opera se font tous passer pour Chrome
+            // dans leur user-agent (compatibilité web) — doivent être testés avant le test Chrome
+            // générique. Brave en particulier ne peut PAS être détecté par user-agent du tout :
+            // seule la présence de l'objet navigator.brave le trahit (vérification synchrone
+            // suffisante ici, pas besoin d'attendre sa méthode asynchrone isBrave() — recommandation
+            // officielle Brave : https://github.com/brave/brave-browser/wiki/Detecting-Brave-(for-Websites)).
+            if (typeof navigator.brave !== 'undefined') return 'browser-Brave';
+            if (/SamsungBrowser/.test(ua)) return 'browser-Samsung';
+            if (/OPR\/|Opera/.test(ua)) return 'browser-Opera';
+            if (/Firefox|FxiOS/.test(ua)) return 'browser-Firefox';
+            if (/Chrome|CriOS|Chromium/.test(ua) && !/Edg\//.test(ua)) return 'browser-Chrome';
+            if (/Safari/.test(ua) && !/Chrome|CriOS|Chromium|Edg\//.test(ua)) return 'browser-Safari';
+            return 'browser-Other'; // notamment Edge, navigateurs non identifiés
         }
 
         // Compteur "NewUser-installed" — capture toute installation du point de vue utilisateur,
@@ -2940,7 +2950,50 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "If you see this, the immediate notification button works!",
                 fullscreenBtn: "🛠️ Full Screen Mode",
-                fullscreenExitBtn: "🛠️ Exit Full Screen"
+                fullscreenExitBtn: "🛠️ Exit Full Screen",
+
+                installSplashSlogan: "Gently measure your pacing",
+                installSplashReminderText: "You're using PacingCount from your browser — we recommend switching to the installed version for a more complete, smoother experience",
+                installSplashDismissFirst: "Try in the browser",
+                installSplashDismissReminder: "Continue in the browser",
+                installSplashBack: "Back",
+                installTierAButton: "Install the app",
+                installStepsHeading: "To install:",
+                installTierBStep1: "open the&emsp;⋮&emsp;menu at the top of the browser",
+                installTierBStep2: "choose the install option (\"Install app\" or similar)",
+                installTierCStep1: "tap the Share button",
+                installTierCStep2: "scroll down the list to \"Add to Home Screen\"",
+                installTierCStep3: "confirm with \"Add\"",
+                installTierCExportText: "You already have {n} recorded periods. To avoid losing anything, export them to a file now — you'll be able to re-import them into the installed app afterwards.",
+                installTierCExportBtn: "💾 Export my data (.csv)",
+                installConfirmSelfReportBtn: "I was able to follow these installation steps",
+                installConfirmTextIOS: "Well done on installing! Check that the icon has appeared on your home screen — that's your confirmation the installation worked. You can now close this browser tab and use the installed icon instead!",
+                installConfirmTextAB: "Installation successful! The app is now available on your home screen — you can close this browser tab and use the installed icon instead!",
+
+                installFBBlockIntro: "You're using PacingCount from {appName}'s built-in browser, which doesn't allow installing the app or guarantee it will work properly.",
+                installFBStepsHeadingBlock: "To continue:",
+                installFBOutro: "You'll then be able to install PacingCount for a stable, complete experience.",
+                installFBStepsHeadingWarning: "For a stable, complete experience, install the app:",
+                installFBStep1: "tap the&emsp;⋮&emsp;menu at the top right",
+                installFBStep2IOS: "choose \"Open in external browser\" (Safari)",
+                installFBStep2Android: "choose \"Open in external browser\" (Chrome)",
+                installFBTransferData: "Transfer my already recorded data",
+                installFBTempReturn: "Go back temporarily to {appName}'s browser",
+                installFBExportText: "You already have {n} recorded periods in this {appName} browser. To avoid losing anything, export them to a file now — you'll be able to re-import them elsewhere afterwards.",
+                installWebviewGenericName: "this app",
+                installWebviewAutoEscapeBtn: "Try automatic opening",
+
+                manualExportTitle: "Manual export of your recorded data",
+                manualExportInstructions: "1) Copy, then paste all the data below into a plain text editor (Notepad, TextEdit, or an online tool like <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Save it as .txt, then rename the file extension to .csv (suggested filename: {filename}).",
+                manualExportCopyBtn: "Copy",
+                manualExportCopied: "Copied!",
+
+                installSettingsCardTitle: "Installation instructions",
+                installSettingsBannerText: "You're using this app in your browser. For the full experience",
+                installSettingsBannerBtn: "Install PacingCount",
+                installTierDText: "Open this link in Chrome to install the app:",
+                installCopyLinkBtn: "Copy link",
+                installLinkCopied: "Link copied!",
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
@@ -3090,7 +3143,50 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "Als je dit ziet, werkt de knop voor directe meldingen!",
                 fullscreenBtn: "🛠️ Volledig scherm",
-                fullscreenExitBtn: "🛠️ Volledig scherm verlaten"
+                fullscreenExitBtn: "🛠️ Volledig scherm verlaten",
+
+                installSplashSlogan: "Je pacing rustig meten",
+                installSplashReminderText: "Je gebruikt PacingCount vanuit je browser — we raden aan over te stappen op de geïnstalleerde versie voor een completere en soepelere ervaring",
+                installSplashDismissFirst: "Uitproberen in de browser",
+                installSplashDismissReminder: "Doorgaan in de browser",
+                installSplashBack: "Terug",
+                installTierAButton: "App installeren",
+                installStepsHeading: "Om te installeren:",
+                installTierBStep1: "open het&emsp;⋮&emsp;menu bovenaan de browser",
+                installTierBStep2: "kies de installatie-optie (\"App installeren\" of vergelijkbaar)",
+                installTierCStep1: "tik op de deelknop",
+                installTierCStep2: "scroll naar beneden tot « Zet op beginscherm »",
+                installTierCStep3: "bevestig met « Voeg toe »",
+                installTierCExportText: "Je hebt al {n} geregistreerde periodes. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later opnieuw importeren in de geïnstalleerde app.",
+                installTierCExportBtn: "💾 Mijn gegevens exporteren (.csv)",
+                installConfirmSelfReportBtn: "Ik heb deze installatiestappen kunnen volgen",
+                installConfirmTextIOS: "Goed gedaan met installeren! Controleer of het icoon op je beginscherm is verschenen — dat bevestigt dat de installatie gelukt is. Je kunt dit browsertabblad nu sluiten en voortaan het geïnstalleerde icoon gebruiken!",
+                installConfirmTextAB: "Installatie gelukt! De app staat nu op je beginscherm — je kunt dit browsertabblad sluiten en voortaan het geïnstalleerde icoon gebruiken!",
+
+                installFBBlockIntro: "Je gebruikt PacingCount vanuit de ingebouwde browser van {appName}, die het niet mogelijk maakt de app te installeren en de goede werking niet garandeert.",
+                installFBStepsHeadingBlock: "Om verder te gaan:",
+                installFBOutro: "Daarna kun je PacingCount installeren voor een stabiele en volledige ervaring.",
+                installFBStepsHeadingWarning: "Voor een stabiele en volledige ervaring, installeer de app:",
+                installFBStep1: "tik op het&emsp;⋮&emsp;menu rechtsboven",
+                installFBStep2IOS: "kies « Openen in externe browser » (Safari)",
+                installFBStep2Android: "kies « Openen in externe browser » (Chrome)",
+                installFBTransferData: "Mijn reeds geregistreerde gegevens overzetten",
+                installFBTempReturn: "Tijdelijk terug naar de browser van {appName}",
+                installFBExportText: "Je hebt al {n} geregistreerde periodes in deze {appName}-browser. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later elders opnieuw importeren.",
+                installWebviewGenericName: "deze app",
+                installWebviewAutoEscapeBtn: "Automatisch openen proberen",
+
+                manualExportTitle: "Handmatige export van geregistreerde gegevens",
+                manualExportInstructions: "1) Kopieer en plak alle onderstaande gegevens in een teksteditor (Kladblok, TextEdit, of een online tool zoals <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Sla op als .txt en wijzig vervolgens de bestandsextensie naar .csv (voorgestelde bestandsnaam: {filename}).",
+                manualExportCopyBtn: "Kopiëren",
+                manualExportCopied: "Gekopieerd!",
+
+                installSettingsCardTitle: "Installatie-instructies",
+                installSettingsBannerText: "Je gebruikt deze app via de browser. Voor de volledige ervaring",
+                installSettingsBannerBtn: "PacingCount installeren",
+                installTierDText: "Open deze link in Chrome om de app te installeren:",
+                installCopyLinkBtn: "Link kopiëren",
+                installLinkCopied: "Link gekopieerd!",
             }
         };
 
@@ -6911,16 +7007,20 @@
 
             // Events "NewUser-*" — un seul envoi, à la toute première utilisation de l'app
             // (window.isFirstEverLaunch, capturé avant migrateLocalStorage() — voir Bloc 2).
-            // Pas de total agrégé : un même utilisateur peut légitimement déclencher plusieurs
-            // premiers lancements distincts (navigateur normal, navigateur intégré, app
-            // installée = stockages séparés), donc sommer les canaux serait trompeur.
+            // Pas de total agrégé TOUTES catégories confondues (webview/browser/installed) : un
+            // même utilisateur peut légitimement déclencher plusieurs premiers lancements distincts
+            // selon le canal (stockages séparés), donc un total global mélangerait des choses
+            // différentes. En revanche, un total PAR catégorie (webview seul, browser seul) reste
+            // fiable — un même lancement ne produit jamais qu'une seule valeur de canal.
             if (window.isFirstEverLaunch) {
                 if (isPWAInstalled()) {
                     // sendNewUserInstalledOnce() protège aussi contre un doublon avec l'écouteur
                     // appinstalled, si jamais les deux conditions se produisaient dans la même session.
                     sendNewUserInstalledOnce();
                 } else if (navigator.onLine) {
-                    sendToGoatCounter('NewUser-' + detectNewUserChannel());
+                    const channel = detectNewUserChannel(); // 'webview-X' ou 'browser-X'
+                    sendToGoatCounter('NewUser-' + channel);
+                    sendToGoatCounter('NewUser-' + channel.split('-')[0] + '-TOTAL');
                 }
             }
 
@@ -6937,7 +7037,7 @@
         if (_today !== _lastPingDay && navigator.onLine) {
             // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
             // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
-            sendToGoatCounter('DailyUser-Total');
+            sendToGoatCounter('DailyUser-TOTAL');
 
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
@@ -6947,14 +7047,17 @@
             sendToGoatCounter('DailyUser-' + mode);
 
             // 2b. Canal navigateur — uniquement en mode navigateur (pas de sens une fois installé).
-            // "browser-Other" volontairement exclu au quotidien (fourre-tout de navigateurs
-            // alternatifs, peu stratégique à répéter chaque jour) — mais tous les "webview-*"
-            // restent inclus, liste complète comme pour NewUser, coût quasi nul si peu déclenchés.
+            // Le détail "browser-Other" reste volontairement exclu au quotidien (fourre-tout moins
+            // stratégique à répéter chaque jour, d'autant plus réduit maintenant que Samsung/Firefox/
+            // Brave/Opera sont nommés à part) — mais son volume est quand même capté par TOTAL
+            // ci-dessous. Tous les "webview-*" restent inclus en détail, liste complète comme pour
+            // NewUser, coût quasi nul si peu déclenchés.
             if (mode === 'browser') {
-                const channel = detectNewUserChannel();
+                const channel = detectNewUserChannel(); // 'webview-X' ou 'browser-X'
                 if (channel !== 'browser-Other') {
                     sendToGoatCounter('DailyUser-' + channel);
                 }
+                sendToGoatCounter('DailyUser-' + channel.split('-')[0] + '-TOTAL');
             }
 
             // 3. Profil actif
@@ -7528,6 +7631,33 @@
         Modifier messages.json sur GitHub pour pousser un message sans mise à jour de l'app
         Désactiver un message sans l'effacer : mettre validUntil dans le passé
         Kill switch : renseigner maxVersion + blockAfter pour forcer une mise à jour
+
+
+        7. Liste finale complète des events GoatCounter liés à l'installation/navigateur
+	    
+        (NewUser est relatif au suffixe, pas absolu)
+
+        NewUser-installed (= TOTAL) NOTE : pas de comptage séparé des installations qui conservent le LocalStorage sour chrome)
+        NewUser-webview-{Facebook, Messenger, Instagram, Twitter, LinkedIn, TikTok,
+                    Snapchat, Line, WeChat, Threads, GSA, WhatsApp, Reddit, Telegram, Other}
+        NewUser-webview-TOTAL
+        NewUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera, Other}
+        NewUser-browser-TOTAL
+
+        DailyUser-TOTAL
+        DailyUser-{version}
+        DailyUser-{installed|browser}
+        DailyUser-webview-{...même liste...}
+        DailyUser-webview-TOTAL
+        DailyUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera}  (Other exclu du détail)
+        DailyUser-browser-TOTAL
+
+
+	    8. Arbre d'installation : Splashes et cadre dans onglet Réglages
+	    (descriptif à compléter)
+
+	    debugInstallState() en console pour un diagnostic complet de l'état actuel
+        dans l'arbre à tout moment
 
         =====================================================    */
 
