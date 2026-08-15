@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -605,6 +605,15 @@
             border-radius: 8px;
             padding: 14px 16px;
             margin: 8px 0;
+        }
+
+        /* Mini-bouton "Copier" inline (chemin B, copier-coller manuel du lien) — même
+           comportement que les autres boutons copier (bascule vers "Copié !"), mais en ligne
+           dans le texte plutôt qu'un bouton pleine largeur. */
+        .inline-copy-btn {
+            color: var(--blue);
+            text-decoration: underline;
+            cursor: pointer;
         }
 
         .install-splash-export-box {
@@ -1701,15 +1710,19 @@
         function buildInstallStepsHTML(tier) {
             if (tier === 'F') {
                 const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
-                const heading = shouldSuggestExportBeforeInstall()
-                    ? t('installFBStepsHeadingWarning')
-                    : t('installFBStepsHeadingBlock');
+                const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
+                const url = window.location.href;
                 return `
                     <div class="install-splash-steps">
-                        <p>${heading}</p>
+                        <p>${t('installStepsHeading')}</p>
                         <div>- ${t('installFBStep1')}</div>
                         <div>- ${step2}</div>
-                        <p style="font-weight:normal; margin-top:8px;">${t('installFBOutro')}</p>
+                    </div>
+                    <p style="font-weight:normal; opacity:0.65; font-size:0.85rem; margin:10px 0;">${t('installFBPathBConnector')}</p>
+                    <div class="install-splash-steps">
+                        <div>- <span class="inline-copy-btn" onclick="copyWebviewLinkInline(this)">${t('manualExportCopyBtn')}</span> ${t('installFBCopyLinkLabel')}<br>
+                            <span style="font-weight:normal; opacity:0.7; font-size:0.8rem; word-break:break-all;">${url}</span></div>
+                        <div>- ${t('installFBPasteInstruction', { browserName })}</div>
                     </div>`;
             }
             if (tier === 'C') {
@@ -1872,9 +1885,22 @@
         // Appelé tout en haut de la séquence de démarrage, avant checkMessages() — voir section 23.
         // ============================================================
 
+        // Construit le bloc instructions (chemin A menu + chemin B copier-coller) — visible
+        // immédiatement sur iOS (aucune tentative automatique possible), caché en repli sur
+        // Android tant qu'attemptAndroidAutoEscape() n'a pas signalé un échec probable.
+        function buildWebviewInstructionsBlockHTML() {
+            if (isIOSDevice()) return buildInstallStepsHTML('F');
+            return `
+                <div id="install-splash-webview-fallback" style="display:none;">
+                    <p style="font-weight:bold; margin:10px 0 6px 0;">${t('installWebviewFallbackHeading')}</p>
+                    ${buildInstallStepsHTML('F')}
+                </div>`;
+        }
+
         function showFacebookBrowserBlock() {
             if (document.getElementById('install-splash')) return;
             const appName = getInAppBrowserName();
+            const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
             const autoEscapeBtn = isIOSDevice() ? '' :
                 `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             const overlay = document.createElement('div');
@@ -1884,9 +1910,9 @@
                 <div id="install-splash-appname">${APP_NAME}</div>
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro', { appName })}</p>
+                        <p>${t('installFBBlockIntro', { appName, browserName })}</p>
                         ${autoEscapeBtn}
-                        ${buildInstallStepsHTML('F')}
+                        ${buildWebviewInstructionsBlockHTML()}
                     </div>
                 </div>
             `;
@@ -1940,13 +1966,14 @@
             const body = document.getElementById('install-splash-body');
             if (!body) return;
             const appName = getInAppBrowserName();
+            const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
             const autoEscapeBtn = isIOSDevice() ? '' :
                 `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             body.innerHTML = `
                 <div class="install-splash-instructions">
-                    <p>${t('installFBBlockIntro', { appName })}</p>
+                    <p>${t('installFBBlockIntro', { appName, browserName })}</p>
                     ${autoEscapeBtn}
-                    ${buildInstallStepsHTML('F')}
+                    ${buildWebviewInstructionsBlockHTML()}
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
                 <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn', { appName })}</div>
@@ -1999,6 +2026,19 @@
         // apps (Instagram iOS notamment, documenté dans Escaper) bloquent les tentatives non liées
         // à un geste utilisateur réel ; notre architecture ne l'appelle de toute façon que depuis
         // des boutons, jamais automatiquement.
+        // Copie dédiée au chemin B des instructions (distincte de copyInstallLink() en Réglages,
+        // qui cible un autre bouton) — best-effort, échoue silencieusement selon le contexte.
+        async function copyWebviewLinkInline(el) {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                const original = el.textContent;
+                el.textContent = t('manualExportCopied');
+                setTimeout(() => { el.textContent = original; }, 2000);
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
+        }
+
         async function attemptAndroidAutoEscape() {
             const url = window.location.href;
             try {
@@ -2007,6 +2047,22 @@
                 // Best-effort, silencieux — cf. limites déjà connues du presse-papier dans
                 // certaines webviews (voir showManualExportModal()).
             }
+
+            // Révèle les instructions manuelles si on est toujours là après le délai — signal
+            // indirect d'échec (aucun callback natif ne permet de savoir si intent:// a
+            // réellement réussi). 3 secondes : assez pour laisser le temps à la redirection de
+            // se produire sans faire attendre inutilement si elle a vraiment échoué.
+            let escaped = false;
+            const onHidden = () => { if (document.visibilityState === 'hidden') escaped = true; };
+            document.addEventListener('visibilitychange', onHidden);
+            setTimeout(() => {
+                document.removeEventListener('visibilitychange', onHidden);
+                if (!escaped) {
+                    const fallback = document.getElementById('install-splash-webview-fallback');
+                    if (fallback) fallback.style.display = 'block';
+                }
+            }, 3000);
+
             const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
             window.location.href = intentUrl;
         }
@@ -2015,6 +2071,7 @@
         // depuis la séquence de démarrage (voir plus bas). Retourne true si le navigateur
         // Facebook a été détecté (et donc pris la main sur cet affichage).
         function checkFacebookBrowserBlock() {
+            if (!isHandheldDevice()) return false; // jamais sur desktop, quel que soit le navigateur détecté
             if (!isFacebookInAppBrowser()) return false;
 
             if (shouldSuggestExportBeforeInstall()) {
@@ -2136,7 +2193,7 @@
         function renderSettingsInstallCard() {
             const card = document.getElementById('settings-install-card');
             if (!card) return;
-            if (isPWAInstalled()) {
+            if (isPWAInstalled() || !isHandheldDevice()) {
                 card.style.display = 'none';
                 return;
             }
@@ -2183,6 +2240,7 @@
             let content = '';
             if (tier === 'F') {
                 const appName = getInAppBrowserName();
+                const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
                 const hasData = shouldSuggestExportBeforeInstall();
                 const exportBox = hasData ? `
                     <div class="install-splash-export-box">
@@ -2193,7 +2251,7 @@
                     </div>` : '';
                 content = `
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro', { appName })}</p>
+                        <p>${t('installFBBlockIntro', { appName, browserName })}</p>
                         ${buildInstallStepsHTML('F')}
                         ${exportBox}
                     </div>`;
