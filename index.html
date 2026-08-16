@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4087,50 +4087,67 @@
             console.log(`[Messages] Dismissé — id:${id} addToSeen:${addToSeen}`);
         }
 
-        // --- Fonction principale : fetch + filtrage + affichage ---
-        async function checkMessages() {
-            let messages;
+        // Cache mémoire du fetch messages.json pour ce lancement — évite un second appel
+        // réseau si checkBlockingUpdate() (voir plus bas / section 23) a déjà récupéré le
+        // fichier avant checkMessages(). undefined = pas encore tenté, null = fetch échoué
+        // (offline), tableau = données obtenues.
+        window._messagesCache = undefined;
+
+        async function fetchMessagesJSON() {
+            if (window._messagesCache !== undefined) return window._messagesCache;
             try {
                 const response = await fetch('messages.json', { cache: 'no-store' });
                 // messages.json n'est pas dans ASSETS_TO_CACHE du SW,
                 // donc caches.match() retourne toujours undefined → fetch réseau garanti.
                 const data = await response.json();
-                messages = data.messages;
+                window._messagesCache = data.messages;
             } catch (e) {
                 // Offline ou fichier absent — silencieux, pas de message cette fois
                 console.log('[Messages] Fetch messages.json échoué (offline ?) :', e.message);
-                return false;
+                window._messagesCache = null;
+            }
+            return window._messagesCache;
+        }
+
+        // Évalue l'éligibilité d'un message selon validFrom/validUntil/maxVersion/fréquence/
+        // seenMessages — logique unique, partagée entre checkMessages() (tous types, un seul
+        // message par lancement) et checkBlockingUpdate() (uniquement les updates bloquants,
+        // voir section 23). blockingOnly restreint aux messages update dont blockAfter est dépassé.
+        function evaluateMessageEligibility(msg, seen, todayStr, blockingOnly) {
+            if (!msg.type || !msg.id) return { eligible: false };
+            if (msg.validFrom && todayStr < msg.validFrom) return { eligible: false };
+            if (msg.validUntil && todayStr > msg.validUntil) return { eligible: false };
+            if (msg.maxVersion && !semverLte(APP_VERSION, msg.maxVersion)) return { eligible: false };
+
+            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
+
+            if (blockingOnly) return { eligible: isBlocking, isBlocking };
+
+            if (msg.type === 'update' && !isBlocking) {
+                const alreadySeen = seen.includes(msg.id);
+                if (alreadySeen) {
+                    const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
+                    const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
+                    if (lastShown && (Date.now() - lastShown) < sevenDays) return { eligible: false };
+                }
             }
 
+            if (!isBlocking && seen.includes(msg.id)) return { eligible: false };
+
+            return { eligible: true, isBlocking };
+        }
+
+        // --- Fonction principale : fetch + filtrage + affichage (tous types de messages) ---
+        async function checkMessages() {
+            const messages = await fetchMessagesJSON();
+            if (!messages) return false;
+
             const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
-            const today = new Date();
-            const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+            const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
             for (const msg of messages) {
-                if (!msg.type || !msg.id) continue;
-
-                // Filtre validFrom
-                if (msg.validFrom && todayStr < msg.validFrom) continue;
-
-                // Filtre validUntil (chaîne vide = pas de limite)
-                if (msg.validUntil && todayStr > msg.validUntil) continue;
-
-                // Filtre maxVersion (kill switch) : ignorer si APP_VERSION > maxVersion
-                if (msg.maxVersion && !semverLte(APP_VERSION, msg.maxVersion)) continue;
-
-                // Filtre fréquence pour update non bloquant : max 1 fois par 7 jours
-                const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
-                if (msg.type === 'update' && !isBlocking) {
-                    const alreadySeen = seen.includes(msg.id);
-                    if (alreadySeen) {
-                        const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
-                        const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
-                        if (lastShown && (Date.now() - lastShown) < sevenDays) continue;
-                    }
-                }
-
-                // Filtre seenMessages (sauf update bloquant qui doit toujours s'afficher)
-                if (!isBlocking && seen.includes(msg.id)) continue;
+                const { eligible } = evaluateMessageEligibility(msg, seen, todayStr, false);
+                if (!eligible) continue;
 
                 // Premier message éligible trouvé — on l'affiche
                 let newVersion = null;
@@ -4143,6 +4160,35 @@
             }
 
             console.log('[Messages] Aucun message éligible à afficher.');
+            return false;
+        }
+
+        // --- Vérification prioritaire : mise à jour bloquante (kill switch) ---
+        // Appelée en tout premier dans la séquence de démarrage (section 23), avant même le
+        // splash d'installation — un correctif critique doit passer devant tout le reste,
+        // y compris le blocage webview. Pas de délai volontairement : le délai de 2500ms de
+        // la séquence normale ne sert qu'à stabiliser l'affichage du splash, sans rapport avec
+        // la fiabilité du fetch. Si un update bloquant est affiché, retourne true — l'appelant
+        // doit alors sauter tout le reste de la séquence pour ce lancement (un seul message,
+        // cohérent avec la règle générale du système de messages).
+        async function checkBlockingUpdate() {
+            const messages = await fetchMessagesJSON();
+            if (!messages) return false;
+
+            const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            for (const msg of messages) {
+                const { eligible } = evaluateMessageEligibility(msg, seen, todayStr, true);
+                if (!eligible) continue;
+
+                const newVersion = await getNewVersionFromSW();
+                if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
+
+                showMessage(msg, newVersion);
+                console.log(`[Messages] ⛔ Mise à jour bloquante affichée en priorité (id:${msg.id}) — reste de la séquence de démarrage sauté.`);
+                return true;
+            }
             return false;
         }
 
@@ -7222,16 +7268,26 @@
         // Déplacé dans saveAlert(), lié au clic sur "Enregistrer" une alerte.
         // requestNotificationPermission();
 
-        // Priorité d'affichage, du plus prioritaire au moins prioritaire, après 2500ms
-        // (laisse le temps à l'UI de se charger) : splash (navigateur intégré ou standard) > toasts >
-        // message JSON. checkAndShowInstallSplash() gère tout l'arbre de décision en un seul
-        // point d'entrée (voir sections 1c-1f). Si un splash prend la main, la suite (toasts
-        // puis message JSON) est enchaînée depuis sa propre fermeture — jamais ici directement.
-        setTimeout(() => {
-            if (!checkAndShowInstallSplash()) {
-                showStartupToasts();
-            }
-        }, 2500);
+        // Priorité absolue : mise à jour bloquante (kill switch), sans délai — voir
+        // checkBlockingUpdate(). Si un correctif critique est détecté et affiché, on saute
+        // tout le reste de la séquence de ce lancement (splash, toasts, message JSON normal) :
+        // isBlocking n'a pas de dismiss, l'utilisateur devra passer par ce modal de toute façon.
+        //
+        // Sinon, priorité d'affichage habituelle, du plus prioritaire au moins prioritaire,
+        // après 2500ms (laisse le temps à l'UI de se charger — ce délai ne concerne que l'UI
+        // visuelle du splash, pas la fiabilité du fetch ci-dessus) : splash (navigateur intégré
+        // ou standard) > toasts > message JSON. checkAndShowInstallSplash() gère tout l'arbre
+        // de décision en un seul point d'entrée (voir sections 1c-1f). Si un splash prend la
+        // main, la suite (toasts puis message JSON) est enchaînée depuis sa propre fermeture —
+        // jamais ici directement.
+        checkBlockingUpdate().then(wasBlocking => {
+            if (wasBlocking) return;
+            setTimeout(() => {
+                if (!checkAndShowInstallSplash()) {
+                    showStartupToasts();
+                }
+            }, 2500);
+        });
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.
@@ -7682,9 +7738,16 @@
 
         6. Système de messages JSON
 
-        Au démarrage de l'app (après 2,5 secondes), l'app fetche le fichier messages.json
-        depuis le serveur (cache: no-store — toujours la version fraîche). Le premier message 
-        éligible est affiché dans un modal. Un seul message par lancement.
+        Au démarrage de l'app, l'app fetche le fichier messages.json depuis le serveur
+        (cache: no-store — toujours la version fraîche). Le premier message éligible est
+        affiché dans un modal. Un seul message par lancement.
+
+        Priorité absolue : une mise à jour bloquante (isBlocking, voir blockAfter ci-dessous)
+        est vérifiée en tout premier, sans délai (checkBlockingUpdate(), section 23) — avant
+        même le splash d'installation. Si trouvée, elle est affichée immédiatement et le reste
+        de la séquence de démarrage (splash, toasts, message JSON normal) est sauté pour ce
+        lancement. Sinon, séquence habituelle après 2,5 secondes : splash > toasts > message JSON
+        (checkMessages()) — voir section 8d / checkAndShowInstallSplash().
 
         Le fichier messages.json est hébergé sur GitHub, modifiable sans toucher au code de l'app. 
         L'ordre des messages dans le fichier défini leur ordre de priorité.
@@ -7693,7 +7756,7 @@
 
         welcome — affiché une seule fois au premier lancement (id jamais vu dans seenMessages)
         info — astuce ou information, affiché une seule fois (id mis en seenMessages au dismiss)
-        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter. Nécessite un SW en attente pour s'afficher.
+        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter (voir priorité absolue ci-dessus). Nécessite un SW en attente pour s'afficher.
 
         Filtres d'éligibilité :
 
