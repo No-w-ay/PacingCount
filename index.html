@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -607,15 +607,6 @@
             margin: 8px 0;
         }
 
-        /* Mini-bouton "Copier" inline (chemin B, copier-coller manuel du lien) — même
-           comportement que les autres boutons copier (bascule vers "Copié !"), mais en ligne
-           dans le texte plutôt qu'un bouton pleine largeur. */
-        .inline-copy-btn {
-            color: var(--blue);
-            text-decoration: underline;
-            cursor: pointer;
-        }
-
         .install-splash-export-box {
             margin-top: 14px;
             padding-top: 14px;
@@ -636,6 +627,15 @@
             opacity: 0.65;
             cursor: pointer;
             padding: 8px;
+        }
+
+        /* Mot cliquable inline (ex. "Copier" dans le Chemin B du blocage webview) — bleu,
+           souligné, pas un bouton pleine largeur comme .export-btn. */
+        .install-link-word {
+            color: var(--blue);
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: bold;
         }
 
         /* Animation points de suspension pour la période en cours */
@@ -1707,24 +1707,10 @@
         // Réglages. Le contenu ne vit qu'ici ; chaque appelant garde sa propre mise en scène
         // autour (plein écran vs carte compacte, export en ligne ou non), pour que le contenu
         // ne puisse plus diverger entre les deux comme c'est arrivé par le passé.
+        // Tier F retiré d'ici — géré par buildInstallWebviewPathsHTML() (voir section 1e),
+        // structure différente (deux chemins bleus + bouton/délai Android), pas réutilisable
+        // avec le format "un seul cadre" de cette fonction.
         function buildInstallStepsHTML(tier) {
-            if (tier === 'F') {
-                const step2 = isIOSDevice() ? t('installFBStep2IOS') : t('installFBStep2Android');
-                const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
-                const url = window.location.href;
-                return `
-                    <div class="install-splash-steps">
-                        <p>${t('installStepsHeading')}</p>
-                        <div>- ${t('installFBStep1')}</div>
-                        <div>- ${step2}</div>
-                    </div>
-                    <p style="font-weight:normal; opacity:0.65; font-size:0.85rem; margin:10px 0;">${t('installFBPathBConnector')}</p>
-                    <div class="install-splash-steps">
-                        <div>- <span class="inline-copy-btn" onclick="copyWebviewLinkInline(this)">${t('manualExportCopyBtn')}</span> ${t('installFBCopyLinkLabel')}<br>
-                            <span style="font-weight:normal; opacity:0.7; font-size:0.8rem; word-break:break-all;">${url}</span></div>
-                        <div>- ${t('installFBPasteInstruction', { browserName })}</div>
-                    </div>`;
-            }
             if (tier === 'C') {
                 return `
                     <div class="install-splash-steps">
@@ -1885,24 +1871,82 @@
         // Appelé tout en haut de la séquence de démarrage, avant checkMessages() — voir section 23.
         // ============================================================
 
-        // Construit le bloc instructions (chemin A menu + chemin B copier-coller) — visible
-        // immédiatement sur iOS (aucune tentative automatique possible), caché en repli sur
-        // Android tant qu'attemptAndroidAutoEscape() n'a pas signalé un échec probable.
-        function buildWebviewInstructionsBlockHTML() {
-            if (isIOSDevice()) return buildInstallStepsHTML('F');
-            return `
-                <div id="install-splash-webview-fallback" style="display:none;">
-                    <p style="font-weight:bold; margin:10px 0 6px 0;">${t('installWebviewFallbackHeading')}</p>
-                    ${buildInstallStepsHTML('F')}
+        // Construit le bloc "deux chemins de sortie" (Chemin A : menu navigateur, Chemin B :
+        // copier/coller le lien) — partagé entre le blocage plein écran, l'avertissement
+        // (Cas 2) et la carte Réglages.
+        // withFallbackDelay : true → sur Android, affiche d'abord le bouton d'ouverture
+        //   automatique seul, et ne révèle les deux chemins qu'après échec (voir
+        //   handleAndroidAutoEscapeClick()). false → chemins affichés directement, sans
+        //   bouton (carte Réglages, plus simple par choix — voir Handoff).
+        // Sur iOS, jamais de bouton ni de délai : les chemins sont toujours affichés
+        // directement (aucune tentative d'ouverture automatique possible sur iOS).
+        function buildInstallWebviewPathsHTML(withFallbackDelay) {
+            const step2 = isIOSDevice() ? t('installFBPathAStep2IOS') : t('installFBPathAStep2Android');
+            const pasteStep = isIOSDevice() ? t('installFBPathBStep2IOS') : t('installFBPathBStep2Android');
+
+            const pathsHTML = `
+                <div class="install-splash-steps">
+                    <div>- ${t('installFBPathAStep1')}</div>
+                    <div>- ${step2}</div>
+                </div>
+                <div style="text-align:center; opacity:0.6; margin:6px 0;">${t('installFBOr')}</div>
+                <div class="install-splash-steps">
+                    <div><span class="install-link-word" onclick="copyWebviewLink(this)">${t('installFBCopyLinkWord')}</span> ${t('installFBPathBIntro')}</div>
+                    <div style="font-size:0.85rem; opacity:0.8; word-break:break-all; margin-top:4px;">${window.location.href}</div>
+                    <div style="margin-top:6px;">- ${pasteStep}</div>
                 </div>`;
+
+            if (!withFallbackDelay || isIOSDevice()) return pathsHTML;
+
+            return `
+                <button class="export-btn" style="margin-bottom:10px;" onclick="handleAndroidAutoEscapeClick()">${t('installWebviewAutoEscapeBtn')}</button>
+                <div id="install-fb-fallback" style="display:none;">
+                    <p style="font-weight:bold; margin-bottom:8px;">${t('installFBFallbackLabel')}</p>
+                    ${pathsHTML}
+                </div>`;
+        }
+
+        // Clic sur le bouton d'ouverture automatique (Android) — lance la tentative intent://,
+        // puis révèle les chemins manuels seulement si la page est toujours visible après un
+        // court délai (si l'ouverture a réussi, la page passe normalement en arrière-plan
+        // avant ce délai, et visibilitychange annule le fallback).
+        function handleAndroidAutoEscapeClick() {
+            attemptAndroidAutoEscape();
+
+            const fallbackTimer = setTimeout(() => {
+                document.removeEventListener('visibilitychange', onHiddenAfterEscape);
+                const fallback = document.getElementById('install-fb-fallback');
+                if (fallback) fallback.style.display = 'block';
+            }, 3000);
+
+            function onHiddenAfterEscape() {
+                if (document.visibilityState === 'hidden') {
+                    clearTimeout(fallbackTimer);
+                    document.removeEventListener('visibilitychange', onHiddenAfterEscape);
+                }
+            }
+            document.addEventListener('visibilitychange', onHiddenAfterEscape);
+        }
+
+        // Copie l'URL de la page depuis le mot cliquable inline du Chemin B — best-effort,
+        // feedback affiché directement sur l'élément cliqué. Variante générique de
+        // copyInstallLinkFromSplash()/copyInstallLink(), réutilisable à chaque endroit où
+        // ce chemin apparaît (blocage, avertissement, carte Réglages).
+        async function copyWebviewLink(el) {
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                const original = el.textContent;
+                el.textContent = t('installLinkCopied');
+                setTimeout(() => { el.textContent = original; }, 2000);
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
         }
 
         function showFacebookBrowserBlock() {
             if (document.getElementById('install-splash')) return;
             const appName = getInAppBrowserName();
             const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
-            const autoEscapeBtn = isIOSDevice() ? '' :
-                `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
@@ -1910,9 +1954,8 @@
                 <div id="install-splash-appname">${APP_NAME}</div>
                 <div id="install-splash-body">
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro', { appName, browserName })}</p>
-                        ${autoEscapeBtn}
-                        ${buildWebviewInstructionsBlockHTML()}
+                        <p>${t('installFBIntro', { appName, browserName })}</p>
+                        ${buildInstallWebviewPathsHTML(true)}
                     </div>
                 </div>
             `;
@@ -1967,13 +2010,10 @@
             if (!body) return;
             const appName = getInAppBrowserName();
             const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
-            const autoEscapeBtn = isIOSDevice() ? '' :
-                `<button class="export-btn" style="margin-bottom:10px;" onclick="attemptAndroidAutoEscape()">${t('installWebviewAutoEscapeBtn')}</button>`;
             body.innerHTML = `
                 <div class="install-splash-instructions">
-                    <p>${t('installFBBlockIntro', { appName, browserName })}</p>
-                    ${autoEscapeBtn}
-                    ${buildWebviewInstructionsBlockHTML()}
+                    <p>${t('installFBIntro', { appName, browserName })}</p>
+                    ${buildInstallWebviewPathsHTML(true)}
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
                 <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn', { appName })}</div>
@@ -2026,19 +2066,6 @@
         // apps (Instagram iOS notamment, documenté dans Escaper) bloquent les tentatives non liées
         // à un geste utilisateur réel ; notre architecture ne l'appelle de toute façon que depuis
         // des boutons, jamais automatiquement.
-        // Copie dédiée au chemin B des instructions (distincte de copyInstallLink() en Réglages,
-        // qui cible un autre bouton) — best-effort, échoue silencieusement selon le contexte.
-        async function copyWebviewLinkInline(el) {
-            try {
-                await navigator.clipboard.writeText(window.location.href);
-                const original = el.textContent;
-                el.textContent = t('manualExportCopied');
-                setTimeout(() => { el.textContent = original; }, 2000);
-            } catch (e) {
-                console.warn('[Install] Copie du lien échouée :', e);
-            }
-        }
-
         async function attemptAndroidAutoEscape() {
             const url = window.location.href;
             try {
@@ -2047,22 +2074,6 @@
                 // Best-effort, silencieux — cf. limites déjà connues du presse-papier dans
                 // certaines webviews (voir showManualExportModal()).
             }
-
-            // Révèle les instructions manuelles si on est toujours là après le délai — signal
-            // indirect d'échec (aucun callback natif ne permet de savoir si intent:// a
-            // réellement réussi). 3 secondes : assez pour laisser le temps à la redirection de
-            // se produire sans faire attendre inutilement si elle a vraiment échoué.
-            let escaped = false;
-            const onHidden = () => { if (document.visibilityState === 'hidden') escaped = true; };
-            document.addEventListener('visibilitychange', onHidden);
-            setTimeout(() => {
-                document.removeEventListener('visibilitychange', onHidden);
-                if (!escaped) {
-                    const fallback = document.getElementById('install-splash-webview-fallback');
-                    if (fallback) fallback.style.display = 'block';
-                }
-            }, 3000);
-
             const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
             window.location.href = intentUrl;
         }
@@ -2071,7 +2082,6 @@
         // depuis la séquence de démarrage (voir plus bas). Retourne true si le navigateur
         // Facebook a été détecté (et donc pris la main sur cet affichage).
         function checkFacebookBrowserBlock() {
-            if (!isHandheldDevice()) return false; // jamais sur desktop, quel que soit le navigateur détecté
             if (!isFacebookInAppBrowser()) return false;
 
             if (shouldSuggestExportBeforeInstall()) {
@@ -2094,16 +2104,18 @@
         //
         // Arbre :
         //   1. Déjà installée ? → rien
-        //   2. Navigateur intégré connu (Facebook, Reddit, WhatsApp...) ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
-        //   3. Desktop ? → rien (carte Réglages seule, jamais de splash proactif)
+        //   2. Desktop ? → rien (carte Réglages seule, jamais de splash ni de blocage webview —
+        //      testé avant le webview pour qu'un navigateur intégré détecté sur desktop ne
+        //      déclenche jamais rien non plus)
+        //   3. Navigateur intégré connu (Facebook, Reddit, WhatsApp...) ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
         //   4. Cadence du tier détecté (A/B : 7 jours ; C/D : jour civil, voir shouldShowSplashForTier())
         // ============================================================
         function checkAndShowInstallSplash() {
             if (isPWAInstalled()) return false;
 
-            if (checkFacebookBrowserBlock()) return true;
-
             if (!isHandheldDevice()) return false;
+
+            if (checkFacebookBrowserBlock()) return true;
 
             const tier = getInstallTier();
             if (!shouldShowSplashForTier(tier)) return false;
@@ -2156,14 +2168,14 @@
             if (isPWAInstalled()) {
                 branch = 'Déjà installée';
                 wouldShow = false;
+            } else if (!isHandheldDevice()) {
+                branch = 'Desktop';
+                wouldShow = false;
             } else if (isFacebookInAppBrowser()) {
                 const hasData = shouldSuggestExportBeforeInstall();
                 const appName = getInAppBrowserName();
                 branch = hasData ? `${appName} — Cas 2 (avertissement, données)` : `${appName} — Cas 1 (blocage, pas de données)`;
                 wouldShow = hasData ? shouldShowFacebookWarningToday() : true;
-            } else if (!isHandheldDevice()) {
-                branch = 'Desktop';
-                wouldShow = false;
             } else {
                 const tier = getInstallTier();
                 branch = `Tier ${tier}`;
@@ -2185,9 +2197,10 @@
 
         // ============================================================
         // 1f. CARTE PERMANENTE D'INSTALLATION — ONGLET RÉGLAGES (Bloc 5)
-        // Contrairement au splash : visible sur toutes plateformes (desktop inclus), jamais
-        // silencieuse (tier D et F ont chacun leur contenu ici, pas d'exclusion). Appelée à
-        // chaque affichage de la page Réglages (voir showPage()).
+        // Visible sur mobile/tablette uniquement — jamais sur desktop, où l'installation
+        // d'une PWA autonome via cette carte n'a pas de sens. Sur mobile, jamais silencieuse
+        // (tier D et F ont chacun leur contenu ici, pas d'exclusion). Appelée à chaque
+        // affichage de la page Réglages (voir showPage()).
         // ============================================================
 
         function renderSettingsInstallCard() {
@@ -2251,8 +2264,8 @@
                     </div>` : '';
                 content = `
                     <div class="install-splash-instructions">
-                        <p>${t('installFBBlockIntro', { appName, browserName })}</p>
-                        ${buildInstallStepsHTML('F')}
+                        <p>${t('installFBIntro', { appName, browserName })}</p>
+                        ${buildInstallWebviewPathsHTML(false)}
                         ${exportBox}
                     </div>`;
             } else if (tier === 'C') {
@@ -2833,13 +2846,16 @@
 
                 // Tier F — navigateur intégré connu, généralisé via inapp-spy (Facebook, Reddit, WhatsApp,
                 // Instagram, etc. — aucune installation possible depuis ce contexte, quelle que soit l'app)
-                installFBBlockIntro: "Vous utilisez PacingCount depuis le navigateur intégré de {appName}, qui ne permet pas d'installer l'application ni de garantir son bon fonctionnement.",
-                installFBStepsHeadingBlock: "Pour continuer :",
-                installFBOutro: "Vous pourrez ensuite installer PacingCount pour une expérience stable et complète.",
-                installFBStepsHeadingWarning: "Pour une expérience stable et complète, installez l'application :",
-                installFBStep1: "toucher le menu&emsp;⋮&emsp;en haut à droite",
-                installFBStep2IOS: "choisir « Ouvrir dans un navigateur externe » (Safari)",
-                installFBStep2Android: "choisir « Ouvrir dans un navigateur externe » (Chrome)",
+                installFBIntro: "Ceci est un aperçu web limité dans {appName}. Pour installer ou utiliser PacingCount, il faut d'abord ouvrir le lien avec {browserName}.",
+                installFBFallbackLabel: "En cas d'échec :",
+                installFBPathAStep1: "toucher le menu&emsp;⋮&emsp;en haut à droite",
+                installFBPathAStep2IOS: "choisir « Ouvrir dans un navigateur externe » (Safari)",
+                installFBPathAStep2Android: "choisir « Ouvrir dans un navigateur externe » (Chrome)",
+                installFBOr: "Ou",
+                installFBPathBIntro: "le lien vers PacingCount :",
+                installFBCopyLinkWord: "Copier",
+                installFBPathBStep2IOS: "Coller ce lien dans Safari pour l'ouvrir",
+                installFBPathBStep2Android: "Coller ce lien dans Chrome pour l'ouvrir",
                 installFBTransferData: "Transférer mes données déjà enregistrées",
                 installFBTempReturn: "Retour temporaire dans le navigateur de {appName}",
                 installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur {appName}. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
@@ -3028,13 +3044,16 @@
                 installConfirmTextIOS: "Well done on installing! Check that the icon has appeared on your home screen — that's your confirmation the installation worked. You can now close this browser tab and use the installed icon instead!",
                 installConfirmTextAB: "Installation successful! The app is now available on your home screen — you can close this browser tab and use the installed icon instead!",
 
-                installFBBlockIntro: "You're using PacingCount from {appName}'s built-in browser, which doesn't allow installing the app or guarantee it will work properly.",
-                installFBStepsHeadingBlock: "To continue:",
-                installFBOutro: "You'll then be able to install PacingCount for a stable, complete experience.",
-                installFBStepsHeadingWarning: "For a stable, complete experience, install the app:",
-                installFBStep1: "tap the&emsp;⋮&emsp;menu at the top right",
-                installFBStep2IOS: "choose \"Open in external browser\" (Safari)",
-                installFBStep2Android: "choose \"Open in external browser\" (Chrome)",
+                installFBIntro: "This is a limited web preview inside {appName}. To install or use PacingCount, you first need to open the link with {browserName}.",
+                installFBFallbackLabel: "If that doesn't work:",
+                installFBPathAStep1: "tap the&emsp;⋮&emsp;menu at the top right",
+                installFBPathAStep2IOS: "choose \"Open in external browser\" (Safari)",
+                installFBPathAStep2Android: "choose \"Open in external browser\" (Chrome)",
+                installFBOr: "Or",
+                installFBPathBIntro: "the link to PacingCount:",
+                installFBCopyLinkWord: "Copy",
+                installFBPathBStep2IOS: "Paste this link into Safari to open it",
+                installFBPathBStep2Android: "Paste this link into Chrome to open it",
                 installFBTransferData: "Transfer my already recorded data",
                 installFBTempReturn: "Go back temporarily to {appName}'s browser",
                 installFBExportText: "You already have {n} recorded periods in this {appName} browser. To avoid losing anything, export them to a file now — you'll be able to re-import them elsewhere afterwards.",
@@ -3221,13 +3240,16 @@
                 installConfirmTextIOS: "Goed gedaan met installeren! Controleer of het icoon op je beginscherm is verschenen — dat bevestigt dat de installatie gelukt is. Je kunt dit browsertabblad nu sluiten en voortaan het geïnstalleerde icoon gebruiken!",
                 installConfirmTextAB: "Installatie gelukt! De app staat nu op je beginscherm — je kunt dit browsertabblad sluiten en voortaan het geïnstalleerde icoon gebruiken!",
 
-                installFBBlockIntro: "Je gebruikt PacingCount vanuit de ingebouwde browser van {appName}, die het niet mogelijk maakt de app te installeren en de goede werking niet garandeert.",
-                installFBStepsHeadingBlock: "Om verder te gaan:",
-                installFBOutro: "Daarna kun je PacingCount installeren voor een stabiele en volledige ervaring.",
-                installFBStepsHeadingWarning: "Voor een stabiele en volledige ervaring, installeer de app:",
-                installFBStep1: "tik op het&emsp;⋮&emsp;menu rechtsboven",
-                installFBStep2IOS: "kies « Openen in externe browser » (Safari)",
-                installFBStep2Android: "kies « Openen in externe browser » (Chrome)",
+                installFBIntro: "Dit is een beperkte webweergave in {appName}. Om PacingCount te installeren of te gebruiken, moet je de link eerst openen met {browserName}.",
+                installFBFallbackLabel: "Als dit niet lukt:",
+                installFBPathAStep1: "tik op het&emsp;⋮&emsp;menu rechtsboven",
+                installFBPathAStep2IOS: "kies « Openen in externe browser » (Safari)",
+                installFBPathAStep2Android: "kies « Openen in externe browser » (Chrome)",
+                installFBOr: "Of",
+                installFBPathBIntro: "de link naar PacingCount:",
+                installFBCopyLinkWord: "Kopiëren",
+                installFBPathBStep2IOS: "Plak deze link in Safari om hem te openen",
+                installFBPathBStep2Android: "Plak deze link in Chrome om hem te openen",
                 installFBTransferData: "Mijn reeds geregistreerde gegevens overzetten",
                 installFBTempReturn: "Tijdelijk terug naar de browser van {appName}",
                 installFBExportText: "Je hebt al {n} geregistreerde periodes in deze {appName}-browser. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later elders opnieuw importeren.",
