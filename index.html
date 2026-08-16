@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -499,11 +499,28 @@
            Injecté dynamiquement par showInstallSplash() (voir script, section dédiée).
            Réutilise les variables CSS et classes existantes (--bg-color, --blue, .export-btn,
            même esprit visuel que #sleep-overlay) plutôt qu'une identité graphique à part. */
+        /* Conteneur externe : scroll pur, sans centrage. Un flex centré avec overflow-y:auto
+           coupe systématiquement le haut du contenu qui déborde (bug connu du centrage
+           flex/grid, reproductible sur les WebView Android et Safari) — on ne peut alors
+           jamais atteindre le début du contenu. Le centrage est délégué à #install-splash-inner
+           ci-dessous, seul capable de centrer *et* rester scrollable sans rien couper. */
         #install-splash {
             position: fixed;
             inset: 0;
             background: var(--bg-color);
             z-index: 500;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            animation: installSplashFadeIn 0.25s ease;
+        }
+
+        /* min-height:100% (de la zone scrollable, pas du viewport) : remplit l'écran et centre
+           verticalement quand le contenu est court ; dès que le contenu dépasse, le conteneur
+           grandit au-delà de 100% et #install-splash (scroll normal, non centré) rend tout
+           accessible sans rien couper. */
+        #install-splash-inner {
+            min-height: 100%;
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -513,7 +530,6 @@
             gap: 16px;
             /* Espacement uniforme entre les blocs directement présents (logo/nom/slogan/corps) —
                fiable quelle que soit la combinaison affichée, sans marges à ajuster au cas par cas. */
-            animation: installSplashFadeIn 0.25s ease;
         }
 
         /* z-index supérieur à #install-splash (500) — ce modal peut être déclenché depuis
@@ -1268,6 +1284,19 @@
         // ============================================================
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 
+        // URL de la page sans les paramètres de tracking ajoutés automatiquement par certains
+        // contextes (ex. ?fbclid=... rajouté par le navigateur intégré Facebook) ni fragment
+        // (#...). Utilisée partout où on affiche/copie le lien de l'app à l'utilisateur — n'a
+        // aucune incidence sur l'installation elle-même : manifest.json fixe start_url à "./",
+        // donc une fois installée l'app démarre toujours sur cette URL propre, quelle que soit
+        // celle affichée dans l'onglet au moment de l'installation. Ça évite en revanche un vrai
+        // effet de bord avant installation : sw.js fait caches.match(event.request) en
+        // correspondance exacte (query string incluse) — une URL avec paramètres ne correspond
+        // à aucune entrée précachée et rate le cache hors-ligne, contrairement à l'URL nue.
+        function getCleanInstallUrl() {
+            return window.location.origin + window.location.pathname;
+        }
+
 
         // ============================================================
         // 1b. SURVEILLANCE DU STOCKAGE localStorage
@@ -1598,10 +1627,12 @@
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
-                <img id="install-splash-logo" src="icon-192.png" alt="">
-                <div id="install-splash-appname">${APP_NAME}</div>
-                ${INSTALL_SPLASH_SHOW_SLOGAN ? `<div id="install-splash-slogan">${t('installSplashSlogan')}</div>` : ''}
-                <div id="install-splash-body"></div>
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    ${INSTALL_SPLASH_SHOW_SLOGAN ? `<div id="install-splash-slogan">${t('installSplashSlogan')}</div>` : ''}
+                    <div id="install-splash-body"></div>
+                </div>
             `;
             document.body.appendChild(overlay);
 
@@ -1638,7 +1669,7 @@
                 <div id="install-splash-context">${contextHTML}</div>
                 <div class="install-splash-instructions">
                     <p style="font-weight:bold;">${t('installTierDText')}</p>
-                    <p style="font-size:0.85rem; opacity:0.8; word-break:break-all;">${window.location.href}</p>
+                    <p style="font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all;">${getCleanInstallUrl()}</p>
                     <button class="export-btn" style="margin-top:8px;" id="install-splash-copy-btn"
                         onclick="copyInstallLinkFromSplash()">${t('installCopyLinkBtn')}</button>
                 </div>
@@ -1650,7 +1681,7 @@
         // autre bouton) — best-effort, échoue silencieusement selon le contexte.
         async function copyInstallLinkFromSplash() {
             try {
-                await navigator.clipboard.writeText(window.location.href);
+                await navigator.clipboard.writeText(getCleanInstallUrl());
                 const btn = document.getElementById('install-splash-copy-btn');
                 if (btn) {
                     const original = btn.textContent;
@@ -1760,9 +1791,11 @@
                 overlay = document.createElement('div');
                 overlay.id = 'install-splash';
                 overlay.innerHTML = `
-                    <img id="install-splash-logo" src="icon-192.png" alt="">
-                    <div id="install-splash-appname">${APP_NAME}</div>
-                    <div id="install-splash-body"></div>
+                    <div id="install-splash-inner">
+                        <img id="install-splash-logo" src="icon-192.png" alt="">
+                        <div id="install-splash-appname">${APP_NAME}</div>
+                        <div id="install-splash-body"></div>
+                    </div>
                 `;
                 document.body.appendChild(overlay);
             }
@@ -1891,8 +1924,8 @@
                 </div>
                 <div style="text-align:center; opacity:0.6; margin:6px 0;">${t('installFBOr')}</div>
                 <div class="install-splash-steps">
-                    <div><span class="install-link-word" onclick="copyWebviewLink(this)">${t('installFBCopyLinkWord')}</span> ${t('installFBPathBIntro')}</div>
-                    <div style="font-size:0.85rem; opacity:0.8; word-break:break-all; margin-top:4px;">${window.location.href}</div>
+                    <div>- <span class="install-link-word" onclick="copyWebviewLink(this)">${t('installFBCopyLinkWord')}</span> ${t('installFBPathBIntro')}</div>
+                    <div style="font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all; margin-top:4px;">${getCleanInstallUrl()}</div>
                     <div style="margin-top:6px;">- ${pasteStep}</div>
                 </div>`;
 
@@ -1934,7 +1967,7 @@
         // ce chemin apparaît (blocage, avertissement, carte Réglages).
         async function copyWebviewLink(el) {
             try {
-                await navigator.clipboard.writeText(window.location.href);
+                await navigator.clipboard.writeText(getCleanInstallUrl());
                 const original = el.textContent;
                 el.textContent = t('installLinkCopied');
                 setTimeout(() => { el.textContent = original; }, 2000);
@@ -1950,12 +1983,14 @@
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
-                <img id="install-splash-logo" src="icon-192.png" alt="">
-                <div id="install-splash-appname">${APP_NAME}</div>
-                <div id="install-splash-body">
-                    <div class="install-splash-instructions">
-                        <p>${t('installFBIntro', { appName, browserName })}</p>
-                        ${buildInstallWebviewPathsHTML(true)}
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    <div id="install-splash-body">
+                        <div class="install-splash-instructions">
+                            <p>${t('installFBIntro', { appName, browserName })}</p>
+                            ${buildInstallWebviewPathsHTML(true)}
+                        </div>
                     </div>
                 </div>
             `;
@@ -1997,9 +2032,11 @@
             const overlay = document.createElement('div');
             overlay.id = 'install-splash';
             overlay.innerHTML = `
-                <img id="install-splash-logo" src="icon-192.png" alt="">
-                <div id="install-splash-appname">${APP_NAME}</div>
-                <div id="install-splash-body"></div>
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    <div id="install-splash-body"></div>
+                </div>
             `;
             document.body.appendChild(overlay);
             renderFacebookWarningScreen();
@@ -2067,7 +2104,7 @@
         // à un geste utilisateur réel ; notre architecture ne l'appelle de toute façon que depuis
         // des boutons, jamais automatiquement.
         async function attemptAndroidAutoEscape() {
-            const url = window.location.href;
+            const url = getCleanInstallUrl();
             try {
                 await navigator.clipboard.writeText(url);
             } catch (e) {
@@ -2284,7 +2321,7 @@
             } else if (tier === 'D') {
                 content = `
                     <p style="margin:0 0 8px 0; font-size:0.93rem; font-weight:bold;">${t('installTierDText')}</p>
-                    <p style="margin:0 0 12px 0; font-size:0.85rem; opacity:0.8; word-break:break-all;">${window.location.href}</p>
+                    <p style="margin:0 0 12px 0; font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all;">${getCleanInstallUrl()}</p>
                     <button class="export-btn" style="margin:0;" id="settings-install-copy-btn"
                         onclick="copyInstallLink()">${t('installCopyLinkBtn')}</button>`;
             } else {
@@ -2299,7 +2336,7 @@
         // silencieusement si l'API n'est pas disponible ou refusée par le navigateur.
         async function copyInstallLink() {
             try {
-                await navigator.clipboard.writeText(window.location.href);
+                await navigator.clipboard.writeText(getCleanInstallUrl());
                 const btn = document.getElementById('settings-install-copy-btn');
                 if (btn) {
                     const original = btn.textContent;
