@@ -8,7 +8,7 @@
       "maxVersion": "",
       "validFrom": "2026-05-13",
       "validUntil": "",
-      "blockAfter": "",
+      "blockAfter": "2026-05-13",
       "title": {
         "fr": "Mise à jour disponible",
         "en": "Update available",
@@ -22,7 +22,7 @@
     },
     {
       "type": "welcome",
-      "id": "welcome-v1",
+      "id": "zwelcome-v1",
       "_comment": "Message de bienvenue — affiché une seule fois au premier lancement. Ne jamais réutiliser cet id.",
       "validFrom": "2026-05-13",
       "validUntil": "",
