@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2706,6 +2706,17 @@
             const _n = new Date();
             window.historyEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
             window.lastHistoryCheckDay = _n.toDateString();
+        }
+
+        // Ancre temporelle — dernier jour affiché dans la vue Résultats (onglet Résultats,
+        // Chantier 1A). Indépendante de historyEndDate par choix volontaire (voir Handoff) :
+        // la fenêtre affichée est toujours resultsEndDate - 13j → resultsEndDate (14 jours).
+        // lastResultsCheckDay : dédiée à la détection de changement de jour dans visibilitychange,
+        // isolée de lastHistoryCheckDay (même principe que ce dernier vs lastDailyPingSent).
+        {
+            const _n = new Date();
+            window.resultsEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+            window.lastResultsCheckDay = _n.toDateString();
         }
 
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
@@ -7042,6 +7053,201 @@
         }
 
         // ============================================================
+        // 21c. NAVIGATION TEMPORELLE — page Résultats (Chantier 1A)
+        // window.resultsEndDate : dernier jour de la fenêtre de 14 jours affichée.
+        // Fenêtre = resultsEndDate - 13j → resultsEndDate (inclus).
+        // Fonctions dupliquées depuis la section 21b (Historique) plutôt que généralisées —
+        // choix assumé (voir Handoff), _getHistoryStartDate() seule est réutilisée telle quelle
+        // (générique, ne dépend d'aucune des deux ancres).
+        // ============================================================
+
+        const RESULTS_WINDOW_DAYS = 14; // taille de la fenêtre glissante (Chantier 1A)
+
+        // Met à jour le texte de plage de dates du tiroir (#results-footer-range) — indépendant
+        // du rendu des graphes (pas encore fenêtrés, voir Chantier 1A bloc 3), appelé directement
+        // par les fonctions de nav ci-dessous.
+        function updateResultsFooterRange() {
+            const rangeEl = document.getElementById('results-footer-range');
+            if (!rangeEl) return;
+            const ed = window.resultsEndDate;
+            const firstDay = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const lastDay = ed;
+            const locale = getLocale();
+            const fD = firstDay.getDate();
+            const fM = firstDay.toLocaleDateString(locale, { month: 'long' });
+            const lD = lastDay.getDate();
+            const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
+            rangeEl.innerText = firstDay.getMonth() === lastDay.getMonth()
+                ? t('historyRangeSameMonth', { fD, lD, lM })
+                : t('historyRangeDiffMonth', { fD, fM, lD, lM });
+        }
+
+        // Avance ou recule de `days` jours, avec clamp haut (aujourd'hui) et bas (1er jour historique).
+        function navigateResults(days) {
+            const ed = window.resultsEndDate;
+            const candidate = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + days);
+
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            if (candidate > todayMidnight) { window.resultsEndDate = todayMidnight; }
+            else {
+                const minDate = _getHistoryStartDate();
+                if (minDate && candidate < minDate) { window.resultsEndDate = minDate; }
+                else { window.resultsEndDate = candidate; }
+            }
+
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            populateResultsMonthDropdown();
+            // Chantier 1A bloc 3 : renderDailyCharts()/renderWeeklyCharts()/renderResults() pas
+            // encore fenêtrés — appel sans effet visible pour l'instant, deviendra actif au bloc 3.
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Remet resultsEndDate à aujourd'hui.
+        function goToTodayResults() {
+            const n = new Date();
+            window.resultsEndDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            populateResultsMonthDropdown();
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Active/désactive les boutons de navigation selon la position courante.
+        function updateResultsNavButtons() {
+            // Guard : les boutons n'existent que sur la page Résultats
+            if (!document.getElementById('results-nav-back7')) return;
+
+            const ed = window.resultsEndDate;
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const minDate = _getHistoryStartDate();
+
+            const windowStart = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+
+            const atStart = !minDate || windowStart <= minDate;
+            document.getElementById('results-nav-back7').disabled = atStart;
+            document.getElementById('results-nav-back1').disabled = atStart;
+
+            const atEnd = ed >= todayMidnight;
+            document.getElementById('results-nav-fwd1').disabled = atEnd;
+            document.getElementById('results-nav-fwd7').disabled = atEnd;
+            document.getElementById('results-nav-today').disabled = atEnd;
+        }
+
+        // Saute au premier jour avec données dans le mois sélectionné.
+        // value = "YYYY-MM" (format des options du select results-nav-month).
+        function jumpToMonthResults(value) {
+            if (!value) return;
+            const [y, m] = value.split('-').map(Number);
+            const firstInMonth = state.history.find(e => {
+                const d = new Date(e.start);
+                return d.getFullYear() === y && d.getMonth() === m - 1;
+            });
+            if (!firstInMonth) return;
+            const d = new Date(firstInMonth.start);
+            const firstDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            // Le premier jour avec données est la colonne gauche du graphe → endDate = firstDay + 13j
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const candidate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + (RESULTS_WINDOW_DAYS - 1));
+            window.resultsEndDate = candidate > todayMidnight ? todayMidnight : candidate;
+
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Peuple le select results-nav-month avec les mois ayant des données (format "Janvier 2026").
+        // Appelée à l'ouverture de la page Résultats et après tout changement de données.
+        function populateResultsMonthDropdown() {
+            const monthSel = document.getElementById('results-nav-month');
+            if (!monthSel) return;
+
+            const locale = getLocale();
+            const monthsSet = new Set();
+
+            const _ed = window.resultsEndDate;
+            const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const fY = firstDay.getFullYear();
+            const fM = (firstDay.getMonth() + 1).toString().padStart(2, '0');
+            monthsSet.add(`${fY}-${fM}`);
+
+            state.history.forEach(e => {
+                const d = new Date(e.start);
+                const y = d.getFullYear();
+                const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                monthsSet.add(`${y}-${m}`);
+            });
+
+            const months = [...monthsSet].sort();
+            monthSel.innerHTML = months.map(ym => {
+                const [y, m] = ym.split('-');
+                const monthName = new Date(parseInt(y), parseInt(m) - 1, 1)
+                    .toLocaleDateString(locale, { month: 'long' });
+                const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                return `<option value="${ym}">${monthLabel} ${y}</option>`;
+            }).join('');
+
+            const firstVisible = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const curYM = `${firstVisible.getFullYear()}-${(firstVisible.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
+        }
+
+        // ── TIROIR FOOTER (page Résultats) — mécanique dupliquée de #timeline-footer,
+        // contenu inversé (voir Handoff : plage toujours visible, nav masquée/révélée). ──
+        // État lu depuis settings (persistance localStorage), clé indépendante de footerExpanded.
+        if (typeof settings.resultsFooterExpanded === 'undefined') settings.resultsFooterExpanded = true;
+        window.resultsFooterExpanded = settings.resultsFooterExpanded;
+
+        function applyResultsFooterState() {
+            const collapsible = document.getElementById('results-footer-collapsible');
+            if (!collapsible) return;
+            collapsible.style.maxHeight = window.resultsFooterExpanded ? '50px' : '0px';
+        }
+
+        function toggleResultsFooterDrawer() {
+            window.resultsFooterExpanded = !window.resultsFooterExpanded;
+            settings.resultsFooterExpanded = window.resultsFooterExpanded;
+            safeSave('pacingSettings', JSON.stringify(settings));
+            applyResultsFooterState();
+        }
+
+        // Initialisation du tiroir : affichage, padding-bottom scroll, état, interactions
+        // (une seule fois — voir wiring dans showPage(), Chantier 1A bloc 2).
+        function initResultsFooterDrawer() {
+            const footer = document.getElementById('results-footer');
+            const scroll = document.getElementById('results-scroll');
+            if (!footer || !scroll) return;
+
+            footer.style.display = 'block';
+            scroll.style.paddingBottom = (footer.offsetHeight + 8) + 'px';
+            applyResultsFooterState();
+
+            const handle = document.getElementById('results-footer-handle');
+            if (handle) handle.addEventListener('click', toggleResultsFooterDrawer);
+            const range = document.getElementById('results-footer-range');
+            if (range) range.addEventListener('click', toggleResultsFooterDrawer);
+
+            let swipeStartY = 0;
+            footer.addEventListener('touchstart', e => {
+                swipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+            footer.addEventListener('touchend', e => {
+                const diff = e.changedTouches[0].clientY - swipeStartY;
+                if (Math.abs(diff) > 30) {
+                    if (diff > 0 && window.resultsFooterExpanded) toggleResultsFooterDrawer();
+                    if (diff < 0 && !window.resultsFooterExpanded) toggleResultsFooterDrawer();
+                }
+            }, { passive: true });
+        }
+
+        // ============================================================
         // 22. NAVIGATION ENTRE PAGES
         // ============================================================
         function showPage(p) {
@@ -7566,6 +7772,26 @@
                     }
                 }
                 window.lastHistoryCheckDay = _todayStr;
+            }
+
+            // 1c. Même principe pour resultsEndDate (page Résultats, Chantier 1A) — ancre
+            // indépendante de historyEndDate, détection isolée via lastResultsCheckDay.
+            {
+                const _n = new Date();
+                const _todayStr = _n.toDateString();
+                if (window.lastResultsCheckDay && window.lastResultsCheckDay !== _todayStr) {
+                    window.resultsEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+                    console.log('[visibilitychange] Nouveau jour — resultsEndDate avancé à aujourd\'hui');
+                    if (document.getElementById('page-results').classList.contains('active')) {
+                        populateResultsMonthDropdown();
+                        updateResultsNavButtons();
+                        updateResultsFooterRange();
+                        renderDailyCharts();
+                        renderWeeklyCharts();
+                        renderResults();
+                    }
+                }
+                window.lastResultsCheckDay = _todayStr;
             }
 
             // 2. Pas de période active → rien à faire
