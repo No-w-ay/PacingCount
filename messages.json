@@ -3,12 +3,12 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.27-beta.18c",
+      "id": "update-0.9.27-beta.18",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement. Correction de bugs et petites améliorations\n\n",
       "maxVersion": "",
       "validFrom": "2026-05-13",
       "validUntil": "",
-      "blockAfter": "2026-05-13",
+      "blockAfter": "",
       "title": {
         "fr": "Mise à jour disponible",
         "en": "Update available",
@@ -22,7 +22,7 @@
     },
     {
       "type": "welcome",
-      "id": "z1welcome-v1",
+      "id": "welcome-v1",
       "_comment": "Message de bienvenue — affiché une seule fois au premier lancement. Ne jamais réutiliser cet id.",
       "validFrom": "2026-05-13",
       "validUntil": "",
