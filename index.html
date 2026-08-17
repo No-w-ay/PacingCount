@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.26-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.27-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -36,6 +36,11 @@
 
     <!-- -->
     <script src="chart.js"></script>
+
+    <!-- inapp-spy v5.0.10 (MIT) — détection des navigateurs intégrés (réseaux sociaux).
+         Vendorisé comme chart.js : fichier local, pas de CDN (offline-first).
+         Expose window.InAppSpy(). Voir https://github.com/khang0910/inapp-spy -->
+    <script src="inapp-spy.js"></script>
 
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
@@ -418,7 +423,10 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 100;
+            /* Au-dessus du splash d'installation (500) et des toasts (550) : un modal ouvert
+               par une action utilisateur explicite doit toujours pouvoir s'afficher, même si
+               ces éléments étaient déjà présents — protection structurelle, pas conventionnelle. */
+            z-index: 560;
             left: 0;
             top: 0;
             width: 100%;
@@ -485,6 +493,165 @@
         #sleep-overlay .swipe-hint .arrow {
             font-size: 3rem;
             /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
+        }
+
+        /* --- SPLASH D'INSTALLATION PWA ---
+           Injecté dynamiquement par showInstallSplash() (voir script, section dédiée).
+           Réutilise les variables CSS et classes existantes (--bg-color, --blue, .export-btn,
+           même esprit visuel que #sleep-overlay) plutôt qu'une identité graphique à part. */
+        /* Conteneur externe : scroll pur, sans centrage. Un flex centré avec overflow-y:auto
+           coupe systématiquement le haut du contenu qui déborde (bug connu du centrage
+           flex/grid, reproductible sur les WebView Android et Safari) — on ne peut alors
+           jamais atteindre le début du contenu. Le centrage est délégué à #install-splash-inner
+           ci-dessous, seul capable de centrer *et* rester scrollable sans rien couper. */
+        #install-splash {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            z-index: 500;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            animation: installSplashFadeIn 0.25s ease;
+        }
+
+        /* min-height:100% (de la zone scrollable, pas du viewport) : remplit l'écran et centre
+           verticalement quand le contenu est court ; dès que le contenu dépasse, le conteneur
+           grandit au-delà de 100% et #install-splash (scroll normal, non centré) rend tout
+           accessible sans rien couper. */
+        #install-splash-inner {
+            min-height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 30px 24px;
+            gap: 16px;
+            /* Espacement uniforme entre les blocs directement présents (logo/nom/slogan/corps) —
+               fiable quelle que soit la combinaison affichée, sans marges à ajuster au cas par cas. */
+        }
+
+        /* z-index supérieur à #install-splash (500) — ce modal peut être déclenché depuis
+           l'intérieur même du splash (écran export navigateur intégré), il doit toujours passer au-dessus. */
+        #manualExportModal {
+            z-index: 600;
+        }
+
+        @keyframes installSplashFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        #install-splash-logo {
+            width: 84px;
+            height: 84px;
+            border-radius: 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        #install-splash-appname {
+            font-family: 'Lora', serif;
+            /* Même police que le nom de l'app en À propos — cohérence de marque */
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        #install-splash-slogan {
+            font-size: 0.88rem;
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        /* Corps dynamique (reminder / instructions / CTA / lien du bas) — reconstruit par
+           renderInstallSplashButtonScreen() ou renderInstallSplashInstructions(). Gap plus
+           resserré qu'au niveau supérieur : ces éléments sont plus étroitement liés entre eux. */
+        #install-splash-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            gap: 10px;
+        }
+
+        /* Espace réservé pour le paragraphe de contexte du Splash 1 — même nombre de "lignes"
+           affiché avec ou sans texte (voir renderInstallSplashButtonScreen()), pour que le
+           bouton en dessous ne bouge jamais selon le cas. */
+        #install-splash-context {
+            width: 100%;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .install-splash-context-line {
+            line-height: 1.6;
+        }
+
+        #install-splash-reminder-text {
+            opacity: 0.88;
+        }
+
+        #install-splash-cta-area {
+            width: 100%;
+        }
+
+        /* Conteneur neutre — pas de fond propre, le texte de contexte (intro/outro) reste
+           directement sur le fond de l'overlay. Le fond bleu est uniquement sur
+           .install-splash-steps ci-dessous (les étapes concrètes), jamais ici. */
+        .install-splash-instructions {
+            text-align: left;
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .install-splash-instructions p {
+            margin: 0 0 8px 0;
+        }
+
+        /* Enveloppe le titre "Pour... :" + les lignes d'étapes — font-weight hérité
+           par tous les enfants (propriété CSS héritée), pas besoin de règle par élément.
+           Fond bleu à faible opacité : relie visuellement ces étapes au bouton bleu
+           d'installation qui y mène. color-mix() avec repli rgba pour compatibilité. */
+        .install-splash-steps {
+            font-weight: bold;
+            background: rgba(33, 150, 243, 0.2);
+            background: color-mix(in srgb, var(--blue) 20%, transparent);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin: 8px 0;
+        }
+
+        .install-splash-export-box {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
+        }
+
+        .install-splash-export-box p {
+            font-size: 0.85rem;
+            opacity: 0.85;
+            margin: 0 0 10px 0;
+            line-height: 1.5;
+        }
+
+        #install-splash-dismiss,
+        .install-splash-link {
+            font-size: 0.85rem;
+            opacity: 0.65;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        /* Mot cliquable inline (ex. "Copier" dans le Chemin B du blocage webview) — bleu,
+           souligné, pas un bouton pleine largeur comme .export-btn. */
+        .install-link-word {
+            color: var(--blue);
+            cursor: pointer;
+            text-decoration: underline;
+            font-weight: bold;
         }
 
         /* Animation points de suspension pour la période en cours */
@@ -670,6 +837,14 @@
     <div id="page-settings" class="page">
         <h1 id="title-settings">Réglages</h1>
 
+        <!-- Installation PWA (Bloc 5) — masquée si déjà installée, remplie par renderSettingsInstallCard() -->
+        <!-- Fond bleu léger (contrairement aux autres blocs) : relie visuellement à l'action d'installation -->
+        <div class="settings-group" id="settings-install-card"
+            style="display:none; background:color-mix(in srgb, var(--blue) 10%, var(--card-bg));">
+            <label id="label-settings-install" style="display:block; margin-bottom:10px; font-weight:bold;">Instructions d'installation</label>
+            <div id="settings-install-body"></div>
+        </div>
+
         <!-- Langue -->
         <div class="settings-group">
             <label id="label-language" style="display:block; margin-bottom:10px; font-weight:bold;">Langue</label>
@@ -842,12 +1017,12 @@
             <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
                 <button class="export-btn" onclick="exportCSV()" id="btn-export"
-                    style="flex: 1; padding: 8px; margin: 0;">
-                    Exporter CSV
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">
+                    Exporter (.csv)
                 </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;" id="btn-import">
-                    Importer CSV
+                    style="flex: 1; padding: 8px; margin: 0;" id="btn-import">
+                    Importer (.csv)
                 </button>
                 <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
                     style="display:none;" onchange="importCSV(event)">
@@ -1008,6 +1183,24 @@
         </div>
     </div>
 
+    <!-- Modal de repli export manuel — navigateurs intégrés (téléchargement blob souvent bloqué) -->
+    <div id="manualExportModal" class="modal">
+        <div class="modal-content">
+            <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
+            <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:12px;"></p>
+            <textarea id="manual-export-textarea" readonly
+                style="width:100%; height:160px; box-sizing:border-box; background:#111; color:var(--text-color);
+                       border:1px solid #444; border-radius:6px; padding:10px; font-family:monospace;
+                       font-size:0.78rem; resize:vertical; margin-bottom:12px;"></textarea>
+            <div style="display:flex; gap:10px;">
+                <button id="manual-export-copy-btn" class="export-btn" style="margin:0;"
+                    onclick="copyManualExportText()">Copier</button>
+                <button class="export-btn" style="background:#444; margin:0;" id="btn-manual-export-close"
+                    onclick="closeManualExportModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============================================================ -->
     <!-- MODAL MESSAGES JSON (section 8d)                             -->
     <!-- Affiche les messages fetché depuis messages.json :           -->
@@ -1062,10 +1255,47 @@
         }
 
         // ============================================================
+        // 0b. CAPTURE PRÉCOCE DE L'ÉVÉNEMENT D'INSTALLATION PWA
+        // Posé tôt car beforeinstallprompt peut survenir dès le chargement.
+        // preventDefault() systématique : c'est toujours notre UI (splash / bouton
+        // Réglages) qui pilote l'installation, jamais le bandeau natif du navigateur.
+        // La référence n'est utilisable qu'une fois — window.deferredInstallPrompt
+        // est remis à null après usage (prompt() consommé) ou après installation effective.
+        // ============================================================
+        window.deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            console.log('[Install] beforeinstallprompt capturé');
+        });
+        window.addEventListener('appinstalled', () => {
+            window.deferredInstallPrompt = null;
+            console.log('[Install] App installée (appinstalled)');
+            // sendNewUserInstalledOnce définie plus bas (hissée) — callable ici sans problème.
+            sendNewUserInstalledOnce();
+            // Détection réelle, fiable pour toute la famille Chromium (tier A ou B, peu importe
+            // comment l'installation a été déclenchée) — voir showInstallSplashConfirmation().
+            showInstallSplashConfirmation('AB');
+        });
+
+        // ============================================================
         // 1. OUTIL DE LECTURE CSS
         // Permet de lire les variables CSS définies dans :root depuis JS.
         // ============================================================
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+
+        // URL de la page sans les paramètres de tracking ajoutés automatiquement par certains
+        // contextes (ex. ?fbclid=... rajouté par le navigateur intégré Facebook) ni fragment
+        // (#...). Utilisée partout où on affiche/copie le lien de l'app à l'utilisateur — n'a
+        // aucune incidence sur l'installation elle-même : manifest.json fixe start_url à "./",
+        // donc une fois installée l'app démarre toujours sur cette URL propre, quelle que soit
+        // celle affichée dans l'onglet au moment de l'installation. Ça évite en revanche un vrai
+        // effet de bord avant installation : sw.js fait caches.match(event.request) en
+        // correspondance exacte (query string incluse) — une URL avec paramètres ne correspond
+        // à aucune entrée précachée et rate le cache hors-ligne, contrairement à l'URL nue.
+        function getCleanInstallUrl() {
+            return window.location.origin + window.location.pathname;
+        }
 
 
         // ============================================================
@@ -1086,14 +1316,24 @@
         const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024; // 5 Mo — capacité limite typique navigateur
         const STORAGE_WARN_RATIO = 0.90;             // Seuil avertissement = 90% de la capacité
 
+        // Calcule le décalage vertical du prochain toast — évite que plusieurs toasts se
+        // superposent exactement au même endroit s'ils apparaissent ensemble (ex. mise à jour
+        // + alerte stockage au démarrage, via showStartupToasts()). Incrément généreux (150px)
+        // pour couvrir les toasts les plus hauts (stockage, avec bouton).
+        function getNextToastBottomOffset() {
+            const existing = document.querySelectorAll('.pacing-toast').length;
+            return 80 + existing * 150;
+        }
+
         function showStorageWarningToast() {
             if (document.getElementById('storage-warning-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-warning-toast';
+            toast.className = 'pacing-toast';
             toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--orange);
-        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -1115,10 +1355,11 @@
             if (document.getElementById('storage-full-toast')) return;
             const toast = document.createElement('div');
             toast.id = 'storage-full-toast';
+            toast.className = 'pacing-toast';
             toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
         background:#1e1e1e; color:var(--text-color); border:1px solid var(--red);
-        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:200;
+        border-radius:8px; padding:16px 20px; font-size:0.85rem; z-index:550;
         max-width:320px; width:90%; box-shadow:0 4px 12px rgba(0,0,0,0.5);`;
             toast.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
@@ -1138,6 +1379,42 @@
             document.body.appendChild(toast);
         }
 
+        // Toast "mise à jour installée" — extrait de son ancien setTimeout autonome (section 23)
+        // pour être appelé au bon moment par showStartupToasts(), dans l'ordre convenu
+        // (splash > toasts > message JSON).
+        function showUpdateInstalledToast() {
+            const toast = document.createElement('div');
+            toast.className = 'pacing-toast';
+            toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
+               <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
+            toast.style.cssText = `
+        position:fixed; bottom:${getNextToastBottomOffset()}px; left:50%; transform:translateX(-50%);
+        background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
+        border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
+        min-width:220px; z-index:550; opacity:1; transition:opacity 1s;
+        white-space:nowrap;`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; }, 5000);
+            setTimeout(() => { toast.remove(); }, 6000);
+        }
+
+        // Enchaîné après résolution du splash (ou immédiatement si aucun splash à montrer) —
+        // respecte l'ordre convenu : splash > toasts > message JSON. Les toasts ne bloquent pas
+        // l'interaction (contrairement aux modals) : on ne les "attend" pas avant d'enchaîner,
+        // l'essentiel est qu'ils ne soient jamais masqués par un splash déjà ouvert (z-index)
+        // ni concurrents d'un modal — voir durcissement des z-index (section CSS).
+        function showStartupToasts() {
+            if (window._pendingUpdateInstalledToast) {
+                showUpdateInstalledToast();
+                window._pendingUpdateInstalledToast = false;
+            }
+            if (window._pendingStorageWarningToast) {
+                showStorageWarningToast();
+                window._pendingStorageWarningToast = false;
+            }
+            checkMessages();
+        }
+
         // Remplace localStorage.setItem dans saveState() et saveSettings()
         function safeSave(key, value) {
             try {
@@ -1150,6 +1427,926 @@
             }
         }
 
+        // ============================================================
+        // 1c. DÉTECTION INSTALLATION PWA — appareil et disponibilité
+        // isPWAInstalled() et isIOSDevice() sont déjà définies plus bas dans ce fichier
+        // (section notifications) — les déclarations de fonction sont hissées (hoisting),
+        // donc utilisables ici sans problème.
+        // ============================================================
+
+        // Vrai pour un smartphone/tablette, faux pour un ordinateur.
+        // Signal principal : pointeur imprécis (doigt) sans possibilité de survol —
+        // un laptop tactile a un trackpad (hover:hover) et est donc traité comme "ordinateur".
+        function isHandheldDevice() {
+            if (window.matchMedia('(pointer: coarse)').matches
+                && window.matchMedia('(hover: none)').matches) return true;
+            if (isIOSDevice()) return true; // couvre l'iPad, qui échappe parfois aux media queries ci-dessus
+            return /Mobi|Android/i.test(navigator.userAgent);
+        }
+
+        // Détecte le navigateur intégré réel via inapp-spy (bibliothèque vendorisée, licence MIT
+        // — voir inapp-spy.js et le <script> qui la charge). Couvre Facebook, Messenger, Instagram,
+        // Twitter/X, LinkedIn, TikTok, Snapchat, LINE, WeChat, Threads, GSA, WhatsApp, Reddit et
+        // Telegram (détection par mécanisme séparé, pas une regex), + repli générique pour toute
+        // webview non nommément identifiée (isInApp:true, appKey:undefined). Retourne toujours un
+        // objet — {isInApp:false} si la bibliothèque n'a pas pu charger (ne devrait pas arriver).
+        function detectInAppBrowser() {
+            if (typeof window.InAppSpy !== 'function') return { isInApp: false };
+            return window.InAppSpy();
+        }
+
+        // Nom d'affichage de l'app détectée, pour les textes génériques ("{appName}" dans les
+        // traductions) — repli neutre si webview générique non identifiée nommément.
+        function getInAppBrowserName() {
+            const info = detectInAppBrowser();
+            return info.appName || t('installWebviewGenericName');
+        }
+
+        // Vrai dans N'IMPORTE QUEL navigateur intégré connu (WebView "in-app browser" d'un réseau
+        // social) — ni le prompt natif Android ni "Sur l'écran d'accueil" iOS n'y fonctionnent,
+        // quelle que soit la plateforme sous-jacente ou l'app en cause. Nom conservé tel quel
+        // (Facebook reste la référence "historique" et la plus immédiatement reconnaissable dans
+        // le code) même si la détection sous-jacente est désormais généralisée (inapp-spy) — voir
+        // detectInAppBrowser() ci-dessus. Traité à part de A/B/C/D (voir tier 'F', généralisé lui
+        // aussi — voir getInstallTier()).
+        function isFacebookInAppBrowser() {
+            return detectInAppBrowser().isInApp;
+        }
+
+        // Détermine le canal navigateur pour les events GoatCounter (NewUser-browser-*/-webview-*,
+        // DailyUser-browser-*/-webview-*) — appelée uniquement quand on sait déjà que ce n'est pas
+        // un cas "installed" (voir les appelants). Un tag dédié par app connue d'inapp-spy (liste
+        // complète, coût quasi nul si jamais déclenché) ; Chrome/Safari détectés par signature UA
+        // (pas d'API dédiée) ; "browser-Other" regroupe les vrais navigateurs alternatifs (Firefox,
+        // Edge, Samsung Internet...) — distinct de "webview-*" qui couvre les apps sociales.
+        const INAPP_GOATCOUNTER_TAGS = {
+            facebook: 'Facebook', messenger: 'Messenger', instagram: 'Instagram',
+            twitter: 'Twitter', linkedin: 'LinkedIn', tiktok: 'TikTok', snapchat: 'Snapchat',
+            line: 'Line', wechat: 'WeChat', threads: 'Threads', gsa: 'GSA',
+            whatsapp: 'WhatsApp', reddit: 'Reddit', telegram: 'Telegram'
+        };
+
+        function detectNewUserChannel() {
+            const inapp = detectInAppBrowser();
+            if (inapp.isInApp) {
+                return 'webview-' + (INAPP_GOATCOUNTER_TAGS[inapp.appKey] || 'Other');
+            }
+            const ua = navigator.userAgent;
+            // Ordre important : Brave, Samsung Internet et Opera se font tous passer pour Chrome
+            // dans leur user-agent (compatibilité web) — doivent être testés avant le test Chrome
+            // générique. Brave en particulier ne peut PAS être détecté par user-agent du tout :
+            // seule la présence de l'objet navigator.brave le trahit (vérification synchrone
+            // suffisante ici, pas besoin d'attendre sa méthode asynchrone isBrave() — recommandation
+            // officielle Brave : https://github.com/brave/brave-browser/wiki/Detecting-Brave-(for-Websites)).
+            if (typeof navigator.brave !== 'undefined') return 'browser-Brave';
+            if (/SamsungBrowser/.test(ua)) return 'browser-Samsung';
+            if (/OPR\/|Opera/.test(ua)) return 'browser-Opera';
+            if (/Firefox|FxiOS/.test(ua)) return 'browser-Firefox';
+            if (/Chrome|CriOS|Chromium/.test(ua) && !/Edg\//.test(ua)) return 'browser-Chrome';
+            if (/Safari/.test(ua) && !/Chrome|CriOS|Chromium|Edg\//.test(ua)) return 'browser-Safari';
+            return 'browser-Other'; // notamment Edge, navigateurs non identifiés
+        }
+
+        // Compteur "NewUser-installed" — capture toute installation du point de vue utilisateur,
+        // peu importe le mécanisme technique sous-jacent (qui varie par plateforme, pas par choix
+        // utilisateur) : premier lancement directement en mode installé (iOS, si le stockage
+        // n'est pas partagé avec Safari) OU confirmation appinstalled (Android/Chromium,
+        // conversion depuis le navigateur). Flag anti-doublon : un seul envoi, peu importe lequel
+        // des deux déclencheurs arrive en premier.
+        function sendNewUserInstalledOnce() {
+            if (localStorage.getItem('newUserInstalledSent')) return;
+            localStorage.setItem('newUserInstalledSent', '1');
+            if (navigator.onLine) sendToGoatCounter('NewUser-installed');
+        }
+
+        // Détermine le "tier" d'installation disponible :
+        //   'F' — n'importe quel navigateur intégré connu (Facebook, Reddit, WhatsApp, Instagram,
+        //         etc. — voir detectInAppBrowser()/isFacebookInAppBrowser()) : aucune installation
+        //         possible depuis ce contexte, quelle que soit la plateforme — priorité sur tout
+        //         le reste (voir checkFacebookBrowserBlock()). La lettre 'F' reste inchangée par
+        //         commodité (Facebook = cas le plus reconnaissable/historique dans le code), même
+        //         si la détection sous-jacente couvre désormais bien plus large.
+        //   'A' — prompt natif capturé (beforeinstallprompt) → un clic suffit
+        //   'B' — famille Chromium (Chrome/Edge/Samsung Internet...) mais prompt pas
+        //         encore capturé → instructions manuelles via le menu du navigateur
+        //   'C' — iOS Safari → instructions Partager → Sur l'écran d'accueil
+        //   'D' — aucun chemin identifié (ex. Firefox Android) → pas de bouton one-clic ;
+        //         le bouton Réglages propose alors d'ouvrir le lien dans Chrome
+        function getInstallTier() {
+            if (isFacebookInAppBrowser()) return 'F';
+            if (isIOSDevice()) return 'C';
+            const ua = navigator.userAgent;
+            const isChromiumFamily = /Chrome|Chromium|Edg\//.test(ua) && !/Firefox/i.test(ua);
+            if (isChromiumFamily) {
+                return window.deferredInstallPrompt ? 'A' : 'B';
+            }
+            return 'D';
+        }
+
+        const INSTALL_REMINDER_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours entre deux rappels (tiers A/B)
+        const INSTALL_INTENSIVE_PERIOD_DAYS = 14; // fin de la période "insistante" (tiers C/D)
+        const INSTALL_INTENSIVE_INTERVAL_DAYS = 3; // cadence pendant cette période, après J1→J2 quotidien
+
+        // Détermine si le splash doit être affiché à ce lancement, selon le tier.
+        // A/B (Chromium) : cycle premier lancement + rappel 7 jours, inchangé.
+        // C/D (export+import requis pour changer de voie) : plus insistant en tout début
+        // d'usage — jour 1 et jour 2 systématiques, puis tous les 3 jours pendant 2 semaines,
+        // puis rejoint le cycle standard à 7 jours. Jamais deux fois le même jour civil.
+        function shouldShowSplashForTier(tier) {
+            if (tier === 'A' || tier === 'B') {
+                if (window.isFirstEverLaunch) return true;
+                const lastDismiss = parseInt(localStorage.getItem('installPromptLastDismissAt') || '0', 10);
+                if (!lastDismiss) return true;
+                return (Date.now() - lastDismiss) >= INSTALL_REMINDER_INTERVAL_MS;
+            }
+
+            const todayStr = new Date().toDateString();
+            const lastShownStr = localStorage.getItem('installPromptLastShownDay');
+            if (lastShownStr === todayStr) return false; // jamais deux fois le même jour civil
+            if (!lastShownStr) return true; // jamais montré — couvre le tout premier affichage
+
+            const firstDateStr = localStorage.getItem('installFirstLaunchDate') || todayStr;
+            const daysSinceFirst = Math.round((new Date(todayStr) - new Date(firstDateStr)) / 86400000);
+            const daysSinceLastShown = Math.round((new Date(todayStr) - new Date(lastShownStr)) / 86400000);
+
+            let requiredInterval;
+            if (daysSinceFirst <= 1) requiredInterval = 1; // jour 1 et jour 2 : tous les jours
+            else if (daysSinceFirst <= INSTALL_INTENSIVE_PERIOD_DAYS) requiredInterval = INSTALL_INTENSIVE_INTERVAL_DAYS;
+            else requiredInterval = 7; // rejoint le cycle standard
+
+            return daysSinceLastShown >= requiredInterval;
+        }
+
+        // Enregistre la fermeture du splash (quel que soit le bouton pressé) — sert de base
+        // au rappel à 7 jours. Un seul point d'appel pour toutes les issues du splash.
+        function recordInstallPromptDismiss() {
+            localStorage.setItem('installPromptLastDismissAt', Date.now().toString());
+        }
+
+        // ============================================================
+        // 1d. SPLASH D'INSTALLATION PWA (Bloc 3)
+        // Construit dynamiquement au moment de l'affichage — jamais présent dans le DOM
+        // sinon. Pas encore appelé automatiquement au démarrage (voir Bloc 4 — séquencement
+        // avec checkMessages()) ; testable manuellement via showInstallSplash() en console.
+        // ============================================================
+
+        const INSTALL_SPLASH_SHOW_SLOGAN = true; // passer à false pour retirer le slogan sans autre changement
+        const INSTALL_EXPORT_MIN_PERIODS = 5;
+        const INSTALL_EXPORT_MIN_MINUTES = 10;
+
+        // Icône générique "Partager" (flèche sortant d'un cadre) — convention d'interface
+        // universelle, pas un logo propriétaire. currentColor hérite de l'opacité du texte parent.
+        const INSTALL_SHARE_ICON_SVG = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-left:2px;"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>`;
+
+        // Vrai si on doit suggérer un export CSV avant d'installer (tier C / iOS) —
+        // condition combinée pour éviter de le proposer après quelques clics de test.
+        // Sert aussi désormais de déclencheur pour le paragraphe de contexte du Splash 1
+        // (remplace l'ancienne logique basée sur premier lancement/rappel).
+        function shouldSuggestExportBeforeInstall() {
+            const periods = state.history.length;
+            if (periods < INSTALL_EXPORT_MIN_PERIODS) return false;
+            const totalMs = state.history.reduce((sum, e) => sum + (e.end - e.start), 0);
+            return (totalMs / 60000) >= INSTALL_EXPORT_MIN_MINUTES;
+        }
+
+        function showInstallSplash() {
+            if (document.getElementById('install-splash')) return; // déjà affiché
+            const tier = getInstallTier();
+            if (tier === 'F') {
+                // Ne devrait jamais arriver ici — tout navigateur intégré est intercepté en amont, dans
+                // checkAndShowInstallSplash(), avant même l'appel à cette fonction.
+                console.warn('[Install] showInstallSplash() appelé en tier F — voir checkFacebookBrowserBlock()');
+                return;
+            }
+
+            // Base de la cadence par jour civil (tiers C/D uniquement — voir shouldShowSplashForTier()).
+            if (tier === 'C' || tier === 'D') {
+                localStorage.setItem('installPromptLastShownDay', new Date().toDateString());
+            }
+
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    ${INSTALL_SPLASH_SHOW_SLOGAN ? `<div id="install-splash-slogan">${t('installSplashSlogan')}</div>` : ''}
+                    <div id="install-splash-body"></div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            // Splash 1 unifié pour A/B/C — même écran partout, seule la cible du clic diffère
+            // (voir renderInstallSplashButtonScreen()). Tier D a son propre écran dédié
+            // (renderInstallSplashTierD()) : pas de bouton d'installation possible, juste un
+            // lien à copier — pas un blocage comme pour un navigateur intégré, Firefox reste un choix légitime.
+            if (tier === 'D') {
+                renderInstallSplashTierD();
+            } else {
+                renderInstallSplashButtonScreen();
+            }
+            console.log(`[Install] Splash affiché — variante:${window.isFirstEverLaunch ? 'premier lancement' : 'rappel'} tier:${tier}`);
+        }
+
+        // Tier D (ex. Firefox) — écran informatif unique, pas de bouton d'installation possible.
+        // Contrairement à un navigateur intégré : pas un blocage, juste l'absence de voie d'installation —
+        // "continuer dans ce navigateur" reste donc une sortie pleinement légitime.
+        function renderInstallSplashTierD() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = INSTALL_SPLASH_SHOW_SLOGAN ? '' : 'none';
+
+            const isReminder = !window.isFirstEverLaunch;
+            const showContext = shouldSuggestExportBeforeInstall();
+            const blankLine = '<div class="install-splash-context-line">&nbsp;</div>';
+            const contextHTML = showContext
+                ? `${blankLine}<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>${blankLine}`
+                : blankLine.repeat(6);
+
+            body.innerHTML = `
+                <div id="install-splash-context">${contextHTML}</div>
+                <div class="install-splash-instructions">
+                    <p style="font-weight:bold;">${t('installTierDText')}</p>
+                    <p style="font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all;">${getCleanInstallUrl()}</p>
+                    <button class="export-btn" style="margin-top:8px;" id="install-splash-copy-btn"
+                        onclick="copyInstallLinkFromSplash()">${t('installCopyLinkBtn')}</button>
+                </div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+            `;
+        }
+
+        // Copie dédiée au splash (distincte de copyInstallLink() en Réglages, qui cible un
+        // autre bouton) — best-effort, échoue silencieusement selon le contexte.
+        async function copyInstallLinkFromSplash() {
+            try {
+                await navigator.clipboard.writeText(getCleanInstallUrl());
+                const btn = document.getElementById('install-splash-copy-btn');
+                if (btn) {
+                    const original = btn.textContent;
+                    btn.textContent = t('installLinkCopied');
+                    setTimeout(() => { btn.textContent = original; }, 2000);
+                }
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
+        }
+
+
+        // Splash 1 — écran commun A/B/C. Le paragraphe de contexte n'apparaît que si
+        // shouldSuggestExportBeforeInstall() est vrai (données réelles en jeu), plus lié au
+        // cycle premier lancement/rappel. Espace réservé (#install-splash-context) même vide,
+        // pour que la position du logo/nom en haut et du bouton en bas ne bouge pas.
+        function renderInstallSplashButtonScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            const tier = getInstallTier();
+            const isReminder = !window.isFirstEverLaunch;
+            const showContext = shouldSuggestExportBeforeInstall();
+            // Tier C : le clic mène toujours directement aux instructions (jamais de prompt natif
+            // possible sur iOS). Tier A/B : décision réelle au clic, voir handleInstallButtonClick().
+            const onClick = tier === 'C' ? "renderInstallSplashInstructions('C')" : 'handleInstallButtonClick()';
+
+            // Slogan uniquement sur ce premier écran — masqué sur Splash 2/3 (voir ces fonctions).
+            // Restauré ici au cas où on revient via "Retour".
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = INSTALL_SPLASH_SHOW_SLOGAN ? '' : 'none';
+
+            // Espace réservé : 1 ligne vide + texte + 1 ligne vide si affiché,
+            // sinon 6 lignes vides équivalentes — même hauteur totale dans les deux cas,
+            // pour que le bouton en dessous ne bouge jamais.
+            const blankLine = '<div class="install-splash-context-line">&nbsp;</div>';
+            const contextHTML = showContext
+                ? `${blankLine}<div id="install-splash-reminder-text">${t('installSplashReminderText')}</div>${blankLine}`
+                : blankLine.repeat(6);
+
+            body.innerHTML = `
+                <div id="install-splash-context">${contextHTML}</div>
+                <div id="install-splash-cta-area">
+                    <button class="export-btn" onclick="${onClick}">${t('installTierAButton')}</button>
+                </div>
+                <div id="install-splash-dismiss" onclick="closeInstallSplash()">${isReminder ? t('installSplashDismissReminder') : t('installSplashDismissFirst')}</div>
+            `;
+        }
+
+        // Splash 2 — instructions, toujours atteint depuis Splash 1 (bouton). "Retour" y ramène
+        // (pas de dismiss enregistré, navigation interne). Tier C ajoute un second bouton
+        // "J'ai pu suivre ces instructions" qui mène au Splash 3 auto-déclaré — aucune détection
+        // automatique n'existant sur iOS. Plus d'export CSV ici : déplacé au Splash 3 (désencombre).
+        // Construit le bloc "titre + étapes" — partagé entre le splash plein écran et la carte
+        // Réglages. Le contenu ne vit qu'ici ; chaque appelant garde sa propre mise en scène
+        // autour (plein écran vs carte compacte, export en ligne ou non), pour que le contenu
+        // ne puisse plus diverger entre les deux comme c'est arrivé par le passé.
+        // Tier F retiré d'ici — géré par buildInstallWebviewPathsHTML() (voir section 1e),
+        // structure différente (deux chemins bleus + bouton/délai Android), pas réutilisable
+        // avec le format "un seul cadre" de cette fonction.
+        function buildInstallStepsHTML(tier) {
+            if (tier === 'C') {
+                return `
+                    <div class="install-splash-steps">
+                        <p>${t('installStepsHeading')}</p>
+                        <div>- ${t('installTierCStep1')} ${INSTALL_SHARE_ICON_SVG}</div>
+                        <div>- ${t('installTierCStep2')}</div>
+                        <div>- ${t('installTierCStep3')}</div>
+                    </div>`;
+            }
+            // Tier B (par défaut)
+            return `
+                <div class="install-splash-steps">
+                    <p>${t('installStepsHeading')}</p>
+                    <div>- ${t('installTierBStep1')}</div>
+                    <div>- ${t('installTierBStep2')}</div>
+                </div>`;
+        }
+
+        function renderInstallSplashInstructions(tier) {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            // Slogan réservé au Splash 1 uniquement.
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = 'none';
+
+            const confirmBtn = tier === 'C'
+                ? `<button class="export-btn" style="margin:0 0 10px 0;" onclick="renderInstallSplashConfirmationBody('C')">${t('installConfirmSelfReportBtn')}</button>`
+                : '';
+
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    ${buildInstallStepsHTML(tier)}
+                </div>
+                ${confirmBtn}
+                <div id="install-splash-dismiss" onclick="renderInstallSplashButtonScreen()">${t('installSplashBack')}</div>
+            `;
+        }
+
+        // Splash 3 — confirmation. variant 'C' = auto-déclaré (iOS, aucune détection possible),
+        // variant 'AB' = confirmé automatiquement via appinstalled (voir écouteur global).
+        // showInstallSplashConfirmation() crée l'overlay s'il n'existe pas déjà (cas 'AB' déclenché
+        // hors de tout flux splash en cours, ex. installation via le menu du navigateur).
+        function showInstallSplashConfirmation(variant) {
+            let overlay = document.getElementById('install-splash');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'install-splash';
+                overlay.innerHTML = `
+                    <div id="install-splash-inner">
+                        <img id="install-splash-logo" src="icon-192.png" alt="">
+                        <div id="install-splash-appname">${APP_NAME}</div>
+                        <div id="install-splash-body"></div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            renderInstallSplashConfirmationBody(variant);
+        }
+
+        function renderInstallSplashConfirmationBody(variant) {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+
+            // Slogan réservé au Splash 1 uniquement (pertinent si on arrive ici depuis le
+            // Splash 2 dans le même overlay — le cas variant 'AB' frais n'en crée pas).
+            const sloganEl = document.getElementById('install-splash-slogan');
+            if (sloganEl) sloganEl.style.display = 'none';
+
+            let exportBox = '';
+            if (variant === 'C' && shouldSuggestExportBeforeInstall()) {
+                exportBox = `
+                    <div class="install-splash-export-box">
+                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>`;
+            }
+
+            // Tier C : ramène au Splash 1, où se trouve déjà le vrai lien "continuer dans le
+            // navigateur" — pas besoin d'un second mécanisme de fermeture distinct.
+            // Tier AB : fermeture directe, revenir à un Splash 1 "navigateur" n'aurait pas de sens
+            // puisque l'installation vient d'aboutir.
+            const closeAction = variant === 'C' ? 'renderInstallSplashButtonScreen()' : 'closeInstallSplashConfirmation()';
+            const closeLabel = variant === 'C' ? t('installSplashBack') : t('btnClose');
+
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <p>${variant === 'C' ? t('installConfirmTextIOS') : t('installConfirmTextAB')}</p>
+                    ${exportBox}
+                </div>
+                <div id="install-splash-dismiss" onclick="${closeAction}">${closeLabel}</div>
+            `;
+            console.log(`[Install] Splash 3 (confirmation) affiché — variante:${variant}`);
+        }
+
+        // Pas de checkMessages() ici, volontairement — cohérent avec l'idée que l'utilisateur
+        // passera par l'app installée à partir de maintenant, quel que soit le chemin emprunté.
+        function closeInstallSplashConfirmation() {
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
+        }
+
+        // skipMessages : true si l'installation vient d'être acceptée — dans ce cas, on ne
+        // montre plus rien dans cet onglet navigateur, l'utilisateur est censé basculer vers
+        // l'app installée à partir de maintenant. Sinon, showStartupToasts() prend le relais :
+        // toasts puis message JSON, dans cet ordre — le splash reste toujours prioritaire.
+        function closeInstallSplash(skipMessages) {
+            recordInstallPromptDismiss();
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
+            if (!skipMessages) showStartupToasts();
+        }
+
+        // Clic sur le bouton "Installer" (tier A ou B uniquement — tier C ne passe jamais ici,
+        // voir renderInstallSplashButtonScreen()). La décision se prend ici, au tout dernier
+        // moment, pas au rendu du splash.
+        async function handleInstallButtonClick() {
+            if (window.deferredInstallPrompt) {
+                await triggerNativeInstallPrompt(); // gère aussi la fermeture du splash
+                return;
+            }
+            // Toujours pas de prompt natif disponible au moment du clic → écran instructions,
+            // "Retour" pour revenir à l'écran bouton (pas de dismiss enregistré ici).
+            renderInstallSplashInstructions('B');
+            console.log('[Install] Clic sans prompt natif disponible — repli instructions manuelles');
+        }
+
+        // Déclenche le prompt natif — appelée uniquement quand window.deferredInstallPrompt
+        // existe déjà (voir handleInstallButtonClick()). La référence n'est utilisable qu'une
+        // fois, elle est remise à null juste après quel que soit le choix de l'utilisateur.
+        async function triggerNativeInstallPrompt() {
+            if (!window.deferredInstallPrompt) {
+                console.warn('[Install] Aucune référence beforeinstallprompt disponible');
+                closeInstallSplash();
+                return;
+            }
+            window.deferredInstallPrompt.prompt();
+            let accepted = false;
+            try {
+                const choice = await window.deferredInstallPrompt.userChoice;
+                console.log(`[Install] Choix utilisateur : ${choice.outcome}`);
+                accepted = choice.outcome === 'accepted';
+            } catch (e) {
+                console.warn('[Install] Erreur lors du prompt natif :', e);
+            }
+            window.deferredInstallPrompt = null;
+            closeInstallSplash(accepted);
+        }
+
+        // ============================================================
+        // 1e. NAVIGATEUR INTÉGRÉ FACEBOOK (tier F)
+        // Flux entièrement séparé du splash A/B/C/D — pas de cycle premier lancement/rappel,
+        // pas de bouton "Retour". Deux cas selon la présence de données réelles (même seuil
+        // que shouldSuggestExportBeforeInstall(), même question au fond) :
+        //   - pas de données significatives → blocage total, systématique, aucune fermeture
+        //   - données réelles → avertissement + tentative export, une fois par jour calendaire,
+        //     fermeture via "Continuer quand même" (choix légitime, pas un pis-aller)
+        // Appelé tout en haut de la séquence de démarrage, avant checkMessages() — voir section 23.
+        // ============================================================
+
+        // Construit le bloc "deux chemins de sortie" (Chemin A : menu navigateur, Chemin B :
+        // copier/coller le lien) — partagé entre le blocage plein écran, l'avertissement
+        // (Cas 2) et la carte Réglages.
+        // withFallbackDelay : true → sur Android, affiche d'abord le bouton d'ouverture
+        //   automatique seul, et ne révèle les deux chemins qu'après échec (voir
+        //   handleAndroidAutoEscapeClick()). false → chemins affichés directement, sans
+        //   bouton (carte Réglages, plus simple par choix — voir Handoff).
+        // Sur iOS, jamais de bouton ni de délai : les chemins sont toujours affichés
+        // directement (aucune tentative d'ouverture automatique possible sur iOS).
+        function buildInstallWebviewPathsHTML(withFallbackDelay) {
+            const step2 = isIOSDevice() ? t('installFBPathAStep2IOS') : t('installFBPathAStep2Android');
+            const pasteStep = isIOSDevice() ? t('installFBPathBStep2IOS') : t('installFBPathBStep2Android');
+
+            const pathsHTML = `
+                <div class="install-splash-steps">
+                    <div>- ${t('installFBPathAStep1')}</div>
+                    <div>- ${step2}</div>
+                </div>
+                <div style="text-align:center; opacity:0.6; margin:6px 0;">${t('installFBOr')}</div>
+                <div class="install-splash-steps">
+                    <div>- <span class="install-link-word" onclick="copyWebviewLink(this)">${t('installFBCopyLinkWord')}</span> ${t('installFBPathBIntro')}</div>
+                    <div style="font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all; margin-top:4px;">${getCleanInstallUrl()}</div>
+                    <div style="margin-top:6px;">- ${pasteStep}</div>
+                </div>`;
+
+            if (!withFallbackDelay || isIOSDevice()) return pathsHTML;
+
+            return `
+                <button class="export-btn" style="margin-bottom:10px;" onclick="handleAndroidAutoEscapeClick()">${t('installWebviewAutoEscapeBtn')}</button>
+                <div id="install-fb-fallback" style="display:none;">
+                    <p style="font-weight:bold; margin-bottom:8px;">${t('installFBFallbackLabel')}</p>
+                    ${pathsHTML}
+                </div>`;
+        }
+
+        // Clic sur le bouton d'ouverture automatique (Android) — lance la tentative intent://,
+        // puis révèle les chemins manuels seulement si la page est toujours visible après un
+        // court délai (si l'ouverture a réussi, la page passe normalement en arrière-plan
+        // avant ce délai, et visibilitychange annule le fallback).
+        function handleAndroidAutoEscapeClick() {
+            attemptAndroidAutoEscape();
+
+            const fallbackTimer = setTimeout(() => {
+                document.removeEventListener('visibilitychange', onHiddenAfterEscape);
+                const fallback = document.getElementById('install-fb-fallback');
+                if (fallback) fallback.style.display = 'block';
+            }, 3000);
+
+            function onHiddenAfterEscape() {
+                if (document.visibilityState === 'hidden') {
+                    clearTimeout(fallbackTimer);
+                    document.removeEventListener('visibilitychange', onHiddenAfterEscape);
+                }
+            }
+            document.addEventListener('visibilitychange', onHiddenAfterEscape);
+        }
+
+        // Copie l'URL de la page depuis le mot cliquable inline du Chemin B — best-effort,
+        // feedback affiché directement sur l'élément cliqué. Variante générique de
+        // copyInstallLinkFromSplash()/copyInstallLink(), réutilisable à chaque endroit où
+        // ce chemin apparaît (blocage, avertissement, carte Réglages).
+        async function copyWebviewLink(el) {
+            try {
+                await navigator.clipboard.writeText(getCleanInstallUrl());
+                const original = el.textContent;
+                el.textContent = t('installLinkCopied');
+                setTimeout(() => { el.textContent = original; }, 2000);
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
+        }
+
+        function showFacebookBrowserBlock() {
+            if (document.getElementById('install-splash')) return;
+            const appName = getInAppBrowserName();
+            const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    <div id="install-splash-body">
+                        <div class="install-splash-instructions">
+                            <p>${t('installFBIntro', { appName, browserName })}</p>
+                            ${buildInstallWebviewPathsHTML(true)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            // Pas de lien de fermeture ici — blocage volontairement sans issue de contournement.
+            document.body.appendChild(overlay);
+            console.log(`[Install] Blocage navigateur intégré affiché (${appName}, pas de données significatives)`);
+
+            // ⚠️ TEMPORAIRE — TEST UNIQUEMENT — À RETIRER AVANT MISE EN PROD ⚠️
+            // 7 taps sur l'icône pour contourner le blocage (impossible de tester l'export
+            // manuel autrement, ce blocage étant volontairement sans issue). Voir demande
+            // explicite de test — ne pas laisser ce bypass en production.
+            attachFacebookBlockDebugBypass();
+        }
+
+        function attachFacebookBlockDebugBypass() {
+            const logo = document.getElementById('install-splash-logo');
+            if (!logo) return;
+            let tapCount = 0;
+            let tapTimer = null;
+            logo.addEventListener('click', () => {
+                tapCount++;
+                clearTimeout(tapTimer);
+                tapTimer = setTimeout(() => { tapCount = 0; }, 2000);
+                if (tapCount >= 7) {
+                    tapCount = 0;
+                    console.warn('[DEBUG TEST] 7 taps — fermeture forcée du blocage navigateur intégré (bypass temporaire de test)');
+                    const overlay = document.getElementById('install-splash');
+                    if (overlay) overlay.remove();
+                }
+            });
+        }
+
+        // Cas 2 (données existantes) — deux écrans, comme les autres tiers : avertissement
+        // (renderFacebookWarningScreen) puis export dédié (renderFacebookExportScreen),
+        // accessible via "Transférer mes données déjà enregistrées". showFacebookBrowserWarning()
+        // crée l'overlay une seule fois, les deux fonctions de rendu se relaient dans le même corps.
+        function showFacebookBrowserWarning() {
+            if (document.getElementById('install-splash')) return;
+            const overlay = document.createElement('div');
+            overlay.id = 'install-splash';
+            overlay.innerHTML = `
+                <div id="install-splash-inner">
+                    <img id="install-splash-logo" src="icon-192.png" alt="">
+                    <div id="install-splash-appname">${APP_NAME}</div>
+                    <div id="install-splash-body"></div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            renderFacebookWarningScreen();
+        }
+
+        function renderFacebookWarningScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            const appName = getInAppBrowserName();
+            const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <p>${t('installFBIntro', { appName, browserName })}</p>
+                    ${buildInstallWebviewPathsHTML(true)}
+                </div>
+                <div class="install-splash-link" onclick="renderFacebookExportScreen()">${t('installFBTransferData')}</div>
+                <div class="install-splash-link" onclick="closeFacebookBrowserWarning()">${t('installFBTempReturn', { appName })}</div>
+            `;
+            console.log(`[Install] Avertissement navigateur intégré affiché (${appName}, données existantes)`);
+        }
+
+        function renderFacebookExportScreen() {
+            const body = document.getElementById('install-splash-body');
+            if (!body) return;
+            const appName = getInAppBrowserName();
+            body.innerHTML = `
+                <div class="install-splash-instructions">
+                    <div class="install-splash-export-box" style="margin-top:0; padding-top:0; border-top:none;">
+                        <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>
+                </div>
+                <div class="install-splash-link" onclick="renderFacebookWarningScreen()">${t('installSplashBack')}</div>
+            `;
+            console.log(`[Install] Écran export navigateur intégré affiché (${appName})`);
+        }
+
+        // Fermeture dédiée — volontairement séparée de closeInstallSplash() : ce flux n'a
+        // aucun lien avec le cycle de rappel du splash d'installation standard.
+        function closeFacebookBrowserWarning() {
+            const overlay = document.getElementById('install-splash');
+            if (overlay) overlay.remove();
+        }
+
+        // Fonction pure (aucun effet de bord) — permet à checkFacebookBrowserBlock() et au
+        // diagnostic (debugInstallState()) de partager exactement la même règle de cadence,
+        // sans dupliquer la logique ni risquer une divergence entre les deux.
+        function shouldShowFacebookWarningToday() {
+            return localStorage.getItem('installFBWarningLastShownDay') !== new Date().toDateString();
+        }
+
+        // Tentative de sortie automatique du navigateur intégré — Android uniquement (le schéma
+        // intent:// n'a pas d'équivalent iOS ; Apple ne permet à aucune page de forcer l'ouverture
+        // d'une autre app). Technique standard, repérée dans InAppBrowser-Escaper (licence MIT) —
+        // réimplémentée ici en une seule stratégie simple, cohérent avec notre philosophie "reste
+        // simple" plutôt que leur cascade de plusieurs tentatives. Certaines apps bloquent
+        // volontairement cette navigation pour garder l'utilisateur dans leur webview — dans ce
+        // cas, rien ne se passe et nos instructions manuelles (toujours affichées à côté) restent
+        // le repli garanti. Copie aussi le lien en filet de sécurité silencieux (même idée reprise
+        // d'Escaper) : même si la redirection échoue, le lien est déjà prêt à coller manuellement.
+        // Doit toujours être déclenchée par un vrai clic (jamais au chargement de page) — certaines
+        // apps (Instagram iOS notamment, documenté dans Escaper) bloquent les tentatives non liées
+        // à un geste utilisateur réel ; notre architecture ne l'appelle de toute façon que depuis
+        // des boutons, jamais automatiquement.
+        async function attemptAndroidAutoEscape() {
+            const url = getCleanInstallUrl();
+            try {
+                await navigator.clipboard.writeText(url);
+            } catch (e) {
+                // Best-effort, silencieux — cf. limites déjà connues du presse-papier dans
+                // certaines webviews (voir showManualExportModal()).
+            }
+            const intentUrl = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`;
+            window.location.href = intentUrl;
+        }
+
+        // Appelée par checkAndShowInstallSplash() en tout premier — ne plus appeler directement
+        // depuis la séquence de démarrage (voir plus bas). Retourne true si le navigateur
+        // Facebook a été détecté (et donc pris la main sur cet affichage).
+        function checkFacebookBrowserBlock() {
+            if (!isFacebookInAppBrowser()) return false;
+
+            if (shouldSuggestExportBeforeInstall()) {
+                if (!shouldShowFacebookWarningToday()) return false;
+                localStorage.setItem('installFBWarningLastShownDay', new Date().toDateString());
+                showFacebookBrowserWarning();
+            } else {
+                showFacebookBrowserBlock();
+            }
+            return true;
+        }
+
+        // ============================================================
+        // POINT D'ENTRÉE UNIQUE — regroupe tout l'arbre de décision du splash d'installation
+        // (Facebook, desktop, tiers A/B/C/D, cadences respectives) en un seul endroit, plutôt
+        // que deux systèmes parallèles à synchroniser par convention. Seule fonction à appeler
+        // depuis la séquence de démarrage (section 23) — retourne true si un splash a pris la
+        // main sur cet affichage (l'appelant doit alors sauter le reste de la séquence, la suite
+        // étant enchaînée depuis la fermeture du splash lui-même).
+        //
+        // Arbre :
+        //   1. Déjà installée ? → rien
+        //   2. Desktop ? → rien (carte Réglages seule, jamais de splash ni de blocage webview —
+        //      testé avant le webview pour qu'un navigateur intégré détecté sur desktop ne
+        //      déclenche jamais rien non plus)
+        //   3. Navigateur intégré connu (Facebook, Reddit, WhatsApp...) ? → branche dédiée, sa propre cadence (voir checkFacebookBrowserBlock())
+        //   4. Cadence du tier détecté (A/B : 7 jours ; C/D : jour civil, voir shouldShowSplashForTier())
+        // ============================================================
+        function checkAndShowInstallSplash() {
+            if (isPWAInstalled()) return false;
+
+            if (!isHandheldDevice()) return false;
+
+            if (checkFacebookBrowserBlock()) return true;
+
+            const tier = getInstallTier();
+            if (!shouldShowSplashForTier(tier)) return false;
+
+            showInstallSplash();
+            return true;
+        }
+
+        // ============================================================
+        // OUTIL DE DIAGNOSTIC (console) — debugInstallState()
+        // Lecture seule, aucun effet de bord : n'appelle jamais checkFacebookBrowserBlock() ni
+        // checkAndShowInstallSplash() directement (elles écrivent en localStorage et déclenchent
+        // l'affichage réel) — reconstruit le même résultat à partir des fonctions pures
+        // partagées (isPWAInstalled, shouldShowSplashForTier, shouldShowFacebookWarningToday...),
+        // donc sans risque de divergence avec la vraie logique.
+        // ============================================================
+        function debugInstallState() {
+            const g = (label, value) => console.log(`%c${label} :`, 'font-weight:bold', value);
+
+            console.log('%c=== ÉTAT DE L\'ARBRE D\'INSTALLATION ===', 'font-size:14px; font-weight:bold; color:#4da3ff;');
+
+            console.group('🌍 Environnement détecté');
+            g('isPWAInstalled()', isPWAInstalled());
+            g('isHandheldDevice()', isHandheldDevice());
+            g('isIOSDevice()', isIOSDevice());
+            g('isFacebookInAppBrowser()', isFacebookInAppBrowser());
+            g('detectInAppBrowser()', detectInAppBrowser());
+            g('getInstallTier()', getInstallTier());
+            g('window.deferredInstallPrompt', window.deferredInstallPrompt ? 'présent' : 'absent');
+            console.groupEnd();
+
+            console.group('📊 Données utilisateur');
+            const totalMin = Math.round(state.history.reduce((s, e) => s + (e.end - e.start), 0) / 60000);
+            g('Périodes enregistrées', state.history.length);
+            g('Minutes cumulées', totalMin);
+            g('shouldSuggestExportBeforeInstall()', shouldSuggestExportBeforeInstall());
+            console.groupEnd();
+
+            console.group('🕒 Cadence — valeurs brutes (localStorage)');
+            g('window.isFirstEverLaunch', window.isFirstEverLaunch);
+            g('installFirstLaunchDate', localStorage.getItem('installFirstLaunchDate'));
+            const lastDismiss = localStorage.getItem('installPromptLastDismissAt');
+            g('installPromptLastDismissAt (tiers A/B)', lastDismiss ? new Date(parseInt(lastDismiss)).toLocaleString() : null);
+            g('installPromptLastShownDay (tiers C/D)', localStorage.getItem('installPromptLastShownDay'));
+            g('installFBWarningLastShownDay (tier F, Cas 2)', localStorage.getItem('installFBWarningLastShownDay'));
+            console.groupEnd();
+
+            console.group('🌳 Résultat de l\'arbre — recalculé à la volée, sans effet de bord');
+            let branch, wouldShow;
+            if (isPWAInstalled()) {
+                branch = 'Déjà installée';
+                wouldShow = false;
+            } else if (!isHandheldDevice()) {
+                branch = 'Desktop';
+                wouldShow = false;
+            } else if (isFacebookInAppBrowser()) {
+                const hasData = shouldSuggestExportBeforeInstall();
+                const appName = getInAppBrowserName();
+                branch = hasData ? `${appName} — Cas 2 (avertissement, données)` : `${appName} — Cas 1 (blocage, pas de données)`;
+                wouldShow = hasData ? shouldShowFacebookWarningToday() : true;
+            } else {
+                const tier = getInstallTier();
+                branch = `Tier ${tier}`;
+                wouldShow = shouldShowSplashForTier(tier);
+            }
+            g('Branche empruntée', branch);
+            g('Le splash serait affiché maintenant ?', wouldShow);
+            console.groupEnd();
+
+            console.group('🖥️ Affichage actuel dans la page');
+            const overlay = document.getElementById('install-splash');
+            g('#install-splash présent dans le DOM', !!overlay);
+            if (overlay) {
+                const bodyText = document.getElementById('install-splash-body')?.innerText.trim() || '';
+                g('Contenu actuel (aperçu texte)', bodyText.slice(0, 250) + (bodyText.length > 250 ? '…' : ''));
+            }
+            console.groupEnd();
+        }
+
+        // ============================================================
+        // 1f. CARTE PERMANENTE D'INSTALLATION — ONGLET RÉGLAGES (Bloc 5)
+        // Visible sur mobile/tablette uniquement — jamais sur desktop, où l'installation
+        // d'une PWA autonome via cette carte n'a pas de sens. Sur mobile, jamais silencieuse
+        // (tier D et F ont chacun leur contenu ici, pas d'exclusion). Appelée à chaque
+        // affichage de la page Réglages (voir showPage()).
+        // ============================================================
+
+        function renderSettingsInstallCard() {
+            const card = document.getElementById('settings-install-card');
+            if (!card) return;
+            if (isPWAInstalled() || !isHandheldDevice()) {
+                card.style.display = 'none';
+                return;
+            }
+            card.style.display = 'block';
+            const body = document.getElementById('settings-install-body');
+            body.innerHTML = `
+                <p style="margin:0 0 12px 0; font-size:0.93rem;">${t('installSettingsBannerText')}</p>
+                <button class="export-btn" style="margin:0;" onclick="handleSettingsInstallClick()">${t('installSettingsBannerBtn')}</button>
+            `;
+        }
+
+        // Clic sur le bouton — décision tier prise ici, au clic, jamais au rendu (même principe
+        // qu'au Bloc 3). Tier F (navigateur intégré, ex Facebook) prioritaire dans getInstallTier(), donc géré ici sans
+        // logique séparée à dupliquer.
+        async function handleSettingsInstallClick() {
+            const tier = getInstallTier();
+            if (tier === 'A' && window.deferredInstallPrompt) {
+                await triggerNativeInstallPromptFromSettings();
+                return;
+            }
+            renderSettingsInstallInstructions(tier);
+        }
+
+        // Variante dédiée à ce contexte — volontairement séparée de triggerNativeInstallPrompt()
+        // (Bloc 3) : ne doit pas fermer de splash ni enregistrer un dismiss du cycle de rappel,
+        // ce sont deux flux indépendants.
+        async function triggerNativeInstallPromptFromSettings() {
+            if (!window.deferredInstallPrompt) return;
+            window.deferredInstallPrompt.prompt();
+            try {
+                const choice = await window.deferredInstallPrompt.userChoice;
+                console.log(`[Install] (Réglages) Choix utilisateur : ${choice.outcome}`);
+            } catch (e) {
+                console.warn('[Install] (Réglages) Erreur lors du prompt natif :', e);
+            }
+            window.deferredInstallPrompt = null;
+            renderSettingsInstallCard(); // revient à l'état bouton par défaut
+        }
+
+        function renderSettingsInstallInstructions(tier) {
+            const body = document.getElementById('settings-install-body');
+            if (!body) return;
+
+            let content = '';
+            if (tier === 'F') {
+                const appName = getInAppBrowserName();
+                const browserName = isIOSDevice() ? 'Safari' : 'Chrome';
+                const hasData = shouldSuggestExportBeforeInstall();
+                const exportBox = hasData ? `
+                    <div class="install-splash-export-box">
+                        <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>` : '';
+                content = `
+                    <div class="install-splash-instructions">
+                        <p>${t('installFBIntro', { appName, browserName })}</p>
+                        ${buildInstallWebviewPathsHTML(false)}
+                        ${exportBox}
+                    </div>`;
+            } else if (tier === 'C') {
+                const exportBox = shouldSuggestExportBeforeInstall() ? `
+                    <div class="install-splash-export-box">
+                        <p>${t('installTierCExportText', { n: state.history.length })}</p>
+                        <button class="export-btn"
+                            style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
+                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                    </div>` : '';
+                content = `
+                    <div class="install-splash-instructions">
+                        ${buildInstallStepsHTML('C')}
+                        ${exportBox}
+                    </div>`;
+            } else if (tier === 'D') {
+                content = `
+                    <p style="margin:0 0 8px 0; font-size:0.93rem; font-weight:bold;">${t('installTierDText')}</p>
+                    <p style="margin:0 0 12px 0; font-size:0.85rem; font-weight:normal; font-family:monospace; opacity:0.8; word-break:break-all;">${getCleanInstallUrl()}</p>
+                    <button class="export-btn" style="margin:0;" id="settings-install-copy-btn"
+                        onclick="copyInstallLink()">${t('installCopyLinkBtn')}</button>`;
+            } else {
+                // Tier B (prompt pas encore disponible au moment du clic)
+                content = `<div class="install-splash-instructions">${buildInstallStepsHTML('B')}</div>`;
+            }
+
+            body.innerHTML = content;
+        }
+
+        // Copie le lien de l'app dans le presse-papier (tier D) — best-effort, échoue
+        // silencieusement si l'API n'est pas disponible ou refusée par le navigateur.
+        async function copyInstallLink() {
+            try {
+                await navigator.clipboard.writeText(getCleanInstallUrl());
+                const btn = document.getElementById('settings-install-copy-btn');
+                if (btn) {
+                    const original = btn.textContent;
+                    btn.textContent = t('installLinkCopied');
+                    setTimeout(() => { btn.textContent = original; }, 2000);
+                }
+            } catch (e) {
+                console.warn('[Install] Copie du lien échouée :', e);
+            }
+        }
 
         // ============================================================
         // 2. CONSTANTES ET VARIALBES GLOBALES
@@ -1424,6 +2621,18 @@
             console.log("[Migration] Terminée.");
         }
 
+        // Capturé AVANT migrateLocalStorage() : sert à distinguer le tout premier lancement
+        // absolu (aucun localStorage existant) — utilisé notamment par le splash d'installation
+        // pour savoir s'il doit afficher sa variante "premier lancement" (voir section 1c).
+        window.isFirstEverLaunch = !localStorage.getItem('pacingSettings');
+
+        // Base de la cadence par jour civil (tiers C/D, voir shouldShowSplashForTier()).
+        // Pour un utilisateur déjà existant au moment de l'ajout de cette fonctionnalité,
+        // par défaut "aujourd'hui" — pas d'historique réel disponible, point de départ raisonnable.
+        if (!localStorage.getItem('installFirstLaunchDate')) {
+            localStorage.setItem('installFirstLaunchDate', new Date().toDateString());
+        }
+
         // On lance la migration AVANT de charger state et settings
         migrateLocalStorage();
 
@@ -1491,7 +2700,7 @@
         const translations = {
             fr: {
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
-                export: "Exporter CSV", import: "Importer CSV", custom: "Noms des boutons",
+                export: "Exporter (.csv)", import: "Importer (.csv)", custom: "Noms des boutons",
                 stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
@@ -1647,11 +2856,66 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "Si tu vois ça, le bouton de notification en direct marche !",
                 fullscreenBtn: "🛠️ Mode Plein Écran",
-                fullscreenExitBtn: "🛠️ Quitter le Plein Écran"
+                fullscreenExitBtn: "🛠️ Quitter le Plein Écran",
+
+                // ============================================================
+                // SPLASH D'INSTALLATION PWA (Bloc 3) — EN/NL à compléter au Bloc 6.
+                // t() retombe automatiquement sur le FR tant que ces clés sont absentes
+                // des dictionnaires en/nl, donc rien ne s'affiche vide entre-temps.
+                // ============================================================
+                installSplashSlogan: "Mesurer son pacing en douceur",
+                installSplashReminderText: "Vous utilisez PacingCount depuis votre navigateur, nous vous conseillons de passer à la version installée pour une expérience plus complète et plus fluide",
+                installSplashDismissFirst: "Tester dans le navigateur",
+                installSplashDismissReminder: "Continuer dans le navigateur",
+                installSplashBack: "Retour",
+                installTierAButton: "Installer l'application",
+                installStepsHeading: "Pour installer :",
+                installTierBStep1: "ouvrir le menu&emsp;⋮&emsp;en haut du navigateur",
+                installTierBStep2: "choisir l'option d'installation (« Installer l'application » ou équivalent)",
+                installTierCStep1: "appuyer sur le bouton Partager",
+                installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
+                installTierCStep3: "confirmer par « Ajouter »",
+                installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
+                installTierCExportBtn: "💾 Exporter mes données (.csv)",
+                installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
+                installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur et passer par l'icône installée !",
+                installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur et passer par l'icône installée !",
+
+                // Tier F — navigateur intégré connu, généralisé via inapp-spy (Facebook, Reddit, WhatsApp,
+                // Instagram, etc. — aucune installation possible depuis ce contexte, quelle que soit l'app)
+                installFBIntro: "Ceci est un aperçu web limité dans {appName}. Pour installer ou utiliser PacingCount, il faut d'abord ouvrir le lien avec {browserName}.",
+                installFBFallbackLabel: "En cas d'échec :",
+                installFBPathAStep1: "toucher le menu&emsp;⋮&emsp;en haut à droite",
+                installFBPathAStep2IOS: "choisir « Ouvrir dans un navigateur externe » (Safari)",
+                installFBPathAStep2Android: "choisir « Ouvrir dans un navigateur externe » (Chrome)",
+                installFBOr: "Ou",
+                installFBPathBIntro: "le lien vers PacingCount :",
+                installFBCopyLinkWord: "Copier",
+                installFBPathBStep2IOS: "Coller ce lien dans Safari pour l'ouvrir",
+                installFBPathBStep2Android: "Coller ce lien dans Chrome pour l'ouvrir",
+                installFBTransferData: "Transférer mes données déjà enregistrées",
+                installFBTempReturn: "Retour temporaire dans le navigateur de {appName}",
+                installFBExportText: "Vous avez déjà {n} périodes enregistrées dans ce navigateur {appName}. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter ailleurs.",
+                installWebviewGenericName: "cette application",
+                installWebviewAutoEscapeBtn: "Essayer une ouverture automatique",
+
+                // Modal de repli export manuel (navigateurs intégrés en général)
+                manualExportTitle: "Export manuel des données enregistrées",
+                manualExportInstructions: "1) Copiez, puis collez toutes les données suivantes dans un éditeur de texte brut (Bloc-Note, TextEdit ou un outil en ligne comme <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Enregistrez en format .txt, puis remplacez l'extension du fichier par .csv (nom de fichier proposé : {filename}).",
+                manualExportCopyBtn: "Copier",
+                manualExportCopied: "Copié !",
+
+                // Carte permanente Réglages (Bloc 5)
+                installSettingsCardTitle: "Instructions d'installation",
+                installSettingsBannerText: "Vous utilisez cette application sur navigateur. Pour une expérience complète",
+                installSettingsBannerBtn: "Installer PacingCount",
+                installTierDText: "Ouvrir ce lien dans Chrome pour installer l'application :",
+                installCopyLinkBtn: "Copier le lien",
+                installLinkCopied: "Lien copié !"
             },
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
-                export: "Export CSV", import: "Import CSV", custom: "Button Names",
+                export: "Export (.csv)", import: "Import (.csv)", custom: "Button Names",
                 stop: "Stop recording", confirmStop: "Stop current recording?",
                 history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
@@ -1797,11 +3061,57 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "If you see this, the immediate notification button works!",
                 fullscreenBtn: "🛠️ Full Screen Mode",
-                fullscreenExitBtn: "🛠️ Exit Full Screen"
+                fullscreenExitBtn: "🛠️ Exit Full Screen",
+
+                installSplashSlogan: "Gently measure your pacing",
+                installSplashReminderText: "You're using PacingCount from your browser — we recommend switching to the installed version for a more complete, smoother experience",
+                installSplashDismissFirst: "Try in the browser",
+                installSplashDismissReminder: "Continue in the browser",
+                installSplashBack: "Back",
+                installTierAButton: "Install the app",
+                installStepsHeading: "To install:",
+                installTierBStep1: "open the&emsp;⋮&emsp;menu at the top of the browser",
+                installTierBStep2: "choose the install option (\"Install app\" or similar)",
+                installTierCStep1: "tap the Share button",
+                installTierCStep2: "scroll down the list to \"Add to Home Screen\"",
+                installTierCStep3: "confirm with \"Add\"",
+                installTierCExportText: "You already have {n} recorded periods. To avoid losing anything, export them to a file now — you'll be able to re-import them into the installed app afterwards.",
+                installTierCExportBtn: "💾 Export my data (.csv)",
+                installConfirmSelfReportBtn: "I was able to follow these installation steps",
+                installConfirmTextIOS: "Well done on installing! Check that the icon has appeared on your home screen — that's your confirmation the installation worked. You can now close this browser tab and use the installed icon instead!",
+                installConfirmTextAB: "Installation successful! The app is now available on your home screen — you can close this browser tab and use the installed icon instead!",
+
+                installFBIntro: "This is a limited web preview inside {appName}. To install or use PacingCount, you first need to open the link with {browserName}.",
+                installFBFallbackLabel: "If that doesn't work:",
+                installFBPathAStep1: "tap the&emsp;⋮&emsp;menu at the top right",
+                installFBPathAStep2IOS: "choose \"Open in external browser\" (Safari)",
+                installFBPathAStep2Android: "choose \"Open in external browser\" (Chrome)",
+                installFBOr: "Or",
+                installFBPathBIntro: "the link to PacingCount:",
+                installFBCopyLinkWord: "Copy",
+                installFBPathBStep2IOS: "Paste this link into Safari to open it",
+                installFBPathBStep2Android: "Paste this link into Chrome to open it",
+                installFBTransferData: "Transfer my already recorded data",
+                installFBTempReturn: "Go back temporarily to {appName}'s browser",
+                installFBExportText: "You already have {n} recorded periods in this {appName} browser. To avoid losing anything, export them to a file now — you'll be able to re-import them elsewhere afterwards.",
+                installWebviewGenericName: "this app",
+                installWebviewAutoEscapeBtn: "Try automatic opening",
+
+                manualExportTitle: "Manual export of your recorded data",
+                manualExportInstructions: "1) Copy, then paste all the data below into a plain text editor (Notepad, TextEdit, or an online tool like <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Save it as .txt, then rename the file extension to .csv (suggested filename: {filename}).",
+                manualExportCopyBtn: "Copy",
+                manualExportCopied: "Copied!",
+
+                installSettingsCardTitle: "Installation instructions",
+                installSettingsBannerText: "You're using this app in your browser. For the full experience",
+                installSettingsBannerBtn: "Install PacingCount",
+                installTierDText: "Open this link in Chrome to install the app:",
+                installCopyLinkBtn: "Copy link",
+                installLinkCopied: "Link copied!",
             },
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
-                export: "CSV Exporteren", import: "CSV Importeren", custom: "Knopnamen",
+                export: "Exporteren (.csv)", import: "Importeren (.csv)", custom: "Knopnamen",
                 stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
                 history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
@@ -1947,7 +3257,53 @@
                 testNotifTitle: "Test PacingCount",
                 testNotifBody: "Als je dit ziet, werkt de knop voor directe meldingen!",
                 fullscreenBtn: "🛠️ Volledig scherm",
-                fullscreenExitBtn: "🛠️ Volledig scherm verlaten"
+                fullscreenExitBtn: "🛠️ Volledig scherm verlaten",
+
+                installSplashSlogan: "Je pacing rustig meten",
+                installSplashReminderText: "Je gebruikt PacingCount vanuit je browser — we raden aan over te stappen op de geïnstalleerde versie voor een completere en soepelere ervaring",
+                installSplashDismissFirst: "Uitproberen in de browser",
+                installSplashDismissReminder: "Doorgaan in de browser",
+                installSplashBack: "Terug",
+                installTierAButton: "App installeren",
+                installStepsHeading: "Om te installeren:",
+                installTierBStep1: "open het&emsp;⋮&emsp;menu bovenaan de browser",
+                installTierBStep2: "kies de installatie-optie (\"App installeren\" of vergelijkbaar)",
+                installTierCStep1: "tik op de deelknop",
+                installTierCStep2: "scroll naar beneden tot « Zet op beginscherm »",
+                installTierCStep3: "bevestig met « Voeg toe »",
+                installTierCExportText: "Je hebt al {n} geregistreerde periodes. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later opnieuw importeren in de geïnstalleerde app.",
+                installTierCExportBtn: "💾 Mijn gegevens exporteren (.csv)",
+                installConfirmSelfReportBtn: "Ik heb deze installatiestappen kunnen volgen",
+                installConfirmTextIOS: "Goed gedaan met installeren! Controleer of het icoon op je beginscherm is verschenen — dat bevestigt dat de installatie gelukt is. Je kunt dit browsertabblad nu sluiten en voortaan het geïnstalleerde icoon gebruiken!",
+                installConfirmTextAB: "Installatie gelukt! De app staat nu op je beginscherm — je kunt dit browsertabblad sluiten en voortaan het geïnstalleerde icoon gebruiken!",
+
+                installFBIntro: "Dit is een beperkte webweergave in {appName}. Om PacingCount te installeren of te gebruiken, moet je de link eerst openen met {browserName}.",
+                installFBFallbackLabel: "Als dit niet lukt:",
+                installFBPathAStep1: "tik op het&emsp;⋮&emsp;menu rechtsboven",
+                installFBPathAStep2IOS: "kies « Openen in externe browser » (Safari)",
+                installFBPathAStep2Android: "kies « Openen in externe browser » (Chrome)",
+                installFBOr: "Of",
+                installFBPathBIntro: "de link naar PacingCount:",
+                installFBCopyLinkWord: "Kopiëren",
+                installFBPathBStep2IOS: "Plak deze link in Safari om hem te openen",
+                installFBPathBStep2Android: "Plak deze link in Chrome om hem te openen",
+                installFBTransferData: "Mijn reeds geregistreerde gegevens overzetten",
+                installFBTempReturn: "Tijdelijk terug naar de browser van {appName}",
+                installFBExportText: "Je hebt al {n} geregistreerde periodes in deze {appName}-browser. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later elders opnieuw importeren.",
+                installWebviewGenericName: "deze app",
+                installWebviewAutoEscapeBtn: "Automatisch openen proberen",
+
+                manualExportTitle: "Handmatige export van geregistreerde gegevens",
+                manualExportInstructions: "1) Kopieer en plak alle onderstaande gegevens in een teksteditor (Kladblok, TextEdit, of een online tool zoals <a href=\"https://www.editpad.org/\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--blue);\">EditPad.org</a>).<br>2) Sla op als .txt en wijzig vervolgens de bestandsextensie naar .csv (voorgestelde bestandsnaam: {filename}).",
+                manualExportCopyBtn: "Kopiëren",
+                manualExportCopied: "Gekopieerd!",
+
+                installSettingsCardTitle: "Installatie-instructies",
+                installSettingsBannerText: "Je gebruikt deze app via de browser. Voor de volledige ervaring",
+                installSettingsBannerBtn: "PacingCount installeren",
+                installTierDText: "Open deze link in Chrome om de app te installeren:",
+                installCopyLinkBtn: "Link kopiëren",
+                installLinkCopied: "Link gekopieerd!",
             }
         };
 
@@ -2768,50 +4124,67 @@
             console.log(`[Messages] Dismissé — id:${id} addToSeen:${addToSeen}`);
         }
 
-        // --- Fonction principale : fetch + filtrage + affichage ---
-        async function checkMessages() {
-            let messages;
+        // Cache mémoire du fetch messages.json pour ce lancement — évite un second appel
+        // réseau si checkBlockingUpdate() (voir plus bas / section 23) a déjà récupéré le
+        // fichier avant checkMessages(). undefined = pas encore tenté, null = fetch échoué
+        // (offline), tableau = données obtenues.
+        window._messagesCache = undefined;
+
+        async function fetchMessagesJSON() {
+            if (window._messagesCache !== undefined) return window._messagesCache;
             try {
                 const response = await fetch('messages.json', { cache: 'no-store' });
                 // messages.json n'est pas dans ASSETS_TO_CACHE du SW,
                 // donc caches.match() retourne toujours undefined → fetch réseau garanti.
                 const data = await response.json();
-                messages = data.messages;
+                window._messagesCache = data.messages;
             } catch (e) {
                 // Offline ou fichier absent — silencieux, pas de message cette fois
                 console.log('[Messages] Fetch messages.json échoué (offline ?) :', e.message);
-                return;
+                window._messagesCache = null;
+            }
+            return window._messagesCache;
+        }
+
+        // Évalue l'éligibilité d'un message selon validFrom/validUntil/maxVersion/fréquence/
+        // seenMessages — logique unique, partagée entre checkMessages() (tous types, un seul
+        // message par lancement) et checkBlockingUpdate() (uniquement les updates bloquants,
+        // voir section 23). blockingOnly restreint aux messages update dont blockAfter est dépassé.
+        function evaluateMessageEligibility(msg, seen, todayStr, blockingOnly) {
+            if (!msg.type || !msg.id) return { eligible: false };
+            if (msg.validFrom && todayStr < msg.validFrom) return { eligible: false };
+            if (msg.validUntil && todayStr > msg.validUntil) return { eligible: false };
+            if (msg.maxVersion && !semverLte(APP_VERSION, msg.maxVersion)) return { eligible: false };
+
+            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
+
+            if (blockingOnly) return { eligible: isBlocking, isBlocking };
+
+            if (msg.type === 'update' && !isBlocking) {
+                const alreadySeen = seen.includes(msg.id);
+                if (alreadySeen) {
+                    const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
+                    const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
+                    if (lastShown && (Date.now() - lastShown) < sevenDays) return { eligible: false };
+                }
             }
 
+            if (!isBlocking && seen.includes(msg.id)) return { eligible: false };
+
+            return { eligible: true, isBlocking };
+        }
+
+        // --- Fonction principale : fetch + filtrage + affichage (tous types de messages) ---
+        async function checkMessages() {
+            const messages = await fetchMessagesJSON();
+            if (!messages) return false;
+
             const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
-            const today = new Date();
-            const todayStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+            const todayStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
             for (const msg of messages) {
-                if (!msg.type || !msg.id) continue;
-
-                // Filtre validFrom
-                if (msg.validFrom && todayStr < msg.validFrom) continue;
-
-                // Filtre validUntil (chaîne vide = pas de limite)
-                if (msg.validUntil && todayStr > msg.validUntil) continue;
-
-                // Filtre maxVersion (kill switch) : ignorer si APP_VERSION > maxVersion
-                if (msg.maxVersion && !semverLte(APP_VERSION, msg.maxVersion)) continue;
-
-                // Filtre fréquence pour update non bloquant : max 1 fois par 7 jours
-                const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
-                if (msg.type === 'update' && !isBlocking) {
-                    const alreadySeen = seen.includes(msg.id);
-                    if (alreadySeen) {
-                        const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
-                        const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
-                        if (lastShown && (Date.now() - lastShown) < sevenDays) continue;
-                    }
-                }
-
-                // Filtre seenMessages (sauf update bloquant qui doit toujours s'afficher)
-                if (!isBlocking && seen.includes(msg.id)) continue;
+                const { eligible } = evaluateMessageEligibility(msg, seen, todayStr, false);
+                if (!eligible) continue;
 
                 // Premier message éligible trouvé — on l'affiche
                 let newVersion = null;
@@ -2820,10 +4193,40 @@
                     if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
                 }
                 showMessage(msg, newVersion);
-                return; // Un seul message par lancement
+                return true; // Un seul message par lancement
             }
 
             console.log('[Messages] Aucun message éligible à afficher.');
+            return false;
+        }
+
+        // --- Vérification prioritaire : mise à jour bloquante (kill switch) ---
+        // Appelée en tout premier dans la séquence de démarrage (section 23), avant même le
+        // splash d'installation — un correctif critique doit passer devant tout le reste,
+        // y compris le blocage webview. Pas de délai volontairement : le délai de 2500ms de
+        // la séquence normale ne sert qu'à stabiliser l'affichage du splash, sans rapport avec
+        // la fiabilité du fetch. Si un update bloquant est affiché, retourne true — l'appelant
+        // doit alors sauter tout le reste de la séquence pour ce lancement (un seul message,
+        // cohérent avec la règle générale du système de messages).
+        async function checkBlockingUpdate() {
+            const messages = await fetchMessagesJSON();
+            if (!messages) return false;
+
+            const seen = JSON.parse(localStorage.getItem('seenMessages') || '[]');
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            for (const msg of messages) {
+                const { eligible } = evaluateMessageEligibility(msg, seen, todayStr, true);
+                if (!eligible) continue;
+
+                const newVersion = await getNewVersionFromSW();
+                if (!newVersion) continue; // Pas de SW en attente — bouton inutilisable, on saute
+
+                showMessage(msg, newVersion);
+                console.log(`[Messages] ⛔ Mise à jour bloquante affichée en priorité (id:${msg.id}) — reste de la séquence de démarrage sauté.`);
+                return true;
+            }
+            return false;
         }
 
         // ============================================================
@@ -3495,6 +4898,7 @@
 
             // Page réglages — labels et boutons
             document.getElementById('title-settings').innerText = t('settings');
+            document.getElementById('label-settings-install').innerText = t('installSettingsCardTitle');
             document.getElementById('label-language').innerText = t('titleLanguage');
             document.getElementById('label-custom').innerText = t('custom');
             document.getElementById('label-profiles').innerText = t('titleProfiles');
@@ -3534,6 +4938,12 @@
             document.getElementById('btn-import-merge').innerText = t('importMergeBtn');
             document.getElementById('import-merge-detail').innerText = t('importMergeDetail');
             document.getElementById('btn-import-cancel').innerText = t('btnCancel');
+
+            // Modal export manuel (repli navigateurs intégrés) — le paragraphe d'instructions est
+            // construit dynamiquement par showManualExportModal() (nom de fichier intégré au texte)
+            document.getElementById('manual-export-title').innerText = t('manualExportTitle');
+            document.getElementById('manual-export-copy-btn').innerText = t('manualExportCopyBtn');
+            document.getElementById('btn-manual-export-close').innerText = t('btnClose');
 
             // Modal alertes de période
             document.getElementById('label-alert-type').innerText = t('alertType');
@@ -4670,27 +6080,44 @@
         // Sans BOM UTF-8 : compatible Google Sheets ET Excel moderne.
         // La colonne Minutes est conservée pour la lisibilité tableur.
         // ============================================================
+        // Construit la chaîne CSV — séparée du téléchargement pour être réutilisable
+        // par le repli manuel (voir showManualExportModal()).
+        function buildCSVString() {
+            let csv = "sep=,\n";
+            csv += "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
+
+            let allPeriods = [...state.history];
+            if (state.activeType) {
+                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+            }
+
+            allPeriods.forEach(e => {
+                const d = new Date(e.start);
+                // Format ISO AAAA-MM-JJ : meilleur tri et compatibilité internationale
+                const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const label = getLabelForId(e.typeId);
+                const minutes = Math.round((e.end - e.start) / 60000);
+                csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${e.typeId},${label},${minutes}\n`;
+            });
+
+            return csv;
+        }
+
         function exportCSV() {
             console.log("[exportCSV] Début de l'export");
+
+            // Détection en amont, pas après-coup — le téléchargement blob est un mécanisme
+            // "à l'aveugle" (aucun signal succès/échec renvoyé par le navigateur), donc pas
+            // de détection fiable possible une fois la tentative faite. On sait par contre,
+            // par construction, que ça échoue dans les navigateurs intégrés connus (Facebook, Reddit, etc.).
+            if (isFacebookInAppBrowser()) {
+                console.log(`[exportCSV] Navigateur intégré détecté (${getInAppBrowserName()}) — repli manuel direct`);
+                showManualExportModal(buildCSVString());
+                return;
+            }
+
             try {
-                //let csv = "Date,Debut,Fin,TypeId,TypeLabel,Minutes\n";
-                //let csv = "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
-                let csv = "sep=,\n";
-                csv += "Date,Start Hour,End Hour,TypeId,TypeLabel,Minutes (rounded)\n";
-
-                let allPeriods = [...state.history];
-                if (state.activeType) {
-                    allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
-                }
-
-                allPeriods.forEach(e => {
-                    const d = new Date(e.start);
-                    // Format ISO AAAA-MM-JJ : meilleur tri et compatibilité internationale
-                    const dateStr = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                    const label = getLabelForId(e.typeId);
-                    const minutes = Math.round((e.end - e.start) / 60000);
-                    csv += `${dateStr},${formatTime(e.start)},${formatTime(e.end)},${e.typeId},${label},${minutes}\n`;
-                });
+                const csv = buildCSVString();
 
                 // BOM UTF-8 : assure la compatibilité Excel (Windows/Mac) et LibreOffice
                 // const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });  
@@ -4723,6 +6150,49 @@
                 console.log("[exportCSV] Export terminé");
             } catch (err) {
                 console.error("[exportCSV] Erreur :", err);
+            }
+        }
+
+        // ============================================================
+        // 19b. REPLI EXPORT MANUEL (navigateurs intégrés — Facebook, Reddit, WhatsApp, etc.)
+        // Le presse-papier est lui-même documenté comme bloqué dans ce contexte (bug connu,
+        // certains navigateurs intégrés Android) — donc bouton "Copier" en tentative best-effort seulement,
+        // la vraie garantie reste le texte affiché en clair, sélectionnable manuellement,
+        // qui ne dépend d'aucune API susceptible d'être bridée.
+        // ============================================================
+
+        function showManualExportModal(csv) {
+            const filename = `pacing_export_${new Date().toISOString().slice(0, 10)}.csv`;
+            document.getElementById('manual-export-instructions').innerHTML =
+                t('manualExportInstructions', { filename });
+            const textarea = document.getElementById('manual-export-textarea');
+            textarea.value = csv;
+            document.getElementById('manualExportModal').style.display = 'flex';
+
+            // Sélectionne tout le texte au premier tap/clic — facilite la copie manuelle
+            textarea.onclick = () => textarea.select();
+            setTimeout(() => textarea.select(), 50); // sélection immédiate à l'ouverture aussi
+
+            if (navigator.onLine) sendToGoatCounter('export-csv-manual-fallback');
+        }
+
+        function closeManualExportModal() {
+            document.getElementById('manualExportModal').style.display = 'none';
+        }
+
+        // Tentative presse-papier — best-effort, peut échouer silencieusement selon le contexte
+        // (voir commentaire de section ci-dessus). Le texte affiché reste la vraie garantie.
+        async function copyManualExportText() {
+            const textarea = document.getElementById('manual-export-textarea');
+            textarea.select();
+            try {
+                await navigator.clipboard.writeText(textarea.value);
+                const btn = document.getElementById('manual-export-copy-btn');
+                const original = btn.textContent;
+                btn.textContent = t('manualExportCopied');
+                setTimeout(() => { btn.textContent = original; }, 2000);
+            } catch (e) {
+                console.warn('[showManualExportModal] Copie presse-papier échouée (attendu dans ce contexte) :', e);
             }
         }
 
@@ -5570,6 +7040,7 @@
                 renderAlertsList();
                 renderTypesSettings();
                 renderProfileSelector();
+                renderSettingsInstallCard();
             }
         }
 
@@ -5677,29 +7148,16 @@
             }
         }
 
-        // Message "toast" de mise à jour réussie - reste 5 secondes puis disparaît sans clic
-        // try catch de sécurité pour ne pas bloquer une mise à jour
+        // Détection de mise à jour — le toast lui-même est affiché plus tard par
+        // showStartupToasts() (voir section 23, fin), pour respecter l'ordre convenu
+        // (splash > toasts > message JSON). try/catch de sécurité pour ne pas bloquer une mise à jour.
+        window._pendingUpdateInstalledToast = false;
         try {
             const lastSeenVersion = localStorage.getItem('lastSeenVersion');
             if (lastSeenVersion && lastSeenVersion !== APP_VERSION) {
                 localStorage.removeItem('pendingUpdateFrom'); // On pourra retirer ça à un moment (ancienne migration)
                 console.log(`[Init] ✅ Mise à jour détectée : ${lastSeenVersion} → ${APP_VERSION}`);
-
-                // Petit toast non bloquant
-                setTimeout(() => {
-                    const toast = document.createElement('div');
-                    toast.innerHTML = `<div style="font-size:1rem; margin-bottom:4px;">✅ ${t('updateInstalled')}</div>
-                       <div style="font-size:0.8rem; opacity:0.7; font-family:monospace;">${APP_VERSION}</div>`;
-                    toast.style.cssText = `
-        position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
-        background:#1e1e1e; color:var(--text-color); border:1px solid var(--green);
-        border-radius:8px; padding:20px 24px; font-size:0.85rem; text-align:center;
-        min-width:220px; z-index:200; opacity:1; transition:opacity 1s;
-        white-space:nowrap;`;
-                    document.body.appendChild(toast);
-                    setTimeout(() => { toast.style.opacity = '0'; }, 5000);
-                    setTimeout(() => { toast.remove(); }, 6000);
-                }, 500);
+                window._pendingUpdateInstalledToast = true;
             }
 
             // Détection : première installation (pas de lastSeenVersion) OU changement de version
@@ -5708,6 +7166,25 @@
             // Envoi sécurisé à GoatCounter si nouveau/maj et en ligne
             if (window._isNewVersion && navigator.onLine) {
                 sendToGoatCounter('update-to-' + APP_VERSION);
+            }
+
+            // Events "NewUser-*" — un seul envoi, à la toute première utilisation de l'app
+            // (window.isFirstEverLaunch, capturé avant migrateLocalStorage() — voir Bloc 2).
+            // Pas de total agrégé TOUTES catégories confondues (webview/browser/installed) : un
+            // même utilisateur peut légitimement déclencher plusieurs premiers lancements distincts
+            // selon le canal (stockages séparés), donc un total global mélangerait des choses
+            // différentes. En revanche, un total PAR catégorie (webview seul, browser seul) reste
+            // fiable — un même lancement ne produit jamais qu'une seule valeur de canal.
+            if (window.isFirstEverLaunch) {
+                if (isPWAInstalled()) {
+                    // sendNewUserInstalledOnce() protège aussi contre un doublon avec l'écouteur
+                    // appinstalled, si jamais les deux conditions se produisaient dans la même session.
+                    sendNewUserInstalledOnce();
+                } else if (navigator.onLine) {
+                    const channel = detectNewUserChannel(); // 'webview-X' ou 'browser-X'
+                    sendToGoatCounter('NewUser-' + channel);
+                    sendToGoatCounter('NewUser-' + channel.split('-')[0] + '-TOTAL');
+                }
             }
 
             localStorage.setItem('lastSeenVersion', APP_VERSION);
@@ -5721,12 +7198,30 @@
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
         if (_today !== _lastPingDay && navigator.onLine) {
+            // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
+            // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
+            sendToGoatCounter('DailyUser-TOTAL');
+
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
 
             // 2. Mode d'accès (installed / browser)
             const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
             sendToGoatCounter('DailyUser-' + mode);
+
+            // 2b. Canal navigateur — uniquement en mode navigateur (pas de sens une fois installé).
+            // Le détail "browser-Other" reste volontairement exclu au quotidien (fourre-tout moins
+            // stratégique à répéter chaque jour, d'autant plus réduit maintenant que Samsung/Firefox/
+            // Brave/Opera sont nommés à part) — mais son volume est quand même capté par TOTAL
+            // ci-dessous. Tous les "webview-*" restent inclus en détail, liste complète comme pour
+            // NewUser, coût quasi nul si peu déclenchés.
+            if (mode === 'browser') {
+                const channel = detectNewUserChannel(); // 'webview-X' ou 'browser-X'
+                if (channel !== 'browser-Other') {
+                    sendToGoatCounter('DailyUser-' + channel);
+                }
+                sendToGoatCounter('DailyUser-' + channel.split('-')[0] + '-TOTAL');
+            }
 
             // 3. Profil actif
             // Normalise un label pour GoatCounter : retire accents, remplace espaces par _,
@@ -5758,8 +7253,10 @@
             localStorage.setItem('lastDailyPingSent', Date.now());
         }
 
-        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%)
+        // Vérification quotidienne du taux d'occupation localStorage (seuil 90%) — le toast est
+        // affiché plus tard par showStartupToasts() (voir section 23, fin), pas immédiatement ici.
         // Réutilise _today déjà défini dans le daily ping ci-dessus
+        window._pendingStorageWarningToast = false;
         {
             const _lastStorageWarn = localStorage.getItem('lastStorageWarningSent');
             const _lastStorageWarnDay = _lastStorageWarn
@@ -5768,7 +7265,7 @@
             if (_today !== _lastStorageWarnDay) {
                 const _ratio = getLocalStorageSize() / STORAGE_LIMIT_BYTES;
                 if (_ratio >= STORAGE_WARN_RATIO) {
-                    setTimeout(() => showStorageWarningToast(), 3000); // après chargement UI
+                    window._pendingStorageWarningToast = true;
                     localStorage.setItem('lastStorageWarningSent', Date.now());
                 }
             }
@@ -5808,9 +7305,26 @@
         // Déplacé dans saveAlert(), lié au clic sur "Enregistrer" une alerte.
         // requestNotificationPermission();
 
-        // Affiche le premier message JSON éligible après 2500ms
-        // (laisse le temps à l'UI de se charger et à l'utilisateur de poser les yeux dessus)
-        setTimeout(() => checkMessages(), 2500);
+        // Priorité absolue : mise à jour bloquante (kill switch), sans délai — voir
+        // checkBlockingUpdate(). Si un correctif critique est détecté et affiché, on saute
+        // tout le reste de la séquence de ce lancement (splash, toasts, message JSON normal) :
+        // isBlocking n'a pas de dismiss, l'utilisateur devra passer par ce modal de toute façon.
+        //
+        // Sinon, priorité d'affichage habituelle, du plus prioritaire au moins prioritaire,
+        // après 2500ms (laisse le temps à l'UI de se charger — ce délai ne concerne que l'UI
+        // visuelle du splash, pas la fiabilité du fetch ci-dessus) : splash (navigateur intégré
+        // ou standard) > toasts > message JSON. checkAndShowInstallSplash() gère tout l'arbre
+        // de décision en un seul point d'entrée (voir sections 1c-1f). Si un splash prend la
+        // main, la suite (toasts puis message JSON) est enchaînée depuis sa propre fermeture —
+        // jamais ici directement.
+        checkBlockingUpdate().then(wasBlocking => {
+            if (wasBlocking) return;
+            setTimeout(() => {
+                if (!checkAndShowInstallSplash()) {
+                    showStartupToasts();
+                }
+            }, 2500);
+        });
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.
@@ -6261,9 +7775,16 @@
 
         6. Système de messages JSON
 
-        Au démarrage de l'app (après 2,5 secondes), l'app fetche le fichier messages.json
-        depuis le serveur (cache: no-store — toujours la version fraîche). Le premier message 
-        éligible est affiché dans un modal. Un seul message par lancement.
+        Au démarrage de l'app, l'app fetche le fichier messages.json depuis le serveur
+        (cache: no-store — toujours la version fraîche). Le premier message éligible est
+        affiché dans un modal. Un seul message par lancement.
+
+        Priorité absolue : une mise à jour bloquante (isBlocking, voir blockAfter ci-dessous)
+        est vérifiée en tout premier, sans délai (checkBlockingUpdate(), section 23) — avant
+        même le splash d'installation. Si trouvée, elle est affichée immédiatement et le reste
+        de la séquence de démarrage (splash, toasts, message JSON normal) est sauté pour ce
+        lancement. Sinon, séquence habituelle après 2,5 secondes : splash > toasts > message JSON
+        (checkMessages()) — voir section 8d / checkAndShowInstallSplash().
 
         Le fichier messages.json est hébergé sur GitHub, modifiable sans toucher au code de l'app. 
         L'ordre des messages dans le fichier défini leur ordre de priorité.
@@ -6272,7 +7793,7 @@
 
         welcome — affiché une seule fois au premier lancement (id jamais vu dans seenMessages)
         info — astuce ou information, affiché une seule fois (id mis en seenMessages au dismiss)
-        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter. Nécessite un SW en attente pour s'afficher.
+        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter (voir priorité absolue ci-dessus). Nécessite un SW en attente pour s'afficher.
 
         Filtres d'éligibilité :
 
@@ -6290,6 +7811,33 @@
         Modifier messages.json sur GitHub pour pousser un message sans mise à jour de l'app
         Désactiver un message sans l'effacer : mettre validUntil dans le passé
         Kill switch : renseigner maxVersion + blockAfter pour forcer une mise à jour
+
+
+        7. Liste finale complète des events GoatCounter liés à l'installation/navigateur
+	    
+        (NewUser est relatif au suffixe, pas absolu)
+
+        NewUser-installed (= TOTAL) NOTE : pas de comptage séparé des installations qui conservent le LocalStorage sour chrome)
+        NewUser-webview-{Facebook, Messenger, Instagram, Twitter, LinkedIn, TikTok,
+                    Snapchat, Line, WeChat, Threads, GSA, WhatsApp, Reddit, Telegram, Other}
+        NewUser-webview-TOTAL
+        NewUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera, Other}
+        NewUser-browser-TOTAL
+
+        DailyUser-TOTAL
+        DailyUser-{version}
+        DailyUser-{installed|browser}
+        DailyUser-webview-{...même liste...}
+        DailyUser-webview-TOTAL
+        DailyUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera}  (Other exclu du détail)
+        DailyUser-browser-TOTAL
+
+
+	    8. Arbre d'installation : Splashes et cadre dans onglet Réglages
+	    (descriptif à compléter)
+
+	    debugInstallState() en console pour un diagnostic complet de l'état actuel
+        dans l'arbre à tout moment
 
         =====================================================    */
 
