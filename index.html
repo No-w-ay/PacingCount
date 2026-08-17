@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -127,6 +127,13 @@
 
         /* Override pour page-timeline : scroll interne + footer fixe en bas */
         #page-timeline {
+            padding-bottom: 0;
+            overflow: hidden;
+        }
+
+        /* Override pour page-results : même traitement, scroll interne + footer fixe
+           (voir #results-footer) — pattern répliqué de #page-timeline */
+        #page-results {
             padding-bottom: 0;
             overflow: hidden;
         }
@@ -819,18 +826,22 @@
 
     </div>
 
-    <div id="page-results" class="page">
-        <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
+<div id="page-results" class="page">
+        <!-- Zone scrollable — sur le modèle de #timeline-scroll -->
+        <div id="results-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-        <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
+            <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
 
-        <!-- Graphe hebdomadaire — section 14b -->
-        <h2 id="title-weekly" style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
-        <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
+            <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
 
-        <h3 id="title-details" style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
-            chiffrés</h3>
-        <div id="results-list"></div>
+            <!-- Graphe hebdomadaire — section 14b -->
+            <h2 id="title-weekly" style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
+            <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
+
+            <h3 id="title-details" style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
+                chiffrés</h3>
+            <div id="results-list"></div>
+        </div>
     </div>
 
 
@@ -1042,6 +1053,44 @@
             <button>_</button>
         </nav>
 
+    </div>
+
+    <!-- Footer fixe page Résultats — même mécanique que #timeline-footer (encoche, swipe,
+         spacer nav) mais contenu inversé : la plage de dates reste toujours visible, c'est
+         la ligne de navigation qui est masquée/révélée par le tiroir (Chantier 1A).
+         Boutons nav dupliqués avec ids distincts (results-nav-*) pour éviter toute collision
+         avec ceux d'Historique, présents simultanément dans le DOM. -->
+    <div id="results-footer"
+        style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
+
+        <!-- Encoche — clic ou swipe pour ouvrir/fermer la ligne de nav -->
+        <div id="results-footer-handle" style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
+            <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+        </div>
+
+        <!-- Plage de dates — toujours visible, clic = toggle tiroir -->
+        <div id="results-footer-range"
+            style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;">
+        </div>
+
+        <!-- Partie collapsible : ligne de navigation — masquée par défaut si tiroir fermé.
+             max-height réduite (une seule ligne de boutons, pas 200px comme Historique). -->
+        <div id="results-footer-collapsible" style="overflow: hidden; transition: max-height 0.3s ease; max-height: 50px;">
+            <div class="history-nav" id="results-nav" style="margin-bottom: 6px;">
+                <button class="history-nav-btn" id="results-nav-back7" onclick="navigateResults(-7)">«7</button>
+                <button class="history-nav-btn" id="results-nav-back1" onclick="navigateResults(-1)">‹1</button>
+                <select id="results-nav-month" onchange="jumpToMonthResults(this.value)"></select>
+                <button class="history-nav-btn" id="results-nav-fwd1" onclick="navigateResults(1)">1›</button>
+                <button class="history-nav-btn" id="results-nav-fwd7" onclick="navigateResults(7)">7»</button>
+                <button class="history-nav-btn" id="results-nav-today" onclick="goToTodayResults()">⬆</button>
+            </div>
+        </div>
+
+        <!-- Spacer : aligne le bas du footer avec le bas de nav -->
+        <nav aria-hidden="true"
+            style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
+            <button>_</button>
+        </nav>
     </div>
 
     <!-- Modal d'édition des périodes -->
