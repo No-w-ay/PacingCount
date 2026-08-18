@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -7286,9 +7286,13 @@
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
 
-            // Afficher/masquer le footer fixe selon la page
+            // Afficher/masquer le footer fixe Historique selon la page
             const footer = document.getElementById('timeline-footer');
             if (footer) footer.style.display = (p === 'timeline') ? 'block' : 'none';
+
+            // Idem pour le footer Résultats
+            const resultsFooter = document.getElementById('results-footer');
+            if (resultsFooter) resultsFooter.style.display = (p === 'results') ? 'block' : 'none';
 
             if (p === 'timeline') {
                 populateHistoryDropdowns();
@@ -7307,9 +7311,20 @@
                 }
             }
             if (p === 'results') {
+                populateResultsMonthDropdown();
+                updateResultsNavButtons();
+                updateResultsFooterRange();
                 renderDailyCharts();
                 renderWeeklyCharts();
                 renderResults();
+                // Init tiroir au premier passage, réapplique l'état aux suivants
+                // (même pattern que le tiroir Historique — voir bloc timeline ci-dessus)
+                if (!window._resultsFooterDrawerInited) {
+                    initResultsFooterDrawer();
+                    window._resultsFooterDrawerInited = true;
+                } else {
+                    applyResultsFooterState();
+                }
             }
             if (p === 'settings') {
                 renderAlertsList();
