@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -5129,42 +5129,63 @@
 
             const reposIds = [1, 2];
             const actifId = 4;
-            const today = new Date().toLocaleDateString(locale);
+
+            // --- FENÊTRAGE (Chantier 1A) ---
+            // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
+            // Plage élargie de ±1 jour pour l'agrégation : la moyenne mobile centrée sur 3 jours
+            // a besoin d'un voisin de chaque côté, y compris pour les 2 jours en bord de fenêtre
+            // (voir Handoff, section 5 — pièges techniques).
+            const ed = window.resultsEndDate;
+            const windowStartTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1)).getTime();
+            const windowEndTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime(); // exclusif
+            const aggStartTs = windowStartTs - 86400000;
+            const aggEndTs = windowEndTs + 86400000;
+
+            // Clé du jour "aujourd'hui" — même format ISO que dateKey plus bas, pour remplacer
+            // l'ancienne comparaison sur libellé localisé (devenue inadaptée : daysData est
+            // maintenant indexé par clé ISO pour un tri/filtrage fiable, voir plus bas).
+            const now0 = new Date();
+            const todayKey = `${now0.getFullYear()}-${(now0.getMonth() + 1).toString().padStart(2, '0')}-${now0.getDate().toString().padStart(2, '0')}`;
 
             let all = [...state.history];
             if (state.activeType) {
                 all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
+            // Filtre sur la plage élargie (voir commentaire fenêtrage ci-dessus)
+            all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
             all.sort((a, b) => a.start - b.start);
 
             const daysData = {};
             all.forEach(e => {
-                const d = new Date(e.start).toLocaleDateString(locale);
+                const dObj = new Date(e.start);
+                // Clé ISO (AAAA-MM-JJ) — triable directement en chaîne, contrairement à l'ancienne
+                // clé en libellé localisé qui nécessitait un re-parsing fragile pour le tri/filtre.
+                const dateKey = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
                 const mins = (e.end - e.start) / 60000;
-                if (!daysData[d]) {
-                    daysData[d] = {
-                        displayDate: d,
+                if (!daysData[dateKey]) {
+                    daysData[dateKey] = {
+                        displayDate: dObj.toLocaleDateString(locale),
                         totals: {},
                         reposMins: 0,
                         actifPeriods: [],
                         totalMins: 0
                     };
                     // Initialiser tous les types (pas seulement actifs)
-                    allTypes.forEach(tp => { daysData[d].totals[tp.id] = 0; });
+                    allTypes.forEach(tp => { daysData[dateKey].totals[tp.id] = 0; });
                 }
-                if (daysData[d].totals[e.typeId] !== undefined) {
-                    daysData[d].totals[e.typeId] += mins;
+                if (daysData[dateKey].totals[e.typeId] !== undefined) {
+                    daysData[dateKey].totals[e.typeId] += mins;
                 }
-                daysData[d].totalMins += mins;
-                if (reposIds.includes(e.typeId)) daysData[d].reposMins += mins;
-                if (e.typeId === actifId) daysData[d].actifPeriods.push(mins);
+                daysData[dateKey].totalMins += mins;
+                if (reposIds.includes(e.typeId)) daysData[dateKey].reposMins += mins;
+                if (e.typeId === actifId) daysData[dateKey].actifPeriods.push(mins);
             });
 
             const isIncomplete = (key) => {
                 return daysData[key].totalMins < 23 * 60 - 1;
             };
 
-            const dateKeys = Object.keys(daysData).sort((a, b) => new Date(a) - new Date(b));
+            const dateKeys = Object.keys(daysData).sort(); // tri lexical fiable sur clés ISO
             const moyMobile = {};
             dateKeys.forEach((key, idx) => {
                 if (idx === 0 || idx === dateKeys.length - 1) {
@@ -5180,9 +5201,17 @@
                 moyMobile[key] = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
             });
 
+            // Jours de la fenêtre officielle uniquement — la plage élargie ci-dessus ne sert
+            // qu'au calcul de la moyenne mobile en bord de fenêtre, jamais à l'affichage.
+            const displayKeys = dateKeys.filter(key => {
+                const [yy, mm, dd] = key.split('-').map(Number);
+                const ts = new Date(yy, mm - 1, dd).getTime();
+                return ts >= windowStartTs && ts < windowEndTs;
+            });
+
             // --- ÉTAPE 4 : rendu, du plus récent au plus ancien ---
-            [...dateKeys].reverse().forEach(d => {
-                const day = daysData[d];
+            [...displayKeys].reverse().forEach(key => {
+                const day = daysData[key];
                 const div = document.createElement('div');
                 div.className = "settings-group";
                 let html = '';
@@ -5205,7 +5234,7 @@
                 reposIds.forEach(id => {
                     reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
                 });
-                const moy3j = moyMobile[d];
+                const moy3j = moyMobile[key];
                 const moy3jStr = moy3j !== null
                     ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
                     : '';
@@ -5227,7 +5256,7 @@
                 }
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
-                if (d !== today && day.totalMins < 23 * 60) {
+                if (key !== todayKey && day.totalMins < 23 * 60) {
                     const enregistrees = formatMins(day.totalMins);
                     html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t('resIncomplet')} (${enregistrees})</span>`;
                 }
@@ -5280,10 +5309,6 @@
             };
 
             // --- CONFIGURATION ---
-            // Passe C v0.9.24 : couleurs et labels construits depuis getActiveTypes() + getColorValueForId()
-            // Remplace les tableaux defaultColors et labels hardcodés (5 couleurs positionnelles, sans yellow).
-            // Point 4 : colorMap et labelMap depuis settings.types (tous les types)
-            // La légende n'affiche que les types ayant des données dans la période
             const colorMap = {};
             const labelMap = {};
             settings.types.forEach(tp => {
@@ -5295,14 +5320,25 @@
 
             // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
             const reposIds = [1, 2];
-            const today = new Date().toLocaleDateString();
 
-            // --- AGRÉGATION ---
+            // --- FENÊTRAGE (Chantier 1A) ---
+            // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
+            // Plage élargie de ±1 jour pour l'agrégation : la moyenne mobile centrée sur 3 jours
+            // a besoin d'un voisin de chaque côté, y compris pour les 2 jours en bord de fenêtre
+            // (voir Handoff, section 5 — pièges techniques).
+            const ed = window.resultsEndDate;
+            const windowStartTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1)).getTime();
+            const windowEndTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime(); // exclusif
+            const aggStartTs = windowStartTs - 86400000;
+            const aggEndTs = windowEndTs + 86400000;
+
+            // --- AGRÉGATION (sur la plage élargie) ---
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
                 allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
+            allPeriods = allPeriods.filter(p => p.start >= aggStartTs && p.start < aggEndTs);
 
             allPeriods.forEach(p => {
                 const d = new Date(p.start);
@@ -5318,7 +5354,16 @@
             });
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
-            if (sortedDates.length === 0) {
+
+            // Jours de la fenêtre officielle uniquement — la plage élargie ci-dessus ne sert
+            // qu'au calcul de la moyenne mobile en bord de fenêtre, jamais à l'affichage.
+            const displayDates = sortedDates.filter(key => {
+                const [yy, mm, dd] = key.split('-').map(Number);
+                const ts = new Date(yy, mm - 1, dd).getTime();
+                return ts >= windowStartTs && ts < windowEndTs;
+            });
+
+            if (displayDates.length === 0) {
                 container.innerHTML = `<p style='text-align:center; color:#888;'>${t('noDataAvailable')}</p>`;
                 return;
             }
@@ -5331,7 +5376,7 @@
             const isIncomplete = (key) => {
                 // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
                 // y compris pour "aujourd'hui".
-                return daysData[key].totalMins < 23 * 60 - 1;;
+                return daysData[key].totalMins < 23 * 60 - 1;
             };
 
             const moyMobileChart = {};
@@ -5362,19 +5407,13 @@
                         </div>
             `;
 
-            sortedDates.forEach(dateKey => {
+            displayDates.forEach(dateKey => {
                 const day = daysData[dateKey];
                 const avgPc = moyMobileChart[dateKey]; // % ou null
 
-                // Point blanc de moyenne mobile centré verticalement sur la barre.
-                // Positionné à avgPc% de la largeur. Tooltip au survol/touch.
-                // overflow:visible sur le conteneur parent est nécessaire pour que le point
-                // ne soit pas coupé par overflow:hidden des barres — on le place donc APRÈS
-                // les divs de barres, en position absolute sur le conteneur flex principal.
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
                 const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
-                // NOUVEAU : On gère l'affichage (block ou none)
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
 
                 const avgDot = avgPc !== null ? `
@@ -5399,7 +5438,6 @@
                                 ${Object.keys(day.totals).sort().map(type => {
                     const mins = day.totals[type];
                     const perc = (mins / 1440) * 100;
-                    // Passe C : lookup par typeId — correct même si les typeIds sont non-séquentiels
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
