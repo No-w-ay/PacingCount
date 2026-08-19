@@ -15,9 +15,9 @@
         "nl": "Update beschikbaar"
       },
       "body": {
-        "fr": "0.9.27 :\n- Aide à l'installation dans l'app\n\nPrécédentes mises à jour :\n- Amélioration de la prise en charge des alertes sur iOS\n- Traductions EN et NL\n- Navigation temporelle dans l'historique\n- Test de saturation de la mémoire d'application\n- Jusqu'à 6 types de périodes (au lieu de 3)\n- Profils prédéfinis et profil personnalisé\n- Import revu avec correspondance des types\n",
-        "en": "0.9.26:\n-beta.19 : Improved support for alerts on iOS\n-beta.15 : EN and NL translations\n\n0.9.25:\n- Time navigation in history view\n- App storage saturation monitoring\n\n0.9.24:\n- Up to 6 period types (instead of 3)\n- Preset profiles and custom profile\n- Revised import with type matching\n",
-        "nl": "0.9.26:\n-beta.19 : Verbeterde ondersteuning voor alertes op iOS\n-beta.15 : EN- en NL-vertalingen\n\n0.9.25:\n- Tijdnavigatie in de historiek\n- Bewaking van de opslagverzadiging\n\n0.9.24:\n- Tot 6 periodetypen (in plaats van 3)\n- Voorgedefinieerde profielen en aangepast profiel\n- Herziene import met typeovereenkomst\n"
+        "fr": "0.9.28 :\n- Navigation temporelle dans Résultats + vue personnalisable des détails chiffrés\n\nPrécédentes mises à jour :\n- Aide à l'installation dans l'app\n- Amélioration de la prise en charge des alertes sur iOS\n- Traductions EN et NL\n- Navigation temporelle dans l'historique\n- Test de saturation de la mémoire d'application\n- Jusqu'à 6 types de périodes (au lieu de 3)\n- Profils prédéfinis et profil personnalisé\n- Import revu avec correspondance des types\n",
+        "en": "0.9.28:\n- Time navigation in Results + customizable view of numerical details\n\nPrevious updates:\n- In-app installation help\n- Improved alert support on iOS\n- EN and NL translations\n- Time navigation in history\n- App memory saturation test\n- Up to 6 period types (instead of 3)\n- Preset profiles and custom profile\n- Revised import with type matching\n",
+        "nl": "0.9.28:\n- Tijdnavigatie in Resultaten + aanpasbare weergave van cijferdetails\n\nEerdere updates:\n- Installatiehulp in de app\n- Verbeterde ondersteuning voor meldingen op iOS\n- EN- en NL-vertalingen\n- Tijdnavigatie in de historiek\n- Verzadigingstest van het app-geheugen\n- Tot 6 periodetypen (in plaats van 3)\n- Voorgedefinieerde profielen en aangepast profiel\n- Herziene import met typeovereenkomst\n"
       }
     },
     {
