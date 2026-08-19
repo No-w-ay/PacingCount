@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.27-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -129,6 +129,15 @@
         #page-timeline {
             padding-bottom: 0;
             overflow: hidden;
+        }
+
+        /* Override pour page-results : même traitement, scroll interne + footer fixe
+           (voir #results-footer) — pattern répliqué de #page-timeline */
+        #page-results {
+            padding-bottom: 0;
+            overflow: hidden;
+            padding-left: 0;
+            padding-right: 0;
         }
 
         /* ── MODE DÉVELOPPEUR ──────────────────────────────────────────
@@ -539,8 +548,13 @@
         }
 
         @keyframes installSplashFadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         #install-splash-logo {
@@ -820,17 +834,23 @@
     </div>
 
     <div id="page-results" class="page">
-        <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
+        <!-- Zone scrollable — sur le modèle de #timeline-scroll -->
+        <div id="results-scroll"
+            style="flex-grow: 1; overflow-y: auto; overflow-x: hidden; padding-left: 20px; padding-right: 20px;">
 
-        <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
+            <h2 id="title-results" style="margin-bottom: 10px; font-size: 1.1rem;">Totaux par jour</h2>
 
-        <!-- Graphe hebdomadaire — section 14b -->
-        <h2 id="title-weekly" style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
-        <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
+            <div id="daily-charts-container" style="margin-bottom: 30px;"></div>
 
-        <h3 id="title-details" style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
-            chiffrés</h3>
-        <div id="results-list"></div>
+            <h3 id="title-details"
+                style="margin-bottom: 15px; font-size: 1.1rem; border-top: 1px solid #ccc; padding-top: 15px;">Détails
+                chiffrés</h3>
+            <div id="results-list" style="margin-bottom: 30px;"></div>
+
+            <!-- Graphe hebdomadaire — section 14b -->
+            <h2 id="title-weekly" style="margin-bottom: 10px; font-size: 1.1rem;">Moyennes par semaine</h2>
+            <div id="weekly-charts-container" style="margin-bottom: 30px;"></div>
+        </div>
     </div>
 
 
@@ -841,7 +861,8 @@
         <!-- Fond bleu léger (contrairement aux autres blocs) : relie visuellement à l'action d'installation -->
         <div class="settings-group" id="settings-install-card"
             style="display:none; background:color-mix(in srgb, var(--blue) 10%, var(--card-bg));">
-            <label id="label-settings-install" style="display:block; margin-bottom:10px; font-weight:bold;">Instructions d'installation</label>
+            <label id="label-settings-install" style="display:block; margin-bottom:10px; font-weight:bold;">Instructions
+                d'installation</label>
             <div id="settings-install-body"></div>
         </div>
 
@@ -861,7 +882,8 @@
                 des boutons</label>
             <!-- Passe D : 6 slots avec toggle ON/OFF + input, rendus par renderTypesSettings() -->
             <div id="type-inputs-container"></div>
-            <label id="label-profiles" style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
+            <label id="label-profiles"
+                style="display:block; margin-top:16px; margin-bottom:8px; font-weight:bold;">Profils
                 prédéfinis</label>
             <!-- Passe D : boutons de profil rendus par renderProfileSelector() -->
             <div id="profile-selector-container"></div>
@@ -880,7 +902,8 @@
 
         <!-- Communauté et feedback -->
         <div class="settings-group">
-            <label id="label-community" style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp; feedback</label>
+            <label id="label-community" style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp;
+                feedback</label>
             <div style="font-family: 'Lora', serif; font-size:0.93rem; line-height: 1.6; opacity:0.9;">
                 <p id="community-intro" style="margin:0 0 12px 0;">
                     Rejoignez le <b>groupe Facebook des utilisateurs·trices</b> — le bon endroit pour poser une question
@@ -960,7 +983,8 @@
              se cache derrière le footer fixe -->
         <div id="timeline-scroll" style="flex-grow: 1; overflow-y: auto;">
 
-            <div id="title-timeline" style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
+            <div id="title-timeline"
+                style="font-size: 1.1rem; font-weight: bold; text-align: center; padding: 8px 0 6px 0;">Historique
             </div>
 
             <div class="chart-container"
@@ -1044,6 +1068,46 @@
 
     </div>
 
+    <!-- Footer fixe page Résultats — même mécanique que #timeline-footer (encoche, swipe,
+         spacer nav) mais contenu inversé : la plage de dates reste toujours visible, c'est
+         la ligne de navigation qui est masquée/révélée par le tiroir (Chantier 1A).
+         Boutons nav dupliqués avec ids distincts (results-nav-*) pour éviter toute collision
+         avec ceux d'Historique, présents simultanément dans le DOM. -->
+    <div id="results-footer"
+        style="display:none; position: fixed; bottom: 0; left: 0; right: 0; background: #262626; border-top: 1px solid var(--border); border-radius: 12px 12px 0 0; padding: 4px 15px 0 15px; z-index: 9;">
+
+        <!-- Encoche — clic ou swipe pour ouvrir/fermer la ligne de nav -->
+        <div id="results-footer-handle"
+            style="display: flex; justify-content: center; padding: 6px 0 4px 0; cursor: pointer;">
+            <div style="width: 36px; height: 4px; border-radius: 2px; background: #666;"></div>
+        </div>
+
+        <!-- Plage de dates — toujours visible, clic = toggle tiroir -->
+        <div id="results-footer-range"
+            style="font-size: 0.95rem; font-weight: bold; margin-bottom: 6px; text-align: center; cursor: pointer;">
+        </div>
+
+        <!-- Partie collapsible : ligne de navigation — masquée par défaut si tiroir fermé.
+             max-height réduite (une seule ligne de boutons, pas 200px comme Historique). -->
+        <div id="results-footer-collapsible"
+            style="overflow: hidden; transition: max-height 0.3s ease; max-height: 50px;">
+            <div class="history-nav" id="results-nav" style="margin-bottom: 6px;">
+                <button class="history-nav-btn" id="results-nav-back7" onclick="navigateResults(-7)">«7</button>
+                <button class="history-nav-btn" id="results-nav-back1" onclick="navigateResults(-1)">‹1</button>
+                <select id="results-nav-month" onchange="jumpToMonthResults(this.value)"></select>
+                <button class="history-nav-btn" id="results-nav-fwd1" onclick="navigateResults(1)">1›</button>
+                <button class="history-nav-btn" id="results-nav-fwd7" onclick="navigateResults(7)">7»</button>
+                <button class="history-nav-btn" id="results-nav-today" onclick="goToTodayResults()">⬆</button>
+            </div>
+        </div>
+
+        <!-- Spacer : aligne le bas du footer avec le bas de nav -->
+        <nav aria-hidden="true"
+            style="visibility: hidden; position: static; border-top: none; padding: 15px 0; min-height: var(--nav-height); box-sizing: border-box;">
+            <button>_</button>
+        </nav>
+    </div>
+
     <!-- Modal d'édition des périodes -->
     <!-- Modal description de profil — ouvert par openProfileModal() -->
     <div id="profileModal" class="modal">
@@ -1075,8 +1139,10 @@
             <label id="label-edit-end" for="edit-end" style="display:block; margin-top:15px;">Fin</label>
             <input type="datetime-local" id="edit-end" step="60">
             <div style="display:flex; gap:10px; margin-top:25px;">
-                <button id="btn-edit-cancel" class="export-btn" style="background:#444; margin:0;" onclick="closeModal()">Annuler</button>
-                <button id="btn-edit-save" class="export-btn" style="margin:0;" onclick="saveManualEdit()">Enregistrer</button>
+                <button id="btn-edit-cancel" class="export-btn" style="background:#444; margin:0;"
+                    onclick="closeModal()">Annuler</button>
+                <button id="btn-edit-save" class="export-btn" style="margin:0;"
+                    onclick="saveManualEdit()">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -1119,7 +1185,8 @@
             </p>
 
             <!-- Bouton Annuler -->
-            <button id="btn-import-cancel" class="export-btn" style="background:#444;" onclick="closeImportModal()">Annuler</button>
+            <button id="btn-import-cancel" class="export-btn" style="background:#444;"
+                onclick="closeImportModal()">Annuler</button>
         </div>
     </div>
 
@@ -1129,7 +1196,8 @@
             <h3 id="alert-modal-title" style="margin-top:0;">Nouvelle alerte</h3>
             <input type="hidden" id="alert-edit-index">
 
-            <label id="label-alert-type" for="alert-type" style="display:block; margin-top:10px;">Type de période</label>
+            <label id="label-alert-type" for="alert-type" style="display:block; margin-top:10px;">Type de
+                période</label>
             <select id="alert-type"></select>
 
             <label id="label-alert-threshold" for="alert-threshold" style="display:block; margin-top:15px;">
@@ -1169,7 +1237,8 @@
             <div style="display:flex; gap:10px; margin-top:25px;">
                 <button id="btn-alert-cancel" class="export-btn" style="background:#444; margin:0;"
                     onclick="closeAlertModal()">Annuler</button>
-                <button id="btn-alert-save" class="export-btn" style="margin:0;" onclick="saveAlert()">Enregistrer</button>
+                <button id="btn-alert-save" class="export-btn" style="margin:0;"
+                    onclick="saveAlert()">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -1187,9 +1256,9 @@
     <div id="manualExportModal" class="modal">
         <div class="modal-content">
             <h3 id="manual-export-title" style="margin-top:0;">Export manuel des données enregistrées</h3>
-            <p id="manual-export-instructions" style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:12px;"></p>
-            <textarea id="manual-export-textarea" readonly
-                style="width:100%; height:160px; box-sizing:border-box; background:#111; color:var(--text-color);
+            <p id="manual-export-instructions"
+                style="font-size:0.9rem; line-height:1.6; opacity:0.9; margin-bottom:12px;"></p>
+            <textarea id="manual-export-textarea" readonly style="width:100%; height:160px; box-sizing:border-box; background:#111; color:var(--text-color);
                        border:1px solid #444; border-radius:6px; padding:10px; font-family:monospace;
                        font-size:0.78rem; resize:vertical; margin-bottom:12px;"></textarea>
             <div style="display:flex; gap:10px;">
@@ -2659,6 +2728,17 @@
             window.lastHistoryCheckDay = _n.toDateString();
         }
 
+        // Ancre temporelle — dernier jour affiché dans la vue Résultats (onglet Résultats,
+        // Chantier 1A). Indépendante de historyEndDate par choix volontaire (voir Handoff) :
+        // la fenêtre affichée est toujours resultsEndDate - 13j → resultsEndDate (14 jours).
+        // lastResultsCheckDay : dédiée à la détection de changement de jour dans visibilitychange,
+        // isolée de lastHistoryCheckDay (même principe que ce dernier vs lastDailyPingSent).
+        {
+            const _n = new Date();
+            window.resultsEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+            window.lastResultsCheckDay = _n.toDateString();
+        }
+
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
             // Valeurs par défaut pour un nouvel utilisateur (aucun localStorage existant).
@@ -2683,6 +2763,11 @@
 
         // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
         if (!settings.alerts) settings.alerts = [];
+
+        // Garantit que settings.resultsExpandedTypes existe — état persisté des types "dépliés"
+        // dans les détails chiffrés (Résultats, Chantier 1B). Défaut : type 4 (actif) seul,
+        // pour préserver le comportement d'avant Chantier 1B lors de la mise à jour.
+        if (!settings.resultsExpandedTypes) settings.resultsExpandedTypes = [4];
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -2711,7 +2796,7 @@
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
                 importCancel: "Annuler",
                 resMoy3j: "moy.3j",
-                resActif: "période active", resActifP: "périodes actives",
+                resPeriodeSing: "période", resPeriodePlur: "périodes",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
                 // Alertes de périodes
@@ -2926,7 +3011,7 @@
                 importFileHeader: "In the file", importAppHeader: "In the app",
                 importCancel: "Cancel",
                 resMoy3j: "3d avg",
-                resActif: "active period", resActifP: "active periods",
+                resPeriodeSing: "period", resPeriodePlur: "periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
                 storageNearFull: "Storage almost full (≥90%)",
@@ -3122,7 +3207,7 @@
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
                 importCancel: "Annuleren",
                 resMoy3j: "3d gem",
-                resActif: "actieve periode", resActifP: "actieve periodes",
+                resPeriodeSing: "periode", resPeriodePlur: "periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 storageNearFull: "Opslag bijna vol (≥90%)",
@@ -5039,6 +5124,16 @@
             return `${h}h${m.toString().padStart(2, '0')}`;
         }
 
+        // Bascule un type "déplié" dans les détails chiffrés (Chantier 1B) — état global,
+        // persisté, valable pour tous les jours affichés (pas un état par jour).
+        function toggleResultsTypeExpanded(typeId) {
+            const idx = settings.resultsExpandedTypes.indexOf(typeId);
+            if (idx === -1) settings.resultsExpandedTypes.push(typeId);
+            else settings.resultsExpandedTypes.splice(idx, 1);
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderResults();
+        }
+
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
@@ -5048,43 +5143,66 @@
             const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
 
             const reposIds = [1, 2];
-            const actifId = 4;
-            const today = new Date().toLocaleDateString(locale);
+
+            // --- FENÊTRAGE (Chantier 1A) ---
+            // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
+            // Plage élargie de ±1 jour pour l'agrégation : la moyenne mobile centrée sur 3 jours
+            // a besoin d'un voisin de chaque côté, y compris pour les 2 jours en bord de fenêtre
+            // (voir Handoff, section 5 — pièges techniques).
+            const ed = window.resultsEndDate;
+            const windowStartTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1)).getTime();
+            const windowEndTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime(); // exclusif
+            const aggStartTs = windowStartTs - 86400000;
+            const aggEndTs = windowEndTs + 86400000;
+
+            // Clé du jour "aujourd'hui" — même format ISO que dateKey plus bas, pour remplacer
+            // l'ancienne comparaison sur libellé localisé (devenue inadaptée : daysData est
+            // maintenant indexé par clé ISO pour un tri/filtrage fiable, voir plus bas).
+            const now0 = new Date();
+            const todayKey = `${now0.getFullYear()}-${(now0.getMonth() + 1).toString().padStart(2, '0')}-${now0.getDate().toString().padStart(2, '0')}`;
 
             let all = [...state.history];
             if (state.activeType) {
                 all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
+            // Filtre sur la plage élargie (voir commentaire fenêtrage ci-dessus)
+            all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
             all.sort((a, b) => a.start - b.start);
 
             const daysData = {};
             all.forEach(e => {
-                const d = new Date(e.start).toLocaleDateString(locale);
+                const dObj = new Date(e.start);
+                // Clé ISO (AAAA-MM-JJ) — triable directement en chaîne, contrairement à l'ancienne
+                // clé en libellé localisé qui nécessitait un re-parsing fragile pour le tri/filtre.
+                const dateKey = `${dObj.getFullYear()}-${(dObj.getMonth() + 1).toString().padStart(2, '0')}-${dObj.getDate().toString().padStart(2, '0')}`;
                 const mins = (e.end - e.start) / 60000;
-                if (!daysData[d]) {
-                    daysData[d] = {
-                        displayDate: d,
+                if (!daysData[dateKey]) {
+                    daysData[dateKey] = {
+                        displayDate: dObj.toLocaleDateString(locale),
                         totals: {},
                         reposMins: 0,
-                        actifPeriods: [],
+                        periodsByType: {},
                         totalMins: 0
                     };
                     // Initialiser tous les types (pas seulement actifs)
-                    allTypes.forEach(tp => { daysData[d].totals[tp.id] = 0; });
+                    allTypes.forEach(tp => { daysData[dateKey].totals[tp.id] = 0; });
                 }
-                if (daysData[d].totals[e.typeId] !== undefined) {
-                    daysData[d].totals[e.typeId] += mins;
+                if (daysData[dateKey].totals[e.typeId] !== undefined) {
+                    daysData[dateKey].totals[e.typeId] += mins;
                 }
-                daysData[d].totalMins += mins;
-                if (reposIds.includes(e.typeId)) daysData[d].reposMins += mins;
-                if (e.typeId === actifId) daysData[d].actifPeriods.push(mins);
+                daysData[dateKey].totalMins += mins;
+                if (reposIds.includes(e.typeId)) daysData[dateKey].reposMins += mins;
+                // Chantier 1B : durées individuelles collectées pour TOUS les types (pas
+                // seulement l'ancien "type actif" hardcodé) — sert aux lignes de détail dépliables.
+                if (!daysData[dateKey].periodsByType[e.typeId]) daysData[dateKey].periodsByType[e.typeId] = [];
+                daysData[dateKey].periodsByType[e.typeId].push(mins);
             });
 
             const isIncomplete = (key) => {
                 return daysData[key].totalMins < 23 * 60 - 1;
             };
 
-            const dateKeys = Object.keys(daysData).sort((a, b) => new Date(a) - new Date(b));
+            const dateKeys = Object.keys(daysData).sort(); // tri lexical fiable sur clés ISO
             const moyMobile = {};
             dateKeys.forEach((key, idx) => {
                 if (idx === 0 || idx === dateKeys.length - 1) {
@@ -5100,9 +5218,17 @@
                 moyMobile[key] = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
             });
 
+            // Jours de la fenêtre officielle uniquement — la plage élargie ci-dessus ne sert
+            // qu'au calcul de la moyenne mobile en bord de fenêtre, jamais à l'affichage.
+            const displayKeys = dateKeys.filter(key => {
+                const [yy, mm, dd] = key.split('-').map(Number);
+                const ts = new Date(yy, mm - 1, dd).getTime();
+                return ts >= windowStartTs && ts < windowEndTs;
+            });
+
             // --- ÉTAPE 4 : rendu, du plus récent au plus ancien ---
-            [...dateKeys].reverse().forEach(d => {
-                const day = daysData[d];
+            [...displayKeys].reverse().forEach(key => {
+                const day = daysData[key];
                 const div = document.createElement('div');
                 div.className = "settings-group";
                 let html = '';
@@ -5110,12 +5236,18 @@
                 // Ligne 1 : date
                 html += `<strong>${day.displayDate}</strong><br>`;
 
-                // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour
+                // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour.
+                // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
+                // et bascule l'affichage de sa ligne de détail dépliable. ▸ dans la couleur du
+                // type si déplié, noir pur si replié (effet "creux" dans le fond gris voulu).
                 let ligne2 = '';
                 allTypes.forEach(tp => {
                     const mins = day.totals[tp.id] || 0;
                     if (mins > 0) {
-                        ligne2 += `<span style="color: ${getColorForId(tp.id)}">●</span> ${formatMins(mins)} &nbsp;`;
+                        const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
+                        const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
+                        ligne2 += `<span style="cursor:pointer; color: ${getColorForId(tp.id)};" onclick="toggleResultsTypeExpanded(${tp.id})">`;
+                        ligne2 += `<span style="color: ${arrowColor};">▸</span>${formatMins(mins)}</span> &nbsp;`;
                     }
                 });
                 html += `${ligne2}<br>`;
@@ -5125,29 +5257,34 @@
                 reposIds.forEach(id => {
                     reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
                 });
-                const moy3j = moyMobile[d];
+                const moy3j = moyMobile[key];
                 const moy3jStr = moy3j !== null
                     ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
                     : '';
                 html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
 
-                // Ligne 4 : métriques périodes actives
-                const periods = day.actifPeriods;
-                if (periods.length > 0) {
+                // Lignes de détail dépliables (Chantier 1B) — une par type "déplié" (état global
+                // persisté, voir toggleResultsTypeExpanded) ayant des données ce jour-là, dans
+                // l'ordre d'affichage des totaux. Toute la ligne dans la couleur du type ;
+                // formatage gras/souligné/italique identique à l'ancien modèle pour moy/max/min.
+                allTypes.forEach(tp => {
+                    if (!settings.resultsExpandedTypes.includes(tp.id)) return;
+                    const periods = day.periodsByType[tp.id];
+                    if (!periods || periods.length === 0) return;
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    const periodLabel = periods.length > 1 ? t('resActifP') : t('resActif');
-                    html += `<span style="font-size:0.9rem;">`;
-                    html += `${periods.length} ${periodLabel} <span style="color: ${getColorForId(actifId)}">●</span> : `;
+                    const periodLabel = periods.length > 1 ? t('resPeriodePlur') : t('resPeriodeSing');
+                    html += `<span style="font-size:0.9rem; color: ${getColorForId(tp.id)};">`;
+                    html += `▸${periods.length} ${periodLabel} : `;
                     html += `<b>${t('resMoy')} ${formatMins(moy)}</b> · `;
                     html += `<u>${t('resMax')} ${formatMins(max)}</u> · `;
                     html += `<i>${t('resMin')} ${formatMins(min)}</i>`;
                     html += `</span><br>`;
-                }
+                });
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
-                if (d !== today && day.totalMins < 23 * 60) {
+                if (key !== todayKey && day.totalMins < 23 * 60) {
                     const enregistrees = formatMins(day.totalMins);
                     html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t('resIncomplet')} (${enregistrees})</span>`;
                 }
@@ -5200,10 +5337,6 @@
             };
 
             // --- CONFIGURATION ---
-            // Passe C v0.9.24 : couleurs et labels construits depuis getActiveTypes() + getColorValueForId()
-            // Remplace les tableaux defaultColors et labels hardcodés (5 couleurs positionnelles, sans yellow).
-            // Point 4 : colorMap et labelMap depuis settings.types (tous les types)
-            // La légende n'affiche que les types ayant des données dans la période
             const colorMap = {};
             const labelMap = {};
             settings.types.forEach(tp => {
@@ -5215,14 +5348,25 @@
 
             // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
             const reposIds = [1, 2];
-            const today = new Date().toLocaleDateString();
 
-            // --- AGRÉGATION ---
+            // --- FENÊTRAGE (Chantier 1A) ---
+            // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
+            // Plage élargie de ±1 jour pour l'agrégation : la moyenne mobile centrée sur 3 jours
+            // a besoin d'un voisin de chaque côté, y compris pour les 2 jours en bord de fenêtre
+            // (voir Handoff, section 5 — pièges techniques).
+            const ed = window.resultsEndDate;
+            const windowStartTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1)).getTime();
+            const windowEndTs = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1).getTime(); // exclusif
+            const aggStartTs = windowStartTs - 86400000;
+            const aggEndTs = windowEndTs + 86400000;
+
+            // --- AGRÉGATION (sur la plage élargie) ---
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
                 allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
+            allPeriods = allPeriods.filter(p => p.start >= aggStartTs && p.start < aggEndTs);
 
             allPeriods.forEach(p => {
                 const d = new Date(p.start);
@@ -5238,7 +5382,16 @@
             });
 
             const sortedDates = Object.keys(daysData).sort((a, b) => b.localeCompare(a));
-            if (sortedDates.length === 0) {
+
+            // Jours de la fenêtre officielle uniquement — la plage élargie ci-dessus ne sert
+            // qu'au calcul de la moyenne mobile en bord de fenêtre, jamais à l'affichage.
+            const displayDates = sortedDates.filter(key => {
+                const [yy, mm, dd] = key.split('-').map(Number);
+                const ts = new Date(yy, mm - 1, dd).getTime();
+                return ts >= windowStartTs && ts < windowEndTs;
+            });
+
+            if (displayDates.length === 0) {
                 container.innerHTML = `<p style='text-align:center; color:#888;'>${t('noDataAvailable')}</p>`;
                 return;
             }
@@ -5251,7 +5404,7 @@
             const isIncomplete = (key) => {
                 // Un jour est incomplet dès qu'il a moins de 22h59 enregistrées, 
                 // y compris pour "aujourd'hui".
-                return daysData[key].totalMins < 23 * 60 - 1;;
+                return daysData[key].totalMins < 23 * 60 - 1;
             };
 
             const moyMobileChart = {};
@@ -5282,19 +5435,21 @@
                         </div>
             `;
 
-            sortedDates.forEach(dateKey => {
+            displayDates.forEach(dateKey => {
                 const day = daysData[dateKey];
                 const avgPc = moyMobileChart[dateKey]; // % ou null
 
-                // Point blanc de moyenne mobile centré verticalement sur la barre.
-                // Positionné à avgPc% de la largeur. Tooltip au survol/touch.
-                // overflow:visible sur le conteneur parent est nécessaire pour que le point
-                // ne soit pas coupé par overflow:hidden des barres — on le place donc APRÈS
-                // les divs de barres, en position absolute sur le conteneur flex principal.
+                // Week-end : label de date légèrement grisé pour distinguer visuellement
+                // les jours de semaine et de week-end.
+                const [dkY, dkM, dkD] = dateKey.split('-').map(Number);
+                const isWeekend = [0, 6].includes(new Date(dkY, dkM - 1, dkD).getDay());
+                const dateLabelStyle = isWeekend
+                    ? 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px; opacity: 0.6;'
+                    : 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;';
+
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
                 const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
-                // NOUVEAU : On gère l'affichage (block ou none)
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
 
                 const avgDot = avgPc !== null ? `
@@ -5311,7 +5466,7 @@
 
                 html += `
                     <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
-                        <div style="width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;">
+                        <div style="${dateLabelStyle}">
                             ${day.displayDate}
                         </div>
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
@@ -5319,7 +5474,6 @@
                                 ${Object.keys(day.totals).sort().map(type => {
                     const mins = day.totals[type];
                     const perc = (mins / 1440) * 100;
-                    // Passe C : lookup par typeId — correct même si les typeIds sont non-séquentiels
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
@@ -6993,6 +7147,201 @@
         }
 
         // ============================================================
+        // 21c. NAVIGATION TEMPORELLE — page Résultats (Chantier 1A)
+        // window.resultsEndDate : dernier jour de la fenêtre de 14 jours affichée.
+        // Fenêtre = resultsEndDate - 13j → resultsEndDate (inclus).
+        // Fonctions dupliquées depuis la section 21b (Historique) plutôt que généralisées —
+        // choix assumé (voir Handoff), _getHistoryStartDate() seule est réutilisée telle quelle
+        // (générique, ne dépend d'aucune des deux ancres).
+        // ============================================================
+
+        const RESULTS_WINDOW_DAYS = 14; // taille de la fenêtre glissante (Chantier 1A)
+
+        // Met à jour le texte de plage de dates du tiroir (#results-footer-range) — indépendant
+        // du rendu des graphes (pas encore fenêtrés, voir Chantier 1A bloc 3), appelé directement
+        // par les fonctions de nav ci-dessous.
+        function updateResultsFooterRange() {
+            const rangeEl = document.getElementById('results-footer-range');
+            if (!rangeEl) return;
+            const ed = window.resultsEndDate;
+            const firstDay = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const lastDay = ed;
+            const locale = getLocale();
+            const fD = firstDay.getDate();
+            const fM = firstDay.toLocaleDateString(locale, { month: 'long' });
+            const lD = lastDay.getDate();
+            const lM = lastDay.toLocaleDateString(locale, { month: 'long' });
+            rangeEl.innerText = firstDay.getMonth() === lastDay.getMonth()
+                ? t('historyRangeSameMonth', { fD, lD, lM })
+                : t('historyRangeDiffMonth', { fD, fM, lD, lM });
+        }
+
+        // Avance ou recule de `days` jours, avec clamp haut (aujourd'hui) et bas (1er jour historique).
+        function navigateResults(days) {
+            const ed = window.resultsEndDate;
+            const candidate = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + days);
+
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            if (candidate > todayMidnight) { window.resultsEndDate = todayMidnight; }
+            else {
+                const minDate = _getHistoryStartDate();
+                if (minDate && candidate < minDate) { window.resultsEndDate = minDate; }
+                else { window.resultsEndDate = candidate; }
+            }
+
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            populateResultsMonthDropdown();
+            // Chantier 1A bloc 3 : renderDailyCharts()/renderWeeklyCharts()/renderResults() pas
+            // encore fenêtrés — appel sans effet visible pour l'instant, deviendra actif au bloc 3.
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Remet resultsEndDate à aujourd'hui.
+        function goToTodayResults() {
+            const n = new Date();
+            window.resultsEndDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            populateResultsMonthDropdown();
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Active/désactive les boutons de navigation selon la position courante.
+        function updateResultsNavButtons() {
+            // Guard : les boutons n'existent que sur la page Résultats
+            if (!document.getElementById('results-nav-back7')) return;
+
+            const ed = window.resultsEndDate;
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const minDate = _getHistoryStartDate();
+
+            const windowStart = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+
+            const atStart = !minDate || windowStart <= minDate;
+            document.getElementById('results-nav-back7').disabled = atStart;
+            document.getElementById('results-nav-back1').disabled = atStart;
+
+            const atEnd = ed >= todayMidnight;
+            document.getElementById('results-nav-fwd1').disabled = atEnd;
+            document.getElementById('results-nav-fwd7').disabled = atEnd;
+            document.getElementById('results-nav-today').disabled = atEnd;
+        }
+
+        // Saute au premier jour avec données dans le mois sélectionné.
+        // value = "YYYY-MM" (format des options du select results-nav-month).
+        function jumpToMonthResults(value) {
+            if (!value) return;
+            const [y, m] = value.split('-').map(Number);
+            const firstInMonth = state.history.find(e => {
+                const d = new Date(e.start);
+                return d.getFullYear() === y && d.getMonth() === m - 1;
+            });
+            if (!firstInMonth) return;
+            const d = new Date(firstInMonth.start);
+            const firstDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+            // Le premier jour avec données est la colonne gauche du graphe → endDate = firstDay + 13j
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const candidate = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate() + (RESULTS_WINDOW_DAYS - 1));
+            window.resultsEndDate = candidate > todayMidnight ? todayMidnight : candidate;
+
+            updateResultsFooterRange();
+            updateResultsNavButtons();
+            renderDailyCharts();
+            renderWeeklyCharts();
+            renderResults();
+        }
+
+        // Peuple le select results-nav-month avec les mois ayant des données (format "Janvier 2026").
+        // Appelée à l'ouverture de la page Résultats et après tout changement de données.
+        function populateResultsMonthDropdown() {
+            const monthSel = document.getElementById('results-nav-month');
+            if (!monthSel) return;
+
+            const locale = getLocale();
+            const monthsSet = new Set();
+
+            const _ed = window.resultsEndDate;
+            const firstDay = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const fY = firstDay.getFullYear();
+            const fM = (firstDay.getMonth() + 1).toString().padStart(2, '0');
+            monthsSet.add(`${fY}-${fM}`);
+
+            state.history.forEach(e => {
+                const d = new Date(e.start);
+                const y = d.getFullYear();
+                const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                monthsSet.add(`${y}-${m}`);
+            });
+
+            const months = [...monthsSet].sort();
+            monthSel.innerHTML = months.map(ym => {
+                const [y, m] = ym.split('-');
+                const monthName = new Date(parseInt(y), parseInt(m) - 1, 1)
+                    .toLocaleDateString(locale, { month: 'long' });
+                const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                return `<option value="${ym}">${monthLabel} ${y}</option>`;
+            }).join('');
+
+            const firstVisible = new Date(_ed.getFullYear(), _ed.getMonth(), _ed.getDate() - (RESULTS_WINDOW_DAYS - 1));
+            const curYM = `${firstVisible.getFullYear()}-${(firstVisible.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (monthSel.querySelector(`option[value="${curYM}"]`)) monthSel.value = curYM;
+        }
+
+        // ── TIROIR FOOTER (page Résultats) — mécanique dupliquée de #timeline-footer,
+        // contenu inversé (voir Handoff : plage toujours visible, nav masquée/révélée). ──
+        // État lu depuis settings (persistance localStorage), clé indépendante de footerExpanded.
+        if (typeof settings.resultsFooterExpanded === 'undefined') settings.resultsFooterExpanded = true;
+        window.resultsFooterExpanded = settings.resultsFooterExpanded;
+
+        function applyResultsFooterState() {
+            const collapsible = document.getElementById('results-footer-collapsible');
+            if (!collapsible) return;
+            collapsible.style.maxHeight = window.resultsFooterExpanded ? '50px' : '0px';
+        }
+
+        function toggleResultsFooterDrawer() {
+            window.resultsFooterExpanded = !window.resultsFooterExpanded;
+            settings.resultsFooterExpanded = window.resultsFooterExpanded;
+            safeSave('pacingSettings', JSON.stringify(settings));
+            applyResultsFooterState();
+        }
+
+        // Initialisation du tiroir : affichage, padding-bottom scroll, état, interactions
+        // (une seule fois — voir wiring dans showPage(), Chantier 1A bloc 2).
+        function initResultsFooterDrawer() {
+            const footer = document.getElementById('results-footer');
+            const scroll = document.getElementById('results-scroll');
+            if (!footer || !scroll) return;
+
+            footer.style.display = 'block';
+            scroll.style.paddingBottom = (footer.offsetHeight + 8) + 'px';
+            applyResultsFooterState();
+
+            const handle = document.getElementById('results-footer-handle');
+            if (handle) handle.addEventListener('click', toggleResultsFooterDrawer);
+            const range = document.getElementById('results-footer-range');
+            if (range) range.addEventListener('click', toggleResultsFooterDrawer);
+
+            let swipeStartY = 0;
+            footer.addEventListener('touchstart', e => {
+                swipeStartY = e.touches[0].clientY;
+            }, { passive: true });
+            footer.addEventListener('touchend', e => {
+                const diff = e.changedTouches[0].clientY - swipeStartY;
+                if (Math.abs(diff) > 30) {
+                    if (diff > 0 && window.resultsFooterExpanded) toggleResultsFooterDrawer();
+                    if (diff < 0 && !window.resultsFooterExpanded) toggleResultsFooterDrawer();
+                }
+            }, { passive: true });
+        }
+
+        // ============================================================
         // 22. NAVIGATION ENTRE PAGES
         // ============================================================
         function showPage(p) {
@@ -7011,9 +7360,13 @@
             document.getElementById(`page-${p}`).classList.add('active');
             document.getElementById(`nav-${p}`).classList.add('active');
 
-            // Afficher/masquer le footer fixe selon la page
+            // Afficher/masquer le footer fixe Historique selon la page
             const footer = document.getElementById('timeline-footer');
             if (footer) footer.style.display = (p === 'timeline') ? 'block' : 'none';
+
+            // Idem pour le footer Résultats
+            const resultsFooter = document.getElementById('results-footer');
+            if (resultsFooter) resultsFooter.style.display = (p === 'results') ? 'block' : 'none';
 
             if (p === 'timeline') {
                 populateHistoryDropdowns();
@@ -7032,9 +7385,20 @@
                 }
             }
             if (p === 'results') {
+                populateResultsMonthDropdown();
+                updateResultsNavButtons();
+                updateResultsFooterRange();
                 renderDailyCharts();
                 renderWeeklyCharts();
                 renderResults();
+                // Init tiroir au premier passage, réapplique l'état aux suivants
+                // (même pattern que le tiroir Historique — voir bloc timeline ci-dessus)
+                if (!window._resultsFooterDrawerInited) {
+                    initResultsFooterDrawer();
+                    window._resultsFooterDrawerInited = true;
+                } else {
+                    applyResultsFooterState();
+                }
             }
             if (p === 'settings') {
                 renderAlertsList();
@@ -7135,16 +7499,38 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
-        // Fonction de sécurité pour laisser à GoatCounter le temps de charger (10 essais en 10 secondes)
-        function sendToGoatCounter(pathValue, attempts = 0) {
+        // File d'attente GoatCounter — évite les rafales d'appels simultanés (429 Too Many Requests).
+        // Chaque event est mis en file ; un seul est envoyé à la fois, espacé de GOATCOUNTER_QUEUE_DELAY_MS.
+        // Le mécanisme d'attente du chargement de window.goatcounter (jusqu'à 10 essais) est conservé,
+        // mais s'applique maintenant à la file entière, pas à chaque appel individuellement.
+        const GOATCOUNTER_QUEUE_DELAY_MS = 400;
+        let _goatQueue = [];
+        let _goatQueueRunning = false;
+
+        function sendToGoatCounter(pathValue) {
+            _goatQueue.push(pathValue);
+            if (!_goatQueueRunning) _processGoatQueue();
+        }
+
+        function _processGoatQueue(attempts = 0) {
+            if (_goatQueue.length === 0) {
+                _goatQueueRunning = false;
+                return;
+            }
+            _goatQueueRunning = true;
+
             if (window.goatcounter && window.goatcounter.count) {
+                const pathValue = _goatQueue.shift();
                 window.goatcounter.count({ path: pathValue });
                 console.log(`[GoatCounter] ✅ Envoyé : ${pathValue}`);
+                setTimeout(() => _processGoatQueue(0), GOATCOUNTER_QUEUE_DELAY_MS);
             } else if (attempts < 10 && navigator.onLine) {
-                // Réessai toutes les 1000ms (1s)
-                setTimeout(() => sendToGoatCounter(pathValue, attempts + 1), 1000);
+                // window.goatcounter pas encore chargé — réessai toutes les 1000ms (1s)
+                setTimeout(() => _processGoatQueue(attempts + 1), 1000);
             } else {
-                console.warn(`[GoatCounter] ❌ Abandon : ${pathValue} (Bloqueur ou Hors-ligne)`);
+                console.warn(`[GoatCounter] ❌ File abandonnée (${_goatQueue.length} event(s) restant(s)) — Bloqueur ou Hors-ligne`);
+                _goatQueue = [];
+                _goatQueueRunning = false;
             }
         }
 
@@ -7519,6 +7905,26 @@
                 window.lastHistoryCheckDay = _todayStr;
             }
 
+            // 1c. Même principe pour resultsEndDate (page Résultats, Chantier 1A) — ancre
+            // indépendante de historyEndDate, détection isolée via lastResultsCheckDay.
+            {
+                const _n = new Date();
+                const _todayStr = _n.toDateString();
+                if (window.lastResultsCheckDay && window.lastResultsCheckDay !== _todayStr) {
+                    window.resultsEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+                    console.log('[visibilitychange] Nouveau jour — resultsEndDate avancé à aujourd\'hui');
+                    if (document.getElementById('page-results').classList.contains('active')) {
+                        populateResultsMonthDropdown();
+                        updateResultsNavButtons();
+                        updateResultsFooterRange();
+                        renderDailyCharts();
+                        renderWeeklyCharts();
+                        renderResults();
+                    }
+                }
+                window.lastResultsCheckDay = _todayStr;
+            }
+
             // 2. Pas de période active → rien à faire
             if (state.activeType === null || state.startTime === null) return;
             const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
@@ -7814,7 +8220,7 @@
 
 
         7. Liste finale complète des events GoatCounter liés à l'installation/navigateur
-	    
+        
         (NewUser est relatif au suffixe, pas absolu)
 
         NewUser-installed (= TOTAL) NOTE : pas de comptage séparé des installations qui conservent le LocalStorage sour chrome)
@@ -7833,10 +8239,10 @@
         DailyUser-browser-TOTAL
 
 
-	    8. Arbre d'installation : Splashes et cadre dans onglet Réglages
-	    (descriptif à compléter)
+        8. Arbre d'installation : Splashes et cadre dans onglet Réglages
+        (descriptif à compléter)
 
-	    debugInstallState() en console pour un diagnostic complet de l'état actuel
+        debugInstallState() en console pour un diagnostic complet de l'état actuel
         dans l'arbre à tout moment
 
         =====================================================    */
