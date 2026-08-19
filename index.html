@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2764,6 +2764,11 @@
         // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
         if (!settings.alerts) settings.alerts = [];
 
+        // Garantit que settings.resultsExpandedTypes existe — état persisté des types "dépliés"
+        // dans les détails chiffrés (Résultats, Chantier 1B). Défaut : type 4 (actif) seul,
+        // pour préserver le comportement d'avant Chantier 1B lors de la mise à jour.
+        if (!settings.resultsExpandedTypes) settings.resultsExpandedTypes = [4];
+
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
         if (!settings.labels) {
@@ -2791,7 +2796,7 @@
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
                 importCancel: "Annuler",
                 resMoy3j: "moy.3j",
-                resActif: "période active", resActifP: "périodes actives",
+                resPeriodeSing: "période", resPeriodePlur: "périodes",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
                 // Alertes de périodes
@@ -3006,7 +3011,7 @@
                 importFileHeader: "In the file", importAppHeader: "In the app",
                 importCancel: "Cancel",
                 resMoy3j: "3d avg",
-                resActif: "active period", resActifP: "active periods",
+                resPeriodeSing: "period", resPeriodePlur: "periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
                 storageNearFull: "Storage almost full (≥90%)",
@@ -3202,7 +3207,7 @@
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
                 importCancel: "Annuleren",
                 resMoy3j: "3d gem",
-                resActif: "actieve periode", resActifP: "actieve periodes",
+                resPeriodeSing: "periode", resPeriodePlur: "periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 storageNearFull: "Opslag bijna vol (≥90%)",
@@ -5119,6 +5124,16 @@
             return `${h}h${m.toString().padStart(2, '0')}`;
         }
 
+        // Bascule un type "déplié" dans les détails chiffrés (Chantier 1B) — état global,
+        // persisté, valable pour tous les jours affichés (pas un état par jour).
+        function toggleResultsTypeExpanded(typeId) {
+            const idx = settings.resultsExpandedTypes.indexOf(typeId);
+            if (idx === -1) settings.resultsExpandedTypes.push(typeId);
+            else settings.resultsExpandedTypes.splice(idx, 1);
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderResults();
+        }
+
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
@@ -5128,7 +5143,6 @@
             const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
 
             const reposIds = [1, 2];
-            const actifId = 4;
 
             // --- FENÊTRAGE (Chantier 1A) ---
             // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
@@ -5167,7 +5181,7 @@
                         displayDate: dObj.toLocaleDateString(locale),
                         totals: {},
                         reposMins: 0,
-                        actifPeriods: [],
+                        periodsByType: {},
                         totalMins: 0
                     };
                     // Initialiser tous les types (pas seulement actifs)
@@ -5178,7 +5192,10 @@
                 }
                 daysData[dateKey].totalMins += mins;
                 if (reposIds.includes(e.typeId)) daysData[dateKey].reposMins += mins;
-                if (e.typeId === actifId) daysData[dateKey].actifPeriods.push(mins);
+                // Chantier 1B : durées individuelles collectées pour TOUS les types (pas
+                // seulement l'ancien "type actif" hardcodé) — sert aux lignes de détail dépliables.
+                if (!daysData[dateKey].periodsByType[e.typeId]) daysData[dateKey].periodsByType[e.typeId] = [];
+                daysData[dateKey].periodsByType[e.typeId].push(mins);
             });
 
             const isIncomplete = (key) => {
@@ -5219,12 +5236,18 @@
                 // Ligne 1 : date
                 html += `<strong>${day.displayDate}</strong><br>`;
 
-                // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour
+                // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour.
+                // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
+                // et bascule l'affichage de sa ligne de détail dépliable. ▸ dans la couleur du
+                // type si déplié, noir pur si replié (effet "creux" dans le fond gris voulu).
                 let ligne2 = '';
                 allTypes.forEach(tp => {
                     const mins = day.totals[tp.id] || 0;
                     if (mins > 0) {
-                        ligne2 += `<span style="color: ${getColorForId(tp.id)}">●</span> ${formatMins(mins)} &nbsp;`;
+                        const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
+                        const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
+                        ligne2 += `<span style="cursor:pointer; color: ${getColorForId(tp.id)};" onclick="toggleResultsTypeExpanded(${tp.id})">`;
+                        ligne2 += `<span style="color: ${arrowColor};">▸</span>${formatMins(mins)}</span> &nbsp;`;
                     }
                 });
                 html += `${ligne2}<br>`;
@@ -5240,20 +5263,25 @@
                     : '';
                 html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
 
-                // Ligne 4 : métriques périodes actives
-                const periods = day.actifPeriods;
-                if (periods.length > 0) {
+                // Lignes de détail dépliables (Chantier 1B) — une par type "déplié" (état global
+                // persisté, voir toggleResultsTypeExpanded) ayant des données ce jour-là, dans
+                // l'ordre d'affichage des totaux. Toute la ligne dans la couleur du type ;
+                // formatage gras/souligné/italique identique à l'ancien modèle pour moy/max/min.
+                allTypes.forEach(tp => {
+                    if (!settings.resultsExpandedTypes.includes(tp.id)) return;
+                    const periods = day.periodsByType[tp.id];
+                    if (!periods || periods.length === 0) return;
                     const moy = periods.reduce((a, b) => a + b, 0) / periods.length;
                     const max = Math.max(...periods);
                     const min = Math.min(...periods);
-                    const periodLabel = periods.length > 1 ? t('resActifP') : t('resActif');
-                    html += `<span style="font-size:0.9rem;">`;
-                    html += `${periods.length} ${periodLabel} <span style="color: ${getColorForId(actifId)}">●</span> : `;
+                    const periodLabel = periods.length > 1 ? t('resPeriodePlur') : t('resPeriodeSing');
+                    html += `<span style="font-size:0.9rem; color: ${getColorForId(tp.id)};">`;
+                    html += `▸${periods.length} ${periodLabel} : `;
                     html += `<b>${t('resMoy')} ${formatMins(moy)}</b> · `;
                     html += `<u>${t('resMax')} ${formatMins(max)}</u> · `;
                     html += `<i>${t('resMin')} ${formatMins(min)}</i>`;
                     html += `</span><br>`;
-                }
+                });
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
                 if (key !== todayKey && day.totalMins < 23 * 60) {
@@ -5416,7 +5444,7 @@
                 const [dkY, dkM, dkD] = dateKey.split('-').map(Number);
                 const isWeekend = [0, 6].includes(new Date(dkY, dkM - 1, dkD).getDay());
                 const dateLabelStyle = isWeekend
-                    ? 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px; opacity: 0.5;'
+                    ? 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px; opacity: 0.6;'
                     : 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;';
 
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
