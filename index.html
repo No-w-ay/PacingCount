@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -7499,16 +7499,38 @@
         // ============================================================
         console.log(`[Init] PacingCount ${APP_VERSION} — démarrage`);
 
-        // Fonction de sécurité pour laisser à GoatCounter le temps de charger (10 essais en 10 secondes)
-        function sendToGoatCounter(pathValue, attempts = 0) {
+        // File d'attente GoatCounter — évite les rafales d'appels simultanés (429 Too Many Requests).
+        // Chaque event est mis en file ; un seul est envoyé à la fois, espacé de GOATCOUNTER_QUEUE_DELAY_MS.
+        // Le mécanisme d'attente du chargement de window.goatcounter (jusqu'à 10 essais) est conservé,
+        // mais s'applique maintenant à la file entière, pas à chaque appel individuellement.
+        const GOATCOUNTER_QUEUE_DELAY_MS = 400;
+        let _goatQueue = [];
+        let _goatQueueRunning = false;
+
+        function sendToGoatCounter(pathValue) {
+            _goatQueue.push(pathValue);
+            if (!_goatQueueRunning) _processGoatQueue();
+        }
+
+        function _processGoatQueue(attempts = 0) {
+            if (_goatQueue.length === 0) {
+                _goatQueueRunning = false;
+                return;
+            }
+            _goatQueueRunning = true;
+
             if (window.goatcounter && window.goatcounter.count) {
+                const pathValue = _goatQueue.shift();
                 window.goatcounter.count({ path: pathValue });
                 console.log(`[GoatCounter] ✅ Envoyé : ${pathValue}`);
+                setTimeout(() => _processGoatQueue(0), GOATCOUNTER_QUEUE_DELAY_MS);
             } else if (attempts < 10 && navigator.onLine) {
-                // Réessai toutes les 1000ms (1s)
-                setTimeout(() => sendToGoatCounter(pathValue, attempts + 1), 1000);
+                // window.goatcounter pas encore chargé — réessai toutes les 1000ms (1s)
+                setTimeout(() => _processGoatQueue(attempts + 1), 1000);
             } else {
-                console.warn(`[GoatCounter] ❌ Abandon : ${pathValue} (Bloqueur ou Hors-ligne)`);
+                console.warn(`[GoatCounter] ❌ File abandonnée (${_goatQueue.length} event(s) restant(s)) — Bloqueur ou Hors-ligne`);
+                _goatQueue = [];
+                _goatQueueRunning = false;
             }
         }
 
