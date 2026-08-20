@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.10b"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -5326,7 +5326,7 @@
                     let dotsRow = '';
                     displayedTypes.forEach((tp, idx) => {
                         const isCombined = reposIds.includes(tp.id);
-                        const leftCh = idx * 7 + 3;
+                        const leftCh = idx * 7 + 3.5; // correctif pour être bien centré
                         dotsRow += `<div class="results-combo-dot ${isCombined ? 'results-combo-dot-active' : 'results-combo-dot-inactive'}" style="left:${leftCh}ch;"></div>`;
                     });
                     html += `<div class="results-combo-row">${dotsRow}</div>`;
