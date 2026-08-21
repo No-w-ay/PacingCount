@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -811,6 +811,14 @@
             text-align: center;
         }
 
+        /* Wrapper scrollable horizontal pour ligne 2 (totaux) + rangée de points — évite le
+           débordement sur les jours à 5-6 types actifs (calcul en ch suppose une seule ligne). */
+        .results-line2-scroll {
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
         .results-combo-row {
             position: relative;
             height: 24px;
@@ -827,6 +835,8 @@
             top: 11px;
             height: 2px;
             background: white;
+            z-index: 1;
+            pointer-events: none;
         }
 
         /* Zone de tap élargie autour de chaque point — indépendante du clic sur le total
@@ -842,6 +852,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 0;
+        }
+
+        .results-combo-dot-hit-active {
+            z-index: 2;
         }
 
         .results-combo-dot {
@@ -4129,68 +4144,6 @@
 
         // --- Affiche le #messageModal avec le contenu du message ---
 
-        /* function showMessage(msg, newVersion) {
-            const lang = (settings && settings.lang) || 'fr';
-            const fallbackLang = 'fr';
-
-            const title = (msg.title && (msg.title[lang] || msg.title[fallbackLang])) || '';
-            const body = (msg.body && (msg.body[lang] || msg.body[fallbackLang])) || '';
-
-            document.getElementById('message-modal-title').innerText = title;
-            document.getElementById('message-modal-body').innerText = body; // white-space:pre-line gère les \n\n
-
-            // Bloc version (affiché uniquement pour type update si version connue)
-            const versionBlock = document.getElementById('message-modal-version');
-            if (msg.type === 'update' && newVersion) {
-                versionBlock.style.display = 'block';
-                versionBlock.innerHTML = `
-                    <div style="display:flex; gap:8px;">
-                        <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                        <strong>${APP_VERSION}</strong>
-                    </div>
-                    <div style="display:flex; gap:8px; margin-top:4px;">
-                        <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                        <strong style="color:var(--blue);">${newVersion}</strong>
-                    </div>`;
-            } else {
-                versionBlock.style.display = 'none';
-                versionBlock.innerHTML = '';
-            }
-
-            // Styles boutons (cohérents avec openUpdateModal)
-            const btnBase = `background:transparent; border-radius:6px; padding:10px 16px; font-size:0.95rem; cursor:pointer; flex:1;`;
-            const btnPrimary = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
-            const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
-            const btnExport = `background:rgba(255,180,0,0.1); border-radius:6px; padding:10px 16px;
-                                font-size:0.95rem; cursor:pointer; width:100%; margin-bottom:12px;
-                                color:#ffcc55; border:1px solid rgba(255,180,0,0.5);`;
-
-            const actions = document.getElementById('message-modal-actions');
-            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
-
-            if (msg.type === 'update') {
-                // Bouton export toujours présent pour update
-                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données</button>`;
-                html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
-                if (!isBlocking) {
-                    // Non bloquant : bouton "Plus tard"
-                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
-                }
-                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
-                html += `</div>`;
-                actions.innerHTML = html;
-            } else {
-                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
-                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
-                actions.innerHTML = `
-                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
-            }
-
-            document.getElementById('messageModal').style.display = 'flex';
-            console.log(`[Messages] Modal affiché — type:${msg.type} id:${msg.id} bloquant:${isBlocking}`);
-        }
-        */
-
         function showMessage(msg, newVersion) {
             const lang = (settings && settings.lang) || 'fr';
             const fallbackLang = 'fr';
@@ -5355,7 +5308,7 @@
                     // pas critique pour l'alignement (seul le pas fixe de 7ch/bloc compte).
                     if (idx < displayedTypes.length - 1) ligne2 += '&#x2007;';
                 });
-                html += `<div class="tab-num" style="position:relative;">${ligne2}</div>`;
+                html += `<div class="results-line2-scroll"><div class="tab-num" style="position:relative;">${ligne2}</div>`;
 
                 // Rangée de points de combinaison (Chantier 1B, suite) — un point sous chaque
                 // total affiché ce jour : blanc = type inclus dans la combinaison "repos"
@@ -5386,12 +5339,13 @@
                     displayedTypes.forEach((tp, idx) => {
                         const isCombined = reposIds.includes(tp.id);
                         const leftCh = idx * 7 + 3.5;
-                        dotsRow += `<div class="results-combo-dot-hit" style="left:${leftCh}ch;" onclick="toggleCombinedType(${tp.id})">`;
+                        dotsRow += `<div class="results-combo-dot-hit${isCombined ? ' results-combo-dot-hit-active' : ''}" style="left:${leftCh}ch;" onclick="toggleCombinedType(${tp.id})">`;
                         dotsRow += `<div class="results-combo-dot ${isCombined ? 'results-combo-dot-active' : 'results-combo-dot-inactive'}"></div>`;
                         dotsRow += `</div>`;
                     });
                     html += `<div class="results-combo-row">${dotsRow}</div>`;
                 }
+                html += `</div>`;
 
                 // Ligne 3 : sous-total de la combinaison + moyenne mobile 3 jours — masquée
                 // entièrement si la combinaison est vide (aucun type sélectionné). Un seul ●
@@ -5669,7 +5623,7 @@
 
             html += `
                 <div onclick="toggleMoyDots()" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: ${opacity}; transition: opacity 0.2s;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
                     <span>~ ${t('resMoy3j')}</span>
                     <span style="position: relative; display: inline-block; margin-left: 4px; font-size: 1.1rem;">
                         👁️
