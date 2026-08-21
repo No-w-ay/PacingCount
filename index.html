@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -388,6 +388,19 @@
         }
 
         .history-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Style plat façon .history-item — remplace la carte .settings-group pour chaque
+           bloc-jour de la vue Résultats (Chantier 1B, suite) : regagne de la largeur
+           horizontale (pas de padding propre, hérite de celui de la page) et unifie le
+           rendu visuel avec l'onglet Historique. */
+        .results-day-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .results-day-item:last-child {
             border-bottom: none;
         }
 
@@ -5276,7 +5289,7 @@
             [...displayKeys].reverse().forEach(key => {
                 const day = daysData[key];
                 const div = document.createElement('div');
-                div.className = "settings-group";
+                div.className = "results-day-item";
                 let html = '';
 
                 // Ligne 1 : date
@@ -5422,8 +5435,18 @@
                 const tt = document.getElementById('custom-chart-tooltip');
                 tt.innerHTML = text;
                 tt.style.display = 'block';
-                const x = e.touches ? e.touches[0].clientX : e.clientX;
                 const y = e.touches ? e.touches[0].clientY : e.clientY;
+                let x = e.touches ? e.touches[0].clientX : e.clientX;
+
+                // Clamp horizontal : évite que le cadre (centré via transform:translateX(-50%))
+                // ne dépasse les bords de l'écran. offsetWidth lu après display:block ci-dessus,
+                // donc mesure réelle (le contenu vient d'être injecté).
+                const margin = 8;
+                const halfWidth = tt.offsetWidth / 2;
+                const minX = halfWidth + margin;
+                const maxX = window.innerWidth - halfWidth - margin;
+                x = Math.min(Math.max(x, minX), maxX);
+
                 tt.style.left = x + 'px';
                 tt.style.top = y + 'px';
             };
@@ -7832,6 +7855,10 @@
         let touchstartY = 0;
         let touchendX = 0;
         let touchendY = 0;
+        // Vrai si le geste démarre dans un scroll horizontal interne (ex. ligne des totaux
+        // Résultats, Chantier 1B suite) — évite qu'un swipe destiné à ce scroll interne
+        // soit intercepté comme changement de page.
+        let touchStartInInnerScroll = false;
 
         function handleSwipe() {
             // Annule le swipe si un modal est ouvert
@@ -7861,12 +7888,13 @@
         document.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
             touchstartY = e.changedTouches[0].screenY;
+            touchStartInInnerScroll = !!e.target.closest('.results-line2-scroll');
         }, { passive: true });
 
         document.addEventListener('touchend', e => {
             touchendX = e.changedTouches[0].screenX;
             touchendY = e.changedTouches[0].screenY;
-            handleSwipe();
+            if (!touchStartInInnerScroll) handleSwipe();
         }, { passive: true });
 
         // --- GESTION DU SWIPE POUR L'ÉCRAN DE VEILLE ---
