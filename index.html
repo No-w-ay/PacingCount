@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.10b"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -813,17 +813,41 @@
 
         .results-combo-row {
             position: relative;
-            height: 14px;
-            margin: 2px 0 8px 0;
+            height: 24px;
+            /* 24px : accueille la zone de tap élargie des points (voir .results-combo-dot-hit) —
+               le rendu visuel (point 8px, trait 2px) reste discret, centré dans cet espace. */
+            margin: 0 0 4px 0;
+        }
+
+        /* Trait reliant les deux points blancs les plus éloignés du jour (Chantier 1B, suite) —
+           traverse les points gris intermédiaires sans s'y arrêter, simple <div> positionné en
+           ch comme les points (même calcul de position, pas de mesure DOM). */
+        .results-combo-line {
+            position: absolute;
+            top: 11px;
+            height: 2px;
+            background: white;
+        }
+
+        /* Zone de tap élargie autour de chaque point — indépendante du clic sur le total
+           (ligne 2, qui garde son propre rôle d'expand/collapse). Le point visuel reste petit,
+           la cible tactile est plus généreuse (public à précision tactile parfois réduite). */
+        .results-combo-dot-hit {
+            position: absolute;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            transform: translateX(-50%);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .results-combo-dot {
-            position: absolute;
-            top: 0;
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            transform: translateX(-50%);
         }
 
         .results-combo-dot-active {
@@ -2846,6 +2870,7 @@
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
                 importCancel: "Annuler",
                 resMoy3j: "moy.3j",
+                resComboTotal: "Total",
                 resPeriodeSing: "période", resPeriodePlur: "périodes",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
@@ -3061,6 +3086,7 @@
                 importFileHeader: "In the file", importAppHeader: "In the app",
                 importCancel: "Cancel",
                 resMoy3j: "3d avg",
+                resComboTotal: "Total",
                 resPeriodeSing: "period", resPeriodePlur: "periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
@@ -3257,6 +3283,7 @@
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
                 importCancel: "Annuleren",
                 resMoy3j: "3d gem",
+                resComboTotal: "Total",
                 resPeriodeSing: "periode", resPeriodePlur: "periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
@@ -5184,6 +5211,20 @@
             renderResults();
         }
 
+        // Bascule un type dans/hors de la combinaison "repos" personnalisable (Chantier 1B,
+        // suite — points blancs/gris sous les totaux). Combinaison globale (pas par jour) :
+        // un clic sur un jour affecte donc l'affichage de tous les jours visibles, ainsi que
+        // le point blanc de moyenne mobile dans renderDailyCharts() (même source de données).
+        function toggleCombinedType(typeId) {
+            const idx = settings.combinedTypeIds.indexOf(typeId);
+            if (idx === -1) settings.combinedTypeIds.push(typeId);
+            else settings.combinedTypeIds.splice(idx, 1);
+            settings.combinedTypeIds.sort((a, b) => a - b); // ordre stable (id croissant)
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderResults();
+            renderDailyCharts();
+        }
+
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
@@ -5320,30 +5361,48 @@
                 // total affiché ce jour : blanc = type inclus dans la combinaison "repos"
                 // (settings.combinedTypeIds — compose aussi le point blanc de renderDailyCharts()),
                 // gris creux = type disponible ce jour mais exclu de la combinaison. Position
-                // calculée à plat (rang × 7ch + 3ch pour centrer sur le bloc de 6ch), pas de
-                // mesure DOM. Statique pour cette passe — interactivité (clic) en passe suivante.
+                // calculée à plat (rang × 7ch + 3.5ch pour tomber sous le centre du "h" du bloc),
+                // pas de mesure DOM. Cliquable : bascule la combinaison globale (voir
+                // toggleCombinedType()), indépendant du clic sur le total juste au-dessus.
                 if (displayedTypes.length > 0) {
                     let dotsRow = '';
+
+                    // Trait reliant les deux points blancs les plus éloignés — uniquement s'il y
+                    // en a au moins 2 (sinon rien à relier). Traverse les points gris/blocs vides
+                    // entre les deux sans s'y arrêter (un seul segment, pas un tracé point à point).
+                    let minIdx = null, maxIdx = null;
+                    displayedTypes.forEach((tp, idx) => {
+                        if (reposIds.includes(tp.id)) {
+                            if (minIdx === null) minIdx = idx;
+                            maxIdx = idx;
+                        }
+                    });
+                    if (minIdx !== null && maxIdx !== null && maxIdx > minIdx) {
+                        const lineLeft = minIdx * 7 + 3.5;
+                        const lineWidth = (maxIdx - minIdx) * 7;
+                        dotsRow += `<div class="results-combo-line" style="left:${lineLeft}ch; width:${lineWidth}ch;"></div>`;
+                    }
+
                     displayedTypes.forEach((tp, idx) => {
                         const isCombined = reposIds.includes(tp.id);
-                        const leftCh = idx * 7 + 3.5; // correctif pour être bien centré
-                        dotsRow += `<div class="results-combo-dot ${isCombined ? 'results-combo-dot-active' : 'results-combo-dot-inactive'}" style="left:${leftCh}ch;"></div>`;
+                        const leftCh = idx * 7 + 3.5;
+                        dotsRow += `<div class="results-combo-dot-hit" style="left:${leftCh}ch;" onclick="toggleCombinedType(${tp.id})">`;
+                        dotsRow += `<div class="results-combo-dot ${isCombined ? 'results-combo-dot-active' : 'results-combo-dot-inactive'}"></div>`;
+                        dotsRow += `</div>`;
                     });
                     html += `<div class="results-combo-row">${dotsRow}</div>`;
                 }
 
                 // Ligne 3 : sous-total de la combinaison + moyenne mobile 3 jours — masquée
-                // entièrement si la combinaison est vide (aucun type sélectionné).
+                // entièrement si la combinaison est vide (aucun type sélectionné). Un seul ●
+                // blanc (écho aux points blancs de la rangée ci-dessus, plus lisible qu'une
+                // bullet colorée par type composant la combinaison) + libellé "Total" explicite.
                 if (reposIds.length > 0) {
-                    let reposBullets = '';
-                    reposIds.forEach(id => {
-                        reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
-                    });
                     const moy3j = moyMobile[key];
                     const moy3jStr = moy3j !== null
                         ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
                         : '';
-                    html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
+                    html += `<span style="color:white;">●</span> ${t('resComboTotal')} : ${formatMins(day.reposMins)}${moy3jStr}<br>`;
                 }
 
                 // Lignes de détail dépliables (Chantier 1B) — une par type "déplié" (état global
