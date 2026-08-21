@@ -5196,8 +5196,11 @@
             const container = document.getElementById('results-list');
             container.innerHTML = "";
             const locale = getLocale();
-            // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export
-            const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
+            // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export.
+            // Pas de filtre sur .label : un type sans nom peut avoir des données réelles
+            // (ex. activé puis renommage pas encore fait) — displayedTypes filtre déjà sur
+            // la présence de minutes >0, donc les slots vides ne s'affichent pas de toute façon.
+            const allTypes = settings.types;
 
             // Chantier 1B (suite) : "repos" n'est plus [1,2] en dur — c'est la combinaison
             // personnalisable par l'utilisateur, persistée dans settings.combinedTypeIds.
