@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -926,6 +926,17 @@
         <button id="toggle-fullscreen" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
             🛠️ Mode Plein Écran</button>
+
+        <!-- bouton test graphique Évolution (Chantier 2/3, Passe 1) — mode développeur uniquement,
+             provisoire avant l'intégration overlay définitive (Passe 3) -->
+        <button id="test-evolution-chart" class="dev-only"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
+            🛠️ Test Graphique Évolution</button>
+        <div id="evolution-chart-test-container" class="dev-only" style="display:none; margin-top:15px;">
+            <div style="position:relative; height:300px; width:100%;">
+                <canvas id="evolutionChart"></canvas>
+            </div>
+        </div>
 
     </div>
 
@@ -2835,6 +2846,16 @@
             window.lastResultsCheckDay = _n.toDateString();
         }
 
+        // Ancre temporelle — dernier jour affiché dans le futur graphique Évolution
+        // (Chantier 2/3, passe 1). Indépendante des deux ancres ci-dessus, même principe.
+        // Pas de lastEvolutionCheckDay pour l'instant (pas de vue live à rafraîchir
+        // automatiquement en passe 1, test manuel via bouton dev) — à ajouter si besoin
+        // lors de l'intégration overlay (Passe 3).
+        {
+            const _n = new Date();
+            window.evolutionEndDate = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+        }
+
         let settings = JSON.parse(localStorage.getItem('pacingSettings'))
             || {
             // Valeurs par défaut pour un nouvel utilisateur (aucun localStorage existant).
@@ -3825,6 +3846,14 @@
             }
         });
 
+
+        // Test Chantier 2/3 (Passe 1) — toggle affichage + rendu à la demande
+        document.getElementById('test-evolution-chart').addEventListener('click', () => {
+            const container = document.getElementById('evolution-chart-test-container');
+            const isHidden = container.style.display === 'none';
+            container.style.display = isHidden ? 'block' : 'none';
+            if (isHidden) renderEvolutionChart();
+        });
 
         // ============================================================
         // 8b. NOTIFICATIONS — Enregistrement SW et gestion des alertes
@@ -8138,6 +8167,205 @@
 
             console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
         });
+
+
+        // ============================================================
+        // 25. GRAPHIQUE ÉVOLUTION (Chantier 2/3 — Passe 1)
+        // computeEvolutionData() : fonction d'agrégation générique — accepte n'importe quelle
+        // fenêtre (windowDays paramétré, prépare un futur sélecteur mois/trimestre/semestre/
+        // année/tout) et n'importe quel ensemble de séries (typeId numérique, ou 'combined'
+        // pour la grandeur blanche définie par settings.combinedTypeIds — même état que
+        // Chantier 1B, pas de duplication). Un jour est exclu en bloc (toutes séries) s'il est
+        // incomplet — même seuil que renderResults()/renderDailyCharts() (< 23h-1min).
+        // Marge de ±1 jour agrégée en plus de la fenêtre officielle, nécessaire à la moyenne
+        // mobile 3j en bord de fenêtre (même piège documenté pour Résultats — voir Handoff).
+        // Différence avec renderResults()/renderDailyCharts() : vérifie explicitement que les
+        // jours voisins utilisés pour la moyenne mobile sont bien calendairement consécutifs
+        // (pas seulement adjacents dans le tableau trié) — sur une fenêtre de 6 mois, un vrai
+        // jour sans aucune période enregistrée est plus probable que sur 14 jours ; sans ce
+        // contrôle, un jour absent du tableau ferait glisser silencieusement le calcul sur un
+        // jour non-adjacent.
+        // ============================================================
+        function computeEvolutionData(endDate, windowDays, seriesIds) {
+            const windowStartTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (windowDays - 1)).getTime();
+            const windowEndTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1).getTime(); // exclusif
+            const aggStartTs = windowStartTs - 86400000;
+            const aggEndTs = windowEndTs + 86400000;
+
+            let all = [...state.history];
+            if (state.activeType) {
+                all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+            }
+            all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
+
+            const daysData = {};
+            all.forEach(e => {
+                const d = new Date(e.start);
+                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const mins = (e.end - e.start) / 60000;
+                if (!daysData[dateKey]) {
+                    daysData[dateKey] = { timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), totalMins: 0, typeTotals: {} };
+                }
+                daysData[dateKey].totalMins += mins;
+                if (!daysData[dateKey].typeTotals[e.typeId]) daysData[dateKey].typeTotals[e.typeId] = 0;
+                daysData[dateKey].typeTotals[e.typeId] += mins;
+            });
+
+            const isComplete = (key) => daysData[key] && daysData[key].totalMins >= 23 * 60 - 1;
+
+            function seriesValue(dateKey, seriesId) {
+                const day = daysData[dateKey];
+                if (!day) return 0;
+                if (seriesId === 'combined') {
+                    return settings.combinedTypeIds.reduce((sum, tId) => sum + (day.typeTotals[tId] || 0), 0);
+                }
+                return day.typeTotals[seriesId] || 0;
+            }
+
+            const dateKeys = Object.keys(daysData).sort();
+
+            // Points bruts — jours complets uniquement, dans la fenêtre officielle (pas la marge)
+            const points = {};
+            seriesIds.forEach(sid => points[sid] = []);
+            dateKeys.forEach(key => {
+                const ts = daysData[key].timestamp;
+                if (ts < windowStartTs || ts >= windowEndTs) return;
+                if (!isComplete(key)) return;
+                seriesIds.forEach(sid => points[sid].push({ x: ts, y: seriesValue(key, sid) }));
+            });
+
+            // Moyenne mobile 3 jours centrée (calendaire, jours complets uniquement)
+            const movingAvg = {};
+            seriesIds.forEach(sid => movingAvg[sid] = []);
+            dateKeys.forEach((key, idx) => {
+                const ts = daysData[key].timestamp;
+                if (ts < windowStartTs || ts >= windowEndTs) return;
+                if (idx === 0 || idx === dateKeys.length - 1) return;
+
+                const kPrev = dateKeys[idx - 1];
+                const kNext = dateKeys[idx + 1];
+                // Contrôle de continuité calendaire — voir commentaire d'en-tête
+                if (daysData[key].timestamp - daysData[kPrev].timestamp !== 86400000) return;
+                if (daysData[kNext].timestamp - daysData[key].timestamp !== 86400000) return;
+
+                if (!isComplete(kPrev) || !isComplete(key) || !isComplete(kNext)) return;
+
+                seriesIds.forEach(sid => {
+                    const avg = (seriesValue(kPrev, sid) + seriesValue(key, sid) + seriesValue(kNext, sid)) / 3;
+                    movingAvg[sid].push({ x: ts, y: avg });
+                });
+            });
+
+            return { points, movingAvg };
+        }
+
+        let evolutionChartInstance = null;
+
+        // Rendu de test — une seule série ('combined') pour cette passe. Le sélecteur
+        // multi-série et l'overlay paysage définitif viendront aux Passes 2 et 3.
+        function renderEvolutionChart() {
+            console.log("[renderEvolutionChart] Rendu du graphique évolution (test)");
+            const canvas = document.getElementById('evolutionChart');
+            if (!canvas) return;
+
+            const EVOLUTION_WINDOW_DAYS = 183; // ~6 mois — codé en dur pour cette passe (windowDays de computeEvolutionData reste générique)
+            const seriesIds = ['combined'];
+            const { points, movingAvg } = computeEvolutionData(window.evolutionEndDate, EVOLUTION_WINDOW_DAYS, seriesIds);
+
+            const textGray = getCSSColor('--chart-gray-text');
+            const gridColor = getCSSColor('--border') || '#333';
+            const rangeMin = new Date(window.evolutionEndDate.getFullYear(), window.evolutionEndDate.getMonth(), window.evolutionEndDate.getDate() - (EVOLUTION_WINDOW_DAYS - 1)).getTime();
+            const rangeMax = window.evolutionEndDate.getTime();
+
+            const datasets = [
+                {
+                    label: 'Total (points bruts)',
+                    data: points['combined'],
+                    showLine: false,
+                    pointRadius: 3,
+                    pointBackgroundColor: 'white',
+                    pointBorderColor: 'rgba(0,0,0,0.3)'
+                },
+                {
+                    label: 'Total (moy. 3j)',
+                    data: movingAvg['combined'],
+                    showLine: true,
+                    pointRadius: 0,
+                    spanGaps: false,
+                    borderColor: 'white',
+                    borderWidth: 2
+                }
+            ];
+
+            if (evolutionChartInstance) {
+                evolutionChartInstance.data.datasets = datasets;
+                evolutionChartInstance.options.scales.x.min = rangeMin;
+                evolutionChartInstance.options.scales.x.max = rangeMax;
+                evolutionChartInstance.update();
+                return;
+            }
+
+            evolutionChartInstance = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    parsing: false, // {x,y} déjà fournis
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: rangeMin,
+                            max: rangeMax,
+                            // Graduations calées sur le 1er (mois) et le 15 (secondaire) de chaque
+                            // mois — un axe linéaire ne les positionne pas automatiquement.
+                            afterBuildTicks: (axis) => {
+                                const ticks = [];
+                                let cursor = new Date(new Date(rangeMin).getFullYear(), new Date(rangeMin).getMonth(), 1);
+                                const end = new Date(rangeMax);
+                                while (cursor <= end) {
+                                    if (cursor.getTime() >= rangeMin) ticks.push({ value: cursor.getTime() });
+                                    const d15 = new Date(cursor.getFullYear(), cursor.getMonth(), 15);
+                                    if (d15.getTime() >= rangeMin && d15.getTime() <= rangeMax) ticks.push({ value: d15.getTime() });
+                                    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+                                }
+                                axis.ticks = ticks.sort((a, b) => a.value - b.value);
+                            },
+                            ticks: {
+                                color: textGray,
+                                callback: (value) => {
+                                    const d = new Date(value);
+                                    return d.getDate() === 1
+                                        ? d.toLocaleDateString(getLocale(), { month: 'short' })
+                                        : d.getDate().toString();
+                                }
+                            },
+                            grid: { color: gridColor }
+                        },
+                        y: {
+                            min: 0,
+                            max: 24,
+                            ticks: { color: textGray, stepSize: 2 },
+                            grid: { color: gridColor }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: textGray } },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => new Date(items[0].parsed.x).toLocaleDateString(getLocale()),
+                                label: (item) => {
+                                    const mins = item.parsed.y;
+                                    const h = Math.floor(mins / 60);
+                                    const m = Math.round(mins % 60);
+                                    return `${item.dataset.label} : ${h}h${m.toString().padStart(2, '0')}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
 
         /* ===================================================
