@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8224,14 +8224,15 @@
 
             const dateKeys = Object.keys(daysData).sort();
 
-            // Points bruts — jours complets uniquement, dans la fenêtre officielle (pas la marge)
+            // Points bruts — jours complets uniquement, dans la fenêtre officielle (pas la marge).
+            // Conversion minutes → heures ici : l'axe Y du graphe est en heures (0-24).
             const points = {};
             seriesIds.forEach(sid => points[sid] = []);
             dateKeys.forEach(key => {
                 const ts = daysData[key].timestamp;
                 if (ts < windowStartTs || ts >= windowEndTs) return;
                 if (!isComplete(key)) return;
-                seriesIds.forEach(sid => points[sid].push({ x: ts, y: seriesValue(key, sid) }));
+                seriesIds.forEach(sid => points[sid].push({ x: ts, y: seriesValue(key, sid) / 60 }));
             });
 
             // Moyenne mobile 3 jours centrée (calendaire, jours complets uniquement)
@@ -8252,7 +8253,7 @@
 
                 seriesIds.forEach(sid => {
                     const avg = (seriesValue(kPrev, sid) + seriesValue(key, sid) + seriesValue(kNext, sid)) / 3;
-                    movingAvg[sid].push({ x: ts, y: avg });
+                    movingAvg[sid].push({ x: ts, y: avg / 60 });
                 });
             });
 
@@ -8355,7 +8356,7 @@
                             callbacks: {
                                 title: (items) => new Date(items[0].parsed.x).toLocaleDateString(getLocale()),
                                 label: (item) => {
-                                    const mins = item.parsed.y;
+                                    const mins = item.parsed.y * 60;
                                     const h = Math.floor(mins / 60);
                                     const m = Math.round(mins % 60);
                                     return `${item.dataset.label} : ${h}h${m.toString().padStart(2, '0')}`;
