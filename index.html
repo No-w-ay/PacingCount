@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -388,6 +388,19 @@
         }
 
         .history-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Style plat façon .history-item — remplace la carte .settings-group pour chaque
+           bloc-jour de la vue Résultats (Chantier 1B, suite) : regagne de la largeur
+           horizontale (pas de padding propre, hérite de celui de la page) et unifie le
+           rendu visuel avec l'onglet Historique. */
+        .results-day-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .results-day-item:last-child {
             border-bottom: none;
         }
 
@@ -791,6 +804,89 @@
             /* reset largeur et marge hérités de la règle globale select */
             width: auto;
             margin-top: 0;
+        }
+
+        /* ============================================================
+           CHANTIER 1B (suite) — Combinaison "repos" personnalisable
+           .fix-char : force une largeur de 1ch pour ▸ et "h" — combiné à
+           .tab-num (tabular-nums) et au padding par zéro transparent
+           (voir renderResults()), chaque bloc total fait toujours 6ch,
+           ce qui permet de calculer la position des points de combinaison
+           en JS (position = rang du bloc × 7ch) sans mesurer le DOM.
+           ============================================================ */
+        .tab-num {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .fix-char {
+            display: inline-block;
+            width: 1ch;
+            text-align: center;
+        }
+
+        /* Wrapper scrollable horizontal pour ligne 2 (totaux) + rangée de points — évite le
+           débordement sur les jours à 5-6 types actifs (calcul en ch suppose une seule ligne). */
+        .results-line2-scroll {
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .results-combo-row {
+            position: relative;
+            height: 24px;
+            /* 24px : accueille la zone de tap élargie des points (voir .results-combo-dot-hit) —
+               le rendu visuel (point 8px, trait 2px) reste discret, centré dans cet espace. */
+            margin: 0 0 4px 0;
+        }
+
+        /* Trait reliant les deux points blancs les plus éloignés du jour (Chantier 1B, suite) —
+           traverse les points gris intermédiaires sans s'y arrêter, simple <div> positionné en
+           ch comme les points (même calcul de position, pas de mesure DOM). */
+        .results-combo-line {
+            position: absolute;
+            top: 11px;
+            height: 2px;
+            background: white;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Zone de tap élargie autour de chaque point — indépendante du clic sur le total
+           (ligne 2, qui garde son propre rôle d'expand/collapse). Le point visuel reste petit,
+           la cible tactile est plus généreuse (public à précision tactile parfois réduite). */
+        .results-combo-dot-hit {
+            position: absolute;
+            top: 0;
+            width: 24px;
+            height: 24px;
+            transform: translateX(-50%);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 0;
+        }
+
+        .results-combo-dot-hit-active {
+            z-index: 2;
+        }
+
+        .results-combo-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .results-combo-dot-active {
+            background: white;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .results-combo-dot-inactive {
+            background: transparent;
+            border: 1.5px solid #666;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -2769,6 +2865,12 @@
         // pour préserver le comportement d'avant Chantier 1B lors de la mise à jour.
         if (!settings.resultsExpandedTypes) settings.resultsExpandedTypes = [4];
 
+        // Garantit que settings.combinedTypeIds existe — ensemble de types composant la ligne
+        // "repos" personnalisable (Chantier 1B, suite directe) et le point blanc de moyenne
+        // mobile dans renderDailyCharts(). Défaut [1,2] : préserve le comportement d'avant
+        // cette fonctionnalité (ancien reposIds codé en dur) lors de la mise à jour.
+        if (!settings.combinedTypeIds) settings.combinedTypeIds = [1, 2];
+
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
         if (!settings.labels) {
@@ -2796,6 +2898,7 @@
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
                 importCancel: "Annuler",
                 resMoy3j: "moy.3j",
+                resComboTotal: "Total",
                 resPeriodeSing: "période", resPeriodePlur: "périodes",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
@@ -3011,6 +3114,7 @@
                 importFileHeader: "In the file", importAppHeader: "In the app",
                 importCancel: "Cancel",
                 resMoy3j: "3d avg",
+                resComboTotal: "Total",
                 resPeriodeSing: "period", resPeriodePlur: "periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
@@ -3207,6 +3311,7 @@
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
                 importCancel: "Annuleren",
                 resMoy3j: "3d gem",
+                resComboTotal: "Total",
                 resPeriodeSing: "periode", resPeriodePlur: "periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
@@ -4051,68 +4156,6 @@
         }
 
         // --- Affiche le #messageModal avec le contenu du message ---
-
-        /* function showMessage(msg, newVersion) {
-            const lang = (settings && settings.lang) || 'fr';
-            const fallbackLang = 'fr';
-
-            const title = (msg.title && (msg.title[lang] || msg.title[fallbackLang])) || '';
-            const body = (msg.body && (msg.body[lang] || msg.body[fallbackLang])) || '';
-
-            document.getElementById('message-modal-title').innerText = title;
-            document.getElementById('message-modal-body').innerText = body; // white-space:pre-line gère les \n\n
-
-            // Bloc version (affiché uniquement pour type update si version connue)
-            const versionBlock = document.getElementById('message-modal-version');
-            if (msg.type === 'update' && newVersion) {
-                versionBlock.style.display = 'block';
-                versionBlock.innerHTML = `
-                    <div style="display:flex; gap:8px;">
-                        <span style="opacity:0.6; min-width:130px;">Version actuelle :</span>
-                        <strong>${APP_VERSION}</strong>
-                    </div>
-                    <div style="display:flex; gap:8px; margin-top:4px;">
-                        <span style="opacity:0.6; min-width:130px;">Version disponible :</span>
-                        <strong style="color:var(--blue);">${newVersion}</strong>
-                    </div>`;
-            } else {
-                versionBlock.style.display = 'none';
-                versionBlock.innerHTML = '';
-            }
-
-            // Styles boutons (cohérents avec openUpdateModal)
-            const btnBase = `background:transparent; border-radius:6px; padding:10px 16px; font-size:0.95rem; cursor:pointer; flex:1;`;
-            const btnPrimary = `${btnBase} color:var(--blue); border:1px solid var(--blue);`;
-            const btnLater = `${btnBase} color:#aaa; border:1px solid #555;`;
-            const btnExport = `background:rgba(255,180,0,0.1); border-radius:6px; padding:10px 16px;
-                                font-size:0.95rem; cursor:pointer; width:100%; margin-bottom:12px;
-                                color:#ffcc55; border:1px solid rgba(255,180,0,0.5);`;
-
-            const actions = document.getElementById('message-modal-actions');
-            const isBlocking = msg.type === 'update' && msg.blockAfter && new Date() >= new Date(msg.blockAfter);
-
-            if (msg.type === 'update') {
-                // Bouton export toujours présent pour update
-                let html = `<button onclick="exportCSV()" style="${btnExport}">💾 Exporter mes données</button>`;
-                html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
-                if (!isBlocking) {
-                    // Non bloquant : bouton "Plus tard"
-                    html += `<button onclick="dismissMessage('${msg.id}', false)" style="${btnLater}">Plus tard</button>`;
-                }
-                html += `<button onclick="applyUpdate()" style="${btnPrimary}">🔄 Mettre à jour</button>`;
-                html += `</div>`;
-                actions.innerHTML = html;
-            } else {
-                // welcome ou info : bouton configurable via JSON, fallback "J'ai compris"
-                const btnLabel = (msg.button && (msg.button[lang] || msg.button[fallbackLang])) || 'J\'ai compris';
-                actions.innerHTML = `
-                    <button onclick="dismissMessage('${msg.id}', true)" style="${btnPrimary}">${btnLabel}</button>`;
-            }
-
-            document.getElementById('messageModal').style.display = 'flex';
-            console.log(`[Messages] Modal affiché — type:${msg.type} id:${msg.id} bloquant:${isBlocking}`);
-        }
-        */
 
         function showMessage(msg, newVersion) {
             const lang = (settings && settings.lang) || 'fr';
@@ -5134,15 +5177,34 @@
             renderResults();
         }
 
+        // Bascule un type dans/hors de la combinaison "repos" personnalisable (Chantier 1B,
+        // suite — points blancs/gris sous les totaux). Combinaison globale (pas par jour) :
+        // un clic sur un jour affecte donc l'affichage de tous les jours visibles, ainsi que
+        // le point blanc de moyenne mobile dans renderDailyCharts() (même source de données).
+        function toggleCombinedType(typeId) {
+            const idx = settings.combinedTypeIds.indexOf(typeId);
+            if (idx === -1) settings.combinedTypeIds.push(typeId);
+            else settings.combinedTypeIds.splice(idx, 1);
+            settings.combinedTypeIds.sort((a, b) => a - b); // ordre stable (id croissant)
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderResults();
+            renderDailyCharts();
+        }
+
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
             const container = document.getElementById('results-list');
             container.innerHTML = "";
             const locale = getLocale();
-            // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export
-            const allTypes = settings.types.filter(tp => tp.label); // exclut les slots sans label
+            // Point 4 : tous les types (actifs et inactifs) pour cohérence avec l'export.
+            // Pas de filtre sur .label : un type sans nom peut avoir des données réelles
+            // (ex. activé puis renommage pas encore fait) — displayedTypes filtre déjà sur
+            // la présence de minutes >0, donc les slots vides ne s'affichent pas de toute façon.
+            const allTypes = settings.types;
 
-            const reposIds = [1, 2];
+            // Chantier 1B (suite) : "repos" n'est plus [1,2] en dur — c'est la combinaison
+            // personnalisable par l'utilisateur, persistée dans settings.combinedTypeIds.
+            const reposIds = settings.combinedTypeIds;
 
             // --- FENÊTRAGE (Chantier 1A) ---
             // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
@@ -5230,7 +5292,7 @@
             [...displayKeys].reverse().forEach(key => {
                 const day = daysData[key];
                 const div = document.createElement('div');
-                div.className = "settings-group";
+                div.className = "results-day-item";
                 let html = '';
 
                 // Ligne 1 : date
@@ -5240,28 +5302,78 @@
                 // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
                 // et bascule l'affichage de sa ligne de détail dépliable. ▸ dans la couleur du
                 // type si déplié, noir pur si replié (effet "creux" dans le fond gris voulu).
+                // Chantier 1B (suite) : chiffres en tabular-nums (.tab-num) + heure toujours sur
+                // 2 chiffres (le premier en "0" transparent si <10h) + ▸/h en .fix-char (1ch
+                // chacun) → chaque bloc total fait toujours exactement 6ch. Ça permet de calculer
+                // la position des points de combinaison (ligne juste en dessous) par simple rang
+                // (rang × 7ch, séparateur inclus), sans mesurer le rendu réel.
+                const displayedTypes = allTypes.filter(tp => (day.totals[tp.id] || 0) > 0);
                 let ligne2 = '';
-                allTypes.forEach(tp => {
-                    const mins = day.totals[tp.id] || 0;
-                    if (mins > 0) {
-                        const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
-                        const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
-                        ligne2 += `<span style="cursor:pointer; color: ${getColorForId(tp.id)};" onclick="toggleResultsTypeExpanded(${tp.id})">`;
-                        ligne2 += `<span style="color: ${arrowColor};">▸</span>${formatMins(mins)}</span> &nbsp;`;
-                    }
+                displayedTypes.forEach((tp, idx) => {
+                    const mins = day.totals[tp.id];
+                    const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
+                    const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
+                    const h = Math.floor(mins / 60);
+                    const m = Math.round(mins % 60);
+                    // Padding par "0" transparent (pas un espace-chiffre) : garantit une largeur
+                    // identique aux vrais chiffres, puisque c'est le même glyphe sous tabular-nums.
+                    const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
+                    ligne2 += `<span style="cursor:pointer; color: ${getColorForId(tp.id)};" onclick="toggleResultsTypeExpanded(${tp.id})">`;
+                    ligne2 += `<span class="fix-char" style="color: ${arrowColor};">▸</span>${hStr}<span class="fix-char">h</span>${m.toString().padStart(2, '0')}</span>`;
+                    // Espace-chiffre (U+2007) entre les blocs — largeur de séparation cohérente,
+                    // pas critique pour l'alignement (seul le pas fixe de 7ch/bloc compte).
+                    if (idx < displayedTypes.length - 1) ligne2 += '&#x2007;';
                 });
-                html += `${ligne2}<br>`;
+                html += `<div class="results-line2-scroll"><div class="tab-num" style="position:relative;">${ligne2}</div>`;
 
-                // Ligne 3 : sous-total repos + moyenne mobile 3 jours
-                let reposBullets = '';
-                reposIds.forEach(id => {
-                    reposBullets += `<span style="color: ${getColorForId(id)}">●</span>`;
-                });
-                const moy3j = moyMobile[key];
-                const moy3jStr = moy3j !== null
-                    ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
-                    : '';
-                html += `${reposBullets} ${formatMins(day.reposMins)}${moy3jStr}<br>`;
+                // Rangée de points de combinaison (Chantier 1B, suite) — un point sous chaque
+                // total affiché ce jour : blanc = type inclus dans la combinaison "repos"
+                // (settings.combinedTypeIds — compose aussi le point blanc de renderDailyCharts()),
+                // gris creux = type disponible ce jour mais exclu de la combinaison. Position
+                // calculée à plat (rang × 7ch + 3.5ch pour tomber sous le centre du "h" du bloc),
+                // pas de mesure DOM. Cliquable : bascule la combinaison globale (voir
+                // toggleCombinedType()), indépendant du clic sur le total juste au-dessus.
+                if (displayedTypes.length > 0) {
+                    let dotsRow = '';
+
+                    // Trait reliant les deux points blancs les plus éloignés — uniquement s'il y
+                    // en a au moins 2 (sinon rien à relier). Traverse les points gris/blocs vides
+                    // entre les deux sans s'y arrêter (un seul segment, pas un tracé point à point).
+                    let minIdx = null, maxIdx = null;
+                    displayedTypes.forEach((tp, idx) => {
+                        if (reposIds.includes(tp.id)) {
+                            if (minIdx === null) minIdx = idx;
+                            maxIdx = idx;
+                        }
+                    });
+                    if (minIdx !== null && maxIdx !== null && maxIdx > minIdx) {
+                        const lineLeft = minIdx * 7 + 3.5;
+                        const lineWidth = (maxIdx - minIdx) * 7;
+                        dotsRow += `<div class="results-combo-line" style="left:${lineLeft}ch; width:${lineWidth}ch;"></div>`;
+                    }
+
+                    displayedTypes.forEach((tp, idx) => {
+                        const isCombined = reposIds.includes(tp.id);
+                        const leftCh = idx * 7 + 3.5;
+                        dotsRow += `<div class="results-combo-dot-hit${isCombined ? ' results-combo-dot-hit-active' : ''}" style="left:${leftCh}ch;" onclick="toggleCombinedType(${tp.id})">`;
+                        dotsRow += `<div class="results-combo-dot ${isCombined ? 'results-combo-dot-active' : 'results-combo-dot-inactive'}"></div>`;
+                        dotsRow += `</div>`;
+                    });
+                    html += `<div class="results-combo-row">${dotsRow}</div>`;
+                }
+                html += `</div>`;
+
+                // Ligne 3 : sous-total de la combinaison + moyenne mobile 3 jours — masquée
+                // entièrement si la combinaison est vide (aucun type sélectionné). Un seul ●
+                // blanc (écho aux points blancs de la rangée ci-dessus, plus lisible qu'une
+                // bullet colorée par type composant la combinaison) + libellé "Total" explicite.
+                if (reposIds.length > 0) {
+                    const moy3j = moyMobile[key];
+                    const moy3jStr = moy3j !== null
+                        ? `&nbsp;&nbsp;~${t('resMoy3j')} : ${formatMins(moy3j)}`
+                        : '';
+                    html += `<span style="color:white;">●</span> ${t('resComboTotal')} : ${formatMins(day.reposMins)}${moy3jStr}<br>`;
+                }
 
                 // Lignes de détail dépliables (Chantier 1B) — une par type "déplié" (état global
                 // persisté, voir toggleResultsTypeExpanded) ayant des données ce jour-là, dans
@@ -5326,8 +5438,18 @@
                 const tt = document.getElementById('custom-chart-tooltip');
                 tt.innerHTML = text;
                 tt.style.display = 'block';
-                const x = e.touches ? e.touches[0].clientX : e.clientX;
                 const y = e.touches ? e.touches[0].clientY : e.clientY;
+                let x = e.touches ? e.touches[0].clientX : e.clientX;
+
+                // Clamp horizontal : évite que le cadre (centré via transform:translateX(-50%))
+                // ne dépasse les bords de l'écran. offsetWidth lu après display:block ci-dessus,
+                // donc mesure réelle (le contenu vient d'être injecté).
+                const margin = 8;
+                const halfWidth = tt.offsetWidth / 2;
+                const minX = halfWidth + margin;
+                const maxX = window.innerWidth - halfWidth - margin;
+                x = Math.min(Math.max(x, minX), maxX);
+
                 tt.style.left = x + 'px';
                 tt.style.top = y + 'px';
             };
@@ -5346,8 +5468,9 @@
             const barGray = getCSSColor('--chart-gray-bar');
             const textGray = getCSSColor('--chart-gray-text');
 
-            // Profil par défaut : types repos pour la moyenne mobile (même définition que renderResults)
-            const reposIds = [1, 2];
+            // Chantier 1B (suite) : types de la combinaison "repos" pour la moyenne mobile —
+            // settings.combinedTypeIds, même source que renderResults() (plus de [1,2] en dur).
+            const reposIds = settings.combinedTypeIds;
 
             // --- FENÊTRAGE (Chantier 1A) ---
             // Fenêtre officielle d'affichage : 14 jours glissants sur resultsEndDate.
@@ -5408,14 +5531,21 @@
             };
 
             const moyMobileChart = {};
-            chronoDates.forEach((key, idx) => {
-                if (idx === 0 || idx === chronoDates.length - 1) { moyMobileChart[key] = null; return; }
-                const kPrev = chronoDates[idx - 1];
-                const kNext = chronoDates[idx + 1];
-                if (isIncomplete(kPrev) || isIncomplete(key) || isIncomplete(kNext)) { moyMobileChart[key] = null; return; }
-                const avg = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
-                moyMobileChart[key] = (avg / 1440) * 100;
-            });
+            if (reposIds.length === 0) {
+                // Combinaison vide : pas de point blanc du tout (un 0% serait trompeur, pas
+                // une vraie absence de donnée) — cohérent avec le masquage de la ligne 3 dans
+                // renderResults().
+                chronoDates.forEach(key => { moyMobileChart[key] = null; });
+            } else {
+                chronoDates.forEach((key, idx) => {
+                    if (idx === 0 || idx === chronoDates.length - 1) { moyMobileChart[key] = null; return; }
+                    const kPrev = chronoDates[idx - 1];
+                    const kNext = chronoDates[idx + 1];
+                    if (isIncomplete(kPrev) || isIncomplete(key) || isIncomplete(kNext)) { moyMobileChart[key] = null; return; }
+                    const avg = (daysData[kPrev].reposMins + daysData[key].reposMins + daysData[kNext].reposMins) / 3;
+                    moyMobileChart[key] = (avg / 1440) * 100;
+                });
+            }
 
             // --- CONSTRUCTION DU HTML ---
             let html = `
@@ -5519,7 +5649,7 @@
 
             html += `
                 <div onclick="toggleMoyDots()" style="display: flex; align-items: center; gap: 6px; cursor: pointer; opacity: ${opacity}; transition: opacity 0.2s;">
-                    <div style="width: 10px; height: 10px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: white; box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>
                     <span>~ ${t('resMoy3j')}</span>
                     <span style="position: relative; display: inline-block; margin-left: 4px; font-size: 1.1rem;">
                         👁️
@@ -7728,6 +7858,10 @@
         let touchstartY = 0;
         let touchendX = 0;
         let touchendY = 0;
+        // Vrai si le geste démarre dans un scroll horizontal interne (ex. ligne des totaux
+        // Résultats, Chantier 1B suite) — évite qu'un swipe destiné à ce scroll interne
+        // soit intercepté comme changement de page.
+        let touchStartInInnerScroll = false;
 
         function handleSwipe() {
             // Annule le swipe si un modal est ouvert
@@ -7757,12 +7891,13 @@
         document.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
             touchstartY = e.changedTouches[0].screenY;
+            touchStartInInnerScroll = !!e.target.closest('.results-line2-scroll');
         }, { passive: true });
 
         document.addEventListener('touchend', e => {
             touchendX = e.changedTouches[0].screenX;
             touchendY = e.changedTouches[0].screenY;
-            handleSwipe();
+            if (!touchStartInInnerScroll) handleSwipe();
         }, { passive: true });
 
         // --- GESTION DU SWIPE POUR L'ÉCRAN DE VEILLE ---
