@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -888,6 +888,130 @@
             border: 1.5px solid #666;
             box-sizing: border-box;
         }
+
+        /* ============================================================
+           OVERLAY GRAPHIQUE ÉVOLUTION (Chantier 2/3)
+           Toujours affiché en "paysage" simulé par rotation CSS — l'orientation
+           physique reste verrouillée portrait (manifest.json), donc les dimensions
+           du viewport ne changent jamais : pas besoin de recalcul dynamique au
+           resize/orientationchange, un seul calcul suffit.
+           #evolution-overlay-inner fait 100vh de large / 100vw de haut (dimensions
+           inversées) puis pivote de -90deg autour de son centre — occupe alors
+           exactement tout l'écran physique une fois vu paysage.
+           Empilement : sous les splashes (500) et les toasts (550) — communication
+           au-dessus de l'usage normal de l'app, dont ce graphe fait partie.
+           Layout interne en colonne (avant rotation) : la 1ère "ligne" (chips) se
+           retrouve, après rotation -90deg, en bande verticale sur le bord GAUCHE de
+           l'écran paysage (chaque chip empilé verticalement) ; le bloc suivant
+           (graphique) occupe le reste à droite. Le bouton fermeture, positionné en
+           bas-droite avant rotation, se retrouve en HAUT-DROITE une fois pivoté.
+           ============================================================ */
+        #evolution-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            z-index: 450;
+            display: none;
+            overflow: hidden;
+        }
+
+        #evolution-overlay-inner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100vh;
+            height: 100vw;
+            transform: translate(-50%, -50%) rotate(-90deg);
+            transform-origin: center center;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+            padding: 16px;
+            gap: 10px;
+        }
+
+        #evolution-close-btn {
+            position: absolute;
+            bottom: 14px;
+            right: 14px;
+            z-index: 5;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-color);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        /* Ligne (avant rotation) devenant colonne verticale le long du bord gauche
+           une fois l'ensemble pivoté — un item par ligne source = un item empilé
+           verticalement à l'écran. padding-right réservé pour ne jamais chevaucher
+           la zone du bouton fermeture (qui se retrouve en haut-droite après rotation,
+           donc ici en bas-droite de ce conteneur avant rotation). */
+        #evolution-chips-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 10px;
+            flex-shrink: 0;
+            padding-right: 46px;
+        }
+
+        .evolution-chip {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            box-sizing: border-box;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .evolution-chip-selected {
+            border: 2px solid white;
+        }
+
+        .evolution-chip-unselected {
+            border: 2px solid #666;
+            opacity: 0.5;
+        }
+
+        /* Toggle moyenne mobile ("~3") — même logique visuelle que les chips
+           (bord blanc + plein si actif, bord gris + opacité 0.5 sinon) mais forme
+           pastille plutôt que cercle plein coloré, puisqu'il porte du texte. */
+        #evolution-avg-toggle {
+            box-sizing: border-box;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: var(--text-color);
+            background: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        #evolution-avg-toggle.evolution-chip-selected {
+            border: 2px solid white;
+        }
+
+        #evolution-avg-toggle.evolution-chip-unselected {
+            border: 2px solid #666;
+            opacity: 0.5;
+        }
+
+        #evolution-chart-wrap {
+            flex-grow: 1;
+            position: relative;
+            min-height: 0;
+            /* min-height:0 nécessaire pour qu'un enfant flex-grow avec canvas
+               responsive (Chart.js) respecte la hauteur disponible plutôt que de
+               pousser le conteneur au-delà. */
+        }
     </style>
 </head>
 
@@ -926,17 +1050,6 @@
         <button id="toggle-fullscreen" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
             🛠️ Mode Plein Écran</button>
-
-        <!-- bouton test graphique Évolution (Chantier 2/3, Passe 1) — mode développeur uniquement,
-             provisoire avant l'intégration overlay définitive (Passe 3) -->
-        <button id="test-evolution-chart" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
-            🛠️ Test Graphique Évolution</button>
-        <div id="evolution-chart-test-container" class="dev-only" style="display:none; margin-top:15px;">
-            <div style="position:relative; height:300px; width:100%;">
-                <canvas id="evolutionChart"></canvas>
-            </div>
-        </div>
 
     </div>
 
@@ -1205,6 +1318,8 @@
                 <button class="history-nav-btn" id="results-nav-fwd1" onclick="navigateResults(1)">1›</button>
                 <button class="history-nav-btn" id="results-nav-fwd7" onclick="navigateResults(7)">7»</button>
                 <button class="history-nav-btn" id="results-nav-today" onclick="goToTodayResults()">⬆</button>
+                <button class="history-nav-btn" id="results-nav-evolution" onclick="openEvolutionOverlay()"
+                    title="Voir l'évolution">📈</button>
             </div>
         </div>
 
@@ -1394,6 +1509,21 @@
         </div>
     </div>
     <!-- FIN MODAL MESSAGES JSON -->
+
+    <!-- ============================================================ -->
+    <!-- OVERLAY GRAPHIQUE ÉVOLUTION (Chantier 2/3) — voir CSS pour le   -->
+    <!-- détail de la mécanique de rotation paysage.                    -->
+    <!-- ============================================================ -->
+    <div id="evolution-overlay">
+        <div id="evolution-overlay-inner">
+            <div id="evolution-chips-container"></div>
+            <div id="evolution-chart-wrap">
+                <canvas id="evolutionChart"></canvas>
+            </div>
+            <button id="evolution-close-btn" onclick="closeEvolutionOverlay()">✕</button>
+        </div>
+    </div>
+    <!-- FIN OVERLAY GRAPHIQUE ÉVOLUTION -->
 
     <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
@@ -2892,6 +3022,16 @@
         // cette fonctionnalité (ancien reposIds codé en dur) lors de la mise à jour.
         if (!settings.combinedTypeIds) settings.combinedTypeIds = [1, 2];
 
+        // Garantit que settings.evolutionSelectedSeries existe — séries affichées dans le
+        // graphique Évolution (Chantier 2/3). Un id numérique = typeId individuel, la chaîne
+        // 'combined' = grandeur blanche (settings.combinedTypeIds, même état que Chantier 1B).
+        // Défaut : la combinaison seule, pas de limite de nombre de séries simultanées.
+        if (!settings.evolutionSelectedSeries) settings.evolutionSelectedSeries = ['combined'];
+
+        // Garantit que settings.evolutionShowMovingAvg existe — affichage ou non de la courbe
+        // de moyenne mobile 3j (en plus des points bruts, jamais en remplacement). Défaut activé.
+        if (typeof settings.evolutionShowMovingAvg === 'undefined') settings.evolutionShowMovingAvg = true;
+
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
         if (!settings.labels) {
@@ -3844,15 +3984,6 @@
                     screen.orientation.unlock();
                 }
             }
-        });
-
-
-        // Test Chantier 2/3 (Passe 1) — toggle affichage + rendu à la demande
-        document.getElementById('test-evolution-chart').addEventListener('click', () => {
-            const container = document.getElementById('evolution-chart-test-container');
-            const isHidden = container.style.display === 'none';
-            container.style.display = isHidden ? 'block' : 'none';
-            if (isHidden) renderEvolutionChart();
         });
 
         // ============================================================
@@ -8261,16 +8392,69 @@
         }
 
         let evolutionChartInstance = null;
+        const EVOLUTION_WINDOW_DAYS = 183; // ~6 mois — windowDays reste générique dans computeEvolutionData(), sélecteur de durée pour plus tard
 
-        // Rendu de test — une seule série ('combined') pour cette passe. Le sélecteur
-        // multi-série et l'overlay paysage définitif viendront aux Passes 2 et 3.
+        // Couleur/label d'une série — 'combined' (grandeur blanche, settings.combinedTypeIds)
+        // ou un typeId individuel. Réutilisé par les chips et par le graphique.
+        function getEvolutionSeriesColor(seriesId) {
+            return seriesId === 'combined' ? '#ffffff' : getColorValueForId(seriesId);
+        }
+        function getEvolutionSeriesLabel(seriesId) {
+            return seriesId === 'combined' ? t('resComboTotal') : (getLabelForId(seriesId) || `Type #${seriesId}`);
+        }
+
+        // Chips de sélection — un cercle par type ayant des données (getTypesWithHistoryData(),
+        // cohérent avec les légendes existantes) + un cercle blanc pour la combinaison, + la
+        // pastille "~3" pour le toggle moyenne mobile. Pas de limite de sélection simultanée.
+        function renderEvolutionChips() {
+            const container = document.getElementById('evolution-chips-container');
+            if (!container) return;
+
+            let html = '';
+            getTypesWithHistoryData().forEach(tp => {
+                const selected = settings.evolutionSelectedSeries.includes(tp.id);
+                const cls = selected ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+                html += `<div class="evolution-chip ${cls}" style="background:${getColorValueForId(tp.id)};"
+                              onclick="toggleEvolutionSeries(${tp.id})" title="${tp.label || `Type #${tp.id}`}"></div>`;
+            });
+            const combinedSelected = settings.evolutionSelectedSeries.includes('combined');
+            const combinedCls = combinedSelected ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-chip ${combinedCls}" style="background:#ffffff;"
+                          onclick="toggleEvolutionSeries('combined')" title="${t('resComboTotal')}"></div>`;
+
+            const avgCls = settings.evolutionShowMovingAvg ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div id="evolution-avg-toggle" class="${avgCls}" onclick="toggleEvolutionMovingAvg()"
+                          title="${t('resMoy3j')}">~3</div>`;
+
+            container.innerHTML = html;
+        }
+
+        // Bascule une série dans/hors settings.evolutionSelectedSeries — persisté, pas de
+        // limite de nombre de séries simultanées (à tester en usage réel avant d'en ajouter une).
+        function toggleEvolutionSeries(seriesId) {
+            const idx = settings.evolutionSelectedSeries.indexOf(seriesId);
+            if (idx === -1) settings.evolutionSelectedSeries.push(seriesId);
+            else settings.evolutionSelectedSeries.splice(idx, 1);
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderEvolutionChips();
+            renderEvolutionChart();
+        }
+
+        function toggleEvolutionMovingAvg() {
+            settings.evolutionShowMovingAvg = !settings.evolutionShowMovingAvg;
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderEvolutionChips();
+            renderEvolutionChart();
+        }
+
+        // Rendu du graphique — une paire de datasets (points bruts + moyenne mobile optionnelle)
+        // par série sélectionnée dans settings.evolutionSelectedSeries.
         function renderEvolutionChart() {
-            console.log("[renderEvolutionChart] Rendu du graphique évolution (test)");
+            console.log("[renderEvolutionChart] Rendu du graphique évolution");
             const canvas = document.getElementById('evolutionChart');
             if (!canvas) return;
 
-            const EVOLUTION_WINDOW_DAYS = 183; // ~6 mois — codé en dur pour cette passe (windowDays de computeEvolutionData reste générique)
-            const seriesIds = ['combined'];
+            const seriesIds = settings.evolutionSelectedSeries;
             const { points, movingAvg } = computeEvolutionData(window.evolutionEndDate, EVOLUTION_WINDOW_DAYS, seriesIds);
 
             const textGray = getCSSColor('--chart-gray-text');
@@ -8278,25 +8462,30 @@
             const rangeMin = new Date(window.evolutionEndDate.getFullYear(), window.evolutionEndDate.getMonth(), window.evolutionEndDate.getDate() - (EVOLUTION_WINDOW_DAYS - 1)).getTime();
             const rangeMax = window.evolutionEndDate.getTime();
 
-            const datasets = [
-                {
-                    label: 'Total (points bruts)',
-                    data: points['combined'],
+            const datasets = [];
+            seriesIds.forEach(sid => {
+                const color = getEvolutionSeriesColor(sid);
+                const label = getEvolutionSeriesLabel(sid);
+                datasets.push({
+                    label,
+                    data: points[sid] || [],
                     showLine: false,
                     pointRadius: 3,
-                    pointBackgroundColor: 'white',
+                    pointBackgroundColor: color,
                     pointBorderColor: 'rgba(0,0,0,0.3)'
-                },
-                {
-                    label: 'Total (moy. 3j)',
-                    data: movingAvg['combined'],
-                    showLine: true,
-                    pointRadius: 0,
-                    spanGaps: false,
-                    borderColor: 'white',
-                    borderWidth: 2
+                });
+                if (settings.evolutionShowMovingAvg) {
+                    datasets.push({
+                        label: `${label} ~${t('resMoy3j')}`,
+                        data: movingAvg[sid] || [],
+                        showLine: true,
+                        pointRadius: 0,
+                        spanGaps: false,
+                        borderColor: color,
+                        borderWidth: 2
+                    });
                 }
-            ];
+            });
 
             if (evolutionChartInstance) {
                 evolutionChartInstance.data.datasets = datasets;
@@ -8351,7 +8540,8 @@
                         }
                     },
                     plugins: {
-                        legend: { labels: { color: textGray } },
+                        // Légende native masquée — les chips de sélection en tiennent déjà lieu.
+                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 title: (items) => new Date(items[0].parsed.x).toLocaleDateString(getLocale()),
@@ -8366,6 +8556,23 @@
                     }
                 }
             });
+        }
+
+        // Ouverture / fermeture de l'overlay — pas de recalcul au resize/orientationchange :
+        // l'orientation physique reste verrouillée portrait (manifest.json), les dimensions du
+        // viewport ne changent donc jamais pendant que l'overlay est ouvert.
+        function openEvolutionOverlay() {
+            const overlay = document.getElementById('evolution-overlay');
+            if (!overlay) return;
+            overlay.style.display = 'block';
+            renderEvolutionChips();
+            renderEvolutionChart();
+            console.log('[Evolution] Overlay ouvert');
+        }
+
+        function closeEvolutionOverlay() {
+            const overlay = document.getElementById('evolution-overlay');
+            if (overlay) overlay.style.display = 'none';
         }
 
 
