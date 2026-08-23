@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8497,6 +8497,52 @@
             renderEvolutionChart();
         }
 
+        // Calcule les bornes de l'axe Y en mode zoom, à partir des datasets réellement dessinés
+        // (points bruts + courbes de moyenne mobile actuellement visibles — pas les séries
+        // masquées par les toggles 1j/~3j/~5j). Travaille en minutes en interne pour éviter les
+        // imprécisions flottantes (10 min = 1/6 h), reconverti en heures pour Chart.js à la fin.
+        // Retourne {min, max, stepSize}, ou null si aucune donnée (aucune série sélectionnée, ou
+        // fenêtre vide) — l'appelant retombe alors sur l'affichage 0-24h par défaut.
+        function computeYAxisRange(datasets) {
+            let dataMinH = Infinity, dataMaxH = -Infinity;
+            datasets.forEach(ds => {
+                (ds.data || []).forEach(pt => {
+                    if (pt.y < dataMinH) dataMinH = pt.y;
+                    if (pt.y > dataMaxH) dataMaxH = pt.y;
+                });
+            });
+            if (dataMinH === Infinity) return null;
+
+            const dataMinM = dataMinH * 60;
+            const dataMaxM = dataMaxH * 60;
+            const rawRangeH = dataMaxH - dataMinH;
+
+            // Pas de graduation selon l'amplitude brute (avant arrondi) — jusqu'à ~12 graduations
+            // reste lisible (référence : 12 graduations pour 24h avec un pas de 2h).
+            let stepM;
+            if (rawRangeH <= 2) stepM = 10;
+            else if (rawRangeH <= 3) stepM = 15;
+            else if (rawRangeH <= 6) stepM = 30;
+            else if (rawRangeH <= 12) stepM = 60;
+            else stepM = 120;
+
+            let minM = Math.floor(dataMinM / stepM) * stepM;
+            let maxM = Math.ceil(dataMaxM / stepM) * stepM;
+            // Garde-fou : évite un axe de largeur nulle si toutes les valeurs sont identiques.
+            if (maxM === minM) maxM = minM + stepM;
+
+            return { min: minM / 60, max: maxM / 60, stepSize: stepM / 60 };
+        }
+
+        // Bascule mode "tout" (0-24h fixe) / "zoom" (adapté aux données affichées) — en mémoire
+        // pour la session uniquement (pas de localStorage), donc retour à "tout" à chaque
+        // redémarrage de l'app. Redessine immédiatement le graphe avec la nouvelle échelle.
+        function toggleEvolutionYAxisMode() {
+            window.evolutionYAxisMode = (window.evolutionYAxisMode === 'zoom') ? 'full' : 'zoom';
+            console.log(`[Evolution] Mode axe Y → ${window.evolutionYAxisMode}`);
+            renderEvolutionChart();
+        }
+
         // Rendu du graphique — une paire de datasets (points bruts + moyenne mobile optionnelle)
         // par série sélectionnée dans settings.evolutionSelectedSeries.
         function renderEvolutionChart() {
@@ -8556,10 +8602,23 @@
                 }
             });
 
+            // Mode axe Y — "full" (0-24h fixe) par défaut, "zoom" (adapté aux données affichées)
+            // sur bascule utilisateur (clic sur les valeurs d'axe, voir onClick plus bas). En
+            // mémoire pour la session uniquement, pas de persistance localStorage.
+            if (typeof window.evolutionYAxisMode === 'undefined') window.evolutionYAxisMode = 'full';
+            // Cas 0 série sélectionnée en mode zoom : computeYAxisRange() retourne null, on
+            // retombe visuellement sur 0-24h sans changer le mode logique — dès qu'une série
+            // est recochée, le zoom reprend directement (voir toggleEvolutionYAxisMode()).
+            const zoomRange = window.evolutionYAxisMode === 'zoom' ? computeYAxisRange(datasets) : null;
+            const yRange = zoomRange || { min: 0, max: 24, stepSize: 2 };
+
             if (evolutionChartInstance) {
                 evolutionChartInstance.data.datasets = datasets;
                 evolutionChartInstance.options.scales.x.min = rangeMin;
                 evolutionChartInstance.options.scales.x.max = rangeMax;
+                evolutionChartInstance.options.scales.y.min = yRange.min;
+                evolutionChartInstance.options.scales.y.max = yRange.max;
+                evolutionChartInstance.options.scales.y.ticks.stepSize = yRange.stepSize;
                 evolutionChartInstance.update();
                 return;
             }
@@ -8602,11 +8661,25 @@
                             grid: { color: gridColor }
                         },
                         y: {
-                            min: 0,
-                            max: 24,
-                            ticks: { color: textGray, stepSize: 2 },
+                            min: yRange.min,
+                            max: yRange.max,
+                            ticks: { color: textGray, stepSize: yRange.stepSize },
                             grid: { color: gridColor }
                         }
+                    },
+                    // Bascule mode "tout"/"zoom" — clic dans la zone des valeurs d'axe Y (à gauche
+                    // de la zone de tracé). event.x/y sont déjà en coordonnées canvas locales,
+                    // correctement calculées par Chart.js même sous la rotation CSS de l'overlay.
+                    onClick: (event, elements, chart) => {
+                        const area = chart.chartArea;
+                        if (event.x < area.left && event.y >= area.top && event.y <= area.bottom) {
+                            toggleEvolutionYAxisMode();
+                        }
+                    },
+                    onHover: (event, elements, chart) => {
+                        const area = chart.chartArea;
+                        const inAxisZone = event.x < area.left && event.y >= area.top && event.y <= area.bottom;
+                        chart.canvas.style.cursor = inAxisZone ? 'pointer' : 'default';
                     },
                     plugins: {
                         // Légende native masquée — les chips de sélection en tiennent déjà lieu.
@@ -8625,6 +8698,10 @@
                     }
                 }
             });
+
+            // Réinitialise le curseur si la souris quitte le canvas en zone "pointer" (edge case
+            // mineur : onHover ne se déclenche plus une fois hors du canvas).
+            canvas.addEventListener('mouseleave', () => { canvas.style.cursor = 'default'; });
         }
 
         // Ouverture / fermeture de l'overlay — pas de recalcul au resize/orientationchange :
