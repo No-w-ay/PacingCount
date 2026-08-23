@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1008,6 +1008,20 @@
                responsive (Chart.js) respecte la hauteur disponible plutôt que de
                pousser le conteneur au-delà. */
         }
+
+        /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
+           labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
+           dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
+           relatives de Chart.js peut devenir peu fiable — un élément DOM classique n'a pas ce
+           problème, le navigateur gère le hit-testing sous transform nativement et correctement. */
+        #evolution-yaxis-toggle {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 55px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -1515,6 +1529,8 @@
             <div id="evolution-chips-container"></div>
             <div id="evolution-chart-wrap">
                 <canvas id="evolutionChart"></canvas>
+                <div id="evolution-yaxis-toggle" onclick="toggleEvolutionYAxisMode()"
+                    title="Basculer entre vue complète (0-24h) et vue zoomée"></div>
             </div>
             <button id="evolution-close-btn" onclick="closeEvolutionOverlay()">✕</button>
         </div>
@@ -8534,6 +8550,15 @@
             return { min: minM / 60, max: maxM / 60, stepSize: stepM / 60 };
         }
 
+        // Formatte une graduation de l'axe Y évolution — heure entière affichée telle quelle
+        // ("12"), heure fractionnaire affichée en "HhMM" ("12h30", "4h10").
+        function formatEvolutionYTick(hourValue) {
+            const totalMin = Math.round(hourValue * 60);
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            return m === 0 ? `${h}` : `${h}h${m.toString().padStart(2, '0')}`;
+        }
+
         // Bascule mode "tout" (0-24h fixe) / "zoom" (adapté aux données affichées) — en mémoire
         // pour la session uniquement (pas de localStorage), donc retour à "tout" à chaque
         // redémarrage de l'app. Redessine immédiatement le graphe avec la nouvelle échelle.
@@ -8663,23 +8688,9 @@
                         y: {
                             min: yRange.min,
                             max: yRange.max,
-                            ticks: { color: textGray, stepSize: yRange.stepSize },
+                            ticks: { color: textGray, stepSize: yRange.stepSize, callback: formatEvolutionYTick },
                             grid: { color: gridColor }
                         }
-                    },
-                    // Bascule mode "tout"/"zoom" — clic dans la zone des valeurs d'axe Y (à gauche
-                    // de la zone de tracé). event.x/y sont déjà en coordonnées canvas locales,
-                    // correctement calculées par Chart.js même sous la rotation CSS de l'overlay.
-                    onClick: (event, elements, chart) => {
-                        const area = chart.chartArea;
-                        if (event.x < area.left && event.y >= area.top && event.y <= area.bottom) {
-                            toggleEvolutionYAxisMode();
-                        }
-                    },
-                    onHover: (event, elements, chart) => {
-                        const area = chart.chartArea;
-                        const inAxisZone = event.x < area.left && event.y >= area.top && event.y <= area.bottom;
-                        chart.canvas.style.cursor = inAxisZone ? 'pointer' : 'default';
                     },
                     plugins: {
                         // Légende native masquée — les chips de sélection en tiennent déjà lieu.
@@ -8698,10 +8709,6 @@
                     }
                 }
             });
-
-            // Réinitialise le curseur si la souris quitte le canvas en zone "pointer" (edge case
-            // mineur : onHover ne se déclenche plus une fois hors du canvas).
-            canvas.addEventListener('mouseleave', () => { canvas.style.cursor = 'default'; });
         }
 
         // Ouverture / fermeture de l'overlay — pas de recalcul au resize/orientationchange :
