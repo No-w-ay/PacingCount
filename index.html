@@ -900,12 +900,11 @@
            exactement tout l'écran physique une fois vu paysage.
            Empilement : sous les splashes (500) et les toasts (550) — communication
            au-dessus de l'usage normal de l'app, dont ce graphe fait partie.
-           Layout interne en colonne (avant rotation) : le graphique (1er enfant) se
-           retrouve, après rotation 90deg, à droite de l'écran paysage ; les chips
-           (2e enfant, dernière "ligne" avant rotation) se retrouvent en bande
-           verticale sur le bord GAUCHE (chaque chip empilé verticalement). Le bouton
-           fermeture, positionné en haut-gauche avant rotation, se retrouve en
-           HAUT-DROITE une fois pivoté.
+           IMPORTANT — repère de conception : une fois le téléphone physiquement
+           tourné pour compenser la rotation CSS, l'utilisateur perçoit exactement
+           la mise en page pré-rotation telle qu'écrite ci-dessous (haut = haut,
+           gauche = gauche...). Tout l'intérieur se conçoit donc comme une page
+           paysage normale, sans gymnastique de compensation.
            ============================================================ */
         #evolution-overlay {
             position: fixed;
@@ -934,7 +933,7 @@
         #evolution-close-btn {
             position: absolute;
             top: 14px;
-            left: 14px;
+            right: 14px;
             z-index: 5;
             background: rgba(255, 255, 255, 0.1);
             border: none;
@@ -947,17 +946,15 @@
             cursor: pointer;
         }
 
-        /* Dernière "ligne" avant rotation → colonne verticale le long du bord gauche
-           une fois l'ensemble pivoté — un item par ligne source = un item empilé
-           verticalement à l'écran. Aucun chevauchement possible avec le bouton
-           fermeture (coin opposé, tout en haut du conteneur). */
+        /* Rangée de sélection — en haut, au-dessus du graphique. padding-right réservé
+           pour ne jamais chevaucher le bouton fermeture (coin haut-droit). */
         #evolution-chips-container {
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            align-content: flex-start;
             gap: 10px;
             flex-shrink: 0;
+            padding-right: 46px;
         }
 
         .evolution-chip {
@@ -978,7 +975,7 @@
             opacity: 0.5;
         }
 
-        /* Pastilles toggle ("1j" / "~3") — même logique visuelle que les chips
+        /* Pastilles toggle ("1j" / "~3j" / "~5j") — même logique visuelle que les chips
            (bord blanc + plein si actif, bord gris + opacité 0.5 sinon) mais forme
            pastille plutôt que cercle plein coloré, puisqu'elles portent du texte. */
         .evolution-toggle-pill {
@@ -1515,10 +1512,10 @@
     <!-- ============================================================ -->
     <div id="evolution-overlay">
         <div id="evolution-overlay-inner">
+            <div id="evolution-chips-container"></div>
             <div id="evolution-chart-wrap">
                 <canvas id="evolutionChart"></canvas>
             </div>
-            <div id="evolution-chips-container"></div>
             <button id="evolution-close-btn" onclick="closeEvolutionOverlay()">✕</button>
         </div>
     </div>
@@ -3035,6 +3032,11 @@
         // journaliers bruts (indépendant de la moyenne mobile, les deux options se cumulent
         // ou peuvent être désactivées séparément). Défaut activé.
         if (typeof settings.evolutionShowRawPoints === 'undefined') settings.evolutionShowRawPoints = true;
+
+        // Garantit que settings.evolutionShowMovingAvg5 existe — moyenne mobile centrée sur
+        // 5 jours (même logique que la moyenne 3j), affichée par-dessus tout le reste, avec
+        // un trait plus épais. Défaut désactivé (option additionnelle, pas de clutter par défaut).
+        if (typeof settings.evolutionShowMovingAvg5 === 'undefined') settings.evolutionShowMovingAvg5 = false;
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -8312,20 +8314,22 @@
         // pour la grandeur blanche définie par settings.combinedTypeIds — même état que
         // Chantier 1B, pas de duplication). Un jour est exclu en bloc (toutes séries) s'il est
         // incomplet — même seuil que renderResults()/renderDailyCharts() (< 23h-1min).
-        // Marge de ±1 jour agrégée en plus de la fenêtre officielle, nécessaire à la moyenne
-        // mobile 3j en bord de fenêtre (même piège documenté pour Résultats — voir Handoff).
+        // Marge agrégée en plus de la fenêtre officielle, nécessaire aux moyennes mobiles en
+        // bord de fenêtre (même piège documenté pour Résultats — voir Handoff) — calée sur la
+        // plus large des deux moyennes supportées (5j centrée = ±2 jours).
         // Différence avec renderResults()/renderDailyCharts() : vérifie explicitement que les
-        // jours voisins utilisés pour la moyenne mobile sont bien calendairement consécutifs
+        // jours voisins utilisés pour chaque moyenne mobile sont bien calendairement consécutifs
         // (pas seulement adjacents dans le tableau trié) — sur une fenêtre de 6 mois, un vrai
         // jour sans aucune période enregistrée est plus probable que sur 14 jours ; sans ce
         // contrôle, un jour absent du tableau ferait glisser silencieusement le calcul sur un
         // jour non-adjacent.
         // ============================================================
         function computeEvolutionData(endDate, windowDays, seriesIds) {
+            const MAX_AVG_HALF_WIDTH = 2; // 5j centrée = ±2 jours — la plus large des deux moyennes
             const windowStartTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (windowDays - 1)).getTime();
             const windowEndTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1).getTime(); // exclusif
-            const aggStartTs = windowStartTs - 86400000;
-            const aggEndTs = windowEndTs + 86400000;
+            const aggStartTs = windowStartTs - MAX_AVG_HALF_WIDTH * 86400000;
+            const aggEndTs = windowEndTs + MAX_AVG_HALF_WIDTH * 86400000;
 
             let all = [...state.history];
             if (state.activeType) {
@@ -8370,29 +8374,34 @@
                 seriesIds.forEach(sid => points[sid].push({ x: ts, y: seriesValue(key, sid) / 60 }));
             });
 
-            // Moyenne mobile 3 jours centrée (calendaire, jours complets uniquement)
-            const movingAvg = {};
-            seriesIds.forEach(sid => movingAvg[sid] = []);
-            dateKeys.forEach((key, idx) => {
-                const ts = daysData[key].timestamp;
-                if (ts < windowStartTs || ts >= windowEndTs) return;
-                if (idx === 0 || idx === dateKeys.length - 1) return;
+            // Moyenne mobile centrée générique — halfWidth=1 → fenêtre 3j (J-1..J+1),
+            // halfWidth=2 → fenêtre 5j (J-2..J+2). Continuité calendaire stricte sur toute la
+            // fenêtre, tous les jours impliqués doivent être complets — voir commentaire d'en-tête.
+            function computeMovingAvg(halfWidth) {
+                const result = {};
+                seriesIds.forEach(sid => result[sid] = []);
+                dateKeys.forEach((key, idx) => {
+                    const ts = daysData[key].timestamp;
+                    if (ts < windowStartTs || ts >= windowEndTs) return;
+                    if (idx - halfWidth < 0 || idx + halfWidth >= dateKeys.length) return;
 
-                const kPrev = dateKeys[idx - 1];
-                const kNext = dateKeys[idx + 1];
-                // Contrôle de continuité calendaire — voir commentaire d'en-tête
-                if (daysData[key].timestamp - daysData[kPrev].timestamp !== 86400000) return;
-                if (daysData[kNext].timestamp - daysData[key].timestamp !== 86400000) return;
+                    const neighborKeys = [];
+                    for (let off = -halfWidth; off <= halfWidth; off++) neighborKeys.push(dateKeys[idx + off]);
 
-                if (!isComplete(kPrev) || !isComplete(key) || !isComplete(kNext)) return;
+                    for (let i = 1; i < neighborKeys.length; i++) {
+                        if (daysData[neighborKeys[i]].timestamp - daysData[neighborKeys[i - 1]].timestamp !== 86400000) return;
+                    }
+                    if (neighborKeys.some(k => !isComplete(k))) return;
 
-                seriesIds.forEach(sid => {
-                    const avg = (seriesValue(kPrev, sid) + seriesValue(key, sid) + seriesValue(kNext, sid)) / 3;
-                    movingAvg[sid].push({ x: ts, y: avg / 60 });
+                    seriesIds.forEach(sid => {
+                        const sum = neighborKeys.reduce((s, k) => s + seriesValue(k, sid), 0);
+                        result[sid].push({ x: ts, y: (sum / neighborKeys.length) / 60 });
+                    });
                 });
-            });
+                return result;
+            }
 
-            return { points, movingAvg };
+            return { points, movingAvg3: computeMovingAvg(1), movingAvg5: computeMovingAvg(2) };
         }
 
         let evolutionChartInstance = null;
@@ -8426,8 +8435,8 @@
 
         // Chips de sélection — un cercle par type ayant des données (getTypesWithHistoryData(),
         // cohérent avec les légendes existantes) + un cercle blanc pour la combinaison, + les
-        // pastilles "1j" (points bruts) et "~3" (moyenne mobile). Pas de limite de sélection
-        // simultanée des séries.
+        // pastilles "1j" (points bruts), "~3j" et "~5j" (moyennes mobiles). Pas de limite de
+        // sélection simultanée des séries.
         function renderEvolutionChips() {
             const container = document.getElementById('evolution-chips-container');
             if (!container) return;
@@ -8447,9 +8456,11 @@
             const rawCls = settings.evolutionShowRawPoints ? 'evolution-chip-selected' : 'evolution-chip-unselected';
             html += `<div class="evolution-toggle-pill ${rawCls}" onclick="toggleEvolutionRawPoints()">1j</div>`;
 
-            const avgCls = settings.evolutionShowMovingAvg ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div class="evolution-toggle-pill ${avgCls}" onclick="toggleEvolutionMovingAvg()"
-                          title="${t('resMoy3j')}">~3</div>`;
+            const avg3Cls = settings.evolutionShowMovingAvg ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-toggle-pill ${avg3Cls}" onclick="toggleEvolutionMovingAvg()">~3j</div>`;
+
+            const avg5Cls = settings.evolutionShowMovingAvg5 ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-toggle-pill ${avg5Cls}" onclick="toggleEvolutionMovingAvg5()">~5j</div>`;
 
             container.innerHTML = html;
         }
@@ -8479,6 +8490,13 @@
             renderEvolutionChart();
         }
 
+        function toggleEvolutionMovingAvg5() {
+            settings.evolutionShowMovingAvg5 = !settings.evolutionShowMovingAvg5;
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderEvolutionChips();
+            renderEvolutionChart();
+        }
+
         // Rendu du graphique — une paire de datasets (points bruts + moyenne mobile optionnelle)
         // par série sélectionnée dans settings.evolutionSelectedSeries.
         function renderEvolutionChart() {
@@ -8487,12 +8505,15 @@
             if (!canvas) return;
 
             const seriesIds = settings.evolutionSelectedSeries;
-            const { points, movingAvg } = computeEvolutionData(window.evolutionEndDate, EVOLUTION_WINDOW_DAYS, seriesIds);
+            const { points, movingAvg3, movingAvg5 } = computeEvolutionData(window.evolutionEndDate, EVOLUTION_WINDOW_DAYS, seriesIds);
 
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
             const rangeMin = new Date(window.evolutionEndDate.getFullYear(), window.evolutionEndDate.getMonth(), window.evolutionEndDate.getDate() - (EVOLUTION_WINDOW_DAYS - 1)).getTime();
             const rangeMax = window.evolutionEndDate.getTime();
+
+            const AVG3_BORDER_WIDTH = 2;
+            const AVG5_BORDER_WIDTH = AVG3_BORDER_WIDTH * 1.5; // trait 1.5x plus large que ~3j
 
             const datasets = [];
             seriesIds.forEach(sid => {
@@ -8506,19 +8527,31 @@
                         pointRadius: 3,
                         pointBackgroundColor: withAlpha(color, 0.7),
                         pointBorderColor: 'rgba(0,0,0,0.3)',
-                        order: 2 // dessiné en dessous de la courbe (order plus élevé = dessous)
+                        order: 3 // dessiné en dessous des courbes (order plus élevé = dessous)
                     });
                 }
                 if (settings.evolutionShowMovingAvg) {
                     datasets.push({
                         label: `${label} ~${t('resMoy3j')}`,
-                        data: movingAvg[sid] || [],
+                        data: movingAvg3[sid] || [],
                         showLine: true,
                         pointRadius: 0,
                         spanGaps: false,
                         borderColor: color,
-                        borderWidth: 2,
-                        order: 1 // dessiné par-dessus les points
+                        borderWidth: AVG3_BORDER_WIDTH,
+                        order: 2 // dessiné par-dessus les points
+                    });
+                }
+                if (settings.evolutionShowMovingAvg5) {
+                    datasets.push({
+                        label: `${label} ~5j`,
+                        data: movingAvg5[sid] || [],
+                        showLine: true,
+                        pointRadius: 0,
+                        spanGaps: false,
+                        borderColor: color,
+                        borderWidth: AVG5_BORDER_WIDTH,
+                        order: 1 // dessiné par-dessus tout le reste (points + moyenne 3j)
                     });
                 }
             });
