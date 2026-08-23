@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -896,15 +896,16 @@
            du viewport ne changent jamais : pas besoin de recalcul dynamique au
            resize/orientationchange, un seul calcul suffit.
            #evolution-overlay-inner fait 100vh de large / 100vw de haut (dimensions
-           inversées) puis pivote de -90deg autour de son centre — occupe alors
+           inversées) puis pivote de 90deg autour de son centre — occupe alors
            exactement tout l'écran physique une fois vu paysage.
            Empilement : sous les splashes (500) et les toasts (550) — communication
            au-dessus de l'usage normal de l'app, dont ce graphe fait partie.
-           Layout interne en colonne (avant rotation) : la 1ère "ligne" (chips) se
-           retrouve, après rotation -90deg, en bande verticale sur le bord GAUCHE de
-           l'écran paysage (chaque chip empilé verticalement) ; le bloc suivant
-           (graphique) occupe le reste à droite. Le bouton fermeture, positionné en
-           bas-droite avant rotation, se retrouve en HAUT-DROITE une fois pivoté.
+           Layout interne en colonne (avant rotation) : le graphique (1er enfant) se
+           retrouve, après rotation 90deg, à droite de l'écran paysage ; les chips
+           (2e enfant, dernière "ligne" avant rotation) se retrouvent en bande
+           verticale sur le bord GAUCHE (chaque chip empilé verticalement). Le bouton
+           fermeture, positionné en haut-gauche avant rotation, se retrouve en
+           HAUT-DROITE une fois pivoté.
            ============================================================ */
         #evolution-overlay {
             position: fixed;
@@ -921,7 +922,7 @@
             left: 50%;
             width: 100vh;
             height: 100vw;
-            transform: translate(-50%, -50%) rotate(-90deg);
+            transform: translate(-50%, -50%) rotate(90deg);
             transform-origin: center center;
             display: flex;
             flex-direction: column;
@@ -932,8 +933,8 @@
 
         #evolution-close-btn {
             position: absolute;
-            bottom: 14px;
-            right: 14px;
+            top: 14px;
+            left: 14px;
             z-index: 5;
             background: rgba(255, 255, 255, 0.1);
             border: none;
@@ -946,11 +947,10 @@
             cursor: pointer;
         }
 
-        /* Ligne (avant rotation) devenant colonne verticale le long du bord gauche
+        /* Dernière "ligne" avant rotation → colonne verticale le long du bord gauche
            une fois l'ensemble pivoté — un item par ligne source = un item empilé
-           verticalement à l'écran. padding-right réservé pour ne jamais chevaucher
-           la zone du bouton fermeture (qui se retrouve en haut-droite après rotation,
-           donc ici en bas-droite de ce conteneur avant rotation). */
+           verticalement à l'écran. Aucun chevauchement possible avec le bouton
+           fermeture (coin opposé, tout en haut du conteneur). */
         #evolution-chips-container {
             display: flex;
             flex-direction: row;
@@ -958,7 +958,6 @@
             align-content: flex-start;
             gap: 10px;
             flex-shrink: 0;
-            padding-right: 46px;
         }
 
         .evolution-chip {
@@ -979,10 +978,10 @@
             opacity: 0.5;
         }
 
-        /* Toggle moyenne mobile ("~3") — même logique visuelle que les chips
+        /* Pastilles toggle ("1j" / "~3") — même logique visuelle que les chips
            (bord blanc + plein si actif, bord gris + opacité 0.5 sinon) mais forme
-           pastille plutôt que cercle plein coloré, puisqu'il porte du texte. */
-        #evolution-avg-toggle {
+           pastille plutôt que cercle plein coloré, puisqu'elles portent du texte. */
+        .evolution-toggle-pill {
             box-sizing: border-box;
             padding: 4px 8px;
             border-radius: 12px;
@@ -995,11 +994,11 @@
             flex-shrink: 0;
         }
 
-        #evolution-avg-toggle.evolution-chip-selected {
+        .evolution-toggle-pill.evolution-chip-selected {
             border: 2px solid white;
         }
 
-        #evolution-avg-toggle.evolution-chip-unselected {
+        .evolution-toggle-pill.evolution-chip-unselected {
             border: 2px solid #666;
             opacity: 0.5;
         }
@@ -1516,10 +1515,10 @@
     <!-- ============================================================ -->
     <div id="evolution-overlay">
         <div id="evolution-overlay-inner">
-            <div id="evolution-chips-container"></div>
             <div id="evolution-chart-wrap">
                 <canvas id="evolutionChart"></canvas>
             </div>
+            <div id="evolution-chips-container"></div>
             <button id="evolution-close-btn" onclick="closeEvolutionOverlay()">✕</button>
         </div>
     </div>
@@ -3031,6 +3030,11 @@
         // Garantit que settings.evolutionShowMovingAvg existe — affichage ou non de la courbe
         // de moyenne mobile 3j (en plus des points bruts, jamais en remplacement). Défaut activé.
         if (typeof settings.evolutionShowMovingAvg === 'undefined') settings.evolutionShowMovingAvg = true;
+
+        // Garantit que settings.evolutionShowRawPoints existe — affichage ou non des points
+        // journaliers bruts (indépendant de la moyenne mobile, les deux options se cumulent
+        // ou peuvent être désactivées séparément). Défaut activé.
+        if (typeof settings.evolutionShowRawPoints === 'undefined') settings.evolutionShowRawPoints = true;
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -8403,9 +8407,27 @@
             return seriesId === 'combined' ? t('resComboTotal') : (getLabelForId(seriesId) || `Type #${seriesId}`);
         }
 
+        // Applique une opacité à une couleur de série pour les points bruts (distinction
+        // visuelle avec la courbe de moyenne mobile, tracée pleine opacité par-dessus).
+        // Couvre les formats réellement utilisés ici : hsl(...) (palette prédéfinie), blanc
+        // (combinaison), hex (futurs types custom). Repli sans opacité si format inconnu
+        // (rgb/rgba déjà, etc.) — n'empêche jamais l'affichage, juste moins de contraste.
+        function withAlpha(colorStr, alpha) {
+            if (colorStr === '#ffffff' || colorStr === 'white') return `rgba(255,255,255,${alpha})`;
+            if (colorStr.startsWith('hsl(')) return colorStr.replace('hsl(', 'hsla(').replace(/\)$/, `, ${alpha})`);
+            if (colorStr.startsWith('#')) {
+                const hex = colorStr.replace('#', '');
+                const full = hex.length === 3 ? hex.split('').map(c => c + c).join('') : hex;
+                const bigint = parseInt(full, 16);
+                return `rgba(${(bigint >> 16) & 255},${(bigint >> 8) & 255},${bigint & 255},${alpha})`;
+            }
+            return colorStr;
+        }
+
         // Chips de sélection — un cercle par type ayant des données (getTypesWithHistoryData(),
-        // cohérent avec les légendes existantes) + un cercle blanc pour la combinaison, + la
-        // pastille "~3" pour le toggle moyenne mobile. Pas de limite de sélection simultanée.
+        // cohérent avec les légendes existantes) + un cercle blanc pour la combinaison, + les
+        // pastilles "1j" (points bruts) et "~3" (moyenne mobile). Pas de limite de sélection
+        // simultanée des séries.
         function renderEvolutionChips() {
             const container = document.getElementById('evolution-chips-container');
             if (!container) return;
@@ -8422,8 +8444,11 @@
             html += `<div class="evolution-chip ${combinedCls}" style="background:#ffffff;"
                           onclick="toggleEvolutionSeries('combined')" title="${t('resComboTotal')}"></div>`;
 
+            const rawCls = settings.evolutionShowRawPoints ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-toggle-pill ${rawCls}" onclick="toggleEvolutionRawPoints()">1j</div>`;
+
             const avgCls = settings.evolutionShowMovingAvg ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div id="evolution-avg-toggle" class="${avgCls}" onclick="toggleEvolutionMovingAvg()"
+            html += `<div class="evolution-toggle-pill ${avgCls}" onclick="toggleEvolutionMovingAvg()"
                           title="${t('resMoy3j')}">~3</div>`;
 
             container.innerHTML = html;
@@ -8435,6 +8460,13 @@
             const idx = settings.evolutionSelectedSeries.indexOf(seriesId);
             if (idx === -1) settings.evolutionSelectedSeries.push(seriesId);
             else settings.evolutionSelectedSeries.splice(idx, 1);
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderEvolutionChips();
+            renderEvolutionChart();
+        }
+
+        function toggleEvolutionRawPoints() {
+            settings.evolutionShowRawPoints = !settings.evolutionShowRawPoints;
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
@@ -8466,14 +8498,17 @@
             seriesIds.forEach(sid => {
                 const color = getEvolutionSeriesColor(sid);
                 const label = getEvolutionSeriesLabel(sid);
-                datasets.push({
-                    label,
-                    data: points[sid] || [],
-                    showLine: false,
-                    pointRadius: 3,
-                    pointBackgroundColor: color,
-                    pointBorderColor: 'rgba(0,0,0,0.3)'
-                });
+                if (settings.evolutionShowRawPoints) {
+                    datasets.push({
+                        label,
+                        data: points[sid] || [],
+                        showLine: false,
+                        pointRadius: 3,
+                        pointBackgroundColor: withAlpha(color, 0.7),
+                        pointBorderColor: 'rgba(0,0,0,0.3)',
+                        order: 2 // dessiné en dessous de la courbe (order plus élevé = dessous)
+                    });
+                }
                 if (settings.evolutionShowMovingAvg) {
                     datasets.push({
                         label: `${label} ~${t('resMoy3j')}`,
@@ -8482,7 +8517,8 @@
                         pointRadius: 0,
                         spanGaps: false,
                         borderColor: color,
-                        borderWidth: 2
+                        borderWidth: 2,
+                        order: 1 // dessiné par-dessus les points
                     });
                 }
             });
