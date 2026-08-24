@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.23"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1024,15 +1024,20 @@
         }
 
         /* Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande basse du
-           graphe, là où Chart.js affiche normalement les graduations de dates. Ne capture que
-           le geste à 1 doigt (voir onEvolutionTouchStart) ; le pincement à 2 doigts reste géré
-           au niveau du conteneur parent (#evolution-chart-wrap) et n'est pas bloqué par cette zone. */
+           graphe, là où Chart.js affiche normalement les graduations de dates. pointer-events:none
+           : sert UNIQUEMENT de référence géométrique (getBoundingClientRect() dans le JS) pour
+           savoir où est cette zone — elle n'intercepte jamais physiquement le toucher, qui
+           atteint donc normalement le canvas en dessous (un tap sur un point y affiche son
+           tooltip Chart.js normalement, même dans cette bande). 60px : zone sensible généreuse
+           pour le confort du pincement/swipe, sans rien changer visuellement (pas de bande
+           affichée, pas d'agrandissement du graphique). */
         #evolution-xaxis-hitzone {
             position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            height: 30px;
+            height: 60px;
+            pointer-events: none;
         }
 
         /* Bande de prévisualisation des graduations pendant un geste — DOM indépendant de
@@ -1056,7 +1061,7 @@
 
         .evolution-preview-tick {
             position: absolute;
-            bottom: 6px;
+            bottom: 2px;
             transform: translateX(-50%);
             font-size: 0.75rem;
             font-weight: bold;
@@ -8712,6 +8717,13 @@
 
             const AVG3_BORDER_WIDTH = 2;
             const AVG5_BORDER_WIDTH = AVG3_BORDER_WIDTH * 1.5; // trait 1.5x plus large que ~3j
+            // Seuil de coupure du trait des moyennes mobiles : au-delà de cet écart (en ms) entre
+            // deux points consécutifs du tableau, Chart.js ne trace plus de segment entre eux —
+            // évite un trait qui traverserait visuellement un ou plusieurs jours sans donnée
+            // (jour incomplet, période sans mesure). 1,5 jour : plus large qu'un écart normal
+            // jour-à-jour (24h) pour ne jamais couper à tort, assez strict pour couper dès qu'un
+            // seul jour manque.
+            const EVOLUTION_AVG_GAP_THRESHOLD_MS = 1.5 * 86400000;
 
             const datasets = [];
             seriesIds.forEach(sid => {
@@ -8734,7 +8746,7 @@
                         data: movingAvg3[sid] || [],
                         showLine: true,
                         pointRadius: 0,
-                        spanGaps: false,
+                        spanGaps: EVOLUTION_AVG_GAP_THRESHOLD_MS,
                         borderColor: color,
                         borderWidth: AVG3_BORDER_WIDTH,
                         order: 2 // dessiné par-dessus les points
@@ -8746,7 +8758,7 @@
                         data: movingAvg5[sid] || [],
                         showLine: true,
                         pointRadius: 0,
-                        spanGaps: false,
+                        spanGaps: EVOLUTION_AVG_GAP_THRESHOLD_MS,
                         borderColor: color,
                         borderWidth: AVG5_BORDER_WIDTH,
                         order: 1 // dessiné par-dessus tout le reste (points + moyenne 3j)
@@ -8878,31 +8890,32 @@
         }
 
         function onEvolutionTouchStart(e) {
-            // preventDefault dès le premier contact (même hors zone reconnue) — ce listener
-            // n'est attaché qu'à #evolution-chart-wrap, donc sans effet de bord ailleurs dans
-            // l'app ; utile pour éviter qu'un navigateur mobile n'entame son propre pincement
-            // natif avant même que notre logique ne prenne la main.
-            e.preventDefault();
-
-            // Un pincement ne démarre que si aucun geste n'est déjà en cours — sinon, un
-            // contact accidentel d'un 2e doigt pendant un swipe (bord de la main qui frôle
-            // l'écran en butant contre une limite, par exemple) transformerait silencieusement
-            // le pan en pincement. Un vrai pincement délibéré démarre toujours à 0 geste actif.
-            if (e.touches.length === 2 && !evolutionGestureState) {
+            // Un pincement (2 doigts) prend toujours le dessus, même s'il remplace un pan en
+            // cours — c'est le comportement naturel attendu quand le 2e doigt d'un vrai
+            // pincement arrive juste après le 1er. preventDefault seulement une fois confirmé
+            // qu'on gère nous-mêmes ce contact — un tap ailleurs dans le graphe (point de
+            // donnée) doit continuer à atteindre normalement le canvas et son tooltip Chart.js.
+            if (e.touches.length === 2) {
+                e.preventDefault();
                 evolutionGestureState = {
                     type: 'pinch',
                     lastStepDist: evolutionTouchDistance(e.touches),
                     candidateIndex: window.evolutionPalierIndex
                 };
-            } else if (e.touches.length === 1 && !evolutionGestureState) {
+                return;
+            }
+            if (e.touches.length === 1 && !evolutionGestureState) {
                 const hitzone = document.getElementById('evolution-xaxis-hitzone');
                 if (!hitzone) return;
                 const touch = e.touches[0];
                 const rect = hitzone.getBoundingClientRect();
-                // Ne démarre un pan que si le doigt touche effectivement la bande des dates.
+                // Ne démarre un pan que si le doigt touche effectivement la bande des dates
+                // (zone purement géométrique — voir #evolution-xaxis-hitzone en CSS, pointer-events:none
+                // pour ne jamais intercepter physiquement le toucher destiné au canvas en dessous).
                 const inHitzone = touch.clientX >= rect.left && touch.clientX <= rect.right
                     && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
                 if (!inHitzone) return;
+                e.preventDefault();
                 const palier = EVOLUTION_PALIERS[window.evolutionPalierIndex];
                 const startDate = getPalierStartDate(window.evolutionEndDate, palier);
                 const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
