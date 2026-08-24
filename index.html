@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.20"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1022,6 +1022,42 @@
             width: 55px;
             cursor: pointer;
         }
+
+        /* Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande basse du
+           graphe, là où Chart.js affiche normalement les graduations de dates. Ne capture que
+           le geste à 1 doigt (voir onEvolutionTouchStart) ; le pincement à 2 doigts reste géré
+           au niveau du conteneur parent (#evolution-chart-wrap) et n'est pas bloqué par cette zone. */
+        #evolution-xaxis-hitzone {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 30px;
+        }
+
+        /* Bande de prévisualisation des graduations pendant un geste — DOM indépendant de
+           Chart.js, jamais lié au rendu réel du graphique pendant le geste (voir section 25b).
+           Recouvre la zone des graduations, cachée hors geste. */
+        #evolution-xaxis-preview {
+            display: none;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 20px;
+            pointer-events: none;
+            z-index: 4;
+        }
+
+        .evolution-preview-tick {
+            position: absolute;
+            bottom: 0;
+            transform: translateX(-50%);
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: var(--chart-gray-text);
+            white-space: nowrap;
+        }
     </style>
 </head>
 
@@ -1531,6 +1567,12 @@
                 <canvas id="evolutionChart"></canvas>
                 <div id="evolution-yaxis-toggle" onclick="toggleEvolutionYAxisMode()"
                     title="Basculer entre vue complète (0-24h) et vue zoomée"></div>
+                <!-- Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande
+                     basse du graphe, là où Chart.js affiche normalement les graduations de dates. -->
+                <div id="evolution-xaxis-hitzone"></div>
+                <!-- Bande de prévisualisation des graduations pendant un geste (pincement ou
+                     swipe) — DOM indépendant de Chart.js, cachée hors geste (section 25b). -->
+                <div id="evolution-xaxis-preview"></div>
             </div>
             <button id="evolution-close-btn" onclick="closeEvolutionOverlay()">✕</button>
         </div>
@@ -8073,7 +8115,12 @@
         document.addEventListener('touchstart', e => {
             touchstartX = e.changedTouches[0].screenX;
             touchstartY = e.changedTouches[0].screenY;
-            touchStartInInnerScroll = !!e.target.closest('.results-line2-scroll');
+            // Exclut aussi l'overlay Évolution : ses propres gestes (pincement palier, swipe
+            // navigation temporelle — section 25b) ne doivent jamais déclencher le changement
+            // d'onglet en arrière-plan, même si géométriquement peu probable vu la rotation
+            // (un swipe "horizontal" perçu dans l'overlay est surtout vertical en coordonnées
+            // brutes) — protection explicite plutôt que de compter sur ce calcul.
+            touchStartInInnerScroll = !!e.target.closest('.results-line2-scroll') || !!e.target.closest('#evolution-overlay');
         }, { passive: true });
 
         document.addEventListener('touchend', e => {
@@ -8421,7 +8468,70 @@
         }
 
         let evolutionChartInstance = null;
-        const EVOLUTION_WINDOW_DAYS = 183; // ~6 mois — windowDays reste générique dans computeEvolutionData(), sélecteur de durée pour plus tard
+
+        // Paliers de largeur temporelle (axe X) — sélectionnés par pincement (section 25b).
+        // "months: null" pour 'tout' signifie borne réelle = premier jour de l'historique
+        // (_getHistoryStartDate()), pas un nombre de mois fixe.
+        const EVOLUTION_PALIERS = [
+            { id: '1m', months: 1 },
+            { id: '2m', months: 2 },
+            { id: '3m', months: 3 },
+            { id: '6m', months: 6 },
+            { id: '1a', months: 12 },
+            { id: 'tout', months: null }
+        ];
+        const EVOLUTION_DEFAULT_PALIER_INDEX = 3; // '6m' — reprend le comportement de départ (ex-EVOLUTION_WINDOW_DAYS=183)
+
+        // Calcule la date de début (minuit local) pour un palier donné, ancrée sur endDate.
+        // Arithmétique calendaire (pas un nombre de jours fixe) : "1 mois" recule d'exactement
+        // un mois calendaire, JS gère nativement le débordement de fin de mois (ex: 31 mars
+        // -1 mois → 28/29 février). Palier 'tout' : borne réelle = premier jour avec données,
+        // repli à 1 mois si aucun historique (évite une fenêtre vide/instable).
+        function getPalierStartDate(endDate, palier) {
+            if (palier.months === null) {
+                const histStart = _getHistoryStartDate();
+                return histStart || new Date(endDate.getFullYear(), endDate.getMonth() - 1, endDate.getDate());
+            }
+            return new Date(endDate.getFullYear(), endDate.getMonth() - palier.months, endDate.getDate());
+        }
+
+        // Jours de graduation dans un mois pour un palier donné :
+        //   1 mois → tous les jours ; 2/3 mois → pas de 5 (1,5,10,...,25) ;
+        //   6 mois → pas de 10 (1,10,20) ; 1 an/tout → mensuel (jour 1 uniquement).
+        // Le dernier multiple avant 30 est exclu naturellement par la condition d < 30 (trop
+        // proche du 1er du mois suivant, déjà affiché séparément).
+        function getEvolutionTickDaysInMonth(palier, daysInMonth) {
+            if (palier.id === '1m') {
+                return Array.from({ length: daysInMonth }, (_, i) => i + 1);
+            }
+            if (palier.id === '1a' || palier.id === 'tout') {
+                return [1];
+            }
+            const pas = (palier.id === '6m') ? 10 : 5; // '2m' et '3m' → pas de 5
+            const days = [];
+            for (let d = 1; d < 30; d += pas) days.push(d);
+            return days;
+        }
+
+        // Construit la liste des graduations (timestamps) pour l'axe X entre rangeMin et
+        // rangeMax, selon le pas propre au palier — réutilisée par le graphique Chart.js
+        // (afterBuildTicks) ET par la bande de prévisualisation pendant un geste (section 25b),
+        // pour que les deux affichent toujours exactement les mêmes jours.
+        function computeEvolutionTicks(rangeMin, rangeMax, palier) {
+            const ticks = [];
+            let cursor = new Date(new Date(rangeMin).getFullYear(), new Date(rangeMin).getMonth(), 1);
+            const end = new Date(rangeMax);
+            while (cursor <= end) {
+                const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+                getEvolutionTickDaysInMonth(palier, daysInMonth).forEach(day => {
+                    if (day > daysInMonth) return;
+                    const d = new Date(cursor.getFullYear(), cursor.getMonth(), day);
+                    if (d.getTime() >= rangeMin && d.getTime() <= rangeMax) ticks.push(d.getTime());
+                });
+                cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+            }
+            return ticks.sort((a, b) => a - b);
+        }
 
         // Couleur/label d'une série — 'combined' (grandeur blanche, settings.combinedTypeIds)
         // ou un typeId individuel. Réutilisé par les chips et par le graphique.
@@ -8575,12 +8685,24 @@
             const canvas = document.getElementById('evolutionChart');
             if (!canvas) return;
 
+            // Palier courant (largeur de fenêtre) — en mémoire pour la session uniquement,
+            // pas de localStorage (même convention que evolutionYAxisMode). Modifié par
+            // pincement (section 25b). window._evolutionCurrentPalier est relu en direct par
+            // afterBuildTicks() plus bas — nécessaire car ce callback est capturé une seule
+            // fois à la création du chart (closure), et doit rester correct aux mises à jour
+            // suivantes sans recréer le chart.
+            if (typeof window.evolutionPalierIndex === 'undefined') window.evolutionPalierIndex = EVOLUTION_DEFAULT_PALIER_INDEX;
+            const palier = EVOLUTION_PALIERS[window.evolutionPalierIndex];
+            window._evolutionCurrentPalier = palier;
+            const startDate = getPalierStartDate(window.evolutionEndDate, palier);
+            const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+
             const seriesIds = settings.evolutionSelectedSeries;
-            const { points, movingAvg3, movingAvg5 } = computeEvolutionData(window.evolutionEndDate, EVOLUTION_WINDOW_DAYS, seriesIds);
+            const { points, movingAvg3, movingAvg5 } = computeEvolutionData(window.evolutionEndDate, windowDays, seriesIds);
 
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
-            const rangeMin = new Date(window.evolutionEndDate.getFullYear(), window.evolutionEndDate.getMonth(), window.evolutionEndDate.getDate() - (EVOLUTION_WINDOW_DAYS - 1)).getTime();
+            const rangeMin = startDate.getTime();
             const rangeMax = window.evolutionEndDate.getTime();
 
             const AVG3_BORDER_WIDTH = 2;
@@ -8660,19 +8782,17 @@
                             type: 'linear',
                             min: rangeMin,
                             max: rangeMax,
-                            // Graduations calées sur le 1er (mois) et le 15 (secondaire) de chaque
-                            // mois — un axe linéaire ne les positionne pas automatiquement.
+                            // Graduations calées selon le pas propre au palier courant (voir
+                            // computeEvolutionTicks()) — un axe linéaire ne les positionne pas
+                            // automatiquement. Relit axis.min/max et window._evolutionCurrentPalier
+                            // en direct (pas rangeMin/rangeMax/palier capturés par closure) : ce
+                            // callback n'est défini qu'une fois à la création du chart, mais doit
+                            // rester juste aux mises à jour suivantes (chart.update()) sans recréer
+                            // l'instance — axis.min/max sont eux déjà correctement remis à jour à
+                            // chaque appel (voir la branche evolutionChartInstance existante ci-dessus).
                             afterBuildTicks: (axis) => {
-                                const ticks = [];
-                                let cursor = new Date(new Date(rangeMin).getFullYear(), new Date(rangeMin).getMonth(), 1);
-                                const end = new Date(rangeMax);
-                                while (cursor <= end) {
-                                    if (cursor.getTime() >= rangeMin) ticks.push({ value: cursor.getTime() });
-                                    const d15 = new Date(cursor.getFullYear(), cursor.getMonth(), 15);
-                                    if (d15.getTime() >= rangeMin && d15.getTime() <= rangeMax) ticks.push({ value: d15.getTime() });
-                                    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-                                }
-                                axis.ticks = ticks.sort((a, b) => a.value - b.value);
+                                axis.ticks = computeEvolutionTicks(axis.min, axis.max, window._evolutionCurrentPalier)
+                                    .map(v => ({ value: v }));
                             },
                             ticks: {
                                 color: textGray,
@@ -8711,6 +8831,174 @@
             });
         }
 
+        // ============================================================
+        // 25b. GESTES TACTILES — pincement (palier axe X) et swipe (navigation temporelle)
+        //
+        // Zones de reconnaissance : le pincement (2 doigts) est actif sur tout le graphe
+        // (#evolution-chart-wrap) ; le swipe (1 doigt) n'est actif que sur la bande des dates
+        // en bas (#evolution-xaxis-hitzone), pour ne jamais interférer avec un tap ailleurs
+        // dans le graphe (ex. futur tooltip sur un point).
+        //
+        // Rotation CSS de l'overlay (90°) : un mouvement "horizontal" tel que perçu par
+        // l'utilisateur (une fois le téléphone physiquement tourné pour voir l'overlay en
+        // paysage) correspond à un déplacement VERTICAL en coordonnées brutes (clientY), pas
+        // horizontal — cohérent avec le repère de conception déjà documenté pour cet overlay
+        // (voir CSS de #evolution-overlay-inner). C'est pourquoi le swipe est mesuré sur
+        // clientY, et la largeur de référence (px → jours) sur la hauteur du rect DOM de la
+        // zone tactile (déjà exprimée en coordonnées écran post-rotation par
+        // getBoundingClientRect()). Le sens exact (+ ou -) reste à valider au premier test réel
+        // sur appareil — un simple flip de signe suffira si besoin.
+        //
+        // Pendant le geste, seule une bande de prévisualisation séparée (DOM, indépendante de
+        // Chart.js) est mise à jour — aucun recalcul de données ni redessin du graphique tant
+        // que le doigt n'est pas relâché, pour rester léger sur un appareil qui doit tourner
+        // plusieurs jours d'affilée.
+        // ============================================================
+
+        let evolutionGestureState = null; // null | { type:'pinch', ... } | { type:'pan', ... }
+
+        function initEvolutionGestures() {
+            const wrap = document.getElementById('evolution-chart-wrap');
+            if (!wrap) return;
+            wrap.addEventListener('touchstart', onEvolutionTouchStart, { passive: false });
+            wrap.addEventListener('touchmove', onEvolutionTouchMove, { passive: false });
+            wrap.addEventListener('touchend', onEvolutionTouchEnd, { passive: true });
+            wrap.addEventListener('touchcancel', onEvolutionTouchEnd, { passive: true });
+        }
+
+        function evolutionTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function onEvolutionTouchStart(e) {
+            if (e.touches.length === 2) {
+                // Démarre (ou remplace) un pincement — annule un pan en cours le cas échéant,
+                // pas de transition douce entre les deux types de geste.
+                e.preventDefault();
+                evolutionGestureState = {
+                    type: 'pinch',
+                    lastStepDist: evolutionTouchDistance(e.touches),
+                    candidateIndex: window.evolutionPalierIndex
+                };
+            } else if (e.touches.length === 1 && !evolutionGestureState) {
+                const hitzone = document.getElementById('evolution-xaxis-hitzone');
+                if (!hitzone) return;
+                const touch = e.touches[0];
+                const rect = hitzone.getBoundingClientRect();
+                // Ne démarre un pan que si le doigt touche effectivement la bande des dates.
+                const inHitzone = touch.clientX >= rect.left && touch.clientX <= rect.right
+                    && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+                if (!inHitzone) return;
+                e.preventDefault();
+                const palier = EVOLUTION_PALIERS[window.evolutionPalierIndex];
+                const startDate = getPalierStartDate(window.evolutionEndDate, palier);
+                const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+                evolutionGestureState = {
+                    type: 'pan',
+                    startY: touch.clientY,
+                    pxRange: rect.height,
+                    windowDays,
+                    candidateEndDate: new Date(window.evolutionEndDate)
+                };
+            }
+        }
+
+        function onEvolutionTouchMove(e) {
+            if (!evolutionGestureState) return;
+            e.preventDefault();
+
+            if (evolutionGestureState.type === 'pinch' && e.touches.length === 2) {
+                const dist = evolutionTouchDistance(e.touches);
+                const ratio = dist / evolutionGestureState.lastStepDist;
+                const PINCH_STEP_THRESHOLD = 1.4; // effet magnétique : un pas franchi = un palier
+                if (ratio > PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex < EVOLUTION_PALIERS.length - 1) {
+                    evolutionGestureState.candidateIndex++;
+                    evolutionGestureState.lastStepDist = dist;
+                } else if (ratio < 1 / PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex > 0) {
+                    evolutionGestureState.candidateIndex--;
+                    evolutionGestureState.lastStepDist = dist;
+                }
+                const candidatePalier = EVOLUTION_PALIERS[evolutionGestureState.candidateIndex];
+                const start = getPalierStartDate(window.evolutionEndDate, candidatePalier);
+                renderEvolutionPreviewBand(start.getTime(), window.evolutionEndDate.getTime(), candidatePalier);
+            } else if (evolutionGestureState.type === 'pan' && e.touches.length === 1) {
+                // Voir note de rotation en en-tête de section : mouvement local "horizontal" = clientY brut.
+                const dyRaw = e.touches[0].clientY - evolutionGestureState.startY;
+                const daysPerPx = evolutionGestureState.windowDays / evolutionGestureState.pxRange;
+                const dayDelta = Math.round(dyRaw * daysPerPx);
+                const ed = window.evolutionEndDate;
+                const candidate = clampEvolutionEndDate(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + dayDelta));
+                evolutionGestureState.candidateEndDate = candidate;
+
+                const palier = EVOLUTION_PALIERS[window.evolutionPalierIndex];
+                const start = getPalierStartDate(candidate, palier);
+                renderEvolutionPreviewBand(start.getTime(), candidate.getTime(), palier);
+            }
+        }
+
+        function onEvolutionTouchEnd(e) {
+            if (!evolutionGestureState) return;
+            // Le geste se termine dès qu'il ne reste plus aucun doigt — pas de transition vers
+            // un autre type de geste avec les doigts restants (évite les glissades accidentelles
+            // d'un pincement mal terminé vers un pan, ou l'inverse).
+            if (e.touches.length > 0) return;
+
+            hideEvolutionPreviewBand();
+
+            if (evolutionGestureState.type === 'pinch') {
+                if (evolutionGestureState.candidateIndex !== window.evolutionPalierIndex) {
+                    window.evolutionPalierIndex = evolutionGestureState.candidateIndex;
+                    renderEvolutionChart();
+                }
+            } else if (evolutionGestureState.type === 'pan') {
+                if (evolutionGestureState.candidateEndDate.getTime() !== window.evolutionEndDate.getTime()) {
+                    window.evolutionEndDate = evolutionGestureState.candidateEndDate;
+                    renderEvolutionChart();
+                }
+            }
+            evolutionGestureState = null;
+        }
+
+        // Borne evolutionEndDate entre le premier jour de l'historique et aujourd'hui — même
+        // convention que navigateHistory()/navigateResults() (clamp sur la date elle-même, pas
+        // sur le début de fenêtre, qui peut donc partiellement déborder avant le premier jour
+        // de données près de cette limite).
+        function clampEvolutionEndDate(candidate) {
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            if (candidate > todayMidnight) return todayMidnight;
+            const minDate = _getHistoryStartDate();
+            if (minDate && candidate < minDate) return minDate;
+            return candidate;
+        }
+
+        // Bande de prévisualisation des graduations pendant un geste (pincement ou swipe) — DOM
+        // indépendant de Chart.js, jamais lié au rendu réel du graphique pendant le geste (voir
+        // en-tête de section). Réutilise computeEvolutionTicks() pour afficher exactement les
+        // mêmes jours que le graphique une fois le geste terminé.
+        function renderEvolutionPreviewBand(rangeStart, rangeEnd, palier) {
+            const band = document.getElementById('evolution-xaxis-preview');
+            if (!band) return;
+            const span = rangeEnd - rangeStart;
+            if (span <= 0) { band.innerHTML = ''; band.style.display = 'block'; return; }
+            const ticks = computeEvolutionTicks(rangeStart, rangeEnd, palier);
+            band.innerHTML = ticks.map(ts => {
+                const pct = ((ts - rangeStart) / span) * 100;
+                const d = new Date(ts);
+                const label = d.getDate() === 1
+                    ? d.toLocaleDateString(getLocale(), { month: 'short' })
+                    : d.getDate().toString();
+                return `<span class="evolution-preview-tick" style="left:${pct.toFixed(2)}%;">${label}</span>`;
+            }).join('');
+            band.style.display = 'block';
+        }
+
+        function hideEvolutionPreviewBand() {
+            const band = document.getElementById('evolution-xaxis-preview');
+            if (band) band.style.display = 'none';
+        }
+
         // Ouverture / fermeture de l'overlay — pas de recalcul au resize/orientationchange :
         // l'orientation physique reste verrouillée portrait (manifest.json), les dimensions du
         // viewport ne changent donc jamais pendant que l'overlay est ouvert.
@@ -8720,6 +9008,13 @@
             overlay.style.display = 'block';
             renderEvolutionChips();
             renderEvolutionChart();
+            // Init des gestes une seule fois (comme initFooterDrawer()) — l'overlay est recréé
+            // dans le DOM dès le premier appel (voir HTML), donc les listeners restent valides
+            // aux ouvertures suivantes.
+            if (!window._evolutionGesturesInited) {
+                initEvolutionGestures();
+                window._evolutionGesturesInited = true;
+            }
             console.log('[Evolution] Overlay ouvert');
         }
 
