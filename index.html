@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.21"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.22"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1037,21 +1037,26 @@
 
         /* Bande de prévisualisation des graduations pendant un geste — DOM indépendant de
            Chart.js, jamais lié au rendu réel du graphique pendant le geste (voir section 25b).
-           Recouvre la zone des graduations, cachée hors geste. */
+           Fond opaque (couleur de fond de l'app) : recouvre complètement les graduations
+           réelles dessinées par Chart.js sous le canvas, plutôt que de les superposer en léger
+           décalage (les deux rendus n'utilisent pas exactement le même calcul de position
+           verticale). Hauteur un peu plus généreuse que la seule zone de texte de Chart.js pour
+           absorber cet écart sans laisser dépasser l'ancien texte sur les bords. */
         #evolution-xaxis-preview {
             display: none;
             position: absolute;
             left: 0;
             right: 0;
             bottom: 0;
-            height: 20px;
+            height: 26px;
+            background: var(--bg-color);
             pointer-events: none;
             z-index: 4;
         }
 
         .evolution-preview-tick {
             position: absolute;
-            bottom: 0;
+            bottom: 6px;
             transform: translateX(-50%);
             font-size: 0.75rem;
             font-weight: bold;
@@ -8873,10 +8878,17 @@
         }
 
         function onEvolutionTouchStart(e) {
-            if (e.touches.length === 2) {
-                // Démarre (ou remplace) un pincement — annule un pan en cours le cas échéant,
-                // pas de transition douce entre les deux types de geste.
-                e.preventDefault();
+            // preventDefault dès le premier contact (même hors zone reconnue) — ce listener
+            // n'est attaché qu'à #evolution-chart-wrap, donc sans effet de bord ailleurs dans
+            // l'app ; utile pour éviter qu'un navigateur mobile n'entame son propre pincement
+            // natif avant même que notre logique ne prenne la main.
+            e.preventDefault();
+
+            // Un pincement ne démarre que si aucun geste n'est déjà en cours — sinon, un
+            // contact accidentel d'un 2e doigt pendant un swipe (bord de la main qui frôle
+            // l'écran en butant contre une limite, par exemple) transformerait silencieusement
+            // le pan en pincement. Un vrai pincement délibéré démarre toujours à 0 geste actif.
+            if (e.touches.length === 2 && !evolutionGestureState) {
                 evolutionGestureState = {
                     type: 'pinch',
                     lastStepDist: evolutionTouchDistance(e.touches),
@@ -8891,7 +8903,6 @@
                 const inHitzone = touch.clientX >= rect.left && touch.clientX <= rect.right
                     && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
                 if (!inHitzone) return;
-                e.preventDefault();
                 const palier = EVOLUTION_PALIERS[window.evolutionPalierIndex];
                 const startDate = getPalierStartDate(window.evolutionEndDate, palier);
                 const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
@@ -8913,11 +8924,15 @@
                 const dist = evolutionTouchDistance(e.touches);
                 const ratio = dist / evolutionGestureState.lastStepDist;
                 const PINCH_STEP_THRESHOLD = 1.4; // effet magnétique : un pas franchi = un palier
-                if (ratio > PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex < EVOLUTION_PALIERS.length - 1) {
-                    evolutionGestureState.candidateIndex++;
-                    evolutionGestureState.lastStepDist = dist;
-                } else if (ratio < 1 / PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex > 0) {
+                // Écarter les doigts (ratio > seuil) = zoomer "dedans" (comme une photo) = fenêtre
+                // plus étroite → palier plus petit. Rapprocher les doigts = zoomer "dehors" =
+                // fenêtre plus large → palier plus grand. (Sens inversé par rapport à la 1re
+                // version, corrigé suite à test réel.)
+                if (ratio > PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex > 0) {
                     evolutionGestureState.candidateIndex--;
+                    evolutionGestureState.lastStepDist = dist;
+                } else if (ratio < 1 / PINCH_STEP_THRESHOLD && evolutionGestureState.candidateIndex < EVOLUTION_PALIERS.length - 1) {
+                    evolutionGestureState.candidateIndex++;
                     evolutionGestureState.lastStepDist = dist;
                 }
                 const candidatePalier = EVOLUTION_PALIERS[evolutionGestureState.candidateIndex];
@@ -8925,9 +8940,10 @@
                 renderEvolutionPreviewBand(start.getTime(), window.evolutionEndDate.getTime(), candidatePalier);
             } else if (evolutionGestureState.type === 'pan' && e.touches.length === 1) {
                 // Voir note de rotation en en-tête de section : mouvement local "horizontal" = clientY brut.
+                // Signe inversé par rapport à la 1re version, corrigé suite à test réel.
                 const dyRaw = e.touches[0].clientY - evolutionGestureState.startY;
                 const daysPerPx = evolutionGestureState.windowDays / evolutionGestureState.pxRange;
-                const dayDelta = Math.round(dyRaw * daysPerPx);
+                const dayDelta = -Math.round(dyRaw * daysPerPx);
                 const ed = window.evolutionEndDate;
                 const candidate = clampEvolutionEndDate(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + dayDelta));
                 evolutionGestureState.candidateEndDate = candidate;
