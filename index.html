@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.24"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8747,18 +8747,30 @@
             // place (3j = fin, 5j = épais) plutôt que d'introduire un nouveau langage visuel.
             const AVG3_ISOLATED_RADIUS = 3;
             const AVG5_ISOLATED_RADIUS = AVG3_ISOLATED_RADIUS * 1.5;
-            // Seuil de coupure du trait des moyennes mobiles : au-delà de cet écart (en ms) entre
-            // deux points consécutifs du tableau, Chart.js ne trace plus de segment entre eux —
-            // évite un trait qui traverserait visuellement un ou plusieurs jours sans donnée
-            // (jour incomplet, période sans mesure). 1,5 jour : plus large qu'un écart normal
-            // jour-à-jour (24h) pour ne jamais couper à tort, assez strict pour couper dès qu'un
-            // seul jour manque.
+            // Seuil au-delà duquel un écart (en ms) entre deux points consécutifs du tableau
+            // est considéré comme un "trou" de données (jour incomplet, période sans mesure) —
+            // sert à la fois au style pointillé du segment (voir evolutionSegmentDash()
+            // ci-dessous) et à la détection des points isolés. 1,5 jour : plus large qu'un écart
+            // normal jour-à-jour (24h) pour ne jamais déclencher à tort, assez strict pour
+            // réagir dès qu'un seul jour manque.
             const EVOLUTION_AVG_GAP_THRESHOLD_MS = 1.5 * 86400000;
 
-            // Un point de moyenne mobile "isolé" (aucun voisin assez proche des deux côtés, donc
-            // pas relié par un trait — voir spanGaps ci-dessus) resterait invisible avec
-            // pointRadius:0 si les points bruts (1j) sont masqués. On lui donne un petit marqueur
-            // visible dans ce cas précis uniquement (sinon 0, le trait suffit).
+            // Style de segment dynamique (option "segment" de Chart.js, stylage par tronçon de
+            // ligne) : pointillé pour le tronçon qui traverse un trou de données, plein sinon.
+            // Combiné à spanGaps:true (voir datasets plus bas) — le trait relie toujours tous
+            // les points, jamais de coupure invisible ; c'est ce pointillé qui indique
+            // visuellement l'absence de donnée réelle entre deux points, tout en suggérant la
+            // tendance générale entre les deux, plutôt qu'une continuité pleine et trompeuse.
+            function evolutionSegmentDash(ctx) {
+                const gap = ctx.p1.parsed.x - ctx.p0.parsed.x;
+                return gap > EVOLUTION_AVG_GAP_THRESHOLD_MS ? [4, 4] : undefined;
+            }
+
+            // Un point de moyenne mobile "isolé" (aucun voisin assez proche des deux côtés)
+            // resterait peu visible avec pointRadius:0 si les points bruts (1j) sont masqués —
+            // même relié par un trait pointillé de part et d'autre, on veut distinguer d'un
+            // coup d'œil "ceci est une vraie donnée" de "ceci n'est qu'un raccord visuel". On
+            // lui donne donc un petit marqueur plein dans ce cas précis uniquement.
             function isEvolutionPointIsolated(data, index) {
                 const cur = data[index];
                 if (!cur) return false;
@@ -8793,7 +8805,8 @@
                         pointRadius: (ctx) => isEvolutionPointIsolated(avg3Data, ctx.dataIndex) ? AVG3_ISOLATED_RADIUS : 0,
                         pointBackgroundColor: color,
                         pointBorderWidth: 0,
-                        spanGaps: EVOLUTION_AVG_GAP_THRESHOLD_MS,
+                        spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
+                        segment: { borderDash: evolutionSegmentDash },
                         borderColor: color,
                         borderWidth: AVG3_BORDER_WIDTH,
                         order: 2 // dessiné par-dessus les points
@@ -8808,7 +8821,8 @@
                         pointRadius: (ctx) => isEvolutionPointIsolated(avg5Data, ctx.dataIndex) ? AVG5_ISOLATED_RADIUS : 0,
                         pointBackgroundColor: color,
                         pointBorderWidth: 0,
-                        spanGaps: EVOLUTION_AVG_GAP_THRESHOLD_MS,
+                        spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
+                        segment: { borderDash: evolutionSegmentDash },
                         borderColor: color,
                         borderWidth: AVG5_BORDER_WIDTH,
                         order: 1 // dessiné par-dessus tout le reste (points + moyenne 3j)
