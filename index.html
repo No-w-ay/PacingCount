@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -946,41 +946,42 @@
             cursor: pointer;
         }
 
-        /* Label de palier — rangée dédiée juste au-dessus des chips, à gauche de la croix de
-           fermeture (même réservation padding-right:46px que #evolution-chips-container).
-           Partie durée cliquable (ouvre #evolution-palier-picker) ; partie fin de période
-           (→ mois année) non cliquable, mise à jour par le swipe uniquement. */
-        #evolution-palier-row {
+        /* Groupe durée + fin de période — vit désormais DANS #evolution-chips-container (même
+           rangée que les chips de type et les pastilles toggle 1j/~3j/~5j), poussé à l'extrémité
+           droite de cette rangée via margin-left:auto (padding-right:46px du parent réserve déjà
+           la place pour la croix de fermeture). Regroupés en un seul élément pour ne jamais se
+           séparer en cas de retour à la ligne (flex-wrap). position:relative : ancre la palette
+           de sélection (#evolution-palier-picker) juste en dessous. */
+        #evolution-palier-group {
             display: flex;
-            justify-content: flex-end;
             align-items: center;
-            padding-right: 46px;
+            gap: 4px;
+            margin-left: auto;
             flex-shrink: 0;
-            font-size: 0.85rem;
             position: relative;
         }
 
+        /* Durée cliquable — même format que .evolution-toggle-pill (voir plus bas), classes
+           evolution-chip-selected appliquées en dur : elle reflète en permanence le palier
+           courant, ce n'est pas un simple on/off comme les autres pastilles. */
         #evolution-palier-duration {
             cursor: pointer;
-            text-decoration: underline;
-            text-decoration-style: dotted;
-            text-underline-offset: 2px;
-            color: var(--text-color);
-            font-weight: bold;
         }
 
+        /* Fin de période (→ mois année) — mêmes police/taille/couleur que les pastilles, en
+           texte simple (pas de bordure ni fond), non cliquable. */
         #evolution-palier-end {
-            margin-left: 4px;
-            color: var(--chart-gray-text);
+            font-family: monospace;
+            font-size: 0.78rem;
+            color: var(--text-color);
         }
 
-        /* Palette de paliers — ancrée sous le label, même bord droit que la croix de fermeture.
-           Réutilise .evolution-toggle-pill (voir plus bas) pour chaque option. */
+        /* Palette de paliers — ancrée sous le groupe durée/fin, alignée sur son bord droit. */
         #evolution-palier-picker {
             display: none;
             position: absolute;
             top: 100%;
-            right: 46px;
+            right: 0;
             margin-top: 6px;
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -1619,11 +1620,6 @@
     <!-- ============================================================ -->
     <div id="evolution-overlay">
         <div id="evolution-overlay-inner">
-            <div id="evolution-palier-row">
-                <span id="evolution-palier-duration" onclick="toggleEvolutionPalierPicker()"></span><span
-                    id="evolution-palier-end"></span>
-                <div id="evolution-palier-picker"></div>
-            </div>
             <div id="evolution-chips-container"></div>
             <div id="evolution-chart-wrap">
                 <canvas id="evolutionChart"></canvas>
@@ -8666,10 +8662,11 @@
 
         // ============================================================
         // 25c. LABEL DE PALIER CLIQUABLE + PALETTE DE SÉLECTION DIRECTE
-        // Rangée #evolution-palier-row : durée cliquable (ouvre #evolution-palier-picker,
-        // pills réutilisant .evolution-toggle-pill) + fin de période "→ mois année" (non
-        // cliquable, mise à jour uniquement par le swipe). Mis à jour en direct pendant les
-        // gestes (candidat), et à l'état committé après tout rendu réel (voir
+        // Groupe #evolution-palier-group (injecté en fin de rendu par renderEvolutionChips(),
+        // même rangée que les chips/pills, poussé à droite) : durée cliquable (ouvre
+        // #evolution-palier-picker, pills réutilisant .evolution-toggle-pill) + fin de période
+        // "→ mois année" (non cliquable, mise à jour uniquement par le swipe). Mis à jour en
+        // direct pendant les gestes (candidat), et à l'état committé après tout rendu réel (voir
         // renderEvolutionChart() et onEvolutionTouchEnd()).
         // ============================================================
 
@@ -8746,13 +8743,29 @@
             }).join('');
         }
 
+        // Applique un changement de palier — factorisé car atteint par deux chemins (pincement,
+        // sélection dans la palette). Cas particulier "tout" : ce palier signifie "l'historique
+        // en entier, jusqu'à aujourd'hui" — si evolutionEndDate avait été déplacé dans le passé
+        // par un swipe précédent (sur un autre palier), on le ramène à aujourd'hui ici, sinon
+        // "tout" afficherait une fenêtre tronquée (rien après cette ancienne date de fin swipée).
+        // Les autres paliers n'ont pas cette ambiguïté : ils sont légitimement relatifs à
+        // n'importe quelle date de fin choisie.
+        function applyEvolutionPalierChange(newIndex) {
+            window.evolutionPalierIndex = newIndex;
+            const palier = window.evolutionPaliers[newIndex];
+            if (palier.months === null) {
+                const n = new Date();
+                window.evolutionEndDate = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+            }
+            renderEvolutionChart();
+        }
+
         // Sélection directe d'un palier depuis la palette — ferme la palette, redessine le
-        // graphique avec la fenêtre du palier choisi, ancrée sur window.evolutionEndDate inchangé.
+        // graphique avec la fenêtre du palier choisi.
         function selectEvolutionPalier(index) {
             hideEvolutionPalierPicker();
             if (index === window.evolutionPalierIndex) return;
-            window.evolutionPalierIndex = index;
-            renderEvolutionChart();
+            applyEvolutionPalierChange(index);
         }
 
         // Couleur/label d'une série — 'combined' (grandeur blanche, settings.combinedTypeIds)
@@ -8822,7 +8835,17 @@
             const avg5Cls = settings.evolutionShowMovingAvg5 ? 'evolution-chip-selected' : 'evolution-chip-unselected';
             html += `<div class="evolution-toggle-pill ${avg5Cls}" onclick="toggleEvolutionMovingAvg5()">~5j</div>`;
 
+            // Groupe durée + fin de période — dans la même rangée que les chips/pills ci-dessus
+            // (poussé à droite via margin-left:auto, voir CSS). Textes remplis juste après par
+            // updateEvolutionPalierLabel() : évite de dupliquer ici la logique de formatage.
+            html += `<div id="evolution-palier-group">
+                <div id="evolution-palier-duration" class="evolution-toggle-pill evolution-chip-selected"
+                     onclick="toggleEvolutionPalierPicker()"></div><span id="evolution-palier-end"></span>
+                <div id="evolution-palier-picker"></div>
+            </div>`;
+
             container.innerHTML = html;
+            updateEvolutionPalierLabel();
         }
 
         // Bascule une série dans/hors settings.evolutionSelectedSeries — persisté, pas de
@@ -9284,8 +9307,7 @@
             if (evolutionGestureState.type === 'pinch') {
                 hideEvolutionPreviewBand();
                 if (evolutionGestureState.candidateIndex !== window.evolutionPalierIndex) {
-                    window.evolutionPalierIndex = evolutionGestureState.candidateIndex;
-                    renderEvolutionChart(); // met aussi à jour le label (état committé)
+                    applyEvolutionPalierChange(evolutionGestureState.candidateIndex); // met aussi à jour le label (état committé)
                 } else {
                     updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
