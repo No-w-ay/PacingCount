@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -947,7 +947,7 @@
         }
 
         /* Groupe durée + fin de période — vit désormais DANS #evolution-chips-container (même
-           rangée que les chips de type et les pastilles toggle 1j/~3j/~5j), poussé à l'extrémité
+           rangée que les chips de type et les pastilles toggle 1j/~3j/~5j/~7j), poussé à l'extrémité
            droite de cette rangée via margin-left:auto (padding-right:46px du parent réserve déjà
            la place pour la croix de fermeture). Regroupés en un seul élément pour ne jamais se
            séparer en cas de retour à la ligne (flex-wrap). position:relative : ancre la palette
@@ -3154,6 +3154,11 @@
         // un trait plus épais. Défaut désactivé (option additionnelle, pas de clutter par défaut).
         if (typeof settings.evolutionShowMovingAvg5 === 'undefined') settings.evolutionShowMovingAvg5 = false;
 
+        // Garantit que settings.evolutionShowMovingAvg7 existe — moyenne mobile centrée sur
+        // 7 jours (même logique que 3j/5j). Défaut désactivé (option additionnelle, pas de
+        // clutter par défaut).
+        if (typeof settings.evolutionShowMovingAvg7 === 'undefined') settings.evolutionShowMovingAvg7 = false;
+
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
         if (!settings.labels) {
@@ -3312,6 +3317,10 @@
                 evolutionYearsPlural: "{n} ans",
                 evolutionYearsDecimal: "{n} an",
                 evolutionFullHistory: "Historique complet",
+                evolutionPillRaw: "1j",
+                evolutionPill3d: "~3j",
+                evolutionPill5d: "~5j",
+                evolutionPill7d: "~7j",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -3526,6 +3535,10 @@
                 evolutionYearsPlural: "{n} years",
                 evolutionYearsDecimal: "{n} years",
                 evolutionFullHistory: "Full history",
+                evolutionPillRaw: "1d",
+                evolutionPill3d: "~3d",
+                evolutionPill5d: "~5d",
+                evolutionPill7d: "~7d",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -3731,6 +3744,10 @@
                 evolutionYearsPlural: "{n} jaar",
                 evolutionYearsDecimal: "{n} jaar",
                 evolutionFullHistory: "Volledige historiek",
+                evolutionPillRaw: "1d",
+                evolutionPill3d: "~3d",
+                evolutionPill5d: "~5d",
+                evolutionPill7d: "~7d",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -8470,7 +8487,7 @@
         // jour non-adjacent.
         // ============================================================
         function computeEvolutionData(endDate, windowDays, seriesIds) {
-            const MAX_AVG_HALF_WIDTH = 2; // 5j centrée = ±2 jours — la plus large des deux moyennes
+            const MAX_AVG_HALF_WIDTH = 3; // 7j centrée = ±3 jours — la plus large des trois moyennes
             const windowStartTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (windowDays - 1)).getTime();
             const windowEndTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1).getTime(); // exclusif
             const aggStartTs = windowStartTs - MAX_AVG_HALF_WIDTH * 86400000;
@@ -8546,7 +8563,7 @@
                 return result;
             }
 
-            return { points, movingAvg3: computeMovingAvg(1), movingAvg5: computeMovingAvg(2) };
+            return { points, movingAvg3: computeMovingAvg(1), movingAvg5: computeMovingAvg(2), movingAvg7: computeMovingAvg(3) };
         }
 
         let evolutionChartInstance = null;
@@ -8827,13 +8844,16 @@
                           onclick="toggleEvolutionSeries('combined')" title="${t('resComboTotal')}"></div>`;
 
             const rawCls = settings.evolutionShowRawPoints ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div class="evolution-toggle-pill ${rawCls}" onclick="toggleEvolutionRawPoints()">1j</div>`;
+            html += `<div class="evolution-toggle-pill ${rawCls}" onclick="toggleEvolutionRawPoints()">${t('evolutionPillRaw')}</div>`;
 
             const avg3Cls = settings.evolutionShowMovingAvg ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div class="evolution-toggle-pill ${avg3Cls}" onclick="toggleEvolutionMovingAvg()">~3j</div>`;
+            html += `<div class="evolution-toggle-pill ${avg3Cls}" onclick="toggleEvolutionMovingAvg()">${t('evolutionPill3d')}</div>`;
 
             const avg5Cls = settings.evolutionShowMovingAvg5 ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div class="evolution-toggle-pill ${avg5Cls}" onclick="toggleEvolutionMovingAvg5()">~5j</div>`;
+            html += `<div class="evolution-toggle-pill ${avg5Cls}" onclick="toggleEvolutionMovingAvg5()">${t('evolutionPill5d')}</div>`;
+
+            const avg7Cls = settings.evolutionShowMovingAvg7 ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-toggle-pill ${avg7Cls}" onclick="toggleEvolutionMovingAvg7()">${t('evolutionPill7d')}</div>`;
 
             // Groupe durée + fin de période — dans la même rangée que les chips/pills ci-dessus
             // (poussé à droite via margin-left:auto, voir CSS). Textes remplis juste après par
@@ -8880,9 +8900,16 @@
             renderEvolutionChart();
         }
 
+        function toggleEvolutionMovingAvg7() {
+            settings.evolutionShowMovingAvg7 = !settings.evolutionShowMovingAvg7;
+            safeSave('pacingSettings', JSON.stringify(settings));
+            renderEvolutionChips();
+            renderEvolutionChart();
+        }
+
         // Calcule les bornes de l'axe Y en mode zoom, à partir des datasets réellement dessinés
         // (points bruts + courbes de moyenne mobile actuellement visibles — pas les séries
-        // masquées par les toggles 1j/~3j/~5j). Travaille en minutes en interne pour éviter les
+        // masquées par les toggles 1j/~3j/~5j/~7j). Travaille en minutes en interne pour éviter les
         // imprécisions flottantes (10 min = 1/6 h), reconverti en heures pour Chart.js à la fin.
         // Retourne {min, max, stepSize}, ou null si aucune donnée (aucune série sélectionnée, ou
         // fenêtre vide) — l'appelant retombe alors sur l'affichage 0-24h par défaut.
@@ -8964,7 +8991,7 @@
             updateEvolutionPalierLabel();
 
             const seriesIds = settings.evolutionSelectedSeries;
-            const { points, movingAvg3, movingAvg5 } = computeEvolutionData(window.evolutionEndDate, windowDays, seriesIds);
+            const { points, movingAvg3, movingAvg5, movingAvg7 } = computeEvolutionData(window.evolutionEndDate, windowDays, seriesIds);
 
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
@@ -8973,11 +9000,16 @@
 
             const AVG3_BORDER_WIDTH = 2;
             const AVG5_BORDER_WIDTH = AVG3_BORDER_WIDTH * 1.5; // trait 1.5x plus large que ~3j
+            // ~7j : même largeur, opacité et fonctionnement pointillé que ~5j "à ce stade" —
+            // choix explicite (voir échange), à affiner plus tard si une distinction visuelle
+            // supplémentaire s'avère utile.
+            const AVG7_BORDER_WIDTH = AVG5_BORDER_WIDTH;
             // Rayon des points isolés (voir isEvolutionPointIsolated() plus bas) — même ratio
             // 1.5x que les traits, pour rester cohérent avec la convention visuelle déjà en
             // place (3j = fin, 5j = épais) plutôt que d'introduire un nouveau langage visuel.
             const AVG3_ISOLATED_RADIUS = 3;
             const AVG5_ISOLATED_RADIUS = AVG3_ISOLATED_RADIUS * 1.5;
+            const AVG7_ISOLATED_RADIUS = AVG5_ISOLATED_RADIUS;
 
             // Style de segment dynamique (option "segment" de Chart.js, stylage par tronçon de
             // ligne) : pointillé pour le tronçon qui traverse un trou de données, plein sinon.
@@ -9026,7 +9058,7 @@
                 if (settings.evolutionShowMovingAvg) {
                     const avg3Data = movingAvg3[sid] || [];
                     datasets.push({
-                        label: `${label} ~${t('resMoy3j')}`,
+                        label: `${label} ${t('evolutionPill3d')}`,
                         data: avg3Data,
                         showLine: true,
                         // Points isolés toujours à pleine opacité — ils signalent une vraie
@@ -9037,7 +9069,7 @@
                         pointBorderWidth: 0,
                         spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
                         // Trait à 0.65 sur donnée réelle, 0.45 sur segment pointillé (trou) —
-                        // moins prioritaire visuellement que ~5j (voir plus bas), qui reste plein.
+                        // moins prioritaire visuellement que ~5j/~7j (voir plus bas), qui restent pleins.
                         segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 0.65, 0.45) },
                         borderColor: withAlpha(color, 0.65),
                         borderWidth: AVG3_BORDER_WIDTH,
@@ -9047,7 +9079,7 @@
                 if (settings.evolutionShowMovingAvg5) {
                     const avg5Data = movingAvg5[sid] || [];
                     datasets.push({
-                        label: `${label} ~5j`,
+                        label: `${label} ${t('evolutionPill5d')}`,
                         data: avg5Data,
                         showLine: true,
                         pointRadius: (ctx) => isEvolutionPointIsolated(avg5Data, ctx.dataIndex) ? AVG5_ISOLATED_RADIUS : 0,
@@ -9055,12 +9087,30 @@
                         pointBorderWidth: 0,
                         spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
                         // Trait plein à pleine opacité sur donnée réelle (courbe la plus
-                        // prioritaire visuellement), 0.45 sur segment pointillé (trou) — cohérent
-                        // avec ~3j pour la partie pointillée.
+                        // prioritaire visuellement avec ~7j), 0.45 sur segment pointillé (trou) —
+                        // cohérent avec ~3j pour la partie pointillée.
                         segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 1, 0.45) },
                         borderColor: color,
                         borderWidth: AVG5_BORDER_WIDTH,
-                        order: 1 // dessiné par-dessus tout le reste (points + moyenne 3j)
+                        order: 1 // dessiné par-dessus les points et ~3j
+                    });
+                }
+                if (settings.evolutionShowMovingAvg7) {
+                    const avg7Data = movingAvg7[sid] || [];
+                    datasets.push({
+                        label: `${label} ${t('evolutionPill7d')}`,
+                        data: avg7Data,
+                        showLine: true,
+                        pointRadius: (ctx) => isEvolutionPointIsolated(avg7Data, ctx.dataIndex) ? AVG7_ISOLATED_RADIUS : 0,
+                        pointBackgroundColor: color,
+                        pointBorderWidth: 0,
+                        spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
+                        // Même largeur/opacité/fonctionnement pointillé que ~5j "à ce stade" (voir
+                        // constantes AVG7_* ci-dessus).
+                        segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 1, 0.45) },
+                        borderColor: color,
+                        borderWidth: AVG7_BORDER_WIDTH,
+                        order: 0 // dessiné par-dessus tout le reste (points, ~3j, ~5j)
                     });
                 }
             });
