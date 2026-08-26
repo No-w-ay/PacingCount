@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -946,6 +946,53 @@
             cursor: pointer;
         }
 
+        /* Label de palier — rangée dédiée juste au-dessus des chips, à gauche de la croix de
+           fermeture (même réservation padding-right:46px que #evolution-chips-container).
+           Partie durée cliquable (ouvre #evolution-palier-picker) ; partie fin de période
+           (→ mois année) non cliquable, mise à jour par le swipe uniquement. */
+        #evolution-palier-row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding-right: 46px;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+            position: relative;
+        }
+
+        #evolution-palier-duration {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 2px;
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        #evolution-palier-end {
+            margin-left: 4px;
+            color: var(--chart-gray-text);
+        }
+
+        /* Palette de paliers — ancrée sous le label, même bord droit que la croix de fermeture.
+           Réutilise .evolution-toggle-pill (voir plus bas) pour chaque option. */
+        #evolution-palier-picker {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 46px;
+            margin-top: 6px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px;
+            gap: 6px;
+            flex-wrap: wrap;
+            max-width: 260px;
+            z-index: 6;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
         /* Rangée de sélection — en haut, au-dessus du graphique. padding-right réservé
            pour ne jamais chevaucher le bouton fermeture (coin haut-droit). */
         #evolution-chips-container {
@@ -1572,6 +1619,11 @@
     <!-- ============================================================ -->
     <div id="evolution-overlay">
         <div id="evolution-overlay-inner">
+            <div id="evolution-palier-row">
+                <span id="evolution-palier-duration" onclick="toggleEvolutionPalierPicker()"></span><span
+                    id="evolution-palier-end"></span>
+                <div id="evolution-palier-picker"></div>
+            </div>
             <div id="evolution-chips-container"></div>
             <div id="evolution-chart-wrap">
                 <canvas id="evolutionChart"></canvas>
@@ -3257,6 +3309,14 @@
                 updateInstalled: "Mise à jour installée",
                 legendToggleTitle: "Afficher/masquer la légende",
 
+                // Label de palier — graphique Évolution (overlay plein écran)
+                evolutionMonthSingular: "1 mois",
+                evolutionMonthsPlural: "{n} mois",
+                evolutionYearSingular: "1 an",
+                evolutionYearsPlural: "{n} ans",
+                evolutionYearsDecimal: "{n} an",
+                evolutionFullHistory: "Historique complet",
+
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
                 titleWeeklyAvg: "Moyennes par semaine",
@@ -3463,6 +3523,14 @@
                 updateInstalled: "Update installed",
                 legendToggleTitle: "Show/hide legend",
 
+                // Palier label — Evolution chart (fullscreen overlay)
+                evolutionMonthSingular: "1 month",
+                evolutionMonthsPlural: "{n} months",
+                evolutionYearSingular: "1 year",
+                evolutionYearsPlural: "{n} years",
+                evolutionYearsDecimal: "{n} years",
+                evolutionFullHistory: "Full history",
+
                 // Titres et labels statiques
                 titleResults: "Daily totals",
                 titleWeeklyAvg: "Weekly averages",
@@ -3659,6 +3727,14 @@
                 msgDefaultBtn: "Begrepen",
                 updateInstalled: "Update geïnstalleerd",
                 legendToggleTitle: "Legenda tonen/verbergen",
+
+                // Palierlabel — Evolutiegrafiek (volledig scherm overlay)
+                evolutionMonthSingular: "1 maand",
+                evolutionMonthsPlural: "{n} maanden",
+                evolutionYearSingular: "1 jaar",
+                evolutionYearsPlural: "{n} jaar",
+                evolutionYearsDecimal: "{n} jaar",
+                evolutionFullHistory: "Volledige historiek",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -8479,6 +8555,16 @@
 
         let evolutionChartInstance = null;
 
+        // Seuil au-delà duquel un écart (en ms) entre deux points consécutifs est considéré
+        // comme un "trou" de données (jour incomplet, période sans mesure) — sert au style
+        // pointillé des segments, à la couleur des segments (evolutionSegmentColor(), ci-dessus
+        // près de withAlpha()) et à la détection des points isolés (isEvolutionPointIsolated(),
+        // dans renderEvolutionChart()). Portée globale : evolutionSegmentColor() est définie hors
+        // de renderEvolutionChart() et doit pouvoir y accéder. 1,5 jour : plus large qu'un écart
+        // normal jour-à-jour (24h) pour ne jamais déclencher à tort, assez strict pour réagir dès
+        // qu'un seul jour manque.
+        const EVOLUTION_AVG_GAP_THRESHOLD_MS = 1.5 * 86400000;
+
         // Paliers de largeur temporelle (axe X) — sélectionnés par pincement (section 25b).
         // "months: null" pour 'tout' signifie borne réelle = premier jour de l'historique
         // (_getHistoryStartDate()), pas un nombre de mois fixe.
@@ -8490,14 +8576,25 @@
         // window.evolutionPaliers pour la durée de l'ouverture (pas recalculée à chaque frame
         // de geste).
         function buildEvolutionPaliers() {
+            // Paliers courts — toujours affichés, jamais tronqués (même logique qu'avant pour
+            // cette partie de la liste : ce sont des fenêtres courtes, quasi toujours pertinentes).
             const paliers = [
                 { id: '1m', months: 1 }, { id: '2m', months: 2 }, { id: '3m', months: 3 },
-                { id: '6m', months: 6 }, { id: '1a', months: 12 }, { id: '1.5a', months: 18 },
-                { id: '2a', months: 24 }
+                { id: '4m', months: 4 }, { id: '6m', months: 6 }, { id: '9m', months: 9 },
+                { id: '1a', months: 12 }
             ];
+            // Paliers 1.5a/2a — désormais soumis à la même troncature que les paliers annuels
+            // dynamiques ci-dessous : si l'historique réel est plus court que ce que couvrirait
+            // ce palier, il ferait doublon avec "tout" et n'est pas ajouté (ni les plus longs).
+            const longCandidates = [{ id: '1.5a', months: 18 }, { id: '2a', months: 24 }];
             const histStart = _getHistoryStartDate();
+            const today = new Date();
             if (histStart) {
-                const today = new Date();
+                for (const p of longCandidates) {
+                    const candidateStart = new Date(today.getFullYear(), today.getMonth() - p.months, today.getDate());
+                    if (candidateStart <= histStart) break; // ce palier (et les plus longs) couvriraient déjà tout
+                    paliers.push(p);
+                }
                 let years = 3;
                 while (years <= 50) { // garde-fou de sécurité, ne devrait jamais être atteint
                     const candidateStart = new Date(today.getFullYear() - years, today.getMonth(), today.getDate());
@@ -8505,6 +8602,10 @@
                     paliers.push({ id: `${years}a`, months: years * 12 });
                     years++;
                 }
+            } else {
+                // Aucun historique du tout (app vide) : on garde 1.5a/2a par cohérence visuelle,
+                // rien à tronquer puisqu'il n'y a pas de borne réelle à comparer.
+                paliers.push(...longCandidates);
             }
             paliers.push({ id: 'tout', months: null });
             return paliers;
@@ -8534,10 +8635,10 @@
             if (palier.months === 1) {
                 return Array.from({ length: daysInMonth }, (_, i) => i + 1);
             }
-            if (palier.months === null || palier.months >= 12) {
-                return [1]; // 1 an et au-delà (+ 'tout') → mensuel
+            if (palier.months === null || palier.months >= 9) {
+                return [1]; // 9 mois et au-delà (+ 'tout') → mensuel
             }
-            const pas = (palier.months === 6) ? 10 : 5; // 2 ou 3 mois → pas de 5
+            const pas = (palier.months === 4 || palier.months === 6) ? 10 : 5; // 2/3 mois → pas de 5 ; 4/6 mois → pas de 10
             const days = [];
             for (let d = 1; d < 30; d += pas) days.push(d);
             return days;
@@ -8561,6 +8662,97 @@
                 cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
             }
             return ticks.sort((a, b) => a - b);
+        }
+
+        // ============================================================
+        // 25c. LABEL DE PALIER CLIQUABLE + PALETTE DE SÉLECTION DIRECTE
+        // Rangée #evolution-palier-row : durée cliquable (ouvre #evolution-palier-picker,
+        // pills réutilisant .evolution-toggle-pill) + fin de période "→ mois année" (non
+        // cliquable, mise à jour uniquement par le swipe). Mis à jour en direct pendant les
+        // gestes (candidat), et à l'état committé après tout rendu réel (voir
+        // renderEvolutionChart() et onEvolutionTouchEnd()).
+        // ============================================================
+
+        // Formate "1,5" (FR/NL) vs "1.5" (EN) — seul cas décimal possible dans la liste actuelle
+        // de paliers est 1.5a (18 mois / 12).
+        function formatEvolutionDecimalYears(years) {
+            const str = years.toString();
+            return settings.lang === 'en' ? str : str.replace('.', ',');
+        }
+
+        // Texte de la partie durée du label — et des pills de la palette (même fonction,
+        // même texte partout pour un seul palier donné).
+        function formatEvolutionPalierDurationText(palier) {
+            if (palier.months === null) return t('evolutionFullHistory');
+            if (palier.months < 12) {
+                return palier.months === 1
+                    ? t('evolutionMonthSingular')
+                    : t('evolutionMonthsPlural', { n: palier.months });
+            }
+            const years = palier.months / 12;
+            if (Number.isInteger(years)) {
+                return years === 1
+                    ? t('evolutionYearSingular')
+                    : t('evolutionYearsPlural', { n: years });
+            }
+            return t('evolutionYearsDecimal', { n: formatEvolutionDecimalYears(years) });
+        }
+
+        // Met à jour l'affichage du label — sans argument : état committé actuel
+        // (window.evolutionPalierIndex / window.evolutionEndDate). Pendant un geste, l'appelant
+        // passe un palier candidat (pincement) OU une date de fin candidate (swipe), jamais les
+        // deux à la fois — voir onEvolutionTouchMove().
+        function updateEvolutionPalierLabel(overridePalier, overrideEndDate) {
+            const durationEl = document.getElementById('evolution-palier-duration');
+            const endEl = document.getElementById('evolution-palier-end');
+            if (!durationEl || !endEl) return;
+
+            const palier = overridePalier || window.evolutionPaliers[window.evolutionPalierIndex];
+            durationEl.textContent = formatEvolutionPalierDurationText(palier);
+
+            if (palier.months === null) {
+                endEl.textContent = ''; // "Historique complet" — pas de fin fixe à afficher
+                return;
+            }
+            const endDate = overrideEndDate || window.evolutionEndDate;
+            const endStr = endDate.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
+            endEl.textContent = ` → ${endStr}`;
+        }
+
+        function hideEvolutionPalierPicker() {
+            const picker = document.getElementById('evolution-palier-picker');
+            if (picker) picker.style.display = 'none';
+        }
+
+        function toggleEvolutionPalierPicker() {
+            const picker = document.getElementById('evolution-palier-picker');
+            if (!picker) return;
+            if (picker.style.display === 'flex') {
+                picker.style.display = 'none';
+            } else {
+                renderEvolutionPalierPicker();
+                picker.style.display = 'flex';
+            }
+        }
+
+        function renderEvolutionPalierPicker() {
+            const picker = document.getElementById('evolution-palier-picker');
+            if (!picker) return;
+            picker.innerHTML = window.evolutionPaliers.map((p, idx) => {
+                const cls = idx === window.evolutionPalierIndex
+                    ? 'evolution-toggle-pill evolution-chip-selected'
+                    : 'evolution-toggle-pill evolution-chip-unselected';
+                return `<div class="${cls}" onclick="selectEvolutionPalier(${idx})">${formatEvolutionPalierDurationText(p)}</div>`;
+            }).join('');
+        }
+
+        // Sélection directe d'un palier depuis la palette — ferme la palette, redessine le
+        // graphique avec la fenêtre du palier choisi, ancrée sur window.evolutionEndDate inchangé.
+        function selectEvolutionPalier(index) {
+            hideEvolutionPalierPicker();
+            if (index === window.evolutionPalierIndex) return;
+            window.evolutionPalierIndex = index;
+            renderEvolutionChart();
         }
 
         // Couleur/label d'une série — 'combined' (grandeur blanche, settings.combinedTypeIds)
@@ -8587,6 +8779,18 @@
                 return `rgba(${(bigint >> 16) & 255},${(bigint >> 8) & 255},${bigint & 255},${alpha})`;
             }
             return colorStr;
+        }
+
+        // Couleur d'un segment de courbe selon qu'il traverse un trou de données ou non — mêmes
+        // seuils que evolutionSegmentDash() (voir EVOLUTION_AVG_GAP_THRESHOLD_MS, section 25),
+        // mais appliqués à la couleur plutôt qu'au style du trait. normalAlpha = opacité du
+        // segment plein (donnée réelle des deux côtés) ; gapAlpha = opacité du segment pointillé
+        // (reconstitué à travers un trou) — toujours plus faible, pour bien marquer la différence.
+        function evolutionSegmentColor(baseColor, normalAlpha, gapAlpha) {
+            return (ctx) => {
+                const gap = ctx.p1.parsed.x - ctx.p0.parsed.x;
+                return withAlpha(baseColor, gap > EVOLUTION_AVG_GAP_THRESHOLD_MS ? gapAlpha : normalAlpha);
+            };
         }
 
         // Chips de sélection — un cercle par type ayant des données (getTypesWithHistoryData(),
@@ -8725,12 +8929,16 @@
             // aux mises à jour suivantes sans recréer le chart.
             if (!window.evolutionPaliers) window.evolutionPaliers = buildEvolutionPaliers();
             if (typeof window.evolutionPalierIndex === 'undefined') {
-                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '6m');
+                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '2m');
             }
             const palier = window.evolutionPaliers[window.evolutionPalierIndex];
             window._evolutionCurrentPalier = palier;
             const startDate = getPalierStartDate(window.evolutionEndDate, palier);
             const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+
+            // Label palier — état committé (pas d'override) : couvre tous les cas d'appel de
+            // renderEvolutionChart() (ouverture, sélection via palette, fin de geste confirmé).
+            updateEvolutionPalierLabel();
 
             const seriesIds = settings.evolutionSelectedSeries;
             const { points, movingAvg3, movingAvg5 } = computeEvolutionData(window.evolutionEndDate, windowDays, seriesIds);
@@ -8747,13 +8955,6 @@
             // place (3j = fin, 5j = épais) plutôt que d'introduire un nouveau langage visuel.
             const AVG3_ISOLATED_RADIUS = 3;
             const AVG5_ISOLATED_RADIUS = AVG3_ISOLATED_RADIUS * 1.5;
-            // Seuil au-delà duquel un écart (en ms) entre deux points consécutifs du tableau
-            // est considéré comme un "trou" de données (jour incomplet, période sans mesure) —
-            // sert à la fois au style pointillé du segment (voir evolutionSegmentDash()
-            // ci-dessous) et à la détection des points isolés. 1,5 jour : plus large qu'un écart
-            // normal jour-à-jour (24h) pour ne jamais déclencher à tort, assez strict pour
-            // réagir dès qu'un seul jour manque.
-            const EVOLUTION_AVG_GAP_THRESHOLD_MS = 1.5 * 86400000;
 
             // Style de segment dynamique (option "segment" de Chart.js, stylage par tronçon de
             // ligne) : pointillé pour le tronçon qui traverse un trou de données, plein sinon.
@@ -8791,7 +8992,10 @@
                         data: points[sid] || [],
                         showLine: false,
                         pointRadius: 3,
-                        pointBackgroundColor: withAlpha(color, 0.7),
+                        // Opacité réduite (0.45, au lieu de 0.7) : les points bruts restent
+                        // repérables mais laissent ressortir les courbes de moyenne mobile
+                        // par-dessus, surtout là où plusieurs séries se superposent.
+                        pointBackgroundColor: withAlpha(color, 0.45),
                         pointBorderColor: 'rgba(0,0,0,0.3)',
                         order: 3 // dessiné en dessous des courbes (order plus élevé = dessous)
                     });
@@ -8802,12 +9006,17 @@
                         label: `${label} ~${t('resMoy3j')}`,
                         data: avg3Data,
                         showLine: true,
+                        // Points isolés toujours à pleine opacité — ils signalent une vraie
+                        // donnée (par opposition au pointillé, qui indique une reconstitution),
+                        // ce contraste ne doit jamais être dilué.
                         pointRadius: (ctx) => isEvolutionPointIsolated(avg3Data, ctx.dataIndex) ? AVG3_ISOLATED_RADIUS : 0,
                         pointBackgroundColor: color,
                         pointBorderWidth: 0,
                         spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
-                        segment: { borderDash: evolutionSegmentDash },
-                        borderColor: color,
+                        // Trait à 0.65 sur donnée réelle, 0.45 sur segment pointillé (trou) —
+                        // moins prioritaire visuellement que ~5j (voir plus bas), qui reste plein.
+                        segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 0.65, 0.45) },
+                        borderColor: withAlpha(color, 0.65),
                         borderWidth: AVG3_BORDER_WIDTH,
                         order: 2 // dessiné par-dessus les points
                     });
@@ -8822,7 +9031,10 @@
                         pointBackgroundColor: color,
                         pointBorderWidth: 0,
                         spanGaps: true, // toujours relier — segment.borderDash indique les trous, pas une coupure
-                        segment: { borderDash: evolutionSegmentDash },
+                        // Trait plein à pleine opacité sur donnée réelle (courbe la plus
+                        // prioritaire visuellement), 0.45 sur segment pointillé (trou) — cohérent
+                        // avec ~3j pour la partie pointillée.
+                        segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 1, 0.45) },
                         borderColor: color,
                         borderWidth: AVG5_BORDER_WIDTH,
                         order: 1 // dessiné par-dessus tout le reste (points + moyenne 3j)
@@ -8962,6 +9174,10 @@
         const EVOLUTION_PAN_CONFIRM_PX = 8;
 
         function onEvolutionTouchStart(e) {
+            // Referme la palette de sélection si elle était ouverte — évite qu'elle reste
+            // affichée par-dessus un geste en cours (pincement ou swipe).
+            hideEvolutionPalierPicker();
+
             // Un pincement (2 doigts) prend toujours le dessus, même s'il remplace un pan en
             // cours (confirmé ou non) — c'est le comportement naturel attendu quand le 2e doigt
             // d'un vrai pincement arrive juste après le 1er.
@@ -9030,6 +9246,9 @@
                 const candidatePalier = window.evolutionPaliers[evolutionGestureState.candidateIndex];
                 const start = getPalierStartDate(window.evolutionEndDate, candidatePalier);
                 renderEvolutionPreviewBand(start.getTime(), window.evolutionEndDate.getTime(), candidatePalier);
+                // Pincement → met à jour uniquement la partie durée du label (la fin de période
+                // reste celle actuellement committée, inchangée par ce geste).
+                updateEvolutionPalierLabel(candidatePalier, null);
             } else if (evolutionGestureState.type === 'pan' && e.touches.length === 1) {
                 // Voir note de rotation en en-tête de section : mouvement local "horizontal" = clientY brut.
                 const dyRaw = e.touches[0].clientY - evolutionGestureState.startY;
@@ -9049,6 +9268,9 @@
                 const palier = window.evolutionPaliers[window.evolutionPalierIndex];
                 const start = getPalierStartDate(candidate, palier);
                 renderEvolutionPreviewBand(start.getTime(), candidate.getTime(), palier);
+                // Swipe → met à jour uniquement la partie "→ mois année" du label (la durée
+                // reste celle actuellement committée, inchangée par ce geste).
+                updateEvolutionPalierLabel(null, candidate);
             }
         }
 
@@ -9063,7 +9285,9 @@
                 hideEvolutionPreviewBand();
                 if (evolutionGestureState.candidateIndex !== window.evolutionPalierIndex) {
                     window.evolutionPalierIndex = evolutionGestureState.candidateIndex;
-                    renderEvolutionChart();
+                    renderEvolutionChart(); // met aussi à jour le label (état committé)
+                } else {
+                    updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
             } else if (evolutionGestureState.type === 'pan' && evolutionGestureState.confirmed) {
                 // Pan jamais confirmé (resté sous le seuil) : rien n'a été touché ni prévisualisé,
@@ -9071,7 +9295,9 @@
                 hideEvolutionPreviewBand();
                 if (evolutionGestureState.candidateEndDate.getTime() !== window.evolutionEndDate.getTime()) {
                     window.evolutionEndDate = evolutionGestureState.candidateEndDate;
-                    renderEvolutionChart();
+                    renderEvolutionChart(); // met aussi à jour le label (état committé)
+                } else {
+                    updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
             }
             evolutionGestureState = null;
@@ -9129,7 +9355,7 @@
             // on borne simplement l'index à la nouvelle longueur plutôt que de le réinitialiser.
             window.evolutionPaliers = buildEvolutionPaliers();
             if (typeof window.evolutionPalierIndex === 'undefined') {
-                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '6m');
+                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '2m');
             } else {
                 window.evolutionPalierIndex = Math.min(window.evolutionPalierIndex, window.evolutionPaliers.length - 1);
             }
