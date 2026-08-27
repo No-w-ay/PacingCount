@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8469,36 +8469,44 @@
 
 
         // ============================================================
-        // 25. GRAPHIQUE ÉVOLUTION (Chantier 2/3 — Passe 1)
-        // computeEvolutionData() : fonction d'agrégation générique — accepte n'importe quelle
-        // fenêtre (windowDays paramétré, prépare un futur sélecteur mois/trimestre/semestre/
-        // année/tout) et n'importe quel ensemble de séries (typeId numérique, ou 'combined'
-        // pour la grandeur blanche définie par settings.combinedTypeIds — même état que
-        // Chantier 1B, pas de duplication). Un jour est exclu en bloc (toutes séries) s'il est
-        // incomplet — même seuil que renderResults()/renderDailyCharts() (< 23h-1min).
-        // Marge agrégée en plus de la fenêtre officielle, nécessaire aux moyennes mobiles en
-        // bord de fenêtre (même piège documenté pour Résultats — voir Handoff) — calée sur la
-        // plus large des deux moyennes supportées (5j centrée = ±2 jours).
-        // Différence avec renderResults()/renderDailyCharts() : vérifie explicitement que les
-        // jours voisins utilisés pour chaque moyenne mobile sont bien calendairement consécutifs
-        // (pas seulement adjacents dans le tableau trié) — sur une fenêtre de 6 mois, un vrai
-        // jour sans aucune période enregistrée est plus probable que sur 14 jours ; sans ce
-        // contrôle, un jour absent du tableau ferait glisser silencieusement le calcul sur un
-        // jour non-adjacent.
+        // 25. GRAPHIQUE ÉVOLUTION (Chantier 2/3 — Passe 1, puis raffinement continuité des trous)
+        //
+        // buildEvolutionFullDaysIndex() : agrège TOUT l'historique en un index par jour
+        // (proportionnel au nombre de PÉRIODES, pas de jours) — coûteux mais rare : calculé une
+        // seule fois par ouverture de l'overlay (voir openEvolutionOverlay()), mis en cache dans
+        // window.evolutionFullDaysIndex. Pas de logique d'invalidation fine : l'overlay occupe
+        // tout l'écran (aucune édition de données possible pendant qu'il est ouvert), donc un
+        // simple recalcul à chaque (ré)ouverture suffit.
+        //
+        // computeEvolutionData() lit ensuite cet index déjà construit — tout le reste (fenêtre
+        // affichée, moyennes mobiles, recherche d'un point d'ancrage hors fenêtre) devient un
+        // simple parcours de ce petit tableau (proportionnel au nombre de JOURS, borné même sur
+        // des années d'usage quotidien), donc bon marché à répéter à chaque frame de geste.
+        //
+        // Pourquoi un ancrage hors fenêtre : Chart.js ne peut tracer un segment de courbe
+        // (même partiellement, même juste la portion visible) qu'entre deux points réellement
+        // présents dans le tableau de données. Un trou de plusieurs jours à plusieurs mois entre
+        // deux points de moyenne mobile doit donc pouvoir inclure son point de destination même
+        // s'il tombe hors de la fenêtre affichée — sans quoi Chart.js n'a rien à quoi relier le
+        // dernier point visible, et le segment pointillé disparaît entièrement au lieu d'être
+        // rogné visuellement au bord (ce que scales.x.min/max fait nativement, à condition que
+        // les deux points existent dans le tableau). D'où : pour chaque courbe, on conserve tous
+        // les points dans la fenêtre + au plus un point d'ancrage immédiatement avant et un
+        // immédiatement après, peu importe leur distance réelle. Ces points d'ancrage sont
+        // marqués _anchor:true pour être exclus du calcul d'échelle Y en mode zoom
+        // (computeYAxisRange) — sinon un point très éloigné et très différent fausserait
+        // l'échelle affichée pour la fenêtre réellement visible.
         // ============================================================
-        function computeEvolutionData(endDate, windowDays, seriesIds) {
-            const MAX_AVG_HALF_WIDTH = 3; // 7j centrée = ±3 jours — la plus large des trois moyennes
-            const windowStartTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (windowDays - 1)).getTime();
-            const windowEndTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1).getTime(); // exclusif
-            const aggStartTs = windowStartTs - MAX_AVG_HALF_WIDTH * 86400000;
-            const aggEndTs = windowEndTs + MAX_AVG_HALF_WIDTH * 86400000;
 
+        // Construit l'index par jour sur l'intégralité de l'historique (+ période en cours).
+        // Même agrégation que renderDailyCharts()/renderWeeklyCharts(), mais sans fenêtrage —
+        // volontairement : c'est le seul endroit de l'app qui a besoin de "tout", et seulement
+        // une fois par ouverture d'overlay (voir commentaire d'en-tête ci-dessus).
+        function buildEvolutionFullDaysIndex() {
             let all = [...state.history];
             if (state.activeType) {
                 all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
             }
-            all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
-
             const daysData = {};
             all.forEach(e => {
                 const d = new Date(e.start);
@@ -8511,6 +8519,22 @@
                 if (!daysData[dateKey].typeTotals[e.typeId]) daysData[dateKey].typeTotals[e.typeId] = 0;
                 daysData[dateKey].typeTotals[e.typeId] += mins;
             });
+            return { daysData, dateKeys: Object.keys(daysData).sort() };
+        }
+
+        // computeEvolutionData() : fonction d'agrégation générique — accepte n'importe quelle
+        // fenêtre (windowDays paramétré) et n'importe quel ensemble de séries (typeId numérique,
+        // ou 'combined' pour la grandeur blanche définie par settings.combinedTypeIds — même état
+        // que Chantier 1B, pas de duplication). Un jour est exclu en bloc (toutes séries) s'il
+        // est incomplet — même seuil que renderResults()/renderDailyCharts() (< 23h-1min).
+        // Lit window.evolutionFullDaysIndex (voir buildEvolutionFullDaysIndex() ci-dessus) —
+        // jamais reconstruit ici, seulement à l'ouverture de l'overlay.
+        function computeEvolutionData(endDate, windowDays, seriesIds) {
+            const windowStartTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() - (windowDays - 1)).getTime();
+            const windowEndTs = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate() + 1).getTime(); // exclusif
+
+            if (!window.evolutionFullDaysIndex) window.evolutionFullDaysIndex = buildEvolutionFullDaysIndex();
+            const { daysData, dateKeys } = window.evolutionFullDaysIndex;
 
             const isComplete = (key) => daysData[key] && daysData[key].totalMins >= 23 * 60 - 1;
 
@@ -8523,10 +8547,10 @@
                 return day.typeTotals[seriesId] || 0;
             }
 
-            const dateKeys = Object.keys(daysData).sort();
-
-            // Points bruts — jours complets uniquement, dans la fenêtre officielle (pas la marge).
-            // Conversion minutes → heures ici : l'axe Y du graphe est en heures (0-24).
+            // Points bruts — jours complets uniquement, dans la fenêtre officielle. Conversion
+            // minutes → heures ici : l'axe Y du graphe est en heures (0-24). Pas de notion
+            // d'ancrage hors fenêtre pour les points bruts : ce sont des points isolés (pas de
+            // ligne à relier), seules les courbes de moyenne mobile ont besoin de cette logique.
             const points = {};
             seriesIds.forEach(sid => points[sid] = []);
             dateKeys.forEach(key => {
@@ -8537,14 +8561,20 @@
             });
 
             // Moyenne mobile centrée générique — halfWidth=1 → fenêtre 3j (J-1..J+1),
-            // halfWidth=2 → fenêtre 5j (J-2..J+2). Continuité calendaire stricte sur toute la
-            // fenêtre, tous les jours impliqués doivent être complets — voir commentaire d'en-tête.
+            // halfWidth=2 → fenêtre 5j, halfWidth=3 → fenêtre 7j. Calculée sur l'INTÉGRALITÉ de
+            // dateKeys (pas seulement la fenêtre affichée) : un jour proche du bord de la fenêtre
+            // va chercher ses voisins aussi loin que l'historique réel le permet, sans limite
+            // artificielle. Continuité calendaire stricte : tous les jours voisins impliqués
+            // doivent être calendairement consécutifs (pas seulement adjacents dans le tableau
+            // trié) et complets — un vrai jour sans aucune période enregistrée est courant sur de
+            // longues fenêtres ; sans ce contrôle, un jour absent ferait glisser silencieusement
+            // le calcul sur un jour non-adjacent. _inWindow marque les points dans la fenêtre
+            // officielle, distingués ensuite des candidats d'ancrage hors fenêtre (voir
+            // reduceToWindowWithAnchors() plus bas).
             function computeMovingAvg(halfWidth) {
                 const result = {};
                 seriesIds.forEach(sid => result[sid] = []);
                 dateKeys.forEach((key, idx) => {
-                    const ts = daysData[key].timestamp;
-                    if (ts < windowStartTs || ts >= windowEndTs) return;
                     if (idx - halfWidth < 0 || idx + halfWidth >= dateKeys.length) return;
 
                     const neighborKeys = [];
@@ -8555,18 +8585,53 @@
                     }
                     if (neighborKeys.some(k => !isComplete(k))) return;
 
+                    const ts = daysData[key].timestamp;
+                    const inWindow = ts >= windowStartTs && ts < windowEndTs;
                     seriesIds.forEach(sid => {
                         const sum = neighborKeys.reduce((s, k) => s + seriesValue(k, sid), 0);
-                        result[sid].push({ x: ts, y: (sum / neighborKeys.length) / 60 });
+                        result[sid].push({ x: ts, y: (sum / neighborKeys.length) / 60, _inWindow: inWindow });
                     });
                 });
                 return result;
             }
 
-            return { points, movingAvg3: computeMovingAvg(1), movingAvg5: computeMovingAvg(2), movingAvg7: computeMovingAvg(3) };
+            // Réduit une série de moyenne mobile (calculée sur tout l'historique) à : tous ses
+            // points dans la fenêtre affichée, + au plus un point d'ancrage immédiatement avant
+            // et un immédiatement après — peu importe leur distance réelle (voir commentaire
+            // d'en-tête de section). fullSeries est déjà trié par x croissant (dateKeys l'est).
+            function reduceToWindowWithAnchors(fullSeries) {
+                const result = {};
+                seriesIds.forEach(sid => {
+                    const inWin = [];
+                    let before = null, after = null;
+                    fullSeries[sid].forEach(pt => {
+                        if (pt._inWindow) {
+                            inWin.push({ x: pt.x, y: pt.y });
+                        } else if (pt.x < windowStartTs) {
+                            before = pt; // dernier candidat rencontré avant la fenêtre = le plus proche (ordre croissant)
+                        } else if (after === null) {
+                            after = pt; // premier candidat rencontré après la fenêtre = le plus proche (ordre croissant)
+                        }
+                    });
+                    const arr = [];
+                    if (before) arr.push({ x: before.x, y: before.y, _anchor: true });
+                    arr.push(...inWin);
+                    if (after) arr.push({ x: after.x, y: after.y, _anchor: true });
+                    result[sid] = arr;
+                });
+                return result;
+            }
+
+            return {
+                points,
+                movingAvg3: reduceToWindowWithAnchors(computeMovingAvg(1)),
+                movingAvg5: reduceToWindowWithAnchors(computeMovingAvg(2)),
+                movingAvg7: reduceToWindowWithAnchors(computeMovingAvg(3))
+            };
         }
 
         let evolutionChartInstance = null;
+
 
         // Seuil au-delà duquel un écart (en ms) entre deux points consécutifs est considéré
         // comme un "trou" de données (jour incomplet, période sans mesure) — sert au style
@@ -8917,6 +8982,11 @@
             let dataMinH = Infinity, dataMaxH = -Infinity;
             datasets.forEach(ds => {
                 (ds.data || []).forEach(pt => {
+                    // Point d'ancrage hors fenêtre (voir reduceToWindowWithAnchors(), section 25)
+                    // — sert uniquement à permettre à Chart.js de tracer/rogner la portion visible
+                    // d'un segment, ne doit jamais influencer l'échelle affichée pour la fenêtre
+                    // réellement visible.
+                    if (pt._anchor) return;
                     if (pt.y < dataMinH) dataMinH = pt.y;
                     if (pt.y > dataMaxH) dataMaxH = pt.y;
                 });
@@ -9420,6 +9490,12 @@
             const overlay = document.getElementById('evolution-overlay');
             if (!overlay) return;
             overlay.style.display = 'block';
+
+            // Reconstruit l'index par jour sur tout l'historique à chaque ouverture — coûteux
+            // (proportionnel au nombre de périodes) mais rare, voir buildEvolutionFullDaysIndex()
+            // (section 25) ; le reste du calcul (fenêtre, moyennes mobiles) lit ensuite ce cache
+            // sans jamais re-scanner state.history tant que l'overlay reste ouvert.
+            window.evolutionFullDaysIndex = buildEvolutionFullDaysIndex();
 
             // Reconstruit la liste des paliers à chaque ouverture (pas chère à recalculer, voir
             // buildEvolutionPaliers()) — reflète toujours l'ancienneté actuelle de l'historique.
