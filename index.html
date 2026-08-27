@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8976,19 +8976,33 @@
         // (points bruts + courbes de moyenne mobile actuellement visibles — pas les séries
         // masquées par les toggles 1j/~3j/~5j/~7j). Travaille en minutes en interne pour éviter les
         // imprécisions flottantes (10 min = 1/6 h), reconverti en heures pour Chart.js à la fin.
+        // rangeMin/rangeMax : bornes de la fenêtre affichée (mêmes valeurs que scales.x.min/max),
+        // nécessaires pour interpoler la valeur Y au bord (voir ci-dessous).
         // Retourne {min, max, stepSize}, ou null si aucune donnée (aucune série sélectionnée, ou
         // fenêtre vide) — l'appelant retombe alors sur l'affichage 0-24h par défaut.
-        function computeYAxisRange(datasets) {
+        function computeYAxisRange(datasets, rangeMin, rangeMax) {
             let dataMinH = Infinity, dataMaxH = -Infinity;
+            const addY = (y) => {
+                if (y < dataMinH) dataMinH = y;
+                if (y > dataMaxH) dataMaxH = y;
+            };
             datasets.forEach(ds => {
-                (ds.data || []).forEach(pt => {
+                const data = ds.data || [];
+                data.forEach((pt, i) => {
+                    if (!pt._anchor) { addY(pt.y); return; }
                     // Point d'ancrage hors fenêtre (voir reduceToWindowWithAnchors(), section 25)
-                    // — sert uniquement à permettre à Chart.js de tracer/rogner la portion visible
-                    // d'un segment, ne doit jamais influencer l'échelle affichée pour la fenêtre
-                    // réellement visible.
-                    if (pt._anchor) return;
-                    if (pt.y < dataMinH) dataMinH = pt.y;
-                    if (pt.y > dataMaxH) dataMaxH = pt.y;
+                    // — sa valeur brute ne doit jamais influencer l'échelle (potentiellement très
+                    // éloignée/différente). On inclut à la place la valeur interpolée là où le
+                    // segment qui le relie à son voisin croise le bord de la fenêtre visible :
+                    // c'est exactement la hauteur à laquelle le pointillé rogné sera affiché à ce
+                    // bord — sans quoi ce bout de pointillé visible pourrait déborder au-delà de
+                    // l'échelle Y calculée, verticalement rogné avant même d'atteindre le bord
+                    // latéral du graphe.
+                    const neighbor = pt.x < rangeMin ? data[i + 1] : data[i - 1];
+                    if (!neighbor) return; // pas de voisin (série réduite à ce seul point) — rien à interpoler
+                    const boundary = pt.x < rangeMin ? rangeMin : rangeMax;
+                    const span = neighbor.x - pt.x;
+                    addY(span === 0 ? pt.y : pt.y + (neighbor.y - pt.y) * ((boundary - pt.x) / span));
                 });
             });
             if (dataMinH === Infinity) return null;
@@ -9192,7 +9206,7 @@
             // Cas 0 série sélectionnée en mode zoom : computeYAxisRange() retourne null, on
             // retombe visuellement sur 0-24h sans changer le mode logique — dès qu'une série
             // est recochée, le zoom reprend directement (voir toggleEvolutionYAxisMode()).
-            const zoomRange = window.evolutionYAxisMode === 'zoom' ? computeYAxisRange(datasets) : null;
+            const zoomRange = window.evolutionYAxisMode === 'zoom' ? computeYAxisRange(datasets, rangeMin, rangeMax) : null;
             const yRange = zoomRange || { min: 0, max: 24, stepSize: 2 };
 
             if (evolutionChartInstance) {
