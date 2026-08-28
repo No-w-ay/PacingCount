@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.31"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8958,8 +8958,11 @@
             renderEvolutionChart();
         }
 
+        // ~5j et ~7j sont mutuellement exclusives — les activer ensemble surchargerait le
+        // graphe pour un gain de lecture limité (deux moyennes larges très proches visuellement).
         function toggleEvolutionMovingAvg5() {
             settings.evolutionShowMovingAvg5 = !settings.evolutionShowMovingAvg5;
+            if (settings.evolutionShowMovingAvg5) settings.evolutionShowMovingAvg7 = false;
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
@@ -8967,6 +8970,7 @@
 
         function toggleEvolutionMovingAvg7() {
             settings.evolutionShowMovingAvg7 = !settings.evolutionShowMovingAvg7;
+            if (settings.evolutionShowMovingAvg7) settings.evolutionShowMovingAvg5 = false;
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
@@ -9028,13 +9032,20 @@
             return { min: minM / 60, max: maxM / 60, stepSize: stepM / 60 };
         }
 
-        // Formatte une graduation de l'axe Y évolution — heure entière affichée telle quelle
-        // ("12"), heure fractionnaire affichée en "HhMM" ("12h30", "4h10").
-        function formatEvolutionYTick(hourValue) {
+        // Formatte une graduation de l'axe Y évolution — décision prise sur le PAS de l'axe
+        // (stepHours), pas sur la valeur individuelle : si le pas implique des fractions d'heure
+        // (10/15/30 min), TOUTES les graduations de cet axe s'affichent en "H:MM" (ex. "3:00",
+        // "3:30"), y compris celles qui tombent pile sur une heure entière — pour une échelle
+        // visuellement homogène. Si le pas est un multiple d'heure entière (mode "tout" 0-24h à
+        // pas 2h, ou tout pas ≥60 min), aucune fraction n'est jamais possible : on garde le
+        // format numéro seul ("10", "11", "12").
+        function formatEvolutionYTick(hourValue, stepHours) {
             const totalMin = Math.round(hourValue * 60);
             const h = Math.floor(totalMin / 60);
             const m = totalMin % 60;
-            return m === 0 ? `${h}` : `${h}h${m.toString().padStart(2, '0')}`;
+            const isFractionalStep = stepHours && Math.round(stepHours * 60) % 60 !== 0;
+            if (!isFractionalStep) return `${h}`;
+            return `${h}:${m.toString().padStart(2, '0')}`;
         }
 
         // Bascule mode "tout" (0-24h fixe) / "zoom" (adapté aux données affichées) — en mémoire
@@ -9079,6 +9090,12 @@
 
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
+            // Graduations X principales (nom de mois, jour=1) vs secondaires (numéro de jour) —
+            // opacités distinctes pour hiérarchiser visuellement (voir échange : mois discret,
+            // jours plus contrastés — à inverser facilement ici si le rendu réel suggère le
+            // contraire une fois testé).
+            const EVOLUTION_XTICK_MONTH_ALPHA = 0.55;
+            const EVOLUTION_XTICK_DAY_ALPHA = 0.95;
             const rangeMin = startDate.getTime();
             const rangeMax = window.evolutionEndDate.getTime();
 
@@ -9245,7 +9262,14 @@
                                     .map(v => ({ value: v }));
                             },
                             ticks: {
-                                color: textGray,
+                                // Couleur scriptable : opacité différente selon qu'il s'agit
+                                // d'une graduation principale (nom de mois, jour=1) ou secondaire
+                                // (numéro de jour intermédiaire) — voir constantes ci-dessus.
+                                color: (ctx) => {
+                                    const d = new Date(ctx.tick.value);
+                                    const alpha = d.getDate() === 1 ? EVOLUTION_XTICK_MONTH_ALPHA : EVOLUTION_XTICK_DAY_ALPHA;
+                                    return withAlpha(textGray, alpha);
+                                },
                                 callback: (value) => {
                                     const d = new Date(value);
                                     return d.getDate() === 1
@@ -9258,7 +9282,15 @@
                         y: {
                             min: yRange.min,
                             max: yRange.max,
-                            ticks: { color: textGray, stepSize: yRange.stepSize, callback: formatEvolutionYTick },
+                            ticks: {
+                                color: textGray, stepSize: yRange.stepSize,
+                                // function (pas arrow) : Chart.js lie `this` à l'instance de
+                                // l'axe — lecture dynamique de stepSize à chaque appel, correcte
+                                // aussi bien à la création qu'après un chart.update() ultérieur
+                                // (où stepSize est réassigné sur options.scales.y.ticks, voir
+                                // plus haut, mais une fermeture aurait gardé l'ancienne valeur).
+                                callback: function (value) { return formatEvolutionYTick(value, this.options.ticks.stepSize); }
+                            },
                             grid: { color: gridColor }
                         }
                     },
