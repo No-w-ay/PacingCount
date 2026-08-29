@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.31"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.32"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -9078,8 +9078,20 @@
             }
             const palier = window.evolutionPaliers[window.evolutionPalierIndex];
             window._evolutionCurrentPalier = palier;
-            const startDate = getPalierStartDate(window.evolutionEndDate, palier);
-            const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+            let startDate = getPalierStartDate(window.evolutionEndDate, palier);
+            let windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+
+            // Recale evolutionEndDate si nécessaire (voir clampEvolutionEndDate()) — couvre tous
+            // les chemins d'appel de renderEvolutionChart(), pas seulement le swipe (déjà clampé
+            // en direct pendant le geste) : sélection d'un nouveau palier plus large que la
+            // position actuelle via la palette, ou via pincement. Un seul point de correction
+            // plutôt que de dupliquer la logique à chaque appelant.
+            const clampedEnd = clampEvolutionEndDate(window.evolutionEndDate, windowDays);
+            if (clampedEnd.getTime() !== window.evolutionEndDate.getTime()) {
+                window.evolutionEndDate = clampedEnd;
+                startDate = getPalierStartDate(window.evolutionEndDate, palier);
+                windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+            }
 
             // Label palier — état committé (pas d'override) : couvre tous les cas d'appel de
             // renderEvolutionChart() (ouverture, sélection via palette, fin de geste confirmé).
@@ -9090,12 +9102,12 @@
 
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
-            // Graduations X principales (nom de mois, jour=1) vs secondaires (numéro de jour) —
-            // opacités distinctes pour hiérarchiser visuellement (voir échange : mois discret,
-            // jours plus contrastés — à inverser facilement ici si le rendu réel suggère le
-            // contraire une fois testé).
-            const EVOLUTION_XTICK_MONTH_ALPHA = 0.55;
-            const EVOLUTION_XTICK_DAY_ALPHA = 0.95;
+            // Graduations principales vs secondaires (axe X : mois vs jour ; axe Y : heure entière
+            // vs fraction) — opacités partagées entre les deux axes pour une hiérarchie visuelle
+            // cohérente. Principal = repère d'orientation (nom de mois, heure entière), secondaire
+            // = graduation fine intermédiaire (numéro de jour, minutes).
+            const EVOLUTION_TICK_PRINCIPAL_ALPHA = 0.95;
+            const EVOLUTION_TICK_SECONDARY_ALPHA = 0.55;
             const rangeMin = startDate.getTime();
             const rangeMax = window.evolutionEndDate.getTime();
 
@@ -9267,7 +9279,7 @@
                                 // (numéro de jour intermédiaire) — voir constantes ci-dessus.
                                 color: (ctx) => {
                                     const d = new Date(ctx.tick.value);
-                                    const alpha = d.getDate() === 1 ? EVOLUTION_XTICK_MONTH_ALPHA : EVOLUTION_XTICK_DAY_ALPHA;
+                                    const alpha = d.getDate() === 1 ? EVOLUTION_TICK_PRINCIPAL_ALPHA : EVOLUTION_TICK_SECONDARY_ALPHA;
                                     return withAlpha(textGray, alpha);
                                 },
                                 callback: (value) => {
@@ -9283,7 +9295,14 @@
                             min: yRange.min,
                             max: yRange.max,
                             ticks: {
-                                color: textGray, stepSize: yRange.stepSize,
+                                // Couleur scriptable : opacité forte pour les heures entières
+                                // (principales), réduite pour les fractions d'heure (secondaires) —
+                                // mêmes constantes que l'axe X, voir plus haut.
+                                color: (ctx) => {
+                                    const isWholeHour = Math.round(ctx.tick.value * 60) % 60 === 0;
+                                    return withAlpha(textGray, isWholeHour ? EVOLUTION_TICK_PRINCIPAL_ALPHA : EVOLUTION_TICK_SECONDARY_ALPHA);
+                                },
+                                stepSize: yRange.stepSize,
                                 // function (pas arrow) : Chart.js lie `this` à l'instance de
                                 // l'axe — lecture dynamique de stepSize à chaque appel, correcte
                                 // aussi bien à la création qu'après un chart.update() ultérieur
@@ -9451,7 +9470,7 @@
                 const daysPerPx = evolutionGestureState.windowDays / evolutionGestureState.pxRange;
                 const dayDelta = -Math.round(dyRaw * daysPerPx);
                 const ed = window.evolutionEndDate;
-                const candidate = clampEvolutionEndDate(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + dayDelta));
+                const candidate = clampEvolutionEndDate(new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + dayDelta), evolutionGestureState.windowDays);
                 evolutionGestureState.candidateEndDate = candidate;
 
                 const palier = window.evolutionPaliers[window.evolutionPalierIndex];
@@ -9491,15 +9510,48 @@
             evolutionGestureState = null;
         }
 
-        // Borne evolutionEndDate entre le premier jour de l'historique et aujourd'hui — même
-        // convention que navigateHistory()/navigateResults() (clamp sur la date elle-même, pas
-        // sur le début de fenêtre, qui peut donc partiellement déborder avant le premier jour
-        // de données près de cette limite).
-        function clampEvolutionEndDate(candidate) {
+        // Bornes réelles de l'historique (premier/dernier jour avec données) — lues depuis
+        // l'index déjà construit à l'ouverture de l'overlay (voir buildEvolutionFullDaysIndex(),
+        // section 25). Reconstruit défensivement si absent (ne devrait pas arriver en usage
+        // normal, l'overlay doit toujours être ouvert avant tout appel ici).
+        function getEvolutionHistoryBounds() {
+            if (!window.evolutionFullDaysIndex) window.evolutionFullDaysIndex = buildEvolutionFullDaysIndex();
+            const idx = window.evolutionFullDaysIndex;
+            if (!idx || idx.dateKeys.length === 0) return null;
+            const firstKey = idx.dateKeys[0];
+            const lastKey = idx.dateKeys[idx.dateKeys.length - 1];
+            return {
+                start: new Date(idx.daysData[firstKey].timestamp),
+                end: new Date(idx.daysData[lastKey].timestamp)
+            };
+        }
+
+        // Borne evolutionEndDate — règle symétrique sur les DONNÉES RÉELLES, pas sur "aujourd'hui" :
+        //   - Borne haute : le dernier jour réel de l'historique (pas "aujourd'hui" — évite de
+        //     pouvoir swiper vers une fenêtre vide si rien n'a été enregistré récemment).
+        //   - Borne basse : la position la plus reculée où le DÉBUT de la fenêtre affichée
+        //     coïncide exactement avec le premier jour réel de l'historique — jamais plus loin.
+        //     windowDays sert à convertir cette contrainte (qui porte sur le début de fenêtre,
+        //     une valeur dérivée) en une contrainte sur evolutionEndDate (la seule valeur qu'on
+        //     fait varier directement) : minEndDate = histStart + (windowDays - 1). Si
+        //     l'historique réel est plus court que le palier courant, cette borne basse
+        //     dépasserait la borne haute (position impossible, dans le "futur" des données) —
+        //     plafonnée dans ce cas à la borne haute : le recul est alors simplement désactivé,
+        //     aucun cas particulier à gérer séparément (voir échange).
+        // windowDays optionnel — absent, le clamp ne s'applique qu'à la borne haute (repli sûr).
+        function clampEvolutionEndDate(candidate, windowDays) {
             const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
-            if (candidate > todayMidnight) return todayMidnight;
-            const minDate = _getHistoryStartDate();
-            if (minDate && candidate < minDate) return minDate;
+            const bounds = getEvolutionHistoryBounds();
+            const maxEndDate = bounds ? bounds.end : todayMidnight;
+            if (candidate > maxEndDate) return maxEndDate;
+
+            if (bounds && windowDays) {
+                let minEndDate = new Date(bounds.start.getFullYear(), bounds.start.getMonth(), bounds.start.getDate() + windowDays - 1);
+                if (minEndDate > maxEndDate) minEndDate = maxEndDate; // historique plus court que le palier — recul désactivé
+                if (candidate < minEndDate) return minEndDate;
+            } else if (bounds && candidate < bounds.start) {
+                return bounds.start; // repli si windowDays indisponible
+            }
             return candidate;
         }
 
