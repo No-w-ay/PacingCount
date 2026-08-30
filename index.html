@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.36"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.37"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8612,7 +8612,14 @@
                     for (let off = -halfWidth; off <= halfWidth; off++) neighborKeys.push(dateKeys[idx + off]);
 
                     for (let i = 1; i < neighborKeys.length; i++) {
-                        if (daysData[neighborKeys[i]].timestamp - daysData[neighborKeys[i - 1]].timestamp !== 86400000) return;
+                        // Comparaison par composants de date (pas par différence brute en ms) —
+                        // une nuit de changement d'heure ne dure que 23h ou 25h réelles, jamais
+                        // exactement 86400000ms, alors que le jour reste bien calendairement le
+                        // suivant. Même convention que le reste du projet (voir navigateHistory(),
+                        // getPalierStartDate()) : jamais de +24*3600*1000 pour un "jour suivant".
+                        const prevDate = new Date(daysData[neighborKeys[i - 1]].timestamp);
+                        const expectedNext = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate() + 1).getTime();
+                        if (daysData[neighborKeys[i]].timestamp !== expectedNext) return;
                     }
                     if (neighborKeys.some(k => !isComplete(k))) return;
 
@@ -9399,7 +9406,7 @@
                             // avec ses propres métriques de police, tout en gardant la zone de tracé
                             // strictement stable (contrainte produit clé — jamais de recalcul de
                             // hauteur d'axe selon que janvier est visible ou non).
-                            afterFit: (scale) => { scale.height = 34; },
+                            afterFit: (scale) => { scale.height = 44; },
                             ticks: {
                                 // Couleur scriptable : opacité différente selon qu'il s'agit d'une
                                 // graduation principale ou secondaire — voir constantes ci-dessus. En
