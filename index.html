@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.33"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.34"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8960,15 +8960,15 @@
             const sortedIds = [...namedTypeIds].sort((a, b) => a - b);
 
             let html = '';
+            sortedIds.forEach(id => {
+                html += `<div>${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</div>`;
+            });
             if (hasCombined) {
                 const composDots = settings.combinedTypeIds
                     .map(id => evolutionLegendDot(getColorValueForId(id)))
                     .join('<span style="opacity:0.6; margin:0 3px;">+</span>');
-                html += `<div style="margin-bottom:4px;">${evolutionLegendDot('#ffffff')}<span style="opacity:0.6; margin:0 4px;">=</span>${composDots}</div>`;
+                html += `<div style="margin-top:4px;">${evolutionLegendDot('#ffffff')}<span style="opacity:0.6; margin:0 4px;">=</span>${composDots}</div>`;
             }
-            sortedIds.forEach(id => {
-                html += `<div>${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</div>`;
-            });
             if (hasVisibleGap) {
                 html += `<div style="margin-top:4px; opacity:0.85;">⋯ ${t('evolutionGapLegend')}</div>`;
             }
@@ -9362,9 +9362,51 @@
                 return;
             }
 
+            // Dessine le millésime sous les graduations "1er janvier", en mode "graduations mois
+            // uniquement" seulement (voir couleur scriptable ci-dessus, même condition). Volontai-
+            // rement PAS une étiquette Chart.js native à 2 lignes : ça forcerait Chart.js à
+            // recalculer la hauteur réservée à l'axe X (donc à rétrécir la zone de tracé, et de
+            // façon variable selon que janvier est visible ou non — pire que rétrécir en
+            // permanence). afterDraw dessine par-dessus, APRÈS que Chart.js ait fini son propre
+            // rendu normal (inchangé) — coût nul sur le calcul de mise en page.
+            // Filet de sécurité : si l'espace physique sous les étiquettes normales ne suffit pas
+            // sur un écran donné, le texte est simplement dessiné hors du canevas visible (donc
+            // invisible), sans chevauchement ni erreur — pas de risque si l'hypothèse "il reste de
+            // la place" ne se vérifie pas partout.
+            const evolutionYearLabelPlugin = {
+                id: 'evolutionYearLabel',
+                afterDraw(chart) {
+                    const palier = window._evolutionCurrentPalier;
+                    if (!palier) return;
+                    const isMonthOnlyMode = palier.months === null || palier.months >= 9;
+                    if (!isMonthOnlyMode) return;
+
+                    const xScale = chart.scales.x;
+                    if (!xScale || !xScale.ticks) return;
+
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.font = '11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillStyle = withAlpha(textGray, EVOLUTION_TICK_PRINCIPAL_ALPHA);
+
+                    xScale.ticks.forEach(tick => {
+                        const d = new Date(tick.value);
+                        if (d.getDate() !== 1 || d.getMonth() !== 0) return; // seulement le 1er janvier
+                        const xPixel = xScale.getPixelForValue(tick.value);
+                        const yPixel = chart.chartArea.bottom + 16; // sous l'étiquette "janv." existante
+                        ctx.fillText(d.getFullYear().toString(), xPixel, yPixel);
+                    });
+
+                    ctx.restore();
+                }
+            };
+
             evolutionChartInstance = new Chart(canvas.getContext('2d'), {
                 type: 'line',
                 data: { datasets },
+                plugins: [evolutionYearLabelPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -9388,12 +9430,20 @@
                             },
                             ticks: {
                                 // Couleur scriptable : opacité différente selon qu'il s'agit
-                                // d'une graduation principale (nom de mois, jour=1) ou secondaire
-                                // (numéro de jour intermédiaire) — voir constantes ci-dessus.
+                                // d'une graduation principale ou secondaire — voir constantes
+                                // ci-dessus. En mode "graduations mois uniquement" (palier ≥9m,
+                                // voir getEvolutionTickDaysInMonth()), TOUTES les graduations
+                                // tombent sur le 1er du mois — dans ce cas précis, seul janvier
+                                // (qui porte en plus le millésime, voir le plugin de dessin de
+                                // l'année ci-dessous) reste principal, les autres mois redescendent
+                                // en secondaire. En dehors de ce mode, comportement inchangé
+                                // (mois = principal, numéro de jour = secondaire).
                                 color: (ctx) => {
                                     const d = new Date(ctx.tick.value);
-                                    const alpha = d.getDate() === 1 ? EVOLUTION_TICK_PRINCIPAL_ALPHA : EVOLUTION_TICK_SECONDARY_ALPHA;
-                                    return withAlpha(textGray, alpha);
+                                    const isDayOne = d.getDate() === 1;
+                                    const isMonthOnlyMode = palier.months === null || palier.months >= 9;
+                                    const isPrincipal = isDayOne && (!isMonthOnlyMode || d.getMonth() === 0);
+                                    return withAlpha(textGray, isPrincipal ? EVOLUTION_TICK_PRINCIPAL_ALPHA : EVOLUTION_TICK_SECONDARY_ALPHA);
                                 },
                                 callback: (value) => {
                                     const d = new Date(value);
