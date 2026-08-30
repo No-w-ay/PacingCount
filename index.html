@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.35"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.36"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -926,7 +926,7 @@
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
-            padding: 16px;
+            padding: 16px 16px 0 16px;
             gap: 10px;
         }
 
@@ -1066,7 +1066,7 @@
             position: absolute;
             top: 0px;
             right: 0px;
-            background: rgba(45, 45, 45, 0.75);
+            background: rgba(40, 40, 40, 0.8);
             border-radius: 8px;
             padding: 8px 10px;
             font-size: 0.78rem;
@@ -5744,7 +5744,10 @@
                 });
 
                 // Ligne 5 : avertissement données incomplètes (rouge, journée terminée uniquement)
-                if (key !== todayKey && day.totalMins < 23 * 60) {
+                // Seuil aligné sur celui de isIncomplete() ci-dessus (23*60-1, même logique que
+                // la moyenne mobile) — un jour à exactement 22h59m00s ou plus est donc considéré
+                // complet ici aussi, cohérent avec le reste de l'app.
+                if (key !== todayKey && day.totalMins < 23 * 60 - 1) {
                     const enregistrees = formatMins(day.totalMins);
                     html += `<span style="color:var(--red); font-size:0.85rem;">⚠ ${t('resIncomplet')} (${enregistrees})</span>`;
                 }
@@ -8523,17 +8526,20 @@
         // l'échelle affichée pour la fenêtre réellement visible.
         // ============================================================
 
-        // Construit l'index par jour sur l'intégralité de l'historique (+ période en cours).
-        // Même agrégation que renderDailyCharts()/renderWeeklyCharts(), mais sans fenêtrage —
-        // volontairement : c'est le seul endroit de l'app qui a besoin de "tout", et seulement
-        // une fois par ouverture d'overlay (voir commentaire d'en-tête ci-dessus).
+        // Construit l'index par jour sur l'intégralité de l'historique — volontairement sans
+        // fenêtrage : c'est le seul endroit de l'app qui a besoin de "tout", et seulement une
+        // fois par ouverture d'overlay (voir commentaire d'en-tête ci-dessus).
+        // La période active en cours est EXCLUE ici, contrairement à renderDailyCharts()/
+        // renderWeeklyCharts() : elle n'est jamais découpée à minuit tant qu'elle n'est pas
+        // arrêtée (closePeriod() ne s'applique qu'à state.history[]). Une période ouverte
+        // depuis >24h gonflerait totalMins au-delà de 1440 min pour son jour de départ, ce qui
+        // faussait à la fois la détection "jour complet" (faussement vraie) et l'échelle Y en
+        // mode zoom (computeYAxisRange() pouvait dépasser 24h). Le jour "aujourd'hui" est de
+        // toute façon presque toujours incomplet tant qu'il n'est pas terminé — l'exclure ici
+        // est cohérent avec ce que fait déjà isComplete() pour lui.
         function buildEvolutionFullDaysIndex() {
-            let all = [...state.history];
-            if (state.activeType) {
-                all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
-            }
             const daysData = {};
-            all.forEach(e => {
+            state.history.forEach(e => {
                 const d = new Date(e.start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const mins = (e.end - e.start) / 60000;
