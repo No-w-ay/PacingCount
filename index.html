@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.32"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.33"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1057,6 +1057,25 @@
                pousser le conteneur au-delà. */
         }
 
+        /* Panneau de légende — superposé au coin haut-droit du graphe (au-dessus du canevas,
+           donc peut ponctuellement masquer des données à cet endroit — accepté, à ajuster si
+           ça s'avère gênant en usage réel). pointer-events:none : purement informatif, ne doit
+           jamais intercepter un tap destiné au canevas en dessous (tooltip Chart.js, geste). */
+        #evolution-legend-panel {
+            display: none;
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(20, 20, 20, 0.85);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 0.78rem;
+            line-height: 1.7;
+            max-width: 62%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
         /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
            labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
            dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
@@ -1625,6 +1644,9 @@
                 <canvas id="evolutionChart"></canvas>
                 <div id="evolution-yaxis-toggle" onclick="toggleEvolutionYAxisMode()"
                     title="Basculer entre vue complète (0-24h) et vue zoomée"></div>
+                <!-- Panneau de légende — coin haut-droit, rempli/affiché par
+                     renderEvolutionLegendPanel() (section 25c), toggle via la pastille "L". -->
+                <div id="evolution-legend-panel"></div>
                 <!-- Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande
                      basse du graphe, là où Chart.js affiche normalement les graduations de dates. -->
                 <div id="evolution-xaxis-hitzone"></div>
@@ -3321,6 +3343,7 @@
                 evolutionPill3d: "~3j",
                 evolutionPill5d: "~5j",
                 evolutionPill7d: "~7j",
+                evolutionGapLegend: "tendance interpolée (pas de données)",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -3539,6 +3562,7 @@
                 evolutionPill3d: "~3d",
                 evolutionPill5d: "~5d",
                 evolutionPill7d: "~7d",
+                evolutionGapLegend: "interpolated trend (no data)",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -3748,6 +3772,7 @@
                 evolutionPill3d: "~3d",
                 evolutionPill5d: "~5d",
                 evolutionPill7d: "~7d",
+                evolutionGapLegend: "geïnterpoleerde trend (geen data)",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -8888,6 +8913,78 @@
             };
         }
 
+        // Vrai si au moins un segment consécutif d'un tableau de points de courbe dépasse le
+        // seuil de trou (EVOLUTION_AVG_GAP_THRESHOLD_MS) — même test que evolutionSegmentDash()/
+        // evolutionSegmentColor(), mais utilisable en JS pur avant tout rendu Chart.js. Sert à
+        // savoir si la ligne d'explication du pointillé doit apparaître dans le panneau de
+        // légende (voir renderEvolutionLegendPanel()) — uniquement si un pointillé est
+        // effectivement visible dans la fenêtre actuellement affichée, pas juste "une courbe de
+        // moyenne mobile est active".
+        function evolutionSeriesHasGap(dataArr) {
+            for (let i = 1; i < dataArr.length; i++) {
+                if (dataArr[i].x - dataArr[i - 1].x > EVOLUTION_AVG_GAP_THRESHOLD_MS) return true;
+            }
+            return false;
+        }
+
+        // ============================================================
+        // 25c. PANNEAU DE LÉGENDE — superposé au coin haut-droit du graphe (voir CSS), bascule
+        // via la pastille "L" (voir renderEvolutionChips()). État session uniquement
+        // (window.evolutionShowLegend), pas persisté — même convention que evolutionYAxisMode.
+        // ============================================================
+
+        // Petit disque coloré inline — utilisé pour chaque ligne du panneau (types individuels
+        // et décomposition de la combinaison blanche).
+        function evolutionLegendDot(color) {
+            return `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${color}; margin-right:5px; vertical-align:middle;"></span>`;
+        }
+
+        // Reconstruit le contenu du panneau à partir de l'état courant (séries sélectionnées,
+        // composition de la combinaison blanche) — hasVisibleGap calculé par l'appelant
+        // (renderEvolutionChart(), qui a déjà les tableaux de points sous la main).
+        function renderEvolutionLegendPanel(hasVisibleGap) {
+            window._evolutionLastHasGap = hasVisibleGap; // mémorisé pour toggleEvolutionLegend()
+            const panel = document.getElementById('evolution-legend-panel');
+            if (!panel) return;
+            if (!window.evolutionShowLegend) { panel.style.display = 'none'; return; }
+
+            const selected = settings.evolutionSelectedSeries;
+            const hasCombined = selected.includes('combined');
+
+            // Types à nommer : sélectionnés individuellement + composant la combinaison blanche
+            // si elle est active (même si un type composant n'est pas individuellement
+            // sélectionné dans le graphe) — dédupliqués, triés par id croissant.
+            const namedTypeIds = new Set();
+            selected.forEach(sid => { if (sid !== 'combined') namedTypeIds.add(sid); });
+            if (hasCombined) settings.combinedTypeIds.forEach(id => namedTypeIds.add(id));
+            const sortedIds = [...namedTypeIds].sort((a, b) => a - b);
+
+            let html = '';
+            if (hasCombined) {
+                const composDots = settings.combinedTypeIds
+                    .map(id => evolutionLegendDot(getColorValueForId(id)))
+                    .join('<span style="opacity:0.6; margin:0 3px;">+</span>');
+                html += `<div style="margin-bottom:4px;">${evolutionLegendDot('#ffffff')}<span style="opacity:0.6; margin:0 4px;">=</span>${composDots}</div>`;
+            }
+            sortedIds.forEach(id => {
+                html += `<div>${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</div>`;
+            });
+            if (hasVisibleGap) {
+                html += `<div style="margin-top:4px; opacity:0.85;">⋯ ${t('evolutionGapLegend')}</div>`;
+            }
+
+            panel.innerHTML = html;
+            panel.style.display = html ? 'block' : 'none';
+        }
+
+        // Bascule la visibilité — pas de recalcul de données nécessaire (le contenu dépend de
+        // l'état déjà connu au dernier rendu du graphe, voir window._evolutionLastHasGap).
+        function toggleEvolutionLegend() {
+            window.evolutionShowLegend = !window.evolutionShowLegend;
+            renderEvolutionChips(); // met à jour la classe visuelle de la pastille "L"
+            renderEvolutionLegendPanel(window._evolutionLastHasGap || false);
+        }
+
         // Chips de sélection — un cercle par type ayant des données (getTypesWithHistoryData(),
         // cohérent avec les légendes existantes) + un cercle blanc pour la combinaison, + les
         // pastilles "1j" (points bruts), "~3j" et "~5j" (moyennes mobiles). Pas de limite de
@@ -8919,6 +9016,12 @@
 
             const avg7Cls = settings.evolutionShowMovingAvg7 ? 'evolution-chip-selected' : 'evolution-chip-unselected';
             html += `<div class="evolution-toggle-pill ${avg7Cls}" onclick="toggleEvolutionMovingAvg7()">${t('evolutionPill7d')}</div>`;
+
+            // Pastille "L" — bascule le panneau de légende superposé (voir section 25c).
+            // Lettre seule, pas de mot : convention déjà utilisée ailleurs dans l'app (ex. bouton
+            // "L" de la légende Historique), ne nécessite aucune traduction.
+            const legendCls = window.evolutionShowLegend ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            html += `<div class="evolution-toggle-pill ${legendCls}" onclick="toggleEvolutionLegend()">L</div>`;
 
             // Groupe durée + fin de période — dans la même rangée que les chips/pills ci-dessus
             // (poussé à droite via margin-left:auto, voir CSS). Textes remplis juste après par
@@ -9151,6 +9254,11 @@
             }
 
             const datasets = [];
+            // Vrai si au moins une courbe de moyenne mobile ACTUELLEMENT AFFICHÉE contient un
+            // segment pointillé dans la fenêtre visible — sert à la ligne d'explication du
+            // pointillé dans le panneau de légende (voir renderEvolutionLegendPanel()), affichée
+            // seulement si pertinent pour ce qui est réellement à l'écran.
+            let hasVisibleGap = false;
             seriesIds.forEach(sid => {
                 const color = getEvolutionSeriesColor(sid);
                 const label = getEvolutionSeriesLabel(sid);
@@ -9170,6 +9278,7 @@
                 }
                 if (settings.evolutionShowMovingAvg) {
                     const avg3Data = movingAvg3[sid] || [];
+                    if (evolutionSeriesHasGap(avg3Data)) hasVisibleGap = true;
                     datasets.push({
                         label: `${label} ${t('evolutionPill3d')}`,
                         data: avg3Data,
@@ -9191,6 +9300,7 @@
                 }
                 if (settings.evolutionShowMovingAvg5) {
                     const avg5Data = movingAvg5[sid] || [];
+                    if (evolutionSeriesHasGap(avg5Data)) hasVisibleGap = true;
                     datasets.push({
                         label: `${label} ${t('evolutionPill5d')}`,
                         data: avg5Data,
@@ -9210,6 +9320,7 @@
                 }
                 if (settings.evolutionShowMovingAvg7) {
                     const avg7Data = movingAvg7[sid] || [];
+                    if (evolutionSeriesHasGap(avg7Data)) hasVisibleGap = true;
                     datasets.push({
                         label: `${label} ${t('evolutionPill7d')}`,
                         data: avg7Data,
@@ -9237,6 +9348,8 @@
             // est recochée, le zoom reprend directement (voir toggleEvolutionYAxisMode()).
             const zoomRange = window.evolutionYAxisMode === 'zoom' ? computeYAxisRange(datasets, rangeMin, rangeMax) : null;
             const yRange = zoomRange || { min: 0, max: 24, stepSize: 2 };
+
+            renderEvolutionLegendPanel(hasVisibleGap);
 
             if (evolutionChartInstance) {
                 evolutionChartInstance.data.datasets = datasets;
