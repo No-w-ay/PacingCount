@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.37"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.38"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1090,20 +1090,21 @@
             cursor: pointer;
         }
 
-        /* Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande basse du
-           graphe, là où Chart.js affiche normalement les graduations de dates. pointer-events:none
-           : sert UNIQUEMENT de référence géométrique (getBoundingClientRect() dans le JS) pour
-           savoir où est cette zone — elle n'intercepte jamais physiquement le toucher, qui
-           atteint donc normalement le canvas en dessous (un tap sur un point y affiche son
-           tooltip Chart.js normalement, même dans cette bande). 60px : zone sensible généreuse
-           pour le confort du pincement/swipe, sans rien changer visuellement (pas de bande
-           affichée, pas d'agrandissement du graphique). */
+        /* Zone de reconnaissance du swipe (navigation temporelle, section 25b) — couvre
+           désormais TOUTE la hauteur du graphe, comme la zone de pincement (le pincement n'est
+           restreint à aucune sous-zone : 2 doigts n'importe où sur #evolution-chart-wrap le
+           déclenchent). Décision actée : les deux gestes partagent la même zone de reconnaissance.
+           pointer-events:none : sert UNIQUEMENT de référence géométrique (getBoundingClientRect()
+           dans le JS) — elle n'intercepte jamais physiquement le toucher, qui atteint donc
+           normalement le canvas en dessous (un tap sur un point y affiche son tooltip Chart.js
+           normalement). Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX) reste la
+           protection contre l'interférence avec un tap, maintenant sur toute la zone. */
         #evolution-xaxis-hitzone {
             position: absolute;
             left: 0;
             right: 0;
+            top: 0;
             bottom: 0;
-            height: 60px;
             pointer-events: none;
         }
 
@@ -8681,6 +8682,15 @@
         // qu'un seul jour manque.
         const EVOLUTION_AVG_GAP_THRESHOLD_MS = 1.5 * 86400000;
 
+        // Opacités des graduations principales vs secondaires (axe X : mois vs jour ; axe Y :
+        // heure entière vs fraction) — portée globale : réutilisées à la fois par les ticks
+        // réels du graphe (renderEvolutionChart()) et par la bande de prévisualisation pendant
+        // un geste (renderEvolutionPreviewBand()), pour un rendu identique dans les deux cas.
+        // Principal = repère d'orientation (nom de mois, heure entière, ou janvier en mode
+        // "graduations mois uniquement"), secondaire = graduation fine intermédiaire.
+        const EVOLUTION_TICK_PRINCIPAL_ALPHA = 0.95;
+        const EVOLUTION_TICK_SECONDARY_ALPHA = 0.55;
+
         // Paliers de largeur temporelle (axe X) — sélectionnés par pincement (section 25b).
         // "months: null" pour 'tout' signifie borne réelle = premier jour de l'historique
         // (_getHistoryStartDate()), pas un nombre de mois fixe.
@@ -8973,14 +8983,24 @@
             const sortedIds = [...namedTypeIds].sort((a, b) => a - b);
 
             let html = '';
-            sortedIds.forEach(id => {
-                html += `<div>${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</div>`;
-            });
+            if (sortedIds.length > 0) {
+                // flex-wrap : plusieurs entrées courtes peuvent partager une ligne quand la
+                // largeur disponible (dictée par la ligne la plus large du panneau) le permet —
+                // gagne de l'espace vertical par rapport à une entrée par ligne systématique.
+                // white-space:nowrap par entrée : un nom de type ne se coupe jamais en plein mot.
+                html += `<div style="display:flex; flex-wrap:wrap; gap:2px 10px;">`;
+                sortedIds.forEach(id => {
+                    html += `<div style="white-space:nowrap;">${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</div>`;
+                });
+                html += `</div>`;
+            }
             if (hasCombined) {
+                // Espaces simples autour de "=" et "+" plutôt que des marges inline — plus
+                // simple, et garantit un espacement identique des deux côtés pour les deux symboles.
                 const composDots = settings.combinedTypeIds
                     .map(id => evolutionLegendDot(getColorValueForId(id)))
-                    .join('<span style="opacity:0.6; margin:0 3px;">+</span>');
-                html += `<div>${evolutionLegendDot('#ffffff')}<span style="margin:0 4px;">=</span>${composDots}</div>`;
+                    .join(' + ');
+                html += `<div>${evolutionLegendDot('#ffffff')} = ${composDots}</div>`;
             }
             if (hasVisibleGap) {
                 html += `<div>⋯ ${t('evolutionGapLegend')}</div>`;
@@ -9190,7 +9210,7 @@
             // aux mises à jour suivantes sans recréer le chart.
             if (!window.evolutionPaliers) window.evolutionPaliers = buildEvolutionPaliers();
             if (typeof window.evolutionPalierIndex === 'undefined') {
-                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '2m');
+                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '3m');
             }
             const palier = window.evolutionPaliers[window.evolutionPalierIndex];
             window._evolutionCurrentPalier = palier;
@@ -9219,11 +9239,10 @@
             const textGray = getCSSColor('--chart-gray-text');
             const gridColor = getCSSColor('--border') || '#333';
             // Graduations principales vs secondaires (axe X : mois vs jour ; axe Y : heure entière
-            // vs fraction) — opacités partagées entre les deux axes pour une hiérarchie visuelle
-            // cohérente. Principal = repère d'orientation (nom de mois, heure entière), secondaire
-            // = graduation fine intermédiaire (numéro de jour, minutes).
-            const EVOLUTION_TICK_PRINCIPAL_ALPHA = 0.95;
-            const EVOLUTION_TICK_SECONDARY_ALPHA = 0.55;
+            // vs fraction) — opacités partagées entre les deux axes (constantes globales, voir
+            // EVOLUTION_TICK_PRINCIPAL_ALPHA/SECONDARY_ALPHA en tête de section) pour une
+            // hiérarchie visuelle cohérente. Principal = repère d'orientation (nom de mois, heure
+            // entière), secondaire = graduation fine intermédiaire (numéro de jour, minutes).
             const rangeMin = startDate.getTime();
             const rangeMax = window.evolutionEndDate.getTime();
 
@@ -9486,10 +9505,13 @@
         // ============================================================
         // 25b. GESTES TACTILES — pincement (palier axe X) et swipe (navigation temporelle)
         //
-        // Zones de reconnaissance : le pincement (2 doigts) est actif sur tout le graphe
-        // (#evolution-chart-wrap) ; le swipe (1 doigt) n'est actif que sur la bande des dates
-        // en bas (#evolution-xaxis-hitzone), pour ne jamais interférer avec un tap ailleurs
-        // dans le graphe (ex. futur tooltip sur un point).
+        // Zones de reconnaissance : le pincement (2 doigts) et le swipe (1 doigt) sont tous
+        // deux actifs sur toute la hauteur du graphe (#evolution-chart-wrap /
+        // #evolution-xaxis-hitzone, même zone) — décision actée pour unifier les deux gestes.
+        // Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX, voir plus bas) reste la
+        // protection contre l'interférence avec un tap ailleurs dans le graphe (ex. tooltip
+        // sur un point) : tant qu'il n'est pas franchi, rien n'est bloqué et le tap suit son
+        // cours normal vers Chart.js.
         //
         // Rotation CSS de l'overlay (90°) : un mouvement "horizontal" tel que perçu par
         // l'utilisateur (une fois le téléphone physiquement tourné pour voir l'overlay en
@@ -9561,10 +9583,13 @@
                 if (!hitzone) return;
                 const touch = e.touches[0];
                 const rect = hitzone.getBoundingClientRect();
-                // Ne démarre un pan candidat que si le doigt touche effectivement la bande des
-                // dates (zone purement géométrique — voir #evolution-xaxis-hitzone en CSS,
-                // pointer-events:none pour ne jamais intercepter physiquement le toucher destiné
-                // au canvas en dessous).
+                // Ne démarre un pan candidat que si le doigt touche effectivement la zone de
+                // reconnaissance (désormais tout le graphe, voir #evolution-xaxis-hitzone en
+                // CSS — pointer-events:none pour ne jamais intercepter physiquement le toucher
+                // destiné au canvas en dessous). rect.height sert de référence pour convertir le
+                // déplacement en jours (voir daysPerPx plus bas) : plus la zone est haute, plus
+                // il faut un déplacement physique important pour parcourir toute la fenêtre —
+                // effet naturel et voulu de l'agrandissement de cette zone.
                 const inHitzone = touch.clientX >= rect.left && touch.clientX <= rect.right
                     && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
                 if (!inHitzone) return;
@@ -9709,20 +9734,34 @@
         // Bande de prévisualisation des graduations pendant un geste (pincement ou swipe) — DOM
         // indépendant de Chart.js, jamais lié au rendu réel du graphique pendant le geste (voir
         // en-tête de section). Réutilise computeEvolutionTicks() pour afficher exactement les
-        // mêmes jours que le graphique une fois le geste terminé.
+        // mêmes jours que le graphique une fois le geste terminé, et applique désormais la même
+        // logique visuelle que les ticks réels (renderEvolutionChart()) : hiérarchie d'opacité
+        // principal/secondaire (constantes globales EVOLUTION_TICK_PRINCIPAL_ALPHA/SECONDARY_ALPHA)
+        // et millésime sur 2 lignes pour tout tick du 1er janvier. Hauteur de la bande (26px,
+        // voir CSS) pas encore ajustée pour ces 2 lignes — à faire dans un prochain passage.
         function renderEvolutionPreviewBand(rangeStart, rangeEnd, palier) {
             const band = document.getElementById('evolution-xaxis-preview');
             if (!band) return;
             const span = rangeEnd - rangeStart;
             if (span <= 0) { band.innerHTML = ''; band.style.display = 'block'; return; }
+            const textGray = getCSSColor('--chart-gray-text');
+            const isMonthOnlyMode = palier.months === null || palier.months >= 9;
             const ticks = computeEvolutionTicks(rangeStart, rangeEnd, palier);
             band.innerHTML = ticks.map(ts => {
                 const pct = ((ts - rangeStart) / span) * 100;
                 const d = new Date(ts);
-                const label = d.getDate() === 1
-                    ? d.toLocaleDateString(getLocale(), { month: 'short' })
-                    : d.getDate().toString();
-                return `<span class="evolution-preview-tick" style="left:${pct.toFixed(2)}%;">${label}</span>`;
+                const isDayOne = d.getDate() === 1;
+                const isPrincipal = isDayOne && (!isMonthOnlyMode || d.getMonth() === 0);
+                const color = withAlpha(textGray, isPrincipal ? EVOLUTION_TICK_PRINCIPAL_ALPHA : EVOLUTION_TICK_SECONDARY_ALPHA);
+                let label;
+                if (!isDayOne) {
+                    label = d.getDate().toString();
+                } else if (d.getMonth() === 0) {
+                    label = `${d.toLocaleDateString(getLocale(), { month: 'short' })}<br>${d.getFullYear()}`;
+                } else {
+                    label = d.toLocaleDateString(getLocale(), { month: 'short' });
+                }
+                return `<span class="evolution-preview-tick" style="left:${pct.toFixed(2)}%; color:${color};">${label}</span>`;
             }).join('');
             band.style.display = 'block';
         }
@@ -9752,7 +9791,7 @@
             // on borne simplement l'index à la nouvelle longueur plutôt que de le réinitialiser.
             window.evolutionPaliers = buildEvolutionPaliers();
             if (typeof window.evolutionPalierIndex === 'undefined') {
-                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '2m');
+                window.evolutionPalierIndex = window.evolutionPaliers.findIndex(p => p.id === '3m');
             } else {
                 window.evolutionPalierIndex = Math.min(window.evolutionPalierIndex, window.evolutionPaliers.length - 1);
             }
