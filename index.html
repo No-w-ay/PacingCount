@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.40"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.41"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1121,7 +1121,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            height: 32px;
+            height: 33px;
             background: var(--bg-color);
             pointer-events: none;
             z-index: 4;
@@ -8977,28 +8977,28 @@
             return `<span style="display:inline-block; width:9px; height:9px; border-radius:50%; background:${color};"></span>`;
         }
 
-        // Regroupe une liste de typeIds sur des lignes, en approximant la largeur par un nombre
-        // de caractères plutôt qu'une mesure DOM réelle (dépendrait de la police, complexe pour
-        // un gain marginal) : glouton, ajoute un type à la ligne courante tant que sa longueur
-        // cumulée (+ séparateur) ne dépasse pas maxChars, sinon démarre une nouvelle ligne.
-        // DOT_CHARS approxime la largeur visuelle du disque + son espacement propre.
-        function evolutionLegendPackTypeLines(ids, maxChars) {
-            const DOT_CHARS = 2;
+        // Regroupe une liste d'éléments de légende sur des lignes, en approximant la largeur par
+        // un nombre de caractères plutôt qu'une mesure DOM réelle (dépendrait de la police,
+        // complexe pour un gain marginal) : glouton, ajoute un élément à la ligne courante tant
+        // que sa longueur cumulée (+ séparateur) ne dépasse pas maxChars, sinon démarre une
+        // nouvelle ligne. Générique — chaque élément fournit sa propre longueur approximative
+        // (item.len) et son propre HTML (item.html), utilisé aussi bien pour les types nommés que
+        // pour la ligne de décomposition blanche (courte, désormais éligible au regroupement
+        // comme n'importe quelle autre entrée — seule la ligne "tendance" reste toujours à part).
+        function evolutionLegendPackItems(items, maxChars) {
             const SEP_CHARS = 2; // équivalent de l'espacement visuel entre deux entrées d'une même ligne
             const lines = [];
             let current = [];
             let currentLen = 0;
-            ids.forEach(id => {
-                const label = getLabelForId(id) || `Type #${id}`;
-                const itemLen = label.length + DOT_CHARS;
+            items.forEach(item => {
                 const sep = current.length > 0 ? SEP_CHARS : 0;
-                if (current.length > 0 && currentLen + sep + itemLen > maxChars) {
+                if (current.length > 0 && currentLen + sep + item.len > maxChars) {
                     lines.push(current);
-                    current = [id];
-                    currentLen = itemLen;
+                    current = [item];
+                    currentLen = item.len;
                 } else {
-                    current.push(id);
-                    currentLen += sep + itemLen;
+                    current.push(item);
+                    currentLen += sep + item.len;
                 }
             });
             if (current.length) lines.push(current);
@@ -9026,30 +9026,48 @@
             const sortedIds = [...namedTypeIds].sort((a, b) => a - b);
 
             // TEST : budget fixe à 45 caractères (au lieu du calcul dynamique basé sur la ligne
-            // la plus longue) — algorithme de regroupement inchangé (evolutionLegendPackTypeLines()),
+            // la plus longue) — algorithme de regroupement inchangé (evolutionLegendPackItems()),
             // seuil simplement plus élevé pour évaluer le rendu avec des lignes plus denses.
             const maxChars = 45;
+            const DOT_CHARS = 2;
 
-            let html = '';
-            if (sortedIds.length > 0) {
-                const lines = evolutionLegendPackTypeLines(sortedIds, maxChars);
-                lines.forEach(line => {
-                    const itemsHtml = line.map(id =>
-                        `<span style="white-space:nowrap;">${evolutionLegendDot(getColorValueForId(id))}${getLabelForId(id) || `Type #${id}`}</span>`
-                    ).join('');
-                    html += `<div style="display:flex; align-items:center; gap:10px;">${itemsHtml}</div>`;
-                });
-            }
+            // Construit la liste des éléments "regroupables" — types nommés + ligne de
+            // décomposition (si active), chacun avec sa longueur approximative et son HTML.
+            // La ligne "tendance" (hasVisibleGap) n'y participe jamais — elle reste ajoutée à
+            // part, toujours en dernier (voir plus bas).
+            const legendItems = sortedIds.map(id => {
+                const label = getLabelForId(id) || `Type #${id}`;
+                return {
+                    len: label.length + DOT_CHARS,
+                    html: `<span style="white-space:nowrap;">${evolutionLegendDot(getColorValueForId(id))}${label}</span>`
+                };
+            });
             if (hasCombined) {
                 // Conteneur flex à `gap` uniforme : espacement identique des deux côtés de CHAQUE
                 // élément (dot, "=", dot, "+", dot...) — corrige l'asymétrie d'un espacement basé
                 // sur la marge propre du dot (toujours du même côté) combinée à un espace texte.
+                // inline-flex (pas flex) : cet élément est désormais un item parmi d'autres dans
+                // la ligne qui l'accueille, pas un bloc autonome.
+                const n = settings.combinedTypeIds.length;
+                const decompLen = DOT_CHARS + 3 /* " = " */ + n * DOT_CHARS + Math.max(0, n - 1) * 3 /* " + " */;
                 const parts = [evolutionLegendBareDot('#ffffff'), '='];
                 settings.combinedTypeIds.forEach((id, idx) => {
                     if (idx > 0) parts.push('+');
                     parts.push(evolutionLegendBareDot(getColorValueForId(id)));
                 });
-                html += `<div style="display:flex; align-items:center; gap:4px;">${parts.join('')}</div>`;
+                legendItems.push({
+                    len: decompLen,
+                    html: `<span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">${parts.join('')}</span>`
+                });
+            }
+
+            let html = '';
+            if (legendItems.length > 0) {
+                const lines = evolutionLegendPackItems(legendItems, maxChars);
+                lines.forEach(line => {
+                    const itemsHtml = line.map(item => item.html).join('');
+                    html += `<div style="display:flex; align-items:center; gap:10px;">${itemsHtml}</div>`;
+                });
             }
             if (hasVisibleGap) {
                 html += `<div>⋯ ${t('evolutionGapLegend')}</div>`;
