@@ -7,12 +7,14 @@
     <title>PacingCount - Gestion du Rythme & Énergie</title>
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-muted: #64748b;
+            /* Variables du Thème Sombre */
+            --primary: #3b82f6; /* Bleu plus clair pour ressortir sur fond sombre */
+            --primary-hover: #60a5fa;
+            --bg: #0f172a; /* Fond général sombre (Slate 900) */
+            --card-bg: #1e293b; /* Fond des cartes (Slate 800) */
+            --text: #f8fafc; /* Texte principal très clair */
+            --text-muted: #94a3b8; /* Texte secondaire gris clair */
+            --border-color: #334155; /* Couleur des bordures discrète */
             --radius: 12px;
         }
 
@@ -57,8 +59,9 @@
         .lang-switcher select {
             padding: 6px 12px;
             border-radius: 6px;
-            border: 1px solid #cbd5e1;
-            background: white;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text);
             font-weight: 600;
             cursor: pointer;
         }
@@ -79,7 +82,7 @@
         .hero h1 {
             font-size: 2.2rem;
             margin-bottom: 16px;
-            color: #0f172a;
+            color: var(--text);
         }
 
         .hero p {
@@ -116,15 +119,6 @@
             background: var(--primary-hover);
         }
 
-        .btn-secondary {
-            background: #e2e8f0;
-            color: var(--text);
-        }
-
-        .btn-secondary:hover {
-            background: #cbd5e1;
-        }
-
         /* Screenshot */
         .preview {
             margin: 40px 0;
@@ -135,8 +129,8 @@
             width: 100%;
             max-width: 700px;
             border-radius: var(--radius);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
         }
 
         /* Testimonials */
@@ -160,7 +154,7 @@
             background: var(--card-bg);
             padding: 20px;
             border-radius: var(--radius);
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--border-color);
         }
 
         .card p {
@@ -178,8 +172,8 @@
 
         /* Community section */
         .community {
-            background: #eff6ff;
-            border: 1px solid #bfdbfe;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
             border-radius: var(--radius);
             padding: 24px;
             text-align: center;
@@ -187,13 +181,13 @@
         }
 
         .community h3 {
-            color: #1e40af;
+            color: #93c5fd; /* Bleu clair lisible sur fond sombre */
             margin-bottom: 8px;
         }
 
         .community p {
             margin-bottom: 16px;
-            color: #1e3a8a;
+            color: #bfdbfe; /* Bleu très clair */
         }
 
         /* System for multi-lang visibility */
@@ -240,15 +234,14 @@
 
     <header>
         <div class="brand">
-            <!-- Remplace logo.png par ton vrai logo -->
-            <img src="icon-192.png" alt="PacingCount Logo" onerror="this.style.background='#2563eb'">
+            <img src="icon-192.png" alt="PacingCount Logo" onerror="this.style.background='#3b82f6'">
             <span>PacingCount</span>
         </div>
         <div class="lang-switcher">
             <select id="langSelect" onchange="changeLanguage(this.value)">
-                <option value="fr">🇫🇷 FR</option>
-                <option value="en">🇬🇧 EN</option>
-                <option value="nl">🇳🇱 NL</option>
+                <option value="fr">FR</option>
+                <option value="en">EN</option>
+                <option value="nl">NL</option>
             </select>
         </div>
     </header>
@@ -284,11 +277,6 @@
                     <span data-en="🚀 Launch App">🚀 Launch App</span>
                     <span data-nl="🚀 Open de app">🚀 Open de app</span>
                 </a>
-                <a href="#install-guide" class="btn btn-secondary">
-                    <span data-fr="📲 Comment l'installer ?">📲 Comment l'installer ?</span>
-                    <span data-en="📲 How to install?">📲 How to install?</span>
-                    <span data-nl="📲 Hoe te installeren?">📲 Hoe te installeren?</span>
-                </a>
             </div>
         </section>
 
@@ -296,175 +284,7 @@
         <section class="preview">
             <!-- Remplace screenshot.png par la vraie capture de ton app -->
             <img src="screenshot.png" alt="Aperçu de PacingCount"
-                onerror="this.src='https://via.placeholder.com/700x400/2563eb/ffffff?text=Aper%C3%A7u+PacingCount'">
-        </section>
-
-        <!-- Style spécifique pour la section d'installation -->
-        <style>
-            .install-guide {
-                background: var(--card-bg);
-                border: 1px solid #e2e8f0;
-                border-radius: var(--radius);
-                padding: 28px 20px;
-                margin: 40px 0;
-            }
-
-            .install-guide h2 {
-                text-align: center;
-                margin-bottom: 20px;
-                font-size: 1.4rem;
-            }
-
-            .tab-buttons {
-                display: flex;
-                justify-content: center;
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-
-            .tab-btn {
-                padding: 8px 18px;
-                border: 1px solid #cbd5e1;
-                background: #f1f5f9;
-                border-radius: 20px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-
-            .tab-btn.active {
-                background: var(--primary);
-                color: white;
-                border-color: var(--primary);
-            }
-
-            .tab-content {
-                display: none;
-                max-width: 600px;
-                margin: 0 auto;
-            }
-
-            .tab-content.active {
-                display: block;
-            }
-
-            .steps-list {
-                list-style: none;
-                padding: 0;
-            }
-
-            .steps-list li {
-                position: relative;
-                padding-left: 36px;
-                margin-bottom: 14px;
-                font-size: 0.95rem;
-            }
-
-            .steps-list li::before {
-                content: counter(step);
-                counter-increment: step;
-                position: absolute;
-                left: 0;
-                top: 2px;
-                width: 24px;
-                height: 24px;
-                background: #eff6ff;
-                color: var(--primary);
-                font-weight: 700;
-                font-size: 0.85rem;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .steps-list {
-                counter-reset: step;
-            }
-        </style>
-
-        <!-- Bloc Guide d'installation -->
-        <section id="install-guide" class="install-guide">
-            <h2>
-                <span data-fr="Comment installer PacingCount ?">Comment installer PacingCount ?</span>
-                <span data-en="How to install PacingCount?">How to install PacingCount?</span>
-                <span data-nl="Hoe PacingCount te installeren?">Hoe PacingCount te installeren?</span>
-            </h2>
-
-            <!-- Onglets Android / iOS -->
-            <div class="tab-buttons">
-                <button class="tab-btn active" onclick="switchTab('android')">🤖 Android</button>
-                <button class="tab-btn" onclick="switchTab('ios')">🍏 iPhone / iPad</button>
-            </div>
-
-            <!-- Contenu Android -->
-            <div id="tab-android" class="tab-content active">
-                <ol class="steps-list">
-                    <li>
-                        <span data-fr="Ouvrez l'application dans <strong>Chrome</strong>.">Ouvrez l'application dans
-                            <strong>Chrome</strong>.</span>
-                        <span data-en="Open the app in <strong>Chrome</strong>.">Open the app in
-                            <strong>Chrome</strong>.</span>
-                        <span data-nl="Open de app in <strong>Chrome</strong>.">Open de app in
-                            <strong>Chrome</strong>.</span>
-                    </li>
-                    <li>
-                        <span
-                            data-fr="Appuyez sur le menu (les <strong>3 petits points</strong> en haut à droite).">Appuyez
-                            sur le menu (les <strong>3 petits points</strong> en haut à droite).</span>
-                        <span data-en="Tap the menu (the <strong>3 dots</strong> in the top right corner).">Tap the menu
-                            (the <strong>3 dots</strong> in the top right corner).</span>
-                        <span data-nl="Tik op het menu (de <strong>3 puntjes</strong> rechtsboven).">Tik op het menu (de
-                            <strong>3 puntjes</strong> rechtsboven).</span>
-                    </li>
-                    <li>
-                        <span
-                            data-fr="Sélectionnez <strong>« Ajouter à l'écran d'accueil »</strong> (ou « Installer l'application »).">Sélectionnez
-                            <strong>« Ajouter à l'écran d'accueil »</strong> (ou « Installer l'application »).</span>
-                        <span data-en="Select <strong>“Add to Home screen”</strong> (or “Install app”).">Select
-                            <strong>“Add to Home screen”</strong> (or “Install app”).</span>
-                        <span
-                            data-nl="Selecteer <strong>“Toevoegen aan startscherm”</strong> (of “App installeren”).">Selecteer
-                            <strong>“Toevoegen aan startscherm”</strong> (of “App installeren”).</span>
-                    </li>
-                </ol>
-            </div>
-
-            <!-- Contenu iOS -->
-            <div id="tab-ios" class="tab-content">
-                <ol class="steps-list">
-                    <li>
-                        <span data-fr="Ouvrez l'application impérativement dans <strong>Safari</strong>.">Ouvrez
-                            l'application impérativement dans <strong>Safari</strong>.</span>
-                        <span data-en="You must open the app in <strong>Safari</strong>.">You must open the app in
-                            <strong>Safari</strong>.</span>
-                        <span data-nl="Open de app verplicht in <strong>Safari</strong>.">Open de app verplicht in
-                            <strong>Safari</strong>.</span>
-                    </li>
-                    <li>
-                        <span
-                            data-fr="Appuyez sur le bouton <strong>Partager</strong> (le carré avec une flèche vers le haut ⎋ en bas).">Appuyez
-                            sur le bouton <strong>Partager</strong> (le carré avec une flèche vers le haut ⎋ en
-                            bas).</span>
-                        <span
-                            data-en="Tap the <strong>Share</strong> button (the square with an arrow pointing up ⎋ at the bottom).">Tap
-                            the <strong>Share</strong> button (the square with an arrow pointing up ⎋ at the
-                            bottom).</span>
-                        <span
-                            data-nl="Tik op de knop <strong>Delen</strong> (het vierkantje met het pijltje omhoog ⎋ onderaan).">Tik
-                            op de knop <strong>Delen</strong> (het vierkantje met het pijltje omhoog ⎋ onderaan).</span>
-                    </li>
-                    <li>
-                        <span
-                            data-fr="Faites défiler vers le bas et choisissez <strong>« Sur l'écran d'accueil »</strong> ➕.">Faites
-                            défiler vers le bas et choisissez <strong>« Sur l'écran d'accueil »</strong> ➕.</span>
-                        <span data-en="Scroll down and choose <strong>“Add to Home Screen”</strong> ➕.">Scroll down and
-                            choose <strong>“Add to Home Screen”</strong> ➕.</span>
-                        <span data-nl="Scroll naar beneden en kies <strong>“Zet op begincherm”</strong> ➕.">Scroll naar
-                            beneden en kies <strong>“Zet op begincherm”</strong> ➕.</span>
-                    </li>
-                </ol>
-            </div>
+                onerror="this.src='https://via.placeholder.com/700x400/1e293b/ffffff?text=Aper%C3%A7u+PacingCount'">
         </section>
 
         <!-- Témoignages -->
@@ -525,7 +345,7 @@
             </p>
             <!-- Remplace le lien par ton vrai groupe Facebook -->
             <a href="https://www.facebook.com/groups/1478593046580774/" target="_blank" class="btn btn-primary"
-                style="background:#1877f2">
+                style="background:#1877f2; color: white;">
                 <span>Facebook Group</span>
             </a>
         </section>
@@ -552,16 +372,6 @@
         // Initialisation au chargement
         const currentLang = getInitialLanguage();
         changeLanguage(currentLang);
-
-        function switchTab(platform) {
-            // Gestion du style des boutons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-
-            // Affichage du contenu
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.getElementById('tab-' + platform).classList.add('active');
-        }
     </script>
 </body>
 
