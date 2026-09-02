@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.42"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.43"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3917,6 +3917,25 @@
                 .sort((a, b) => a.id - b.id);
         }
 
+        // Retire de settings.combinedTypeIds tout typeId qui n'a plus aucune donnée réelle
+        // (même référence que getTypesWithHistoryData(), donc garantie de rester cohérent avec
+        // ce qui est affiché ailleurs) — évite qu'un type disparu (import "remplacer", par
+        // exemple) reste bloqué en mémoire dans la combinaison "repos" personnalisable, sans
+        // qu'aucun point de combinaison (Résultats) ou pastille (Évolution) ne permette à
+        // l'utilisateur de le retirer lui-même. Persisté (vrai nettoyage, pas juste un filtre
+        // d'affichage) — idempotent, ne réécrit rien si déjà à jour. Appelée au début de
+        // renderResults() et openEvolutionOverlay() — les deux points d'entrée qui consomment
+        // combinedTypeIds pour un affichage utilisateur.
+        function cleanupCombinedTypeIds() {
+            const existingTypeIds = new Set(getTypesWithHistoryData().map(tp => tp.id));
+            const cleaned = settings.combinedTypeIds.filter(id => existingTypeIds.has(id));
+            if (cleaned.length !== settings.combinedTypeIds.length) {
+                settings.combinedTypeIds = cleaned;
+                safeSave('pacingSettings', JSON.stringify(settings));
+                console.log('[combinedTypeIds] Types fantômes nettoyés');
+            }
+        }
+
         // ============================================================
         // FONCTIONS COULEUR UNIFIÉES (refactoring pré-Passe D)
         // settings.types[].color peut stocker plusieurs formats :
@@ -5563,6 +5582,7 @@
 
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
+            cleanupCombinedTypeIds(); // retire les typeIds fantômes avant tout calcul/affichage
             const container = document.getElementById('results-list');
             container.innerHTML = "";
             const locale = getLocale();
@@ -9876,11 +9896,32 @@
             if (!overlay) return;
             overlay.style.display = 'block';
 
+            cleanupCombinedTypeIds(); // avant tout, pour que le nettoyage ci-dessous se base sur l'état à jour
+
             // Reconstruit l'index par jour sur tout l'historique à chaque ouverture — coûteux
             // (proportionnel au nombre de périodes) mais rare, voir buildEvolutionFullDaysIndex()
             // (section 25) ; le reste du calcul (fenêtre, moyennes mobiles) lit ensuite ce cache
             // sans jamais re-scanner state.history tant que l'overlay reste ouvert.
             window.evolutionFullDaysIndex = buildEvolutionFullDaysIndex();
+
+            // Désélectionne automatiquement toute série qui n'existe plus réellement — pour un
+            // type, absence de données ; pour 'combined', combinaison vide (aucun type composant,
+            // déjà nettoyé juste au-dessus). État mémoire qui reflète la réalité du moment, pas
+            // une intention passée : une série qui redevient valide plus tard réapparaît comme
+            // pastille DÉSÉLECTIONNÉE (jamais recochée automatiquement) — l'utilisateur la
+            // re-choisit explicitement, comme un premier affichage. Persisté (vrai nettoyage).
+            {
+                const existingTypeIds = new Set(getTypesWithHistoryData().map(tp => tp.id));
+                const cleanedSeries = settings.evolutionSelectedSeries.filter(sid => {
+                    if (sid === 'combined') return settings.combinedTypeIds.length > 0;
+                    return existingTypeIds.has(sid);
+                });
+                if (cleanedSeries.length !== settings.evolutionSelectedSeries.length) {
+                    settings.evolutionSelectedSeries = cleanedSeries;
+                    safeSave('pacingSettings', JSON.stringify(settings));
+                    console.log('[Evolution] Séries fantômes nettoyées de evolutionSelectedSeries');
+                }
+            }
 
             // Reconstruit la liste des paliers à chaque ouverture (pas chère à recalculer, voir
             // buildEvolutionPaliers()) — reflète toujours l'ancienneté actuelle de l'historique.
