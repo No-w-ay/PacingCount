@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.41"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.42"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -932,7 +932,10 @@
 
         #evolution-close-btn {
             position: absolute;
-            top: 14px;
+            /* top:12px (au lieu de 14px) : recentre verticalement le bouton (34px de haut) sur
+               le centre de la rangée de chips/pastilles juste en dessous (dominée par les
+               .evolution-chip de 26px), qui elle démarre au padding-top de l'overlay (16px). */
+            top: 12px;
             right: 14px;
             z-index: 5;
             background: rgba(255, 255, 255, 0.1);
@@ -974,6 +977,11 @@
             font-family: monospace;
             font-size: 0.78rem;
             color: var(--text-color);
+            /* Indispensable : le format à largeur fixe (voir formatEvolutionEndDateFixed())
+               s'appuie sur des espaces de padding littéraux (jour sur 1 chiffre, "mai " à 4
+               caractères) — le rendu par défaut (white-space:normal) collapse les espaces
+               consécutifs et casserait cet alignement pixel-parfait entre deux dates affichées. */
+            white-space: pre;
         }
 
         /* Palette de paliers — ancrée sous le groupe durée/fin, alignée sur son bord droit. */
@@ -3344,6 +3352,13 @@
                 evolutionYearsPlural: "{n} ans",
                 evolutionYearsDecimal: "{n} an",
                 evolutionFullHistory: "Historique complet",
+                // Abréviations mois à 4 caractères FIXES (espace de padding inclus dans la
+                // chaîne, ex. "mai ") — pour la date de fin affichée à droite du groupe palier
+                // (#evolution-palier-end), en monospace : garantit un alignement pixel-parfait
+                // de chaque caractère d'un swipe à l'autre, quel que soit le mois affiché.
+                // Accédé directement par index de mois (0-11), pas via t() — voir
+                // formatEvolutionEndDateFixed().
+                evolutionMonthsShort4: ["janv", "févr", "mars", "avr.", "mai ", "juin", "juil", "août", "sept", "oct.", "nov.", "déc."],
                 evolutionPillRaw: "1j",
                 evolutionPill3d: "~3j",
                 evolutionPill5d: "~5j",
@@ -3563,6 +3578,7 @@
                 evolutionYearsPlural: "{n} years",
                 evolutionYearsDecimal: "{n} years",
                 evolutionFullHistory: "Full history",
+                evolutionMonthsShort4: ["Jan.", "Feb.", "Mar.", "Apr.", "May ", "June", "July", "Aug.", "Sept", "Oct.", "Nov.", "Dec."],
                 evolutionPillRaw: "1d",
                 evolutionPill3d: "~3d",
                 evolutionPill5d: "~5d",
@@ -3773,6 +3789,7 @@
                 evolutionYearsPlural: "{n} jaar",
                 evolutionYearsDecimal: "{n} jaar",
                 evolutionFullHistory: "Volledige historiek",
+                evolutionMonthsShort4: ["jan.", "feb.", "mrt.", "apr.", "mei ", "juni", "juli", "aug.", "sep.", "okt.", "nov.", "dec."],
                 evolutionPillRaw: "1d",
                 evolutionPill3d: "~3d",
                 evolutionPill5d: "~5d",
@@ -8829,6 +8846,20 @@
             return t('evolutionYearsDecimal', { n: formatEvolutionDecimalYears(years) });
         }
 
+        // Formate la date de fin en largeur FIXE (monospace) — abréviation mois à 4 caractères
+        // (padding déjà inclus dans la chaîne, ex. "mai ", voir evolutionMonthsShort4 dans
+        // translations{}), jour paddé par un ESPACE (pas un zéro — style "23 oct." plutôt que
+        // "02 oct.") sur 2 caractères, année sur 4. #evolution-palier-end a white-space:pre
+        // (voir CSS) pour ne jamais laisser le rendu collapser ces espaces de padding — chaque
+        // position de caractère reste alignée d'un swipe à l'autre, sans "saut" visuel.
+        function formatEvolutionEndDateFixed(date) {
+            const dict = translations[settings.lang] || translations['fr'];
+            const months = dict.evolutionMonthsShort4 || translations['fr'].evolutionMonthsShort4;
+            const day = date.getDate().toString().padStart(2, ' ');
+            const month = months[date.getMonth()];
+            return `${day} ${month} ${date.getFullYear()}`;
+        }
+
         // Met à jour l'affichage du label — sans argument : état committé actuel
         // (window.evolutionPalierIndex / window.evolutionEndDate). Pendant un geste, l'appelant
         // passe un palier candidat (pincement) OU une date de fin candidate (swipe), jamais les
@@ -8846,8 +8877,7 @@
                 return;
             }
             const endDate = overrideEndDate || window.evolutionEndDate;
-            const endStr = endDate.toLocaleDateString(getLocale(), { month: 'long', year: 'numeric' });
-            endEl.textContent = ` → ${endStr}`;
+            endEl.textContent = ` → ${formatEvolutionEndDateFixed(endDate)}`;
         }
 
         function hideEvolutionPalierPicker() {
