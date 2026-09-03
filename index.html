@@ -6,8 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PacingCount - Gestion du Rythme & Énergie</title>
     <style>
+        /* Variables du Thème Sombre
         :root {
-            /* Variables du Thème Sombre */
             --primary: #3b82f6;
             --primary-hover: #60a5fa;
             --bg: #0f172a;
@@ -16,6 +16,21 @@
             --text-muted: #94a3b8;
             --border-color: #334155;
             --radius: 12px;
+        } */
+
+        :root {
+            /* Variables synchronisées avec l'app PacingCount */
+            --primary: hsl(207, 90%, 45%);       /* Le --blue de ton app */
+            --primary-hover: hsl(207, 90%, 55%); /* Légèrement éclairci pour le survol */
+            
+            --bg: #121212;                       /* Le --bg-color de ton app */
+            --card-bg: #1e1e1e;                  /* Le --card-bg de ton app */
+            
+            --text: #e0e0e0;                     /* Le --text-color de ton app */
+            --text-muted: #b0b0b0;               /* Correspond à ton --chart-gray-text */
+            --border-color: #333333;             /* Le --border de ton app */
+            
+            --radius: 12px;                      /* On conserve l'arrondi du site */
         }
 
         * {
