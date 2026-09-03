@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.43"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.44"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -935,7 +935,7 @@
             /* top:12px (au lieu de 14px) : recentre verticalement le bouton (34px de haut) sur
                le centre de la rangée de chips/pastilles juste en dessous (dominée par les
                .evolution-chip de 26px), qui elle démarre au padding-top de l'overlay (16px). */
-            top: 12px;
+            top: 11px;
             right: 14px;
             z-index: 5;
             background: rgba(255, 255, 255, 0.1);
@@ -1008,7 +1008,7 @@
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
             flex-shrink: 0;
             padding-right: 46px;
         }
@@ -9082,9 +9082,9 @@
             const DOT_CHARS = 2;
 
             // Construit la liste des éléments "regroupables" — types nommés + ligne de
-            // décomposition (si active), chacun avec sa longueur approximative et son HTML.
-            // La ligne "tendance" (hasVisibleGap) n'y participe jamais — elle reste ajoutée à
-            // part, toujours en dernier (voir plus bas).
+            // décomposition (si active) + ligne "tendance" (si un trou est visible, ajoutée en
+            // dernier ci-dessous) : tous traités comme des entrées ordinaires du regroupement,
+            // plus d'exception forcée à être seule sur sa ligne.
             const legendItems = sortedIds.map(id => {
                 const label = getLabelForId(id) || `Type #${id}`;
                 return {
@@ -9110,6 +9110,13 @@
                     html: `<span style="white-space:nowrap; display:inline-flex; align-items:center; gap:4px;">${parts.join('')}</span>`
                 });
             }
+            if (hasVisibleGap) {
+                const gapLabel = `⋯ ${t('evolutionGapLegend')}`;
+                legendItems.push({
+                    len: gapLabel.length,
+                    html: `<span style="white-space:nowrap;">${gapLabel}</span>`
+                });
+            }
 
             let html = '';
             if (legendItems.length > 0) {
@@ -9118,9 +9125,6 @@
                     const itemsHtml = line.map(item => item.html).join('');
                     html += `<div style="display:flex; align-items:center; gap:10px;">${itemsHtml}</div>`;
                 });
-            }
-            if (hasVisibleGap) {
-                html += `<div>⋯ ${t('evolutionGapLegend')}</div>`;
             }
 
             panel.innerHTML = html;
@@ -9150,10 +9154,16 @@
                 html += `<div class="evolution-chip ${cls}" style="background:${getColorValueForId(tp.id)};"
                               onclick="toggleEvolutionSeries(${tp.id})" title="${tp.label || `Type #${tp.id}`}"></div>`;
             });
-            const combinedSelected = settings.evolutionSelectedSeries.includes('combined');
-            const combinedCls = combinedSelected ? 'evolution-chip-selected' : 'evolution-chip-unselected';
-            html += `<div class="evolution-chip ${combinedCls}" style="background:#ffffff;"
-                          onclick="toggleEvolutionSeries('combined')" title="${t('resComboTotal')}"></div>`;
+            // La pastille blanche n'existe que si la combinaison a au moins un type composant —
+            // cohérent avec le nettoyage déjà fait côté données (cleanupCombinedTypeIds() /
+            // openEvolutionOverlay()) : pas de pastille pour une combinaison vide, désélectionnée
+            // ou non, il n'y a simplement rien à représenter.
+            if (settings.combinedTypeIds.length > 0) {
+                const combinedSelected = settings.evolutionSelectedSeries.includes('combined');
+                const combinedCls = combinedSelected ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+                html += `<div class="evolution-chip ${combinedCls}" style="background:#ffffff;"
+                              onclick="toggleEvolutionSeries('combined')" title="${t('resComboTotal')}"></div>`;
+            }
 
             const rawCls = settings.evolutionShowRawPoints ? 'evolution-chip-selected' : 'evolution-chip-unselected';
             html += `<div class="evolution-toggle-pill ${rawCls}" onclick="toggleEvolutionRawPoints()">${t('evolutionPillRaw')}</div>`;
