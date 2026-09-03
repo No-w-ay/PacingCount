@@ -85,7 +85,8 @@
             color: var(--text);
         }
 
-        .hero p {
+        /* Cible uniquement le paragraphe d'introduction direct */
+        .hero > p {
             font-size: 1.1rem;
             color: var(--text-muted);
             max-width: 650px;
@@ -97,15 +98,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12px;
-        }
-
-        /* Texte discret sous le CTA */
-        .cta-hint {
-            color: rgba(224, 224, 224, 0.35);
-            font-size: 0.75rem;
-            text-align: center;
-            line-height: 1.3;
+            gap: 8px;
         }
 
         .btn {
@@ -126,6 +119,15 @@
 
         .btn-primary:hover {
             background: var(--primary-hover);
+        }
+
+        /* Texte discret sous le bouton CTA (spécificité augmentée) */
+        .cta-container .cta-hint {
+            color: rgba(224, 224, 224, 0.5);
+            font-size: 0.8rem;
+            text-align: center;
+            line-height: 1.3;
+            margin: 0;
         }
 
         /* Screenshot */
@@ -215,7 +217,7 @@
             font-size: 0.85rem;
         }
 
-        /* Système de visibilité multilingue propre & réactif */
+        /* Système de visibilité multilingue */
         html:not([lang="fr"]) [data-fr],
         html:not([lang="en"]) [data-en],
         html:not([lang="nl"]) [data-nl] {
