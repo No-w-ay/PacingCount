@@ -136,13 +136,14 @@
             text-align: center;
         }
 
-        .preview img {
-            width: 100%;
-            max-width: 700px;
-            border-radius: var(--radius);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            border: 1px solid var(--border-color);
-        }
+.preview img {
+    width: 100%;
+    max-height: 450px; /* <-- Taille réduite proportionnellement (ajustable selon tes préférences : 400px, 450px, 500px...) */
+    width: auto;
+    border-radius: var(--radius);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--border-color);
+}
 
         /* Testimonials */
         .testimonials {
