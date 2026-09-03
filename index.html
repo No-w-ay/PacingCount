@@ -252,7 +252,22 @@
             font-size: 0.85rem;
         }
 
-        /* System for multi-lang visibility */
+        /* Système de visibilité multilingue corrigé */
+        [data-fr],
+        [data-en],
+        [data-nl] {
+            display: none !important;
+        }
+
+        html[lang="fr"] [data-fr],
+        html[lang="en"] [data-en],
+        html[lang="nl"] [data-nl] {
+            display: block;
+            /* Passe en block par défaut pour s'adapter aux paragraphes et textes multilignes */
+        }
+
+
+        /* System for multi-lang visibility 
         [data-fr],
         [data-en],
         [data-nl] {
@@ -275,7 +290,7 @@
         html[lang="nl"] div[data-nl],
         html[lang="nl"] p[data-nl] {
             display: block;
-        }
+        } */
     </style>
 </head>
 
@@ -327,13 +342,10 @@
                     <span data-en="🚀 Launch App">🚀 Launch App</span>
                     <span data-nl="🚀 Open de app">🚀 Open de app</span>
                 </a>
-                <p class="cta-hint">
-                    <span data-fr="Cliquez et suivez les instructions d'installation">Cliquez et suivez les instructions
-                        d'installation</span>
-                    <span data-en="Click and follow the installation instructions">Click and follow the installation
-                        instructions</span>
-                    <span data-nl="Klik en volg de installatie-instructies">Klik en volg de
-                        installatie-instructies</span>
+                <p class="cta-hint" data-fr="Cliquez et suivez les instructions d'installation"
+                    data-en="Click and follow the installation instructions"
+                    data-nl="Klik en volg de installatie-instructies">
+                    <!-- Le texte sera injecté ou géré, ou tu gardes tes spans mais appliqués proprement -->
                 </p>
             </div>
         </section>
