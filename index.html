@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.44"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.45"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1008,7 +1008,7 @@
             display: flex;
             flex-direction: row;
             flex-wrap: wrap;
-            gap: 9px;
+            gap: 8px;
             flex-shrink: 0;
             padding-right: 45px;
         }
@@ -1084,6 +1084,30 @@
             pointer-events: none;
         }
 
+        /* Message "pas de données dans cette vue" — superposé centré au milieu du graphe,
+           visible uniquement si aucune série sélectionnée n'a de point dans la fenêtre
+           actuellement affichée (test sur les datasets réellement construits, voir
+           renderEvolutionChart()). Même esprit visuel que le panneau de légende (fond sombre,
+           coins arrondis) mais texte un cran plus grand et centré plutôt qu'en coin.
+           pointer-events:none : ne bloque jamais un geste destiné au graphe (pincement/swipe),
+           même quand aucune donnée n'est affichée. */
+        #evolution-no-data-msg {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(40, 40, 40, 0.8);
+            border-radius: 8px;
+            padding: 14px 18px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            text-align: center;
+            max-width: 75%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
         /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
            labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
            dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
@@ -1098,21 +1122,26 @@
             cursor: pointer;
         }
 
-        /* Zone de reconnaissance du swipe (navigation temporelle, section 25b) — couvre
-           désormais TOUTE la hauteur du graphe, comme la zone de pincement (le pincement n'est
-           restreint à aucune sous-zone : 2 doigts n'importe où sur #evolution-chart-wrap le
-           déclenchent). Décision actée : les deux gestes partagent la même zone de reconnaissance.
+        /* Zone de reconnaissance des gestes d'échelle (swipe navigation temporelle + pincement
+           palier, section 25b) — bande basse du graphe, 120px à partir du bord physique bas
+           (repère de conception de l'overlay : ce CSS se lit comme une page paysage normale une
+           fois le téléphone physiquement tourné, "bottom" = bas visuel réel pour l'utilisateur).
+           Réduite depuis "toute la hauteur" (essayé un temps) : le pincement exige désormais
+           qu'au moins un des deux doigts démarre dans cette même zone (voir
+           isTouchInEvolutionHitzone() / onEvolutionTouchStart()) — habitue l'utilisateur à faire
+           les gestes d'échelle dans le bas plutôt que sur tout le graphe, en prévision d'un futur
+           usage du swipe ailleurs (milieu/haut du graphe) qui ne devra pas entrer en conflit.
            pointer-events:none : sert UNIQUEMENT de référence géométrique (getBoundingClientRect()
            dans le JS) — elle n'intercepte jamais physiquement le toucher, qui atteint donc
            normalement le canvas en dessous (un tap sur un point y affiche son tooltip Chart.js
            normalement). Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX) reste la
-           protection contre l'interférence avec un tap, maintenant sur toute la zone. */
+           protection contre l'interférence avec un tap dans cette zone. */
         #evolution-xaxis-hitzone {
             position: absolute;
             left: 0;
             right: 0;
-            top: 0;
             bottom: 0;
+            height: 120px;
             pointer-events: none;
         }
 
@@ -1660,8 +1689,12 @@
                 <!-- Panneau de légende — coin haut-droit, rempli/affiché par
                      renderEvolutionLegendPanel() (section 25c), toggle via la pastille "L". -->
                 <div id="evolution-legend-panel"></div>
-                <!-- Zone de reconnaissance du swipe (navigation temporelle, section 25b) — bande
-                     basse du graphe, là où Chart.js affiche normalement les graduations de dates. -->
+                <!-- Message "pas de données dans cette vue" — centré, rempli/affiché par
+                     renderEvolutionChart() (section 25) selon si les datasets construits sont
+                     tous vides. -->
+                <div id="evolution-no-data-msg"></div>
+                <!-- Zone de reconnaissance des gestes d'échelle (swipe + pincement, section 25b)
+                     — 120px en bas du graphe. -->
                 <div id="evolution-xaxis-hitzone"></div>
                 <!-- Bande de prévisualisation des graduations pendant un geste (pincement ou
                      swipe) — DOM indépendant de Chart.js, cachée hors geste (section 25b). -->
@@ -3172,12 +3205,14 @@
         // Garantit que settings.evolutionSelectedSeries existe — séries affichées dans le
         // graphique Évolution (Chantier 2/3). Un id numérique = typeId individuel, la chaîne
         // 'combined' = grandeur blanche (settings.combinedTypeIds, même état que Chantier 1B).
-        // Défaut : la combinaison seule, pas de limite de nombre de séries simultanées.
-        if (!settings.evolutionSelectedSeries) settings.evolutionSelectedSeries = ['combined'];
+        // Défaut : le type 1 seul (typeId numérique), pas de limite de nombre de séries
+        // simultanées. Ce défaut n'affecte que les tout nouveaux profils (le champ n'existe
+        // pas encore) — un utilisateur ayant déjà ouvert l'overlay conserve son choix actuel.
+        if (!settings.evolutionSelectedSeries) settings.evolutionSelectedSeries = [1];
 
         // Garantit que settings.evolutionShowMovingAvg existe — affichage ou non de la courbe
-        // de moyenne mobile 3j (en plus des points bruts, jamais en remplacement). Défaut activé.
-        if (typeof settings.evolutionShowMovingAvg === 'undefined') settings.evolutionShowMovingAvg = true;
+        // de moyenne mobile 3j (en plus des points bruts, jamais en remplacement). Défaut désactivé.
+        if (typeof settings.evolutionShowMovingAvg === 'undefined') settings.evolutionShowMovingAvg = false;
 
         // Garantit que settings.evolutionShowRawPoints existe — affichage ou non des points
         // journaliers bruts (indépendant de la moyenne mobile, les deux options se cumulent
@@ -3186,13 +3221,21 @@
 
         // Garantit que settings.evolutionShowMovingAvg5 existe — moyenne mobile centrée sur
         // 5 jours (même logique que la moyenne 3j), affichée par-dessus tout le reste, avec
-        // un trait plus épais. Défaut désactivé (option additionnelle, pas de clutter par défaut).
-        if (typeof settings.evolutionShowMovingAvg5 === 'undefined') settings.evolutionShowMovingAvg5 = false;
+        // un trait plus épais. Défaut activé.
+        if (typeof settings.evolutionShowMovingAvg5 === 'undefined') settings.evolutionShowMovingAvg5 = true;
 
         // Garantit que settings.evolutionShowMovingAvg7 existe — moyenne mobile centrée sur
         // 7 jours (même logique que 3j/5j). Défaut désactivé (option additionnelle, pas de
         // clutter par défaut).
         if (typeof settings.evolutionShowMovingAvg7 === 'undefined') settings.evolutionShowMovingAvg7 = false;
+
+        // Garantit que settings.evolutionShowLegend existe — affichage du panneau de légende
+        // superposé (pastille "L"). Défaut activé. Contrairement aux gardes ci-dessus, ce champ
+        // est NOUVEAU (n'existait pour personne avant) : ce défaut s'applique donc aussi à tous
+        // les utilisateurs existants, pas seulement aux nouveaux profils — décision assumée.
+        // Anciennement une simple variable de session (window.evolutionShowLegend, jamais
+        // persistée) — désormais un vrai champ settings, comme combinedTypeIds.
+        if (typeof settings.evolutionShowLegend === 'undefined') settings.evolutionShowLegend = true;
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -3364,6 +3407,7 @@
                 evolutionPill5d: "~5j",
                 evolutionPill7d: "~7j",
                 evolutionGapLegend: "tendance interpolée (pas de données)",
+                evolutionNoDataInView: "Pas de données dans cette vue. Enregistrez des jours complets pour alimenter ce graphe et voir les évolutions.",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -3584,6 +3628,7 @@
                 evolutionPill5d: "~5d",
                 evolutionPill7d: "~7d",
                 evolutionGapLegend: "interpolated trend (no data)",
+                evolutionNoDataInView: "No data in this view. Log complete days to build up this chart and see trends over time.",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -3795,6 +3840,7 @@
                 evolutionPill5d: "~5d",
                 evolutionPill7d: "~7d",
                 evolutionGapLegend: "geïnterpoleerde trend (geen data)",
+                evolutionNoDataInView: "Geen data in deze weergave. Registreer volledige dagen om deze grafiek te vullen en trends te zien.",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -9006,8 +9052,9 @@
 
         // ============================================================
         // 25c. PANNEAU DE LÉGENDE — superposé au coin haut-droit du graphe (voir CSS), bascule
-        // via la pastille "L" (voir renderEvolutionChips()). État session uniquement
-        // (window.evolutionShowLegend), pas persisté — même convention que evolutionYAxisMode.
+        // via la pastille "L" (voir renderEvolutionChips()). État persisté dans
+        // settings.evolutionShowLegend (contrairement à evolutionYAxisMode/evolutionPalierIndex,
+        // qui restent volontairement en session — voir garde de section 4).
         // ============================================================
 
         // Petit disque coloré inline — utilisé pour chaque ligne du panneau (types individuels).
@@ -9062,7 +9109,7 @@
             window._evolutionLastHasGap = hasVisibleGap; // mémorisé pour toggleEvolutionLegend()
             const panel = document.getElementById('evolution-legend-panel');
             if (!panel) return;
-            if (!window.evolutionShowLegend) { panel.style.display = 'none'; return; }
+            if (!settings.evolutionShowLegend) { panel.style.display = 'none'; return; }
 
             const selected = settings.evolutionSelectedSeries;
             const hasCombined = selected.includes('combined');
@@ -9134,7 +9181,8 @@
         // Bascule la visibilité — pas de recalcul de données nécessaire (le contenu dépend de
         // l'état déjà connu au dernier rendu du graphe, voir window._evolutionLastHasGap).
         function toggleEvolutionLegend() {
-            window.evolutionShowLegend = !window.evolutionShowLegend;
+            settings.evolutionShowLegend = !settings.evolutionShowLegend;
+            safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips(); // met à jour la classe visuelle de la pastille "L"
             renderEvolutionLegendPanel(window._evolutionLastHasGap || false);
         }
@@ -9180,7 +9228,7 @@
             // Pastille "L" — bascule le panneau de légende superposé (voir section 25c).
             // Lettre seule, pas de mot : convention déjà utilisée ailleurs dans l'app (ex. bouton
             // "L" de la légende Historique), ne nécessite aucune traduction.
-            const legendCls = window.evolutionShowLegend ? 'evolution-chip-selected' : 'evolution-chip-unselected';
+            const legendCls = settings.evolutionShowLegend ? 'evolution-chip-selected' : 'evolution-chip-unselected';
             html += `<div class="evolution-toggle-pill ${legendCls}" onclick="toggleEvolutionLegend()">L</div>`;
 
             // Groupe durée + fin de période — dans la même rangée que les chips/pills ci-dessus
@@ -9508,6 +9556,17 @@
             const zoomRange = window.evolutionYAxisMode === 'zoom' ? computeYAxisRange(datasets, rangeMin, rangeMax) : null;
             const yRange = zoomRange || { min: 0, max: 24, stepSize: 2 };
 
+            // Message "pas de données" — visible si tous les datasets réellement construits
+            // ci-dessus sont vides. Un seul test couvre à la fois "aucune série sélectionnée" et
+            // "séries sélectionnées mais rien dans la fenêtre affichée" (aucune distinction
+            // nécessaire, le message générique convient aux deux cas).
+            const evolutionHasAnyData = datasets.some(ds => (ds.data || []).length > 0);
+            const noDataEl = document.getElementById('evolution-no-data-msg');
+            if (noDataEl) {
+                noDataEl.style.display = evolutionHasAnyData ? 'none' : 'block';
+                if (!evolutionHasAnyData) noDataEl.textContent = t('evolutionNoDataInView');
+            }
+
             renderEvolutionLegendPanel(hasVisibleGap);
 
             if (evolutionChartInstance) {
@@ -9632,13 +9691,16 @@
         // ============================================================
         // 25b. GESTES TACTILES — pincement (palier axe X) et swipe (navigation temporelle)
         //
-        // Zones de reconnaissance : le pincement (2 doigts) et le swipe (1 doigt) sont tous
-        // deux actifs sur toute la hauteur du graphe (#evolution-chart-wrap /
-        // #evolution-xaxis-hitzone, même zone) — décision actée pour unifier les deux gestes.
-        // Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX, voir plus bas) reste la
-        // protection contre l'interférence avec un tap ailleurs dans le graphe (ex. tooltip
-        // sur un point) : tant qu'il n'est pas franchi, rien n'est bloqué et le tap suit son
-        // cours normal vers Chart.js.
+        // Zones de reconnaissance : le pincement (2 doigts) et le swipe (1 doigt) partagent la
+        // même zone (#evolution-xaxis-hitzone), ramenée à 120px en bas du graphe — pas toute la
+        // hauteur (essayé un temps, puis réduit) : habitue l'utilisateur à faire les gestes
+        // d'échelle dans le bas, en prévision d'un futur usage du swipe ailleurs sur le graphe
+        // qui ne devra pas entrer en conflit. Le pincement exige qu'au moins un des deux doigts
+        // démarre dans cette zone (voir isTouchInEvolutionHitzone()) ; le swipe l'exige aussi
+        // pour son unique doigt. Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX, voir
+        // plus bas) reste la protection contre l'interférence avec un tap dans cette même zone
+        // (ex. tooltip sur un point proche du bas) : tant qu'il n'est pas franchi, rien n'est
+        // bloqué et le tap suit son cours normal vers Chart.js.
         //
         // Rotation CSS de l'overlay (90°) : un mouvement "horizontal" tel que perçu par
         // l'utilisateur (une fois le téléphone physiquement tourné pour voir l'overlay en
@@ -9681,6 +9743,18 @@
         // silencieusement la date à chaque tap.
         const EVOLUTION_PAN_CONFIRM_PX = 8;
 
+        // Vrai si un point de contact (touch) tombe dans la zone de reconnaissance des gestes
+        // d'échelle (#evolution-xaxis-hitzone, 120px en bas du graphe — voir CSS). Partagée par
+        // le pincement (au moins un des deux doigts) et le swipe (le seul doigt), pour une seule
+        // définition de la zone à tenir à jour.
+        function isTouchInEvolutionHitzone(touch) {
+            const hitzone = document.getElementById('evolution-xaxis-hitzone');
+            if (!hitzone) return false;
+            const rect = hitzone.getBoundingClientRect();
+            return touch.clientX >= rect.left && touch.clientX <= rect.right
+                && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
+        }
+
         function onEvolutionTouchStart(e) {
             // Referme la palette de sélection si elle était ouverte — évite qu'elle reste
             // affichée par-dessus un geste en cours (pincement ou swipe).
@@ -9690,6 +9764,10 @@
             // cours (confirmé ou non) — c'est le comportement naturel attendu quand le 2e doigt
             // d'un vrai pincement arrive juste après le 1er.
             if (e.touches.length === 2) {
+                // Au moins un des deux doigts doit démarrer dans la zone des gestes d'échelle
+                // (120px en bas, voir CSS) — plus tolérant qu'exiger les deux (un pincement
+                // légitime peut démarrer avec le premier doigt posé hors zone).
+                if (!isTouchInEvolutionHitzone(e.touches[0]) && !isTouchInEvolutionHitzone(e.touches[1])) return;
                 e.preventDefault();
                 evolutionGestureState = {
                     type: 'pinch',
@@ -9706,20 +9784,18 @@
                 const currentPalier = window.evolutionPaliers[window.evolutionPalierIndex];
                 if (currentPalier.id === 'tout') return;
 
-                const hitzone = document.getElementById('evolution-xaxis-hitzone');
-                if (!hitzone) return;
                 const touch = e.touches[0];
-                const rect = hitzone.getBoundingClientRect();
                 // Ne démarre un pan candidat que si le doigt touche effectivement la zone de
-                // reconnaissance (désormais tout le graphe, voir #evolution-xaxis-hitzone en
-                // CSS — pointer-events:none pour ne jamais intercepter physiquement le toucher
-                // destiné au canvas en dessous). rect.height sert de référence pour convertir le
-                // déplacement en jours (voir daysPerPx plus bas) : plus la zone est haute, plus
-                // il faut un déplacement physique important pour parcourir toute la fenêtre —
-                // effet naturel et voulu de l'agrandissement de cette zone.
-                const inHitzone = touch.clientX >= rect.left && touch.clientX <= rect.right
-                    && touch.clientY >= rect.top && touch.clientY <= rect.bottom;
-                if (!inHitzone) return;
+                // reconnaissance (120px en bas, voir #evolution-xaxis-hitzone en CSS —
+                // pointer-events:none pour ne jamais intercepter physiquement le toucher destiné
+                // au canvas en dessous).
+                if (!isTouchInEvolutionHitzone(touch)) return;
+                const hitzone = document.getElementById('evolution-xaxis-hitzone');
+                const rect = hitzone.getBoundingClientRect();
+                // rect.height sert de référence pour convertir le déplacement en jours (voir
+                // daysPerPx plus bas) : avec une zone réduite à 120px, le swipe devient plus
+                // sensible au pixel qu'avec l'ancienne pleine hauteur — effet mécanique attendu,
+                // à valider au test réel sur appareil.
                 // Pas de preventDefault ici : tant que le geste n'est pas confirmé (voir
                 // onEvolutionTouchMove), on ne bloque rien — un simple tap dans cette bande doit
                 // pouvoir atteindre normalement le canvas et son tooltip Chart.js.
