@@ -20,17 +20,25 @@
 
         :root {
             /* Variables synchronisées avec l'app PacingCount */
-            --primary: hsl(207, 90%, 45%);       /* Le --blue de ton app */
-            --primary-hover: hsl(207, 90%, 55%); /* Légèrement éclairci pour le survol */
-            
-            --bg: #121212;                       /* Le --bg-color de ton app */
-            --card-bg: #1e1e1e;                  /* Le --card-bg de ton app */
-            
-            --text: #e0e0e0;                     /* Le --text-color de ton app */
-            --text-muted: #b0b0b0;               /* Correspond à ton --chart-gray-text */
-            --border-color: #333333;             /* Le --border de ton app */
-            
-            --radius: 12px;                      /* On conserve l'arrondi du site */
+            --primary: hsl(207, 90%, 45%);
+            /* Le --blue de ton app */
+            --primary-hover: hsl(207, 90%, 55%);
+            /* Légèrement éclairci pour le survol */
+
+            --bg: #121212;
+            /* Le --bg-color de ton app */
+            --card-bg: #1e1e1e;
+            /* Le --card-bg de ton app */
+
+            --text: #e0e0e0;
+            /* Le --text-color de ton app */
+            --text-muted: #b0b0b0;
+            /* Correspond à ton --chart-gray-text */
+            --border-color: #333333;
+            /* Le --border de ton app */
+
+            --radius: 12px;
+            /* On conserve l'arrondi du site */
         }
 
         * {
@@ -170,11 +178,12 @@
         }
 
         .card {
-            background: var(--card-bg);
+            background: rgba(255, 215, 100, 0.04);
+            /* Fond avec voile jaune très léger */
+            border: 1px solid rgba(255, 215, 100, 0.15);
+            /* Bordure légèrement dorée */
             padding: 24px;
-            /* Un peu plus d'espace intérieur pour respirer */
             border-radius: var(--radius);
-            border: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -199,8 +208,10 @@
 
         /* Community section */
         .community {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
+            background: rgba(59, 130, 246, 0.08);
+            /* Fond bleu peu opaque */
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            /* Bordure bleue douce */
             border-radius: var(--radius);
             padding: 24px;
             text-align: center;
@@ -209,12 +220,14 @@
 
         .community h3 {
             color: #93c5fd;
+            /* Titre bleu clair lumineux */
             margin-bottom: 8px;
         }
 
         .community p {
-            margin-bottom: 16px;
             color: #bfdbfe;
+            /* Texte bleu très doux */
+            margin-bottom: 16px;
         }
 
         /* System for multi-lang visibility */
