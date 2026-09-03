@@ -8,13 +8,13 @@
     <style>
         :root {
             /* Variables du Thème Sombre */
-            --primary: #3b82f6; 
+            --primary: #3b82f6;
             --primary-hover: #60a5fa;
-            --bg: #0f172a; 
-            --card-bg: #1e293b; 
-            --text: #f8fafc; 
-            --text-muted: #94a3b8; 
-            --border-color: #334155; 
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
             --radius: 12px;
         }
 
@@ -68,7 +68,8 @@
 
         /* Container global */
         .container {
-            max-width: 1000px; /* Légèrement élargi pour accommoder la grille de 6 commentaires */
+            max-width: 1000px;
+            /* Légèrement élargi pour accommoder la grille de 6 commentaires */
             margin: 0 auto;
             padding: 0 20px;
         }
@@ -149,12 +150,14 @@
             /* Passage à 300px pour éviter des colonnes trop étroites avec beaucoup de texte */
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
-            align-items: start; /* Permet aux cartes de s'adapter à leur propre hauteur de contenu */
+            align-items: start;
+            /* Permet aux cartes de s'adapter à leur propre hauteur de contenu */
         }
 
         .card {
             background: var(--card-bg);
-            padding: 24px; /* Un peu plus d'espace intérieur pour respirer */
+            padding: 24px;
+            /* Un peu plus d'espace intérieur pour respirer */
             border-radius: var(--radius);
             border: 1px solid var(--border-color);
             display: flex;
@@ -175,7 +178,8 @@
             font-style: normal;
             color: var(--text);
             font-size: 0.9rem;
-            margin-top: auto; /* Pousse le nom de l'auteur vers le bas de la carte */
+            margin-top: auto;
+            /* Pousse le nom de l'auteur vers le bas de la carte */
         }
 
         /* Community section */
@@ -189,25 +193,37 @@
         }
 
         .community h3 {
-            color: #93c5fd; 
+            color: #93c5fd;
             margin-bottom: 8px;
         }
 
         .community p {
             margin-bottom: 16px;
-            color: #bfdbfe; 
+            color: #bfdbfe;
         }
 
         /* System for multi-lang visibility */
-        [data-fr], [data-en], [data-nl] { display: none; }
+        [data-fr],
+        [data-en],
+        [data-nl] {
+            display: none;
+        }
 
         html[lang="fr"] [data-fr],
         html[lang="en"] [data-en],
-        html[lang="nl"] [data-nl] { display: inline; }
+        html[lang="nl"] [data-nl] {
+            display: inline;
+        }
 
-        html[lang="fr"] blockquote[data-fr], html[lang="fr"] div[data-fr], html[lang="fr"] p[data-fr],
-        html[lang="en"] blockquote[data-en], html[lang="en"] div[data-en], html[lang="en"] p[data-en],
-        html[lang="nl"] blockquote[data-nl], html[lang="nl"] div[data-nl], html[lang="nl"] p[data-nl] {
+        html[lang="fr"] blockquote[data-fr],
+        html[lang="fr"] div[data-fr],
+        html[lang="fr"] p[data-fr],
+        html[lang="en"] blockquote[data-en],
+        html[lang="en"] div[data-en],
+        html[lang="en"] p[data-en],
+        html[lang="nl"] blockquote[data-nl],
+        html[lang="nl"] div[data-nl],
+        html[lang="nl"] p[data-nl] {
             display: block;
         }
     </style>
@@ -233,15 +249,26 @@
         <!-- Hero section -->
         <section class="hero">
             <h1>
-                <span data-fr="Gérez votre rythme et préservez votre énergie">Gérez votre rythme et préservez votre énergie</span>
-                <span data-en="Manage your pace and save your energy">Manage your pace and save your energy</span>
-                <span data-nl="Beheer je tempo en bespaar je energie">Beheer je tempo en bespaar je energie</span>
+                <span data-fr="Mesurer son pacing, en douceur">Mesurer son pacing, en douceur</span>
+                <span data-en="Track your pacing, gently">Track your pacing, gently</span>
+                <span data-nl="Je pacing meten, op een zachte manier">Je pacing meten, op een zachte manier</span>
             </h1>
             <p>
                 <!-- Modification répercutée et traduite : inclusion de la mention EM/SFC et Covid Long -->
-                <span data-fr="PacingCount est une application légère conçue pour vous aider à enregistrer, visualiser et équilibrer vos temps d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un pacing quotidien).">PacingCount est une application légère conçue pour vous aider à enregistrer, visualiser et équilibrer vos temps d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un pacing quotidien).</span>
-                <span data-en="PacingCount is a lightweight app designed to help you log, visualize, and balance your activity and rest times (ME/CFS, Long Covid, and other conditions requiring daily pacing).">PacingCount is a lightweight app designed to help you log, visualize, and balance your activity and rest times (ME/CFS, Long Covid, and other conditions requiring daily pacing).</span>
-                <span data-nl="PacingCount is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te registreren, visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die dagelijkse pacing vereisen).">PacingCount is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te registreren, visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die dagelijkse pacing vereisen).</span>
+                <span
+                    data-fr="PacingCount est une application légère conçue pour vous aider à enregistrer, visualiser et équilibrer vos temps d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un pacing quotidien)">PacingCount
+                    est une application légère conçue pour vous aider à enregistrer, visualiser et équilibrer vos temps
+                    d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un pacing
+                    quotidien)</span>
+                <span
+                    data-en="PacingCount is a lightweight app designed to help you log, visualize, and balance your activity and rest times (ME/CFS, Long Covid, and other conditions requiring daily pacing)">PacingCount
+                    is a lightweight app designed to help you log, visualize, and balance your activity and rest times
+                    (ME/CFS, Long Covid, and other conditions requiring daily pacing)</span>
+                <span
+                    data-nl="PacingCount is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te registreren, visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die dagelijkse pacing vereisen)">PacingCount
+                    is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te registreren,
+                    visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die dagelijkse
+                    pacing vereisen)</span>
             </p>
 
             <div class="cta-buttons">
@@ -269,49 +296,108 @@
 
                 <!-- Commentaire 1 -->
                 <div class="card">
-                    <p data-fr="« Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça m'aide déjà beaucoup après seulement quelques jours. »">« Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça m'aide déjà beaucoup après seulement quelques jours. »</p>
-                    <p data-en="“Thank you for this wonderful app, I'm really happy to have discovered it, it's already helping me a lot after just a few days.”">“Thank you for this wonderful app, I'm really happy to have discovered it, it's already helping me a lot after just a few days.”</p>
-                    <p data-nl="“Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me al veel na slechts een paar dagen.”">“Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me al veel na slechts een paar dagen.”</p>
+                    <p
+                        data-fr="« Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça m'aide déjà beaucoup après seulement quelques jours. »">
+                        « Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça m'aide
+                        déjà beaucoup après seulement quelques jours. »</p>
+                    <p
+                        data-en="“Thank you for this wonderful app, I'm really happy to have discovered it, it's already helping me a lot after just a few days.”">
+                        “Thank you for this wonderful app, I'm really happy to have discovered it, it's already helping
+                        me a lot after just a few days.”</p>
+                    <p
+                        data-nl="“Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me al veel na slechts een paar dagen.”">
+                        “Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me al veel
+                        na slechts een paar dagen.”</p>
                     <div class="author">— Maki M.</div>
                 </div>
 
                 <!-- Commentaire 2 -->
                 <div class="card">
-                    <p data-fr="« Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »">« Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »</p>
-                    <p data-en="“I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a lot.”">“I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a lot.”</p>
-                    <p data-nl="“Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg helpt.”">“Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg helpt.”</p>
+                    <p
+                        data-fr="« Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »">
+                        « Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »</p>
+                    <p
+                        data-en="“I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a lot.”">
+                        “I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a lot.”
+                    </p>
+                    <p
+                        data-nl="“Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg helpt.”">
+                        “Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg helpt.”
+                    </p>
                     <div class="author">— Fabienne N.</div>
                 </div>
 
                 <!-- Commentaire 3 -->
                 <div class="card">
-                    <p data-fr="« Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »">« Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »</p>
-                    <p data-en="“Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable information. Huge thanks. Should be in the hands of all ME patients.”">“Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable information. Huge thanks. Should be in the hands of all ME patients.”</p>
-                    <p data-nl="“Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie. Enorm bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”">“Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie. Enorm bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”</p>
+                    <p
+                        data-fr="« Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »">
+                        « Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations
+                        précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »</p>
+                    <p
+                        data-en="“Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable information. Huge thanks. Should be in the hands of all ME patients.”">
+                        “Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable information. Huge
+                        thanks. Should be in the hands of all ME patients.”</p>
+                    <p
+                        data-nl="“Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie. Enorm bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”">
+                        “Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie. Enorm
+                        bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”</p>
                     <div class="author">— Cathie L.</div>
                 </div>
 
                 <!-- Commentaire 4 -->
                 <div class="card">
-                    <p data-fr="« J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de manipulation, enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai je à diminuer les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment 🙏💙 »">« J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de manipulation, enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai je à diminuer les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment 🙏💙 »</p>
-                    <p data-en="“I've been using the app for 2 weeks now and I love how easy it is to use. I can finally see my pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A huge Thank You for creating this app, truly 🙏💙”">“I've been using the app for 2 weeks now and I love how easy it is to use. I can finally see my pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A huge Thank You for creating this app, truly 🙏💙”</p>
-                    <p data-nl="“Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen. Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”">“Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen. Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”</p>
+                    <p
+                        data-fr="« J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de manipulation, enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai je à diminuer les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment 🙏💙 »">
+                        « J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de manipulation,
+                        enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai je à diminuer
+                        les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment 🙏💙 »</p>
+                    <p
+                        data-en="“I've been using the app for 2 weeks now and I love how easy it is to use. I can finally see my pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A huge Thank You for creating this app, truly 🙏💙”">
+                        “I've been using the app for 2 weeks now and I love how easy it is to use. I can finally see my
+                        pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A huge Thank
+                        You for creating this app, truly 🙏💙”</p>
+                    <p
+                        data-nl="“Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen. Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”">
+                        “Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn
+                        pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen.
+                        Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”</p>
                     <div class="author">— Dorinne D.</div>
                 </div>
 
                 <!-- Commentaire 5 -->
                 <div class="card">
-                    <p data-fr="« Un très grand merci pour la création de cette application...les mises à jour et améliorations 🙏🙏🙏🙏💝 »">« Un très grand merci pour la création de cette application...les mises à jour et améliorations 🙏🙏🙏🙏💝 »</p>
-                    <p data-en="“A huge thank you for creating this app... the updates and improvements 🙏🙏🙏🙏💝”">“A huge thank you for creating this app... the updates and improvements 🙏🙏🙏🙏💝”</p>
-                    <p data-nl="“Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”">“Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”</p>
+                    <p
+                        data-fr="« Un très grand merci pour la création de cette application...les mises à jour et améliorations 🙏🙏🙏🙏💝 »">
+                        « Un très grand merci pour la création de cette application...les mises à jour et améliorations
+                        🙏🙏🙏🙏💝 »</p>
+                    <p data-en="“A huge thank you for creating this app... the updates and improvements 🙏🙏🙏🙏💝”">“A
+                        huge thank you for creating this app... the updates and improvements 🙏🙏🙏🙏💝”</p>
+                    <p
+                        data-nl="“Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”">
+                        “Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”</p>
                     <div class="author">— K. W.</div>
                 </div>
 
                 <!-- Commentaire 6 -->
                 <div class="card">
-                    <p data-fr="« J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire le suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché. Merci d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu en parles plus largement, d’autres l’apprécieront aussi. »">« J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire le suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché. Merci d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu en parles plus largement, d’autres l’apprécieront aussi. »</p>
-                    <p data-en="“I love your app, I find it really useful. It makes tracking easier and the graphs give a great overview of the evolution of time spent lying down. Thank you for developing this app and sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”">“I love your app, I find it really useful. It makes tracking easier and the graphs give a great overview of the evolution of time spent lying down. Thank you for developing this app and sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”</p>
-                    <p data-nl="“Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de grafieken geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt voor het ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je er breder over praat, anderen het ook zullen waarderen.”">“Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de grafieken geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt voor het ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je er breder over praat, anderen het ook zullen waarderen.”</p>
+                    <p
+                        data-fr="« J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire le suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché. Merci d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu en parles plus largement, d’autres l’apprécieront aussi. »">
+                        « J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire le
+                        suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché. Merci
+                        d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu en
+                        parles plus largement, d’autres l’apprécieront aussi. »</p>
+                    <p
+                        data-en="“I love your app, I find it really useful. It makes tracking easier and the graphs give a great overview of the evolution of time spent lying down. Thank you for developing this app and sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”">
+                        “I love your app, I find it really useful. It makes tracking easier and the graphs give a great
+                        overview of the evolution of time spent lying down. Thank you for developing this app and
+                        sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”
+                    </p>
+                    <p
+                        data-nl="“Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de grafieken geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt voor het ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je er breder over praat, anderen het ook zullen waarderen.”">
+                        “Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de grafieken
+                        geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt voor het
+                        ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je er breder
+                        over praat, anderen het ook zullen waarderen.”</p>
                     <div class="author">— Martine VS Encephalomyélite myalgique</div>
                 </div>
 
@@ -327,9 +413,16 @@
             </h3>
             <p>
                 <!-- Modification répercutée : "sur le groupe Facebook des utilisateurs·trices" -->
-                <span data-fr="Échangez vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook des utilisateurs·trices">Échangez vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook des utilisateurs·trices</span>
-                <span data-en="Share your tips, give feedback, and follow new updates on the users' Facebook group">Share your tips, give feedback, and follow new updates on the users' Facebook group</span>
-                <span data-nl="Deel je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor gebruikers">Deel je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor gebruikers</span>
+                <span
+                    data-fr="Échangez vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook des utilisateurs·trices">Échangez
+                    vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook des
+                    utilisateurs·trices</span>
+                <span
+                    data-en="Share your tips, give feedback, and follow new updates on the users' Facebook group">Share
+                    your tips, give feedback, and follow new updates on the users' Facebook group</span>
+                <span
+                    data-nl="Deel je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor gebruikers">Deel
+                    je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor gebruikers</span>
             </p>
             <a href="https://www.facebook.com/groups/1478593046580774/" target="_blank" class="btn btn-primary"
                 style="background:#1877f2; color: white;">
@@ -346,7 +439,7 @@
             const userLang = navigator.language || navigator.userLanguage;
             if (userLang.startsWith('nl')) return 'nl';
             if (userLang.startsWith('en')) return 'en';
-            return 'fr'; 
+            return 'fr';
         }
 
         function changeLanguage(lang) {
