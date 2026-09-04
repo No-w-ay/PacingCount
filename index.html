@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.46"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.47"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1130,6 +1130,27 @@
             pointer-events: none;
         }
 
+        /* Carte de valeurs — exploration tactile (drag continu, voir section 25 "gestes
+           d'exploration"). Position gauche/droite fixée dynamiquement en JS (style.left ou
+           style.right, l'autre étant vidé) — toujours du côté OPPOSÉ au point touché, pour ne
+           jamais rester cachée sous le doigt. bottom fixe : au-dessus de la bande de dates
+           (scale.height 44px de l'axe X, voir afterFit), laisse le coin haut-droit entièrement
+           libre pour la légende. Police monospace : alignement des chiffres entre les lignes. */
+        #evolution-value-card {
+            display: none;
+            position: absolute;
+            bottom: 50px;
+            background: rgba(40, 40, 40, 0.85);
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-family: monospace;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            max-width: 62%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
         /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
            labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
            dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
@@ -1718,6 +1739,11 @@
                 <!-- Toast temporaire — garde-fou sélection minimale (série ou représentation
                      temporelle), rempli/affiché par showEvolutionGuardToast() (section 25c). -->
                 <div id="evolution-guard-toast"></div>
+                <!-- Carte de valeurs — exploration tactile (ligne verticale + points sur les
+                     courbes dessinés en canvas, voir evolutionExploreLinePlugin section 25).
+                     Position (gauche/droite) ajustée dynamiquement par renderEvolutionValueCard()
+                     selon le côté du graphe touché. -->
+                <div id="evolution-value-card"></div>
                 <!-- Zone de reconnaissance des gestes d'échelle (swipe + pincement, section 25b)
                      — 120px en bas du graphe. -->
                 <div id="evolution-xaxis-hitzone"></div>
@@ -3435,6 +3461,8 @@
                 evolutionNoDataInView: "Pas de données dans cette vue. Enregistrez des jours complets pour alimenter ce graphe et voir les évolutions.",
                 evolutionMinOneSeries: "Il faut garder au moins un type sélectionné",
                 evolutionMinOneRepresentation: "Il faut garder au moins une représentation (points ou moyenne)",
+                evolutionAvgSuffix: "(moyenne {n} jours)",
+                evolutionNoDataAtDate: "Aucune donnée à cette date",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -3658,6 +3686,8 @@
                 evolutionNoDataInView: "No data in this view. Log complete days to build up this chart and see trends over time.",
                 evolutionMinOneSeries: "At least one type must stay selected",
                 evolutionMinOneRepresentation: "At least one display mode must stay selected (points or average)",
+                evolutionAvgSuffix: "({n}-day average)",
+                evolutionNoDataAtDate: "No data on this date",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -3872,6 +3902,8 @@
                 evolutionNoDataInView: "Geen data in deze weergave. Registreer volledige dagen om deze grafiek te vullen en trends te zien.",
                 evolutionMinOneSeries: "Er moet minstens één type geselecteerd blijven",
                 evolutionMinOneRepresentation: "Er moet minstens één weergave geselecteerd blijven (punten of gemiddelde)",
+                evolutionAvgSuffix: "(gemiddelde over {n} dagen)",
+                evolutionNoDataAtDate: "Geen data op deze datum",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -8789,6 +8821,95 @@
 
         let evolutionChartInstance = null;
 
+        // ============================================================
+        // 25d. EXPLORATION TACTILE — ligne verticale + points sur les courbes, dessinés en
+        // CANVAS (pas en DOM). Remplace le tooltip natif de Chart.js (désactivé, voir
+        // plugins.tooltip.enabled:false dans la config du chart).
+        //
+        // Choix canvas plutôt que DOM (contrairement à la bande de prévisualisation du
+        // pincement, en DOM) : ici la précision doit être pixel-parfaite avec les courbes
+        // réellement tracées (la marge de l'axe Y à gauche, ~55px, devrait sinon être
+        // recalculée à la main pour un positionnement en pourcentage — exactement le genre de
+        // valeur devinée qui a posé problème pour le millésime avant l'adoption du rendu natif
+        // Chart.js). En canvas, on lit directement scale.getPixelForValue()/getPixelForValue()
+        // — la géométrie exacte que Chart.js connaît déjà de lui-même, sans rien deviner.
+        //
+        // window.evolutionExploreTimestamp (jour, minuit local) : null hors exploration, sinon
+        // la date actuellement explorée — lu par le plugin ci-dessous à chaque redraw.
+        // ============================================================
+
+        // Cherche la valeur Y d'un tableau de points {x,y} (trié par x croissant) à un x donné :
+        // correspondance exacte si elle existe, sinon interpolation linéaire entre les deux
+        // points encadrants SI allowInterpolation (jamais pour les points bruts — voir
+        // _repType:'raw', qui ne doit jamais laisser croire à une donnée reconstituée pour un
+        // jour qui n'en a pas). Retourne null si aucune valeur ne peut être déterminée (hors
+        // plage du tableau, ou correspondance exacte requise mais absente).
+        function evolutionValueAtX(dataArr, ts, allowInterpolation) {
+            if (!dataArr || dataArr.length === 0) return null;
+            for (let i = 0; i < dataArr.length; i++) {
+                if (dataArr[i].x === ts) return dataArr[i].y;
+            }
+            if (!allowInterpolation) return null;
+            for (let i = 0; i < dataArr.length - 1; i++) {
+                const a = dataArr[i], b = dataArr[i + 1];
+                if (ts > a.x && ts < b.x) {
+                    const ratio = (ts - a.x) / (b.x - a.x);
+                    return a.y + (b.y - a.y) * ratio;
+                }
+            }
+            return null;
+        }
+
+        // Plugin Chart.js — dessine la ligne verticale + un point par série active, à la date
+        // actuellement explorée (window.evolutionExploreTimestamp). Ne fait rien hors
+        // exploration (ts null). afterDraw : s'exécute après le rendu normal du graphe, jamais
+        // pris en compte dans le calcul de mise en page (même famille de technique que le rendu
+        // du millésime).
+        const evolutionExploreLinePlugin = {
+            id: 'evolutionExploreLine',
+            afterDraw(chart) {
+                const ts = window.evolutionExploreTimestamp;
+                if (ts === null || typeof ts === 'undefined') return;
+                const xScale = chart.scales.x;
+                const yScale = chart.scales.y;
+                if (!xScale || !yScale) return;
+                const xPixel = xScale.getPixelForValue(ts);
+                if (xPixel < chart.chartArea.left || xPixel > chart.chartArea.right) return;
+
+                const ctx = chart.ctx;
+                ctx.save();
+
+                // Ligne verticale — blanche, plus marquée que le quadrillage de fond (0.2) mais
+                // pas aussi appuyée qu'un élément d'interface actif.
+                ctx.strokeStyle = withAlpha('#ffffff', 0.8);
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(xPixel, chart.chartArea.top);
+                ctx.lineTo(xPixel, chart.chartArea.bottom);
+                ctx.stroke();
+
+                // Un point par dataset actif ayant une valeur à cette date — correspondance
+                // exacte pour les points bruts, interpolée pour les moyennes mobiles (voir
+                // evolutionValueAtX()) : cohérent avec ce que la courbe affiche visuellement à
+                // cet endroit, pointillé compris.
+                chart.data.datasets.forEach(ds => {
+                    const y = evolutionValueAtX(ds.data, ts, ds._repType !== 'raw');
+                    if (y === null) return;
+                    const yPixel = yScale.getPixelForValue(y);
+                    const radius = ds._repType === 'raw' ? 3.5 : 4;
+                    ctx.beginPath();
+                    ctx.fillStyle = ds._color || '#ffffff';
+                    ctx.arc(xPixel, yPixel, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.stroke();
+                });
+
+                ctx.restore();
+            }
+        };
+
 
         // Seuil au-delà duquel un écart (en ms) entre deux points consécutifs est considéré
         // comme un "trou" de données (jour incomplet, période sans mesure) — sert au style
@@ -9569,7 +9690,11 @@
                         // par-dessus, surtout là où plusieurs séries se superposent.
                         pointBackgroundColor: withAlpha(color, 0.45),
                         pointBorderColor: 'rgba(0,0,0,0.3)',
-                        order: 3 // dessiné en dessous des courbes (order plus élevé = dessous)
+                        order: 3, // dessiné en dessous des courbes (order plus élevé = dessous)
+                        // Métadonnées pour l'exploration tactile (evolutionExploreLinePlugin,
+                        // renderEvolutionValueCard) — _repType:'raw' signale une lecture par
+                        // correspondance exacte du jour uniquement, jamais interpolée.
+                        _seriesId: sid, _repType: 'raw', _color: color
                     });
                 }
                 if (settings.evolutionShowMovingAvg) {
@@ -9591,7 +9716,8 @@
                         segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 0.65, 0.45) },
                         borderColor: withAlpha(color, 0.65),
                         borderWidth: AVG3_BORDER_WIDTH,
-                        order: 2 // dessiné par-dessus les points
+                        order: 2, // dessiné par-dessus les points
+                        _seriesId: sid, _repType: 'avg3', _avgDays: 3, _color: color
                     });
                 }
                 if (settings.evolutionShowMovingAvg5) {
@@ -9611,7 +9737,8 @@
                         segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 1, 0.45) },
                         borderColor: color,
                         borderWidth: AVG5_BORDER_WIDTH,
-                        order: 1 // dessiné par-dessus les points et ~3j
+                        order: 1, // dessiné par-dessus les points et ~3j
+                        _seriesId: sid, _repType: 'avg5', _avgDays: 5, _color: color
                     });
                 }
                 if (settings.evolutionShowMovingAvg7) {
@@ -9630,7 +9757,8 @@
                         segment: { borderDash: evolutionSegmentDash, borderColor: evolutionSegmentColor(color, 1, 0.45) },
                         borderColor: color,
                         borderWidth: AVG7_BORDER_WIDTH,
-                        order: 0 // dessiné par-dessus tout le reste (points, ~3j, ~5j)
+                        order: 0, // dessiné par-dessus tout le reste (points, ~3j, ~5j)
+                        _seriesId: sid, _repType: 'avg7', _avgDays: 7, _color: color
                     });
                 }
             });
@@ -9761,20 +9889,61 @@
                     plugins: {
                         // Légende native masquée — les chips de sélection en tiennent déjà lieu.
                         legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                title: (items) => new Date(items[0].parsed.x).toLocaleDateString(getLocale()),
-                                label: (item) => {
-                                    const mins = item.parsed.y * 60;
-                                    const h = Math.floor(mins / 60);
-                                    const m = Math.round(mins % 60);
-                                    return `${item.dataset.label} : ${h}h${m.toString().padStart(2, '0')}`;
-                                }
-                            }
-                        }
+                        // Tooltip natif désactivé — entièrement remplacé par le mécanisme
+                        // d'exploration tactile (ligne verticale + carte de valeurs, voir
+                        // evolutionExploreLinePlugin ci-dessous et renderEvolutionValueCard()).
+                        tooltip: { enabled: false }
                     }
-                }
+                },
+                plugins: [evolutionExploreLinePlugin]
             });
+        }
+
+        // Construit et positionne la carte de valeurs — appelée à chaque frame de l'exploration
+        // (voir updateEvolutionExplore()). Position gauche/droite adaptative : toujours du côté
+        // OPPOSÉ à la date explorée par rapport au milieu de la zone de tracé réelle
+        // (chart.chartArea, pas le canvas entier qui inclut la colonne des labels Y) — pour
+        // qu'elle ne se retrouve jamais cachée sous le doigt qui explore.
+        function renderEvolutionValueCard(dayTs) {
+            const card = document.getElementById('evolution-value-card');
+            if (!card || !evolutionChartInstance) return;
+
+            const chart = evolutionChartInstance;
+            const xPixel = chart.scales.x.getPixelForValue(dayTs);
+            const mid = (chart.chartArea.left + chart.chartArea.right) / 2;
+            const onLeftHalf = xPixel < mid;
+            card.style.left = onLeftHalf ? '' : '10px';
+            card.style.right = onLeftHalf ? '10px' : '';
+
+            // Une ligne par valeur active à cette date, correspondance exacte pour les points
+            // bruts / interpolée pour les moyennes (même règle que le plugin de dessin) —
+            // triées de la plus haute à la plus basse, sans distinction de type par groupe.
+            const lines = [];
+            chart.data.datasets.forEach(ds => {
+                const value = evolutionValueAtX(ds.data, dayTs, ds._repType !== 'raw');
+                if (value === null) return;
+                lines.push({ value, color: ds._color, repType: ds._repType, avgDays: ds._avgDays });
+            });
+            lines.sort((a, b) => b.value - a.value);
+
+            let html = `<div style="color:#fff;">${formatEvolutionEndDateFixed(new Date(dayTs))}</div>`;
+            if (lines.length === 0) {
+                html += `<div style="opacity:0.75;">${t('evolutionNoDataAtDate')}</div>`;
+            } else {
+                lines.forEach(line => {
+                    const mins = line.value * 60;
+                    const h = Math.floor(mins / 60);
+                    const m = Math.round(mins % 60);
+                    // Padding par "0" transparent (même convention que renderResults()) : garantit
+                    // une largeur identique aux vrais chiffres sous la police monospace.
+                    const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
+                    const suffix = line.repType !== 'raw' ? ` ${t('evolutionAvgSuffix', { n: line.avgDays })}` : '';
+                    html += `<div style="color:${line.color};">${hStr}h${m.toString().padStart(2, '0')}${suffix}</div>`;
+                });
+            }
+
+            card.innerHTML = html;
+            card.style.display = 'block';
         }
 
         // ============================================================
@@ -9866,38 +10035,56 @@
                 return;
             }
             if (e.touches.length === 1 && !evolutionGestureState) {
-                // Le palier "tout" n'a pas de largeur à faire glisser (le début est toujours le
-                // premier jour réel de l'historique, quelle que soit la fin) — un swipe dessus
-                // n'aurait pas de sens cohérent (voir discussion). On n'entame même pas de geste
-                // candidat : les taps dans cette zone restent utilisables normalement.
-                const currentPalier = window.evolutionPaliers[window.evolutionPalierIndex];
-                if (currentPalier.id === 'tout') return;
-
                 const touch = e.touches[0];
-                // Ne démarre un pan candidat que si le doigt touche effectivement la zone de
-                // reconnaissance (120px en bas, voir #evolution-xaxis-hitzone en CSS —
-                // pointer-events:none pour ne jamais intercepter physiquement le toucher destiné
-                // au canvas en dessous).
-                if (!isTouchInEvolutionHitzone(touch)) return;
-                const hitzone = document.getElementById('evolution-xaxis-hitzone');
-                const rect = hitzone.getBoundingClientRect();
-                // rect.height sert de référence pour convertir le déplacement en jours (voir
-                // daysPerPx plus bas) : avec une zone réduite à 120px, le swipe devient plus
-                // sensible au pixel qu'avec l'ancienne pleine hauteur — effet mécanique attendu,
-                // à valider au test réel sur appareil.
-                // Pas de preventDefault ici : tant que le geste n'est pas confirmé (voir
-                // onEvolutionTouchMove), on ne bloque rien — un simple tap dans cette bande doit
-                // pouvoir atteindre normalement le canvas et son tooltip Chart.js.
-                const startDate = getPalierStartDate(window.evolutionEndDate, currentPalier);
-                const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
-                evolutionGestureState = {
-                    type: 'pan',
-                    confirmed: false,
-                    startY: touch.clientY,
-                    pxRange: rect.height,
-                    windowDays,
-                    candidateEndDate: new Date(window.evolutionEndDate)
-                };
+
+                if (isTouchInEvolutionHitzone(touch)) {
+                    // Le palier "tout" n'a pas de largeur à faire glisser (le début est toujours
+                    // le premier jour réel de l'historique, quelle que soit la fin) — un swipe
+                    // dessus n'aurait pas de sens cohérent (voir discussion). On n'entame même
+                    // pas de geste candidat : les taps dans cette zone restent utilisables
+                    // normalement (mais l'exploration, elle, ne démarre jamais dans cette bande
+                    // — réservée aux gestes d'échelle, voir plus bas).
+                    const currentPalier = window.evolutionPaliers[window.evolutionPalierIndex];
+                    if (currentPalier.id === 'tout') return;
+
+                    const hitzone = document.getElementById('evolution-xaxis-hitzone');
+                    const rect = hitzone.getBoundingClientRect();
+                    // rect.height sert de référence pour convertir le déplacement en jours (voir
+                    // daysPerPx plus bas) : avec une zone réduite à 120px, le swipe devient plus
+                    // sensible au pixel qu'avec l'ancienne pleine hauteur — effet mécanique
+                    // attendu, à valider au test réel sur appareil.
+                    // Pas de preventDefault ici : tant que le geste n'est pas confirmé (voir
+                    // onEvolutionTouchMove), on ne bloque rien — un simple tap dans cette bande
+                    // doit pouvoir atteindre normalement le canvas.
+                    const startDate = getPalierStartDate(window.evolutionEndDate, currentPalier);
+                    const windowDays = Math.round((window.evolutionEndDate.getTime() - startDate.getTime()) / 86400000) + 1;
+                    evolutionGestureState = {
+                        type: 'pan',
+                        confirmed: false,
+                        startY: touch.clientY,
+                        pxRange: rect.height,
+                        windowDays,
+                        candidateEndDate: new Date(window.evolutionEndDate)
+                    };
+                    return;
+                }
+
+                // Zone du bouton de bascule axe Y (#evolution-yaxis-toggle) — élément DOM avec
+                // son propre onclick, pointer-events actif (contrairement à la hitzone) : on
+                // laisse le tap lui parvenir normalement via e.target, sans démarrer
+                // d'exploration par-dessus. Détection par hit-testing DOM natif (fiable sous la
+                // rotation CSS), pas par calcul de coordonnées.
+                if (e.target.closest && e.target.closest('#evolution-yaxis-toggle')) return;
+
+                // Sinon : exploration du graphe (ligne verticale + carte de valeurs, section
+                // 25d) — drag continu, démarre immédiatement au toucher (pas de seuil de
+                // confirmation comme pour le pan : le tooltip natif de Chart.js étant
+                // désactivé, il n'y a plus rien d'autre à quoi ce tap pourrait légitimement
+                // appartenir dans cette zone).
+                if (!evolutionChartInstance) return;
+                e.preventDefault();
+                evolutionGestureState = { type: 'explore' };
+                updateEvolutionExplore(touch);
             }
         }
 
@@ -9947,6 +10134,9 @@
                 // Swipe → met à jour uniquement la partie "→ mois année" du label (la durée
                 // reste celle actuellement committée, inchangée par ce geste).
                 updateEvolutionPalierLabel(null, candidate);
+            } else if (evolutionGestureState.type === 'explore' && e.touches.length === 1) {
+                e.preventDefault();
+                updateEvolutionExplore(e.touches[0]);
             }
         }
 
@@ -9974,8 +10164,50 @@
                 } else {
                     updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
+            } else if (evolutionGestureState.type === 'explore') {
+                clearEvolutionExplore();
             }
             evolutionGestureState = null;
+        }
+
+        // Convertit la position tactile en date visée, puis met à jour la ligne verticale
+        // (canvas, via evolutionExploreLinePlugin) et la carte de valeurs (DOM). Appelée au
+        // toucher initial et à chaque déplacement pendant l'exploration — geste léger : aucun
+        // recalcul de données, uniquement un redraw canvas (chart.draw()) et une lecture directe
+        // dans les tableaux déjà construits.
+        function updateEvolutionExplore(touch) {
+            if (!evolutionChartInstance) return;
+            const canvas = evolutionChartInstance.canvas;
+            const rect = canvas.getBoundingClientRect();
+            let fraction = (touch.clientY - rect.top) / rect.height;
+            fraction = Math.min(Math.max(fraction, 0), 1);
+            // Repère de conception (voir swipe, section 25b) : mouvement local "horizontal" =
+            // clientY brut. Sens déduit de celui déjà confirmé par test réel pour le swipe (où
+            // un déplacement du doigt vers le bas fait reculer la fenêtre affichée vers des
+            // dates plus anciennes, donc vers une position plus à gauche de l'axe local) —
+            // ⚠️ à reconfirmer concrètement, comme les deux gestes précédents : un flip de
+            // signe simple suffira si le sens perçu est inversé au premier test.
+            const localPixelX = evolutionChartInstance.width * (1 - fraction);
+            const rawValue = evolutionChartInstance.scales.x.getValueForPixel(localPixelX);
+            if (rawValue === undefined || rawValue === null || isNaN(rawValue)) return;
+            const raw = new Date(rawValue);
+            // Arrondi au jour civil (composants de date, jamais d'arithmétique en ms — cohérent
+            // avec la règle DST déjà actée pour ce fichier) — les points de données sont tous à
+            // la granularité du jour (minuit local).
+            const dayTs = new Date(raw.getFullYear(), raw.getMonth(), raw.getDate()).getTime();
+
+            window.evolutionExploreTimestamp = dayTs;
+            evolutionChartInstance.draw();
+            renderEvolutionValueCard(dayTs);
+        }
+
+        // Fin de l'exploration (relâchement du doigt) — efface la ligne/les points (redraw
+        // canvas) et masque la carte de valeurs.
+        function clearEvolutionExplore() {
+            window.evolutionExploreTimestamp = null;
+            if (evolutionChartInstance) evolutionChartInstance.draw();
+            const card = document.getElementById('evolution-value-card');
+            if (card) card.style.display = 'none';
         }
 
         // Bornes réelles de l'historique (premier/dernier jour avec données) — lues depuis
@@ -10124,6 +10356,10 @@
         function closeEvolutionOverlay() {
             const overlay = document.getElementById('evolution-overlay');
             if (overlay) overlay.style.display = 'none';
+            // Hygiène : évite qu'une ligne/carte d'exploration résiduelle apparaisse à la
+            // prochaine ouverture avant tout nouveau toucher (état de session, pas de geste en
+            // cours à ce stade puisque le bouton fermer n'est atteignable qu'au repos).
+            window.evolutionExploreTimestamp = null;
         }
 
 
