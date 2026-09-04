@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.47c"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.47d"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1117,7 +1117,7 @@
             display: none;
             position: absolute;
             top: 0px;
-            left: 30px;
+            left: 40px;
             /*transform: translateX(-50%); */
             background: rgba(40, 40, 40, 0.8);
             border-radius: 8px;
@@ -9912,7 +9912,7 @@
             const xPixel = chart.scales.x.getPixelForValue(dayTs);
             const mid = (chart.chartArea.left + chart.chartArea.right) / 2;
             const onLeftHalf = xPixel < mid;
-            card.style.left = onLeftHalf ? '' : '30px'; //modifN
+            card.style.left = onLeftHalf ? '' : '40px'; //modifN
             card.style.right = onLeftHalf ? '0px' : ''; //modifN
 
             // Une ligne par valeur active à cette date, correspondance exacte pour les points
