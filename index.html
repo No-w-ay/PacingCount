@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.45"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.46"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1108,6 +1108,28 @@
             pointer-events: none;
         }
 
+        /* Toast temporaire — garde-fou de sélection minimale (voir showEvolutionGuardToast()) :
+           tentative de désélection du dernier type, ou de la dernière représentation temporelle
+           (1j/~3j/~5j/~7j). Même esprit visuel que #evolution-no-data-msg, mais positionné en
+           haut du graphe (pas centré) pour ne jamais se superposer à ce dernier si les deux
+           étaient visibles en même temps. Auto-masqué après 3s (voir JS). */
+        #evolution-guard-toast {
+            display: none;
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 40, 40, 0.8);
+            border-radius: 8px;
+            padding: 14px 18px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            text-align: center;
+            max-width: 75%;
+            z-index: 6;
+            pointer-events: none;
+        }
+
         /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
            labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
            dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
@@ -1693,6 +1715,9 @@
                      renderEvolutionChart() (section 25) selon si les datasets construits sont
                      tous vides. -->
                 <div id="evolution-no-data-msg"></div>
+                <!-- Toast temporaire — garde-fou sélection minimale (série ou représentation
+                     temporelle), rempli/affiché par showEvolutionGuardToast() (section 25c). -->
+                <div id="evolution-guard-toast"></div>
                 <!-- Zone de reconnaissance des gestes d'échelle (swipe + pincement, section 25b)
                      — 120px en bas du graphe. -->
                 <div id="evolution-xaxis-hitzone"></div>
@@ -3408,6 +3433,8 @@
                 evolutionPill7d: "~7j",
                 evolutionGapLegend: "tendance interpolée (pas de données)",
                 evolutionNoDataInView: "Pas de données dans cette vue. Enregistrez des jours complets pour alimenter ce graphe et voir les évolutions.",
+                evolutionMinOneSeries: "Il faut garder au moins un type sélectionné",
+                evolutionMinOneRepresentation: "Il faut garder au moins une représentation (points ou moyenne)",
 
                 // Titres et labels statiques (HTML — actuellement figés en FR, jamais mis à jour par changeLang())
                 titleResults: "Totaux par jour",
@@ -3629,6 +3656,8 @@
                 evolutionPill7d: "~7d",
                 evolutionGapLegend: "interpolated trend (no data)",
                 evolutionNoDataInView: "No data in this view. Log complete days to build up this chart and see trends over time.",
+                evolutionMinOneSeries: "At least one type must stay selected",
+                evolutionMinOneRepresentation: "At least one display mode must stay selected (points or average)",
 
                 // Titres et labels statiques
                 titleResults: "Daily totals",
@@ -3841,6 +3870,8 @@
                 evolutionPill7d: "~7d",
                 evolutionGapLegend: "geïnterpoleerde trend (geen data)",
                 evolutionNoDataInView: "Geen data in deze weergave. Registreer volledige dagen om deze grafiek te vullen en trends te zien.",
+                evolutionMinOneSeries: "Er moet minstens één type geselecteerd blijven",
+                evolutionMinOneRepresentation: "Er moet minstens één weergave geselecteerd blijven (punten of gemiddelde)",
 
                 // Titres et labels statiques
                 titleResults: "Dagelijkse totalen",
@@ -9244,10 +9275,42 @@
             updateEvolutionPalierLabel();
         }
 
+        // Affiche un message temporaire de garde-fou (sélection minimale non respectée), avec
+        // auto-masquage après 3s — même esprit visuel que les toasts globaux de l'app (voir
+        // showStorageWarningToast() etc.), mais local à l'overlay Évolution : élément DOM dédié
+        // dans #evolution-chart-wrap plutôt qu'un pacing-toast plein écran, pour rester bien
+        // positionné même sous la rotation CSS de l'overlay. Anti-doublon : un seul timer
+        // partagé — si le message est déjà affiché, on relance simplement son décompte plutôt
+        // que d'empiler les appels si l'utilisateur martèle le bouton.
+        let evolutionGuardToastTimer = null;
+        function showEvolutionGuardToast(message) {
+            const el = document.getElementById('evolution-guard-toast');
+            if (!el) return;
+            el.textContent = message;
+            el.style.display = 'block';
+            clearTimeout(evolutionGuardToastTimer);
+            evolutionGuardToastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        // Nombre de représentations temporelles actuellement actives (points bruts 1j + les 3
+        // moyennes mobiles) — sert de garde-fou dans les toggle*() ci-dessous : jamais zéro
+        // simultanément, pour ne jamais afficher le message "pas de données" simplement parce
+        // que rien n'a été coché (confusant, notamment pour un public en brouillard cognitif).
+        function countActiveEvolutionRepresentations() {
+            return [settings.evolutionShowRawPoints, settings.evolutionShowMovingAvg,
+                settings.evolutionShowMovingAvg5, settings.evolutionShowMovingAvg7]
+                .filter(Boolean).length;
+        }
+
         // Bascule une série dans/hors settings.evolutionSelectedSeries — persisté, pas de
         // limite de nombre de séries simultanées (à tester en usage réel avant d'en ajouter une).
+        // Garde-fou : le dernier élément sélectionné ne peut pas être retiré (toast).
         function toggleEvolutionSeries(seriesId) {
             const idx = settings.evolutionSelectedSeries.indexOf(seriesId);
+            if (idx !== -1 && settings.evolutionSelectedSeries.length === 1) {
+                showEvolutionGuardToast(t('evolutionMinOneSeries'));
+                return;
+            }
             if (idx === -1) settings.evolutionSelectedSeries.push(seriesId);
             else settings.evolutionSelectedSeries.splice(idx, 1);
             safeSave('pacingSettings', JSON.stringify(settings));
@@ -9255,15 +9318,30 @@
             renderEvolutionChart();
         }
 
+        // Points bruts (1j) — sert de filet de sécurité pour les 3 autres représentations (voir
+        // toggleEvolutionMovingAvg*() ci-dessous, qui reportent automatiquement dessus). N'ayant
+        // lui-même aucun repli possible, sa désactivation est bloquée (toast) s'il est la
+        // dernière représentation active.
         function toggleEvolutionRawPoints() {
+            if (settings.evolutionShowRawPoints && countActiveEvolutionRepresentations() === 1) {
+                showEvolutionGuardToast(t('evolutionMinOneRepresentation'));
+                return;
+            }
             settings.evolutionShowRawPoints = !settings.evolutionShowRawPoints;
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
         }
 
+        // Désactiver ~3j alors que c'est la dernière représentation active : jamais bloqué —
+        // report automatique sur les points bruts (1j), qui s'active à sa place. Le changement
+        // reste visible (pastille 1j qui s'allume), donc pas de toast nécessaire ici.
         function toggleEvolutionMovingAvg() {
-            settings.evolutionShowMovingAvg = !settings.evolutionShowMovingAvg;
+            const turningOn = !settings.evolutionShowMovingAvg;
+            settings.evolutionShowMovingAvg = turningOn;
+            if (!turningOn && countActiveEvolutionRepresentations() === 0) {
+                settings.evolutionShowRawPoints = true;
+            }
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
@@ -9271,17 +9349,28 @@
 
         // ~5j et ~7j sont mutuellement exclusives — les activer ensemble surchargerait le
         // graphe pour un gain de lecture limité (deux moyennes larges très proches visuellement).
+        // Même repli automatique sur 1j que ~3j si c'est la dernière représentation active.
         function toggleEvolutionMovingAvg5() {
-            settings.evolutionShowMovingAvg5 = !settings.evolutionShowMovingAvg5;
-            if (settings.evolutionShowMovingAvg5) settings.evolutionShowMovingAvg7 = false;
+            const turningOn = !settings.evolutionShowMovingAvg5;
+            settings.evolutionShowMovingAvg5 = turningOn;
+            if (turningOn) {
+                settings.evolutionShowMovingAvg7 = false;
+            } else if (countActiveEvolutionRepresentations() === 0) {
+                settings.evolutionShowRawPoints = true;
+            }
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
         }
 
         function toggleEvolutionMovingAvg7() {
-            settings.evolutionShowMovingAvg7 = !settings.evolutionShowMovingAvg7;
-            if (settings.evolutionShowMovingAvg7) settings.evolutionShowMovingAvg5 = false;
+            const turningOn = !settings.evolutionShowMovingAvg7;
+            settings.evolutionShowMovingAvg7 = turningOn;
+            if (turningOn) {
+                settings.evolutionShowMovingAvg5 = false;
+            } else if (countActiveEvolutionRepresentations() === 0) {
+                settings.evolutionShowRawPoints = true;
+            }
             safeSave('pacingSettings', JSON.stringify(settings));
             renderEvolutionChips();
             renderEvolutionChart();
