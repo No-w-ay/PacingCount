@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.47"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.47b"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1116,9 +1116,9 @@
         #evolution-guard-toast {
             display: none;
             position: absolute;
-            top: 8px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 0px;
+            left: 70px;
+            /*transform: translateX(-50%); */
             background: rgba(40, 40, 40, 0.8);
             border-radius: 8px;
             padding: 14px 18px;
@@ -9912,8 +9912,8 @@
             const xPixel = chart.scales.x.getPixelForValue(dayTs);
             const mid = (chart.chartArea.left + chart.chartArea.right) / 2;
             const onLeftHalf = xPixel < mid;
-            card.style.left = onLeftHalf ? '' : '10px';
-            card.style.right = onLeftHalf ? '10px' : '';
+            card.style.left = onLeftHalf ? '' : '30px'; //modifN
+            card.style.right = onLeftHalf ? '0px' : ''; //modifN
 
             // Une ligne par valeur active à cette date, correspondance exacte pour les points
             // bruts / interpolée pour les moyennes (même règle que le plugin de dessin) —
@@ -10179,7 +10179,7 @@
             if (!evolutionChartInstance) return;
             const canvas = evolutionChartInstance.canvas;
             const rect = canvas.getBoundingClientRect();
-            let fraction = (touch.clientY - rect.top) / rect.height;
+            let fraction = (rect.bottom - touch.clientY) / rect.height; // correctif car inversion
             fraction = Math.min(Math.max(fraction, 0), 1);
             // Repère de conception (voir swipe, section 25b) : mouvement local "horizontal" =
             // clientY brut. Sens déduit de celui déjà confirmé par test réel pour le swipe (où
