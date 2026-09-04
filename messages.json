@@ -3,7 +3,7 @@
   "messages": [
     {
       "type": "update",
-      "id": "update-0.9.28-beta.47d",
+      "id": "update-0.9.28-beta.48",
       "_comment": "Kill switch — à activer si version critique à bloquer. blockAfter dans le passé = bloquant immédiatement. Correction de bugs et petites améliorations\n\n",
       "maxVersion": "",
       "validFrom": "2026-05-13",
@@ -15,9 +15,9 @@
         "nl": "Update beschikbaar"
       },
       "body": {
-        "fr": "0.9.28-beta.48 : NOUVELLE FONCTIONNALITE\n\nGraphe d'évolution à long terme, accessible via l'icone 📈 dans l'onglet Réglages.",
-        "en": "0.9.28-beta.48: NEW FEATURE\n\nLong-term evolution graph, accessible via the 📈 icon in the Settings tab.",
-        "nl": "0.9.28-beta.48: NIEUWE FUNCTIE\n\nEvolutiegrafiek op lange termijn, toegankelijk via het 📈-icoon in het tabblad Instellingen."
+        "fr": "0.9.28-beta.48\nNOUVELLE FONCTIONNALITE :\nGraphe d'évolution à long terme, accessible via l'icone 📈 dans l'onglet Résutlats.",
+        "en": "0.9.28-beta.48\nNEW FEATURE:\nLong-term evolution graph, accessible via the 📈 icon in the Results tab.",
+        "nl": "0.9.28-beta.48\nNIEUWE FUNCTIE:\nEvolutiegrafiek op lange termijn, toegankelijk via het 📈-icoon in het tabblad Resultaten."
       }
     },
     {
