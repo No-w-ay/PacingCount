@@ -148,50 +148,54 @@
                 flex-direction: row;
                 justify-content: center;
                 align-items: center;
-                gap: 30px;
-                /* Espace entre l'image et la liste */
+                gap: 40px;
             }
         }
 
         .preview-image-wrapper img {
             width: 100%;
             max-width: 350px;
-            /* Limitation stricte de la largeur */
             max-height: 600px;
-            /* Limitation stricte de la hauteur */
             object-fit: contain;
-            /* Empêche l'image de se déformer */
             display: block;
-            /* Retire l'espacement fantôme sous l'image */
+        }
+
+        .features-wrapper {
+            max-width: 450px;
+            text-align: left;
+        }
+
+        .features-title {
+            font-size: 1.3rem;
+            margin-bottom: 16px;
+            color: var(--text);
         }
 
         .features-list {
             list-style: none;
-            max-width: 450px;
-            text-align: left;
             color: var(--text-muted);
             margin: 0;
             padding: 0;
         }
 
         .features-list li {
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             position: relative;
-            padding-left: 32px;
+            padding-left: 24px;
             font-size: 1.05rem;
         }
 
         .features-list li::before {
-            content: "✓";
+            content: "•";
             position: absolute;
             left: 0;
             color: var(--primary);
             font-weight: bold;
-            font-size: 1.2rem;
-            line-height: 1.4;
+            font-size: 1.4rem;
+            line-height: 1.2;
         }
 
-        /* Section Usage Simple */
+        /* Section Usage / Graphiques */
         .usage-section {
             margin: 80px 0 60px;
             text-align: center;
@@ -218,30 +222,12 @@
             gap: 20px;
             margin-bottom: 16px;
             flex-wrap: wrap;
-            /* Permet aux images de passer à la ligne sur très petits écrans */
         }
 
         .graphs-preview img {
             width: 300px;
             height: auto;
             border-radius: var(--radius);
-            /* Optionnel : garde l'arrondi global de l'app */
-        }
-
-    /*  .image-caption {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            font-style: italic;
-            text-align: center;
-        } */
-
-        .usage-section p.image-caption {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            font-style: italic;
-            text-align: center;
-            margin: 0 auto;
-            /* Permet de bien centrer le bloc lui-même s'il est restreint */
         }
 
         /* Testimonials */
@@ -384,7 +370,7 @@
             </div>
         </section>
 
-        <!-- Screenshot & Features Section avec Flexbox -->
+        <!-- Screenshot & Features Section -->
         <section class="preview">
             <div class="preview-container">
                 <div class="preview-image-wrapper">
@@ -393,50 +379,50 @@
                     <img data-nl src="screenshotFR.png" alt="Overzicht van PacingCount (NL)">
                 </div>
 
-                <ul class="features-list">
-                    <li data-fr="Disponible sur Android et iPhone">Disponible sur Android et iPhone</li>
-                    <li data-en="Available on Android and iPhone">Available on Android and iPhone</li>
-                    <li data-nl="Beschikbaar op Android en iPhone">Beschikbaar op Android en iPhone</li>
+                <div class="features-wrapper">
+                    <h2 class="features-title">
+                        <span data-fr="Simple et convivial">Simple et convivial</span>
+                        <span data-en="Simple and user-friendly">Simple and user-friendly</span>
+                        <span data-nl="Eenvoudig en gebruiksvriendelijk">Eenvoudig en gebruiksvriendelijk</span>
+                    </h2>
+                    <ul class="features-list">
+                        <li data-fr="Presser un seul bouton au changement d'activité">Presser un seul bouton au changement d'activité</li>
+                        <li data-en="Press a single button when changing activity">Press a single button when changing activity</li>
+                        <li data-nl="Druk op één knop bij verandering van activiteit">Druk op één knop bij verandering van activiteit</li>
 
-                    <li data-fr="Respect de la vie privée — vos données restent sur votre téléphone">Respect de la vie
-                        privée — vos données restent sur votre téléphone</li>
-                    <li data-en="Privacy respecting — your data stays on your phone">Privacy respecting — your data
-                        stays on your phone</li>
-                    <li data-nl="Privacy respecteren — uw gegevens blijven op uw telefoon">Privacy respecteren — uw
-                        gegevens blijven op uw telefoon</li>
+                        <li data-fr="Calculs et graphes automatiques">Calculs et graphes automatiques</li>
+                        <li data-en="Automatic calculations and graphs">Automatic calculations and graphs</li>
+                        <li data-nl="Automatische berekeningen en grafieken">Automatische berekeningen en grafieken</li>
 
-                    <li data-fr="Utilisation gratuite et sans pub">Utilisation gratuite et sans pub</li>
-                    <li data-en="Free to use and ad-free">Free to use and ad-free</li>
-                    <li data-nl="Gratis te gebruiken en reclamevrij">Gratis te gebruiken en reclamevrij</li>
-                </ul>
+                        <li data-fr="Fonctionne sur Android et iOS">Fonctionne sur Android et iOS</li>
+                        <li data-en="Works on Android and iOS">Works on Android and iOS</li>
+                        <li data-nl="Werkt op Android en iOS">Werkt op Android en iOS</li>
+
+                        <li data-fr="Respect de la vie privée — vos données restent sur votre téléphone">Respect de la vie privée — vos données restent sur votre téléphone</li>
+                        <li data-en="Privacy respecting — your data stays on your phone">Privacy respecting — your data stays on your phone</li>
+                        <li data-nl="Privacy respecteren — uw gegevens blijven op uw telefoon">Privacy respecteren — uw gegevens blijven op uw telefoon</li>
+
+                        <li data-fr="Gratuit et sans pub">Gratuit et sans pub</li>
+                        <li data-en="Free and ad-free">Free and ad-free</li>
+                        <li data-nl="Gratis en reclamevrij">Gratis en reclamevrij</li>
+                    </ul>
+                </div>
             </div>
         </section>
 
-        <!-- Nouvelle section : Usage simple -->
+        <!-- Section : Visualisez vos journées et votre évolution -->
         <section class="usage-section">
             <h2>
-                <span data-fr="Usage simple">Usage simple</span>
-                <span data-en="Simple usage">Simple usage</span>
-                <span data-nl="Eenvoudig in gebruik">Eenvoudig in gebruik</span>
+                <span data-fr="Visualisez vos journées et votre évolution">Visualisez vos journées et votre évolution</span>
+                <span data-en="Visualize your days and your progress">Visualize your days and your progress</span>
+                <span data-nl="Visualiseer uw dagen en uw evolutie">Visualiseer uw dagen en uw evolutie</span>
             </h2>
             <p>
-                <span data-fr><strong>Le pacing</strong> — gérer son énergie pour éviter les surmenages et les crashes —
-                    demande de garder un œil sur le temps passé en activité et en repos. <strong>PacingCount</strong>
-                    permet d'enregistrer simplement ces périodes au fil de la journée : couché sans stimulation, couché
-                    actif, non couché (noms personnalisables). L'historique et les graphiques donnent ensuite une vue
-                    claire de la journée écoulée.</span>
+                <span data-fr><strong>Le pacing</strong> — gérer son énergie pour éviter les surmenages et les crashes — demande de garder un œil sur le temps passé en activité et en repos. <strong>PacingCount</strong> permet de faire cela de manière légère et efficace.</span>
 
-                <span data-en><strong>Pacing</strong> — managing your energy to avoid overexertion and crashes —
-                    requires keeping an eye on the time spent in activity and rest. <strong>PacingCount</strong> allows
-                    you to easily log these periods throughout the day: lying down without stimulation, lying down
-                    active, not lying down (customizable names). The history and graphs then give a clear view of the
-                    past day.</span>
+                <span data-en><strong>Pacing</strong> — managing your energy to avoid overexertion and crashes — requires keeping an eye on the time spent in activity and rest. <strong>PacingCount</strong> allows you to do this in a light and effective way.</span>
 
-                <span data-nl><strong>Pacing</strong> — je energie beheren om overbelasting en crashes te voorkomen —
-                    vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met
-                    <strong>PacingCount</strong> kun je deze periodes gedurende de dag eenvoudig registreren: liggend
-                    zonder stimulatie, liggend actief, niet liggend (aanpasbare namen). De geschiedenis en grafieken
-                    geven vervolgens een duidelijk beeld van de afgelopen dag.</span>
+                <span data-nl><strong>Pacing</strong> — je energie beheren om overbelasting en crashes te voorkomen — vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met <strong>PacingCount</strong> doe je dit op een lichte en doeltreffende manier.</span>
             </p>
 
             <div class="graphs-preview">
@@ -444,15 +430,19 @@
                 <img src="DailyGraphFR.png" alt="Daily Graph">
             </div>
 
-            <p class="image-caption">
-                <span
-                    data-fr="Visualisez facilement vos journées et vos semaines, pour objectiver votre pacing">Visualisez
-                    facilement vos journées et vos semaines, pour objectiver votre pacing</span>
-                <span data-en="Easily visualize your days and weeks, to objectify your pacing">Easily visualize your
-                    days and weeks, to objectify your pacing</span>
-                <span data-nl="Visualiseer eenvoudig uw dagen en weken, om uw pacing te objectiveren">Visualiseer
-                    eenvoudig uw dagen en weken, om uw pacing te objectiveren</span>
-            </p>
+            <!-- Second bouton CTA -->
+            <div class="cta-container" style="margin-top: 32px;">
+                <a href="https://pacingcount.pages.dev" class="btn btn-primary">
+                    <span data-fr="🚀 Lancer l'application">🚀 Lancer l'application</span>
+                    <span data-en="🚀 Launch App">🚀 Launch App</span>
+                    <span data-nl="🚀 Open de app">🚀 Open de app</span>
+                </a>
+                <p class="cta-hint">
+                    <span data-fr="Cliquez et suivez les instructions d'installation">Cliquez et suivez les instructions d'installation</span>
+                    <span data-en="Click and follow the installation instructions">Click and follow the installation instructions</span>
+                    <span data-nl="Klik en volg de installatie-instructies">Klik en volg de installatie-instructies</span>
+                </p>
+            </div>
         </section>
 
         <!-- Témoignages -->
