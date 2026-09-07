@@ -148,16 +148,21 @@
                 flex-direction: row;
                 justify-content: center;
                 align-items: center;
-                gap: 50px; /* Espace entre l'image et la liste */
+                gap: 50px;
+                /* Espace entre l'image et la liste */
             }
         }
 
         .preview-image-wrapper img {
             width: 100%;
-            max-width: 350px; /* Limitation stricte de la largeur */
-            max-height: 650px; /* Limitation stricte de la hauteur */
-            object-fit: contain; /* Empêche l'image de se déformer */
-            display: block; /* Retire l'espacement fantôme sous l'image */
+            max-width: 350px;
+            /* Limitation stricte de la largeur */
+            max-height: 650px;
+            /* Limitation stricte de la hauteur */
+            object-fit: contain;
+            /* Empêche l'image de se déformer */
+            display: block;
+            /* Retire l'espacement fantôme sous l'image */
         }
 
         .features-list {
@@ -198,7 +203,7 @@
             color: var(--text);
         }
 
-        .usage-section > p {
+        .usage-section>p {
             font-size: 1.05rem;
             color: var(--text-muted);
             max-width: 750px;
@@ -212,19 +217,22 @@
             align-items: flex-start;
             gap: 20px;
             margin-bottom: 16px;
-            flex-wrap: wrap; /* Permet aux images de passer à la ligne sur très petits écrans */
+            flex-wrap: wrap;
+            /* Permet aux images de passer à la ligne sur très petits écrans */
         }
 
         .graphs-preview img {
             width: 300px;
             height: auto;
-            border-radius: var(--radius); /* Optionnel : garde l'arrondi global de l'app */
+            border-radius: var(--radius);
+            /* Optionnel : garde l'arrondi global de l'app */
         }
 
         .image-caption {
             font-size: 0.9rem;
             color: var(--text-muted);
             font-style: italic;
+            text-align: center;
         }
 
         /* Testimonials */
@@ -375,16 +383,19 @@
                     <img data-en src="screenshotFR.png" alt="PacingCount Overview (EN)">
                     <img data-nl src="screenshotFR.png" alt="Overzicht van PacingCount (NL)">
                 </div>
-                
+
                 <ul class="features-list">
                     <li data-fr="Disponible sur Android et iPhone">Disponible sur Android et iPhone</li>
                     <li data-en="Available on Android and iPhone">Available on Android and iPhone</li>
                     <li data-nl="Beschikbaar op Android en iPhone">Beschikbaar op Android en iPhone</li>
-                    
-                    <li data-fr="Respect de la vie privée — vos données restent sur votre téléphone">Respect de la vie privée — vos données restent sur votre téléphone</li>
-                    <li data-en="Privacy respecting — your data stays on your phone">Privacy respecting — your data stays on your phone</li>
-                    <li data-nl="Privacy respecteren — uw gegevens blijven op uw telefoon">Privacy respecteren — uw gegevens blijven op uw telefoon</li>
-                    
+
+                    <li data-fr="Respect de la vie privée — vos données restent sur votre téléphone">Respect de la vie
+                        privée — vos données restent sur votre téléphone</li>
+                    <li data-en="Privacy respecting — your data stays on your phone">Privacy respecting — your data
+                        stays on your phone</li>
+                    <li data-nl="Privacy respecteren — uw gegevens blijven op uw telefoon">Privacy respecteren — uw
+                        gegevens blijven op uw telefoon</li>
+
                     <li data-fr="Utilisation gratuite et sans pub">Utilisation gratuite et sans pub</li>
                     <li data-en="Free to use and ad-free">Free to use and ad-free</li>
                     <li data-nl="Gratis te gebruiken en reclamevrij">Gratis te gebruiken en reclamevrij</li>
@@ -400,20 +411,38 @@
                 <span data-nl="Eenvoudig in gebruik">Eenvoudig in gebruik</span>
             </h2>
             <p>
-                <span data-fr="Le pacing — gérer son énergie pour éviter les surmenages et les crashes — demande de garder un œil sur le temps passé en activité et en repos. PacingCount permet d'enregistrer simplement ces périodes au fil de la journée : couché sans stimulation, couché actif, non couché (noms personnalisables). L'historique et les graphiques donnent ensuite une vue claire de la journée écoulée.">Le pacing — gérer son énergie pour éviter les surmenages et les crashes — demande de garder un œil sur le temps passé en activité et en repos. PacingCount permet d'enregistrer simplement ces périodes au fil de la journée : couché sans stimulation, couché actif, non couché (noms personnalisables). L'historique et les graphiques donnent ensuite une vue claire de la journée écoulée.</span>
-                <span data-en="Pacing — managing your energy to avoid overexertion and crashes — requires keeping an eye on the time spent in activity and rest. PacingCount allows you to easily log these periods throughout the day: lying down without stimulation, lying down active, not lying down (customizable names). The history and graphs then give a clear view of the past day.">Pacing — managing your energy to avoid overexertion and crashes — requires keeping an eye on the time spent in activity and rest. PacingCount allows you to easily log these periods throughout the day: lying down without stimulation, lying down active, not lying down (customizable names). The history and graphs then give a clear view of the past day.</span>
-                <span data-nl="Pacing — je energie beheren om overbelasting en crashes te voorkomen — vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met PacingCount kun je deze periodes gedurende de dag eenvoudig registreren: liggend zonder stimulatie, liggend actief, niet liggend (aanpasbare namen). De geschiedenis en grafieken geven vervolgens een duidelijk beeld van de afgelopen dag.">Pacing — je energie beheren om overbelasting en crashes te voorkomen — vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met PacingCount kun je deze periodes gedurende de dag eenvoudig registreren: liggend zonder stimulatie, liggend actief, niet liggend (aanpasbare namen). De geschiedenis en grafieken geven vervolgens een duidelijk beeld van de afgelopen dag.</span>
+                <span data-fr><strong>Le pacing</strong> — gérer son énergie pour éviter les surmenages et les crashes —
+                    demande de garder un œil sur le temps passé en activité et en repos. <strong>PacingCount</strong>
+                    permet d'enregistrer simplement ces périodes au fil de la journée : couché sans stimulation, couché
+                    actif, non couché (noms personnalisables). L'historique et les graphiques donnent ensuite une vue
+                    claire de la journée écoulée.</span>
+
+                <span data-en><strong>Pacing</strong> — managing your energy to avoid overexertion and crashes —
+                    requires keeping an eye on the time spent in activity and rest. <strong>PacingCount</strong> allows
+                    you to easily log these periods throughout the day: lying down without stimulation, lying down
+                    active, not lying down (customizable names). The history and graphs then give a clear view of the
+                    past day.</span>
+
+                <span data-nl><strong>Pacing</strong> — je energie beheren om overbelasting en crashes te voorkomen —
+                    vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met
+                    <strong>PacingCount</strong> kun je deze periodes gedurende de dag eenvoudig registreren: liggend
+                    zonder stimulatie, liggend actief, niet liggend (aanpasbare namen). De geschiedenis en grafieken
+                    geven vervolgens een duidelijk beeld van de afgelopen dag.</span>
             </p>
-            
+
             <div class="graphs-preview">
                 <img src="TimelineGraphFR.png" alt="Timeline Graph">
                 <img src="DailyGraphFR.png" alt="Daily Graph">
             </div>
-            
+
             <p class="image-caption">
-                <span data-fr="Visualisez facilement vos journées et vos semaines, pour objectiver votre pacing">Visualisez facilement vos journées et vos semaines, pour objectiver votre pacing</span>
-                <span data-en="Easily visualize your days and weeks, to objectify your pacing">Easily visualize your days and weeks, to objectify your pacing</span>
-                <span data-nl="Visualiseer eenvoudig uw dagen en weken, om uw pacing te objectiveren">Visualiseer eenvoudig uw dagen en weken, om uw pacing te objectiveren</span>
+                <span
+                    data-fr="Visualisez facilement vos journées et vos semaines, pour objectiver votre pacing">Visualisez
+                    facilement vos journées et vos semaines, pour objectiver votre pacing</span>
+                <span data-en="Easily visualize your days and weeks, to objectify your pacing">Easily visualize your
+                    days and weeks, to objectify your pacing</span>
+                <span data-nl="Visualiseer eenvoudig uw dagen en weken, om uw pacing te objectiveren">Visualiseer
+                    eenvoudig uw dagen en weken, om uw pacing te objectiveren</span>
             </p>
         </section>
 
