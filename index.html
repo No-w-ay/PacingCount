@@ -94,13 +94,29 @@
         }
 
         /* Conteneur du bouton et de son indication */
+        /* 1. Règle de base pour les 2 conteneurs de boutons */
         .cta-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
-            margin-top: 50px;     /* 👈 Ajoute de l'espace au-dessus */
-            margin-bottom: -10px; /* 👈 Réduit l'espace en dessous */
+            gap: 10px;
+            /* Espace entre le bouton et son petit texte */
+        }
+
+        /* 2. Ajustement spécifique au BOUTON 1 (Haut de page) */
+        .hero .cta-container {
+            margin-top: 40px;
+            /* 👈 Espace AVANT le 1er bouton */
+            margin-bottom: 40px;
+            /* 👈 Espace APRÈS le 1er bouton */
+        }
+
+        /* 3. Ajustement spécifique au BOUTON 2 (Milieu de page) */
+        .usage-section .cta-container {
+            margin-top: 60px;
+            /* 👈 Espace AVANT le 2ème bouton */
+            margin-bottom: 10px;
+            /* 👈 Espace APRÈS le 2ème bouton (la section suivante a déjà de la marge) */
         }
 
         .btn {
@@ -339,9 +355,14 @@
                 <span data-nl>Je pacing meten, op een zachte manier</span>
             </h1>
             <p>
-                <span data-fr>PacingCount est une application légère conçue pour vous aider à enregistrer, visualiser et équilibrer vos temps d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un pacing quotidien)</span>
-                <span data-en>PacingCount is a lightweight app designed to help you log, visualize, and balance your activity and rest times (ME/CFS, Long Covid, and other conditions requiring daily pacing)</span>
-                <span data-nl>PacingCount is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te registreren, visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die dagelijkse pacing vereisen)</span>
+                <span data-fr>PacingCount est une application légère conçue pour vous aider à enregistrer, visualiser et
+                    équilibrer vos temps d'activité et de repos (EM/SFC, Covid Long et autres conditions requiérant un
+                    pacing quotidien)</span>
+                <span data-en>PacingCount is a lightweight app designed to help you log, visualize, and balance your
+                    activity and rest times (ME/CFS, Long Covid, and other conditions requiring daily pacing)</span>
+                <span data-nl>PacingCount is een lichte app ontworpen om je te helpen je activiteit- en rusttijden te
+                    registreren, visualiseren en in balans te brengen (ME/CVS, Long Covid en andere aandoeningen die
+                    dagelijkse pacing vereisen)</span>
             </p>
 
             <div class="cta-container">
@@ -406,9 +427,18 @@
                 <span data-nl>Visualiseer uw dagen en uw evolutie</span>
             </h2>
             <p>
-                <span data-fr><strong>Le pacing</strong> — gérer son énergie pour éviter les surmenages et les crashes — demande de garder un œil sur le temps passé en activité et en repos. <strong>PacingCount</strong> permet de faire cela de manière légère et efficace, tout en vous donnant des informations précises et personnalisables.</span>
-                <span data-en><strong>Pacing</strong> — managing your energy to avoid overexertion and crashes — requires keeping an eye on the time spent in activity and rest. <strong>PacingCount</strong> allows you to do this in a light and effective way, while providing you with precise and customizable information.</span>
-                <span data-nl><strong>Pacing</strong> — je energie beheren om overbelasting en crashes te voorkomen — vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met <strong>PacingCount</strong> doe je dit op een lichte en doeltreffende manier, terwijl het je nauwkeurige en aanpasbare informatie biedt.</span>
+                <span data-fr><strong>Le pacing</strong> — gérer son énergie pour éviter les surmenages et les crashes —
+                    demande de garder un œil sur le temps passé en activité et en repos. <strong>PacingCount</strong>
+                    permet de faire cela de manière légère et efficace, tout en vous donnant des informations précises
+                    et personnalisables.</span>
+                <span data-en><strong>Pacing</strong> — managing your energy to avoid overexertion and crashes —
+                    requires keeping an eye on the time spent in activity and rest. <strong>PacingCount</strong> allows
+                    you to do this in a light and effective way, while providing you with precise and customizable
+                    information.</span>
+                <span data-nl><strong>Pacing</strong> — je energie beheren om overbelasting en crashes te voorkomen —
+                    vereist dat je de tijd besteed aan activiteit en rust in de gaten houdt. Met
+                    <strong>PacingCount</strong> doe je dit op een lichte en doeltreffende manier, terwijl het je
+                    nauwkeurige en aanpasbare informatie biedt.</span>
             </p>
 
             <div class="graphs-preview">
@@ -442,49 +472,76 @@
 
                 <!-- Commentaire 1 -->
                 <div class="card">
-                    <p data-fr>« Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça m'aide déjà beaucoup après seulement quelques jours. »</p>
-                    <p data-en>“Thank you for this wonderful app, I'm really happy to have discovered it, it's already helping me a lot after just a few days.”</p>
-                    <p data-nl>“Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me al veel na slechts een paar dagen.”</p>
+                    <p data-fr>« Merci pour cette merveilleuse app, je suis vraiment heureux de l'avoir découverte, ça
+                        m'aide déjà beaucoup après seulement quelques jours. »</p>
+                    <p data-en>“Thank you for this wonderful app, I'm really happy to have discovered it, it's already
+                        helping me a lot after just a few days.”</p>
+                    <p data-nl>“Bedankt voor deze geweldige app, ik ben echt blij dat ik het ontdekt heb, het helpt me
+                        al veel na slechts een paar dagen.”</p>
                     <div class="author">— Maki M.</div>
                 </div>
 
                 <!-- Commentaire 2 -->
                 <div class="card">
-                    <p data-fr>« Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »</p>
-                    <p data-en>“I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a lot.”</p>
-                    <p data-nl>“Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg helpt.”</p>
+                    <p data-fr>« Je vois mon médecin bientôt, je pense lui parler de votre appli qui m'aide beaucoup. »
+                    </p>
+                    <p data-en>“I'm seeing my doctor soon, I think I'll tell them about your app which is helping me a
+                        lot.”</p>
+                    <p data-nl>“Ik zie mijn dokter binnenkort, ik denk dat ik hem over je app ga vertellen die me erg
+                        helpt.”</p>
                     <div class="author">— Fabienne N.</div>
                 </div>
 
                 <!-- Commentaire 3 -->
                 <div class="card">
-                    <p data-fr>« Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »</p>
-                    <p data-en>“Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable information. Huge thanks. Should be in the hands of all ME patients.”</p>
-                    <p data-nl>“Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie. Enorm bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”</p>
+                    <p data-fr>« Top, l'appli👍👍👍. Je l'utilise que depuis 3 jours, mais me donne des informations
+                        précieuses. Grand merci. A mettre entre toutes les mains des malades d'EM. »</p>
+                    <p data-en>“Great app👍👍👍. I've only been using it for 3 days, but it gives me valuable
+                        information. Huge thanks. Should be in the hands of all ME patients.”</p>
+                    <p data-nl>“Top app👍👍👍. Ik gebruik het pas 3 dagen, maar het geeft me waardevolle informatie.
+                        Enorm bedankt. Zou in de handen van alle ME-patiënten moeten zijn.”</p>
                     <div class="author">— Cathie L.</div>
                 </div>
 
                 <!-- Commentaire 4 -->
                 <div class="card">
-                    <p data-fr>« J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de manipulation, enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai je à diminuer les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment 🙏💙 »</p>
-                    <p data-en>“I've been using the app for 2 weeks now and I love how easy it is to use. I can finally see my pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A huge Thank You for creating this app, truly 🙏💙”</p>
-                    <p data-nl>“Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen. Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”</p>
+                    <p data-fr>« J'utilise l'application maintenant depuis 2 semaines et j'adore la facilité de
+                        manipulation, enfin j'arrive à voir mes moments de pacing, repos disons, et peut-être arriverai
+                        je à diminuer les MPE grâce à cela. Un énorme Merci pour la création de cette appli, vraiment
+                        🙏💙 »</p>
+                    <p data-en>“I've been using the app for 2 weeks now and I love how easy it is to use. I can finally
+                        see my pacing moments, let's say rest, and maybe I'll manage to reduce PEM thanks to this. A
+                        huge Thank You for creating this app, truly 🙏💙”</p>
+                    <p data-nl>“Ik gebruik de app nu 2 weken en ik hou van het gebruiksgemak. Ik kan eindelijk mijn
+                        pacing-momenten zien, rust zeg maar, en misschien lukt het me hierdoor om PEM te verminderen.
+                        Een enorme Dankjewel voor het maken van deze app, echt 🙏💙”</p>
                     <div class="author">— Dorinne D.</div>
                 </div>
 
                 <!-- Commentaire 5 -->
                 <div class="card">
-                    <p data-fr>« Un très grand merci pour la création de cette application...les mises à jour et améliorations 🙏🙏🙏🙏💝 »</p>
+                    <p data-fr>« Un très grand merci pour la création de cette application...les mises à jour et
+                        améliorations 🙏🙏🙏🙏💝 »</p>
                     <p data-en>“A huge thank you for creating this app... the updates and improvements 🙏🙏🙏🙏💝”</p>
-                    <p data-nl>“Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”</p>
+                    <p data-nl>“Heel erg bedankt voor het maken van deze app... de updates en verbeteringen 🙏🙏🙏🙏💝”
+                    </p>
                     <div class="author">— K. W.</div>
                 </div>
 
                 <!-- Commentaire 6 -->
                 <div class="card">
-                    <p data-fr>« J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire le suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché. Merci d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu en parles plus largement, d’autres l’apprécieront aussi. »</p>
-                    <p data-en>“I love your app, I find it really useful. It makes tracking easier and the graphs give a great overview of the evolution of time spent lying down. Thank you for developing this app and sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”</p>
-                    <p data-nl>“Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de grafieken geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt voor het ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je er breder over praat, anderen het ook zullen waarderen.”</p>
+                    <p data-fr>« J’adore ton application, je la trouve vraiment utile. C’est facilitant aussi pour faire
+                        le suivi et les graphiques permettent d’avoir un bel aperçu de l’évolution du temps couché.
+                        Merci d’avoir développé cette application et de me l’avoir proposée. Je suis certaine que si tu
+                        en parles plus largement, d’autres l’apprécieront aussi. »</p>
+                    <p data-en>“I love your app, I find it really useful. It makes tracking easier and the graphs give a
+                        great overview of the evolution of time spent lying down. Thank you for developing this app and
+                        sharing it with me. I'm sure if you talk about it more widely, others will appreciate it too.”
+                    </p>
+                    <p data-nl>“Ik hou van je app, ik vind hem echt nuttig. Het maakt het bijhouden makkelijker en de
+                        grafieken geven een mooi overzicht van de evolutie van de tijd liggend doorgebracht. Bedankt
+                        voor het ontwikkelen van deze app en om het me voor te stellen. Ik ben er zeker van dat als je
+                        er breder over praat, anderen het ook zullen waarderen.”</p>
                     <div class="author">— Martine VS Encephalomyélite myalgique</div>
                 </div>
 
@@ -499,11 +556,14 @@
                 <span data-nl>Word lid van de PacingCount-community!</span>
             </h3>
             <p>
-                <span data-fr>Échangez vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook des utilisateurs·trices</span>
+                <span data-fr>Échangez vos astuces, donnez votre avis et suivez les nouveautés sur le groupe Facebook
+                    des utilisateurs·trices</span>
                 <span data-en>Share your tips, give feedback, and follow new updates on the users' Facebook group</span>
-                <span data-nl>Deel je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor gebruikers</span>
+                <span data-nl>Deel je tips, geef feedback en volg nieuwe updates op de Facebook-groep voor
+                    gebruikers</span>
             </p>
-            <a href="https://www.facebook.com/groups/1478593046580774/" target="_blank" class="btn btn-primary" style="background:#1877f2; color: white;">
+            <a href="https://www.facebook.com/groups/1478593046580774/" target="_blank" class="btn btn-primary"
+                style="background:#1877f2; color: white;">
                 <span data-fr>Groupe Facebook</span>
                 <span data-en>Facebook Group</span>
                 <span data-nl>Facebook-groep</span>
