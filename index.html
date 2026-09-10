@@ -191,6 +191,32 @@
             /* 👈 Ajoutez cette ligne */
         }
 
+        /* Style du lien Facebook en haut (Thème sombre) */
+        .cta-community-link a,
+        .cta-community-link a:visited {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #93c5fd;
+            /* Bleu pastel très lisible */
+            background-color: rgba(24, 119, 242, 0.15);
+            /* Fond bleu très subtil */
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            /* Bordure fine */
+            padding: 6px 14px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.88rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .cta-community-link a:hover {
+            background-color: rgba(24, 119, 242, 0.3);
+            border-color: #93c5fd;
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
         /* Screenshot & Liste de caractéristiques */
         .preview {
             margin: 20px 0;
@@ -412,8 +438,7 @@
 
                 <!-- Bouton principal App -->
                 <a href="https://pacingcount.pages.dev" class="btn btn-primary"
-                    data-goatcounter-click="HOMEPAGE-top-app-click" 
-                    data-goatcounter-title="HOMEPAGE-top-app-click">
+                    data-goatcounter-click="HOMEPAGE-top-app-click" data-goatcounter-title="HOMEPAGE-top-app-click">
                     <span data-fr>🚀 Lancer l'application</span>
                     <span data-en>🚀 Launch App</span>
                     <span data-nl>🚀 Open de app</span>
@@ -520,8 +545,8 @@
             <!-- Second bouton CTA -->
             <div class="cta-container">
                 <a href="https://pacingcount.pages.dev" class="btn btn-primary"
-                    data-goatcounter-click="HOMEPAGE-app-button-click"
-                    data-goatcounter-title="HOMEPAGE-app-button-click">
+                    data-goatcounter-click="HOMEPAGE-launch-app-click"
+                    data-goatcounter-title="HOMEPAGE-launch-app-click">
                     <span data-fr>🚀 Lancer l'application</span>
                     <span data-en>🚀 Launch App</span>
                     <span data-nl>🚀 Open de app</span>
