@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.48"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.49"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8181,8 +8181,9 @@
             // Détection : première installation (pas de lastSeenVersion) OU changement de version
             window._isNewVersion = !lastSeenVersion || lastSeenVersion !== APP_VERSION;
 
-            // Envoi sécurisé à GoatCounter si nouveau/maj et en ligne
-            if (window._isNewVersion && navigator.onLine) {
+            // Envoi sécurisé à GoatCounter — uniquement pour une vraie mise à jour (pas un
+            // premier lancement, déjà couvert par les events NewUser-* ci-dessous).
+            if (lastSeenVersion && lastSeenVersion !== APP_VERSION && navigator.onLine) {
                 sendToGoatCounter('update-to-' + APP_VERSION);
             }
 
@@ -8215,10 +8216,16 @@
         const _today = new Date().toDateString();
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
-        if (_today !== _lastPingDay && navigator.onLine) {
+        // Pas de ping DailyUser-* le jour du tout premier lancement dans ce contexte
+        // (isFirstEverLaunch) — ce jour est déjà couvert par les events NewUser-*, avec leurs
+        // propres sous-catégories (voir plus haut). Sans cette exclusion, un même utilisateur
+        // pourrait faire monter DailyUser-TOTAL2 jusqu'à 3 fois le même jour (webview → browser
+        // → installé, 3 contextes localStorage distincts), faussant la comparaison avec les
+        // jours suivants (fidélisation J+1/J+2).
+        if (_today !== _lastPingDay && navigator.onLine && !window.isFirstEverLaunch) {
             // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
             // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
-            sendToGoatCounter('DailyUser-TOTAL');
+            sendToGoatCounter('DailyUser-TOTAL2');
 
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
@@ -8836,6 +8843,13 @@
         //
         // window.evolutionExploreTimestamp (jour, minuit local) : null hors exploration, sinon
         // la date actuellement explorée — lu par le plugin ci-dessous à chaque redraw.
+        //
+        // Persistance et bascule (voir onEvolutionTouchStart/End) : le CONTACT (touchstart)
+        // bascule l'affichage — rien de visible → l'affiche à l'endroit touché ; quelque chose
+        // de visible → le masque. Le déplacement (touchmove), lui, fait toujours suivre le doigt
+        // sans condition. Au relâchement (touchend), rien n'est masqué automatiquement — l'état
+        // reste tel quel jusqu'au prochain contact ou jusqu'à un vrai changement d'affichage
+        // (palier, sélection, navigation — voir le masquage en tête de renderEvolutionChart()).
         // ============================================================
 
         // Cherche la valeur Y d'un tableau de points {x,y} (trié par x croissant) à un x donné :
@@ -9585,6 +9599,16 @@
             const canvas = document.getElementById('evolutionChart');
             if (!canvas) return;
 
+            // Masque l'exploration en cours (ligne + carte de valeurs) dès qu'un vrai changement
+            // d'affichage se produit — palier, sélection de série, navigation temporelle, etc.
+            // Appelé uniquement au COMMIT d'un changement (jamais pendant un simple geste de
+            // pincement/swipe en cours, qui ne passe que par renderEvolutionPreviewBand()) :
+            // l'affichage doit refléter la situation actuelle, pas une exploration qui pointait
+            // sur un contexte devenu obsolète (même principe que ailleurs dans ce projet).
+            window.evolutionExploreTimestamp = null;
+            const exploreCard = document.getElementById('evolution-value-card');
+            if (exploreCard) exploreCard.style.display = 'none';
+
             // Palier courant (largeur de fenêtre) — en mémoire pour la session uniquement,
             // pas de localStorage (même convention que evolutionYAxisMode). window.evolutionPaliers
             // est construit dynamiquement à l'ouverture de l'overlay (voir openEvolutionOverlay()
@@ -10077,14 +10101,19 @@
                 if (e.target.closest && e.target.closest('#evolution-yaxis-toggle')) return;
 
                 // Sinon : exploration du graphe (ligne verticale + carte de valeurs, section
-                // 25d) — drag continu, démarre immédiatement au toucher (pas de seuil de
-                // confirmation comme pour le pan : le tooltip natif de Chart.js étant
-                // désactivé, il n'y a plus rien d'autre à quoi ce tap pourrait légitimement
-                // appartenir dans cette zone).
+                // 25d). Le CONTACT lui-même bascule l'affichage : rien n'était visible → ce
+                // contact l'affiche à l'endroit touché ; quelque chose était déjà visible
+                // (persistant d'un geste précédent, voir touchend plus bas) → ce contact le
+                // masque. Le fait de bouger ensuite le doigt (touchmove) reste indépendant de
+                // cette décision : il fait toujours suivre la ligne, sans condition.
                 if (!evolutionChartInstance) return;
                 e.preventDefault();
                 evolutionGestureState = { type: 'explore' };
-                updateEvolutionExplore(touch);
+                if (window.evolutionExploreTimestamp !== null && typeof window.evolutionExploreTimestamp !== 'undefined') {
+                    clearEvolutionExplore();
+                } else {
+                    updateEvolutionExplore(touch);
+                }
             }
         }
 
@@ -10164,9 +10193,11 @@
                 } else {
                     updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
-            } else if (evolutionGestureState.type === 'explore') {
-                clearEvolutionExplore();
             }
+            // type === 'explore' : rien à faire ici — l'affichage (ligne + carte) reste tel
+            // quel au relâchement, décidé uniquement au contact (voir touchstart) et suivi en
+            // continu pendant un drag (voir touchmove). Masqué uniquement par un nouveau
+            // contact (bascule) ou par un vrai changement d'affichage (voir renderEvolutionChart()).
             evolutionGestureState = null;
         }
 
