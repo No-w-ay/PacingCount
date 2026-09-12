@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.51"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.52"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -5078,38 +5078,53 @@
             }
         }
 
-        // Enregistre une période en la découpant automatiquement à minuit si elle chevauche plusieurs jours
+        // Enregistre une période en la découpant automatiquement à minuit si elle chevauche
+        // plusieurs jours. Garde de durée strictement positive sur chaque fragment (intermédiaire
+        // ET final) : un start qui tombe déjà pile sur la dernière milliseconde d'un jour (cas
+        // vécu après un recollement snapAdjacentBorders() à cheval sur minuit, voir échange)
+        // produirait sinon un fragment fantôme de durée nulle avec l'ancien type — invariant déjà
+        // documenté en fin de fichier ("Périodes de durée nulle : filtrées à l'import et à la
+        // création"), qui manquait ici jusqu'à présent.
         function closePeriod(typeId, start, end) {
             let s = new Date(start);
             let e = new Date(end);
             while (s.toDateString() !== e.toDateString()) {
                 let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
-                state.history.push({ typeId, start: s.getTime(), end: endOfDay.getTime() });
+                if (endOfDay.getTime() > s.getTime()) {
+                    state.history.push({ typeId, start: s.getTime(), end: endOfDay.getTime() });
+                }
                 s = new Date(endOfDay.getTime() + 1);
             }
-            state.history.push({ typeId, start: s.getTime(), end: e.getTime() });
+            if (e.getTime() > s.getTime()) {
+                state.history.push({ typeId, start: s.getTime(), end: e.getTime() });
+            }
         }
 
         // Découpe une période virtuelle (non encore clôturée) en fragments par jour civil — même
-        // logique que closePeriod() (qui écrit dans l'historique définitif), mais retourne un
-        // tableau de fragments {start,end} sans rien persister. Sert aux vues qui agrègent par
-        // jour (Résultats, graphique journalier, graphique hebdomadaire, graphique 7 jours de
-        // l'Historique) à représenter correctement la période en cours quand elle chevauche
-        // minuit — sans quoi tout son temps reste compté sur le jour de son démarrage (total qui
-        // peut dépasser 24h, et aucune barre pour aujourd'hui tant que la période n'est pas
-        // close). Le compteur principal (onglet Mesure), la liste Historique et l'export CSV ne
-        // sont pas concernés : ils affichent volontairement la période en cours comme un tout
-        // continu, pas comme une agrégation par jour.
+        // logique que closePeriod() (qui écrit dans l'historique définitif, garde de durée
+        // positive incluse), mais retourne un tableau de fragments {start,end} sans rien
+        // persister. Sert aux vues qui agrègent par jour (Résultats, graphique journalier,
+        // graphique hebdomadaire, graphique 7 jours de l'Historique) à représenter correctement
+        // la période en cours quand elle chevauche minuit — sans quoi tout son temps reste
+        // compté sur le jour de son démarrage (total qui peut dépasser 24h, et aucune barre pour
+        // aujourd'hui tant que la période n'est pas close). Le compteur principal (onglet
+        // Mesure), la liste Historique et l'export CSV ne sont pas concernés : ils affichent
+        // volontairement la période en cours comme un tout continu, pas comme une agrégation
+        // par jour.
         function splitPeriodIntoDayFragments(start, end) {
             const fragments = [];
             let s = new Date(start);
             const e = new Date(end);
             while (s.toDateString() !== e.toDateString()) {
                 let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
-                fragments.push({ start: s.getTime(), end: endOfDay.getTime() });
+                if (endOfDay.getTime() > s.getTime()) {
+                    fragments.push({ start: s.getTime(), end: endOfDay.getTime() });
+                }
                 s = new Date(endOfDay.getTime() + 1);
             }
-            fragments.push({ start: s.getTime(), end: e.getTime() });
+            if (e.getTime() > s.getTime()) {
+                fragments.push({ start: s.getTime(), end: e.getTime() });
+            }
             return fragments;
         }
 
@@ -5681,10 +5696,20 @@
         // Ces paramètres seront externalisés dans la définition de profil à l'avenir.
         // ============================================================
 
+        // Convertit une durée en minutes en {h, m} — un seul arrondi sur le TOTAL, puis
+        // floor/modulo (jamais un round séparé sur les minutes restantes, qui peut sinon donner
+        // "60" au lieu de remonter la retenue vers les heures — ex. 659.6 min →
+        // floor(659.6/60)=10h + round(59.6)=60min donnerait à tort "10h60" au lieu de "11h00").
+        // Utilisée par formatMins() et par tout endroit ayant besoin de h/m séparément (ex. pour
+        // une mise en forme HTML personnalisée du padding des heures).
+        function splitMinutesHM(mins) {
+            const totalMin = Math.round(mins);
+            return { h: Math.floor(totalMin / 60), m: totalMin % 60 };
+        }
+
         // Formate une durée en minutes → toujours "0h00"
         function formatMins(mins) {
-            const h = Math.floor(mins / 60);
-            const m = Math.round(mins % 60);
+            const { h, m } = splitMinutesHM(mins);
             return `${h}h${m.toString().padStart(2, '0')}`;
         }
 
@@ -5840,8 +5865,7 @@
                     const mins = day.totals[tp.id];
                     const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
                     const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
+                    const { h, m } = splitMinutesHM(mins);
                     // Padding par "0" transparent (pas un espace-chiffre) : garantit une largeur
                     // identique aux vrais chiffres, puisque c'est le même glyphe sous tabular-nums.
                     const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
@@ -6140,9 +6164,7 @@
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
-                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const timeStr = formatMins(mins);
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
                                              onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
@@ -6334,9 +6356,7 @@
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
-                    const h = Math.floor(avgMins / 60);
-                    const m = Math.round(avgMins % 60);
-                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const timeStr = formatMins(avgMins);
                     const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
@@ -9996,8 +10016,7 @@
             } else {
                 lines.forEach(line => {
                     const mins = line.value * 60;
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
+                    const { h, m } = splitMinutesHM(mins);
                     // Padding par "0" transparent (même convention que renderResults()) : garantit
                     // une largeur identique aux vrais chiffres sous la police monospace.
                     const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
