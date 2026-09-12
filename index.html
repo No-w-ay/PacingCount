@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.50"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.51"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -5090,6 +5090,29 @@
             state.history.push({ typeId, start: s.getTime(), end: e.getTime() });
         }
 
+        // Découpe une période virtuelle (non encore clôturée) en fragments par jour civil — même
+        // logique que closePeriod() (qui écrit dans l'historique définitif), mais retourne un
+        // tableau de fragments {start,end} sans rien persister. Sert aux vues qui agrègent par
+        // jour (Résultats, graphique journalier, graphique hebdomadaire, graphique 7 jours de
+        // l'Historique) à représenter correctement la période en cours quand elle chevauche
+        // minuit — sans quoi tout son temps reste compté sur le jour de son démarrage (total qui
+        // peut dépasser 24h, et aucune barre pour aujourd'hui tant que la période n'est pas
+        // close). Le compteur principal (onglet Mesure), la liste Historique et l'export CSV ne
+        // sont pas concernés : ils affichent volontairement la période en cours comme un tout
+        // continu, pas comme une agrégation par jour.
+        function splitPeriodIntoDayFragments(start, end) {
+            const fragments = [];
+            let s = new Date(start);
+            const e = new Date(end);
+            while (s.toDateString() !== e.toDateString()) {
+                let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
+                fragments.push({ start: s.getTime(), end: endOfDay.getTime() });
+                s = new Date(endOfDay.getTime() + 1);
+            }
+            fragments.push({ start: s.getTime(), end: e.getTime() });
+            return fragments;
+        }
+
         // ============================================================
         // 9. PERSISTANCE
         // ============================================================
@@ -5724,7 +5747,12 @@
 
             let all = [...state.history];
             if (state.activeType) {
-                all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — sans quoi une période en cours
+                // chevauchant minuit reste entièrement comptée sur son jour de départ (total
+                // pouvant dépasser 24h, rien sur aujourd'hui tant qu'elle n'est pas close).
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    all.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
             // Filtre sur la plage élargie (voir commentaire fenêtrage ci-dessus)
             all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
@@ -5989,7 +6017,10 @@
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
             allPeriods = allPeriods.filter(p => p.start >= aggStartTs && p.start < aggEndTs);
 
@@ -6207,7 +6238,10 @@
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
 
             allPeriods.forEach(p => {
@@ -7427,7 +7461,10 @@
             let allPeriods = [...state.history];
 
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
 
             allPeriods.forEach(p => {
