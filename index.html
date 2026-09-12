@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.49"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.50"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8219,13 +8219,13 @@
         // Pas de ping DailyUser-* le jour du tout premier lancement dans ce contexte
         // (isFirstEverLaunch) — ce jour est déjà couvert par les events NewUser-*, avec leurs
         // propres sous-catégories (voir plus haut). Sans cette exclusion, un même utilisateur
-        // pourrait faire monter DailyUser-TOTAL2 jusqu'à 3 fois le même jour (webview → browser
+        // pourrait faire monter DailyUser-TOTAL jusqu'à 3 fois le même jour (webview → browser
         // → installé, 3 contextes localStorage distincts), faussant la comparaison avec les
         // jours suivants (fidélisation J+1/J+2).
         if (_today !== _lastPingDay && navigator.onLine && !window.isFirstEverLaunch) {
             // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
             // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
-            sendToGoatCounter('DailyUser-TOTAL2');
+            sendToGoatCounter('DailyUser-TOTAL');
 
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
@@ -8846,8 +8846,11 @@
         //
         // Persistance et bascule (voir onEvolutionTouchStart/End) : le CONTACT (touchstart)
         // bascule l'affichage — rien de visible → l'affiche à l'endroit touché ; quelque chose
-        // de visible → le masque. Le déplacement (touchmove), lui, fait toujours suivre le doigt
-        // sans condition. Au relâchement (touchend), rien n'est masqué automatiquement — l'état
+        // de visible → le masque. Le déplacement (touchmove) fait suivre le doigt SAUF si ce
+        // contact vient de fermer l'affichage (isClosing) — dans ce cas, tout déplacement est
+        // ignoré jusqu'au relâchement, pour qu'un micro-tremblement du doigt ne rouvre jamais
+        // l'affichage juste après l'avoir fermé (il faut relever puis retoucher pour explorer
+        // ailleurs). Au relâchement (touchend), rien n'est masqué automatiquement — l'état
         // reste tel quel jusqu'au prochain contact ou jusqu'à un vrai changement d'affichage
         // (palier, sélection, navigation — voir le masquage en tête de renderEvolutionChart()).
         // ============================================================
@@ -10104,12 +10107,16 @@
                 // 25d). Le CONTACT lui-même bascule l'affichage : rien n'était visible → ce
                 // contact l'affiche à l'endroit touché ; quelque chose était déjà visible
                 // (persistant d'un geste précédent, voir touchend plus bas) → ce contact le
-                // masque. Le fait de bouger ensuite le doigt (touchmove) reste indépendant de
-                // cette décision : il fait toujours suivre la ligne, sans condition.
+                // masque. Dans ce second cas (fermeture), tout déplacement du doigt PENDANT ce
+                // même contact est ensuite ignoré (voir isClosing / onEvolutionTouchMove) — un
+                // tap pour fermer ne doit jamais rouvrir l'affichage à cause d'un micro-tremblement
+                // du doigt avant relâchement. Un contact qui affiche, lui, reste suivi normalement
+                // par le déplacement (touchmove), sans condition.
                 if (!evolutionChartInstance) return;
                 e.preventDefault();
-                evolutionGestureState = { type: 'explore' };
-                if (window.evolutionExploreTimestamp !== null && typeof window.evolutionExploreTimestamp !== 'undefined') {
+                const wasShowing = window.evolutionExploreTimestamp !== null && typeof window.evolutionExploreTimestamp !== 'undefined';
+                evolutionGestureState = { type: 'explore', isClosing: wasShowing };
+                if (wasShowing) {
                     clearEvolutionExplore();
                 } else {
                     updateEvolutionExplore(touch);
@@ -10164,6 +10171,11 @@
                 // reste celle actuellement committée, inchangée par ce geste).
                 updateEvolutionPalierLabel(null, candidate);
             } else if (evolutionGestureState.type === 'explore' && e.touches.length === 1) {
+                // Un contact qui vient de FERMER l'affichage (isClosing) ignore tout déplacement
+                // pour le reste de ce même contact — évite qu'un micro-tremblement du doigt
+                // avant relâchement ne rouvre l'affichage juste après l'avoir fermé (voir
+                // onEvolutionTouchStart). Il faut relever puis retoucher pour explorer ailleurs.
+                if (evolutionGestureState.isClosing) return;
                 e.preventDefault();
                 updateEvolutionExplore(e.touches[0]);
             }
