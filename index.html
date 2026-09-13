@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.52"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.53"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -8744,27 +8744,43 @@
         // Construit l'index par jour sur l'intégralité de l'historique — volontairement sans
         // fenêtrage : c'est le seul endroit de l'app qui a besoin de "tout", et seulement une
         // fois par ouverture d'overlay (voir commentaire d'en-tête ci-dessus).
-        // La période active en cours est EXCLUE ici, contrairement à renderDailyCharts()/
-        // renderWeeklyCharts() : elle n'est jamais découpée à minuit tant qu'elle n'est pas
-        // arrêtée (closePeriod() ne s'applique qu'à state.history[]). Une période ouverte
-        // depuis >24h gonflerait totalMins au-delà de 1440 min pour son jour de départ, ce qui
-        // faussait à la fois la détection "jour complet" (faussement vraie) et l'échelle Y en
-        // mode zoom (computeYAxisRange() pouvait dépasser 24h). Le jour "aujourd'hui" est de
-        // toute façon presque toujours incomplet tant qu'il n'est pas terminé — l'exclure ici
-        // est cohérent avec ce que fait déjà isComplete() pour lui.
+        // La période active en cours est désormais INCLUSE (avant : exclue en entier — voir
+        // synthèse précédente), mais découpée à minuit comme partout ailleurs dans l'app (même
+        // helper splitPeriodIntoDayFragments() que Résultats/graphiques/Historique). Sans cette
+        // découpe, une période ouverte depuis >24h gonflerait totalMins au-delà de 1440 min pour
+        // son jour de départ, faussant à la fois la détection "jour complet" et l'échelle Y en
+        // mode zoom (computeYAxisRange() pouvait dépasser 24h) — c'est pour cette raison qu'elle
+        // avait été exclue en entier à l'origine. Le seuil "jour complet" (isComplete(), voir
+        // computeEvolutionData()) reste strictement identique pour "aujourd'hui" que pour tout
+        // autre jour — aucun traitement de faveur : un jour très rempli peut donc apparaître
+        // avant même minuit, un jour avec des trous reste invisible jusqu'à ce que le seuil soit
+        // atteint, exactement comme n'importe quel jour passé.
         function buildEvolutionFullDaysIndex() {
             const daysData = {};
-            state.history.forEach(e => {
-                const d = new Date(e.start);
+
+            // Agrège une période dans daysData — factorisé pour être appelé à la fois sur
+            // l'historique clos (state.history[]) et sur les fragments de la période active
+            // (voir plus bas), sans dupliquer la logique de bucket par jour.
+            function addPeriod(typeId, start, end) {
+                const d = new Date(start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                const mins = (e.end - e.start) / 60000;
+                const mins = (end - start) / 60000;
                 if (!daysData[dateKey]) {
                     daysData[dateKey] = { timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), totalMins: 0, typeTotals: {} };
                 }
                 daysData[dateKey].totalMins += mins;
-                if (!daysData[dateKey].typeTotals[e.typeId]) daysData[dateKey].typeTotals[e.typeId] = 0;
-                daysData[dateKey].typeTotals[e.typeId] += mins;
-            });
+                if (!daysData[dateKey].typeTotals[typeId]) daysData[dateKey].typeTotals[typeId] = 0;
+                daysData[dateKey].typeTotals[typeId] += mins;
+            }
+
+            state.history.forEach(e => addPeriod(e.typeId, e.start, e.end));
+
+            if (state.activeType !== null && state.startTime !== null) {
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    addPeriod(state.activeType, frag.start, frag.end);
+                });
+            }
+
             return { daysData, dateKeys: Object.keys(daysData).sort() };
         }
 
