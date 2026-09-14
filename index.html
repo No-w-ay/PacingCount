@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.53"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.54"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3305,7 +3305,7 @@
             fr: {
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter (.csv)", import: "Importer (.csv)", custom: "Noms des boutons",
-                stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
+                stop: "Arrêter l'enregistrement", confirmStop: "PacingCount est conçu pour que les périodes soient enregistrées en continu. Les statistiques se basent sur des jours complets.\n\nVoulez-vous tout de même arrêter ?",
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
@@ -3353,7 +3353,8 @@
 
                 // Graphiques résultats
                 noDataAvailable: "Aucune donnée.",
-                notEnoughData: "Pas encore assez de données complètes.", btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
+                notEnoughData: "Pas assez de jours complets. Les moyennes par semaine sont calculées uniquement sur les jours d'enregistrement complets.",
+                btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
@@ -3546,7 +3547,7 @@
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
                 export: "Export (.csv)", import: "Import (.csv)", custom: "Button Names",
-                stop: "Stop recording", confirmStop: "Stop current recording?",
+                stop: "Stop recording", confirmStop: "PacingCount is designed for periods to be recorded continuously. Statistics are based on complete days.\n\nDo you still want to stop?",
                 history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
                 futureError: "Cannot record a period in the future.",
@@ -3572,7 +3573,7 @@
 
                 // Boutons génériques
                 noDataAvailable: "No data available.",
-                notEnoughData: "Not enough complete data yet.",
+                notEnoughData: "Not enough complete days yet. Weekly averages are only calculated using fully recorded days.",
                 btnCancel: "Cancel", btnSave: "Save", btnClose: "Close",
                 continueQuestion: "Continue?",
 
@@ -3762,7 +3763,7 @@
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
                 export: "Exporteren (.csv)", import: "Importeren (.csv)", custom: "Knopnamen",
-                stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
+                stop: "Opname stoppen", confirmStop: "PacingCount is ontworpen om periodes doorlopend te registreren. De statistieken zijn gebaseerd op volledige dagen.\n\nWil je toch stoppen?",
                 history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
                 futureError: "Kan geen periode in de toekomst opnemen.",
@@ -3788,7 +3789,7 @@
 
                 // Boutons génériques
                 noDataAvailable: "Geen gegevens.",
-                notEnoughData: "Nog niet genoeg volledige gegevens.",
+                notEnoughData: "Nog niet genoeg volledige dagen. Wekelijkse gemiddelden worden alleen berekend op basis van volledig geregistreerde dagen.",
                 btnCancel: "Annuleren", btnSave: "Opslaan", btnClose: "Sluiten",
                 continueQuestion: "Doorgaan?",
 
@@ -5054,14 +5055,14 @@
             updateUI();
             requestWakeLock();
 
-            // GoatCounter — event période démarrée (envoi uniquement si connecté)
-            //if (window.goatcounter && navigator.onLine) {
-            //    window.goatcounter.count({ path: 'period-started' });
-            //}
+            // GoatCounter — event période démarrée (mis en commentaire)
+            // if (navigator.onLine) {
+            //     sendToGoatCounter('period-started');
+            // }
 
-            // GoatCounter — event période démarrée (envoi uniquement si connecté)
-            if (navigator.onLine) {
-                sendToGoatCounter('period-started');
+            // Échantillonnage à 10% (~1 envoi sur 10) pour préserver le quota GoatCounter
+            if (navigator.onLine && Math.random() < 0.1) {
+                sendToGoatCounter('period-started-sample10p');
             }
         }
 
@@ -5355,11 +5356,16 @@
                 const matches = profile.types.every(pt => {
                     const st = settings.types.find(t => t.id === pt.id);
                     if (!st) return false;
+                    if (st.active !== pt.active) return false;
+                    // Slot inactif : le label ne compte pas pour la détection — un nom tapé à
+                    // l'avance dans un slot inactif ne doit pas, à lui seul, faire quitter le
+                    // profil de base (voir le renommage silencieux d'un type inactif).
+                    if (!pt.active) return true;
                     // Comparer au label traduit (pt.label peut être objet ou chaîne vide)
                     const ptLabel = typeof pt.label === 'object'
                         ? (pt.label[settings.lang] || pt.label['fr'] || '')
                         : (pt.label || '');
-                    return st.active === pt.active && st.label === ptLabel;
+                    return st.label === ptLabel;
                 });
                 if (matches) return profileId;
             }
@@ -8287,9 +8293,11 @@
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
 
-            // 2. Mode d'accès (installed / browser)
-            const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
-            sendToGoatCounter('DailyUser-' + mode);
+            // 2. Mode d'accès (envoie installed uniquement, browser est en 2b)
+            const mode = isPWAInstalled() ? 'installed' : 'browser';
+            if (mode === 'installed') {
+                sendToGoatCounter('DailyUser-installed');
+            }
 
             // 2b. Canal navigateur — uniquement en mode navigateur (pas de sens une fois installé).
             // Le détail "browser-Other" reste volontairement exclu au quotidien (fourre-tout moins
@@ -8303,6 +8311,11 @@
                     sendToGoatCounter('DailyUser-' + channel);
                 }
                 sendToGoatCounter('DailyUser-' + channel.split('-')[0] + '-TOTAL');
+            }
+
+            // 2c. Alerte active réglée dans les paramètres
+            if (settings && Array.isArray(settings.alerts) && settings.alerts.some(a => a.enabled)) {
+                sendToGoatCounter('DailyUser-alertON');
             }
 
             // 3. Profil actif
@@ -9509,7 +9522,7 @@
         // que rien n'a été coché (confusant, notamment pour un public en brouillard cognitif).
         function countActiveEvolutionRepresentations() {
             return [settings.evolutionShowRawPoints, settings.evolutionShowMovingAvg,
-                settings.evolutionShowMovingAvg5, settings.evolutionShowMovingAvg7]
+            settings.evolutionShowMovingAvg5, settings.evolutionShowMovingAvg7]
                 .filter(Boolean).length;
         }
 
