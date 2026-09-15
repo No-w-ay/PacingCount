@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.28-beta.48"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.28-beta.54"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3305,7 +3305,7 @@
             fr: {
                 timeline: "Historique", measure: "Mesure", results: "Résultats", settings: "Réglages",
                 export: "Exporter (.csv)", import: "Importer (.csv)", custom: "Noms des boutons",
-                stop: "Arrêter l'enregistrement", confirmStop: "Voulez-vous vraiment arrêter ?",
+                stop: "Arrêter l'enregistrement", confirmStop: "PacingCount est conçu pour que les périodes soient enregistrées en continu. Les statistiques se basent sur des jours complets.\n\nVoulez-vous tout de même arrêter ?",
                 history: "Périodes enregistrées", prev: "Précédent: ", inProgress: "en cours",
                 addManual: "+ Ajouter une période",
                 futureError: "Impossible d'enregistrer une période dans le futur.",
@@ -3353,7 +3353,8 @@
 
                 // Graphiques résultats
                 noDataAvailable: "Aucune donnée.",
-                notEnoughData: "Pas encore assez de données complètes.", btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
+                notEnoughData: "Pas assez de jours complets. Les moyennes par semaine sont calculées uniquement sur les jours d'enregistrement complets.",
+                btnCancel: "Annuler", btnSave: "Enregistrer", btnClose: "Fermer",
                 continueQuestion: "Continuer ?",
 
                 // Alertes de périodes
@@ -3546,7 +3547,7 @@
             en: {
                 timeline: "History", measure: "Measure", results: "Results", settings: "Settings",
                 export: "Export (.csv)", import: "Import (.csv)", custom: "Button Names",
-                stop: "Stop recording", confirmStop: "Stop current recording?",
+                stop: "Stop recording", confirmStop: "PacingCount is designed for periods to be recorded continuously. Statistics are based on complete days.\n\nDo you still want to stop?",
                 history: "Recorded periods", prev: "Previous: ", inProgress: "In progress",
                 addManual: "+ Add a period",
                 futureError: "Cannot record a period in the future.",
@@ -3572,7 +3573,7 @@
 
                 // Boutons génériques
                 noDataAvailable: "No data available.",
-                notEnoughData: "Not enough complete data yet.",
+                notEnoughData: "Not enough complete days yet. Weekly averages are only calculated using fully recorded days.",
                 btnCancel: "Cancel", btnSave: "Save", btnClose: "Close",
                 continueQuestion: "Continue?",
 
@@ -3762,7 +3763,7 @@
             nl: {
                 timeline: "Historiek", measure: "Meting", results: "Resultaten", settings: "Instellingen",
                 export: "Exporteren (.csv)", import: "Importeren (.csv)", custom: "Knopnamen",
-                stop: "Opname stoppen", confirmStop: "Huidige opname stoppen?",
+                stop: "Opname stoppen", confirmStop: "PacingCount is ontworpen om periodes doorlopend te registreren. De statistieken zijn gebaseerd op volledige dagen.\n\nWil je toch stoppen?",
                 history: "Geregistreerde periodes", prev: "Vorige: ", inProgress: "Bezig",
                 addManual: "+ Periode toevoegen",
                 futureError: "Kan geen periode in de toekomst opnemen.",
@@ -3788,7 +3789,7 @@
 
                 // Boutons génériques
                 noDataAvailable: "Geen gegevens.",
-                notEnoughData: "Nog niet genoeg volledige gegevens.",
+                notEnoughData: "Nog niet genoeg volledige dagen. Wekelijkse gemiddelden worden alleen berekend op basis van volledig geregistreerde dagen.",
                 btnCancel: "Annuleren", btnSave: "Opslaan", btnClose: "Sluiten",
                 continueQuestion: "Doorgaan?",
 
@@ -5054,14 +5055,14 @@
             updateUI();
             requestWakeLock();
 
-            // GoatCounter — event période démarrée (envoi uniquement si connecté)
-            //if (window.goatcounter && navigator.onLine) {
-            //    window.goatcounter.count({ path: 'period-started' });
-            //}
+            // GoatCounter — event période démarrée (mis en commentaire)
+            // if (navigator.onLine) {
+            //     sendToGoatCounter('period-started');
+            // }
 
-            // GoatCounter — event période démarrée (envoi uniquement si connecté)
-            if (navigator.onLine) {
-                sendToGoatCounter('period-started');
+            // Échantillonnage à 10% (~1 envoi sur 10) pour préserver le quota GoatCounter
+            if (navigator.onLine && Math.random() < 0.1) {
+                sendToGoatCounter('period-started-sample10p');
             }
         }
 
@@ -5078,16 +5079,54 @@
             }
         }
 
-        // Enregistre une période en la découpant automatiquement à minuit si elle chevauche plusieurs jours
+        // Enregistre une période en la découpant automatiquement à minuit si elle chevauche
+        // plusieurs jours. Garde de durée strictement positive sur chaque fragment (intermédiaire
+        // ET final) : un start qui tombe déjà pile sur la dernière milliseconde d'un jour (cas
+        // vécu après un recollement snapAdjacentBorders() à cheval sur minuit, voir échange)
+        // produirait sinon un fragment fantôme de durée nulle avec l'ancien type — invariant déjà
+        // documenté en fin de fichier ("Périodes de durée nulle : filtrées à l'import et à la
+        // création"), qui manquait ici jusqu'à présent.
         function closePeriod(typeId, start, end) {
             let s = new Date(start);
             let e = new Date(end);
             while (s.toDateString() !== e.toDateString()) {
                 let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
-                state.history.push({ typeId, start: s.getTime(), end: endOfDay.getTime() });
+                if (endOfDay.getTime() > s.getTime()) {
+                    state.history.push({ typeId, start: s.getTime(), end: endOfDay.getTime() });
+                }
                 s = new Date(endOfDay.getTime() + 1);
             }
-            state.history.push({ typeId, start: s.getTime(), end: e.getTime() });
+            if (e.getTime() > s.getTime()) {
+                state.history.push({ typeId, start: s.getTime(), end: e.getTime() });
+            }
+        }
+
+        // Découpe une période virtuelle (non encore clôturée) en fragments par jour civil — même
+        // logique que closePeriod() (qui écrit dans l'historique définitif, garde de durée
+        // positive incluse), mais retourne un tableau de fragments {start,end} sans rien
+        // persister. Sert aux vues qui agrègent par jour (Résultats, graphique journalier,
+        // graphique hebdomadaire, graphique 7 jours de l'Historique) à représenter correctement
+        // la période en cours quand elle chevauche minuit — sans quoi tout son temps reste
+        // compté sur le jour de son démarrage (total qui peut dépasser 24h, et aucune barre pour
+        // aujourd'hui tant que la période n'est pas close). Le compteur principal (onglet
+        // Mesure), la liste Historique et l'export CSV ne sont pas concernés : ils affichent
+        // volontairement la période en cours comme un tout continu, pas comme une agrégation
+        // par jour.
+        function splitPeriodIntoDayFragments(start, end) {
+            const fragments = [];
+            let s = new Date(start);
+            const e = new Date(end);
+            while (s.toDateString() !== e.toDateString()) {
+                let endOfDay = new Date(s); endOfDay.setHours(23, 59, 59, 999);
+                if (endOfDay.getTime() > s.getTime()) {
+                    fragments.push({ start: s.getTime(), end: endOfDay.getTime() });
+                }
+                s = new Date(endOfDay.getTime() + 1);
+            }
+            if (e.getTime() > s.getTime()) {
+                fragments.push({ start: s.getTime(), end: e.getTime() });
+            }
+            return fragments;
         }
 
         // ============================================================
@@ -5317,11 +5356,16 @@
                 const matches = profile.types.every(pt => {
                     const st = settings.types.find(t => t.id === pt.id);
                     if (!st) return false;
+                    if (st.active !== pt.active) return false;
+                    // Slot inactif : le label ne compte pas pour la détection — un nom tapé à
+                    // l'avance dans un slot inactif ne doit pas, à lui seul, faire quitter le
+                    // profil de base (voir le renommage silencieux d'un type inactif).
+                    if (!pt.active) return true;
                     // Comparer au label traduit (pt.label peut être objet ou chaîne vide)
                     const ptLabel = typeof pt.label === 'object'
                         ? (pt.label[settings.lang] || pt.label['fr'] || '')
                         : (pt.label || '');
-                    return st.active === pt.active && st.label === ptLabel;
+                    return st.label === ptLabel;
                 });
                 if (matches) return profileId;
             }
@@ -5658,10 +5702,20 @@
         // Ces paramètres seront externalisés dans la définition de profil à l'avenir.
         // ============================================================
 
+        // Convertit une durée en minutes en {h, m} — un seul arrondi sur le TOTAL, puis
+        // floor/modulo (jamais un round séparé sur les minutes restantes, qui peut sinon donner
+        // "60" au lieu de remonter la retenue vers les heures — ex. 659.6 min →
+        // floor(659.6/60)=10h + round(59.6)=60min donnerait à tort "10h60" au lieu de "11h00").
+        // Utilisée par formatMins() et par tout endroit ayant besoin de h/m séparément (ex. pour
+        // une mise en forme HTML personnalisée du padding des heures).
+        function splitMinutesHM(mins) {
+            const totalMin = Math.round(mins);
+            return { h: Math.floor(totalMin / 60), m: totalMin % 60 };
+        }
+
         // Formate une durée en minutes → toujours "0h00"
         function formatMins(mins) {
-            const h = Math.floor(mins / 60);
-            const m = Math.round(mins % 60);
+            const { h, m } = splitMinutesHM(mins);
             return `${h}h${m.toString().padStart(2, '0')}`;
         }
 
@@ -5724,7 +5778,12 @@
 
             let all = [...state.history];
             if (state.activeType) {
-                all.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — sans quoi une période en cours
+                // chevauchant minuit reste entièrement comptée sur son jour de départ (total
+                // pouvant dépasser 24h, rien sur aujourd'hui tant qu'elle n'est pas close).
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    all.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
             // Filtre sur la plage élargie (voir commentaire fenêtrage ci-dessus)
             all = all.filter(e => e.start >= aggStartTs && e.start < aggEndTs);
@@ -5812,8 +5871,7 @@
                     const mins = day.totals[tp.id];
                     const isExpanded = settings.resultsExpandedTypes.includes(tp.id);
                     const arrowColor = isExpanded ? getColorForId(tp.id) : getCSSColor('--chart-gray-bar');
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
+                    const { h, m } = splitMinutesHM(mins);
                     // Padding par "0" transparent (pas un espace-chiffre) : garantit une largeur
                     // identique aux vrais chiffres, puisque c'est le même glyphe sous tabular-nums.
                     const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
@@ -5989,7 +6047,10 @@
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
             allPeriods = allPeriods.filter(p => p.start >= aggStartTs && p.start < aggEndTs);
 
@@ -6109,9 +6170,7 @@
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
-                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const timeStr = formatMins(mins);
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
                                              onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
@@ -6207,7 +6266,10 @@
             const daysData = {};
             let allPeriods = [...state.history];
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
 
             allPeriods.forEach(p => {
@@ -6300,9 +6362,7 @@
                     const typeId = parseInt(type);
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
-                    const h = Math.floor(avgMins / 60);
-                    const m = Math.round(avgMins % 60);
-                    const timeStr = `${h}h${m.toString().padStart(2, '0')}`;
+                    const timeStr = formatMins(avgMins);
                     const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
@@ -7427,7 +7487,10 @@
             let allPeriods = [...state.history];
 
             if (state.activeType) {
-                allPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+                // Découpe à minuit (comme closePeriod()) — voir splitPeriodIntoDayFragments().
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    allPeriods.push({ typeId: state.activeType, start: frag.start, end: frag.end });
+                });
             }
 
             allPeriods.forEach(p => {
@@ -8181,8 +8244,9 @@
             // Détection : première installation (pas de lastSeenVersion) OU changement de version
             window._isNewVersion = !lastSeenVersion || lastSeenVersion !== APP_VERSION;
 
-            // Envoi sécurisé à GoatCounter si nouveau/maj et en ligne
-            if (window._isNewVersion && navigator.onLine) {
+            // Envoi sécurisé à GoatCounter — uniquement pour une vraie mise à jour (pas un
+            // premier lancement, déjà couvert par les events NewUser-* ci-dessous).
+            if (lastSeenVersion && lastSeenVersion !== APP_VERSION && navigator.onLine) {
                 sendToGoatCounter('update-to-' + APP_VERSION);
             }
 
@@ -8215,7 +8279,13 @@
         const _today = new Date().toDateString();
         const _lastPingDay = _lastPing ? new Date(parseInt(_lastPing)).toDateString() : null;
 
-        if (_today !== _lastPingDay && navigator.onLine) {
+        // Pas de ping DailyUser-* le jour du tout premier lancement dans ce contexte
+        // (isFirstEverLaunch) — ce jour est déjà couvert par les events NewUser-*, avec leurs
+        // propres sous-catégories (voir plus haut). Sans cette exclusion, un même utilisateur
+        // pourrait faire monter DailyUser-TOTAL jusqu'à 3 fois le même jour (webview → browser
+        // → installé, 3 contextes localStorage distincts), faussant la comparaison avec les
+        // jours suivants (fidélisation J+1/J+2).
+        if (_today !== _lastPingDay && navigator.onLine && !window.isFirstEverLaunch) {
             // 0. Total — compteur agrégé indépendant des dimensions ci-dessous (version/mode/profil),
             // pour avoir un chiffre unique et fiable même si ces dimensions évoluent dans le temps.
             sendToGoatCounter('DailyUser-TOTAL');
@@ -8223,9 +8293,11 @@
             // 1. Version
             sendToGoatCounter('DailyUser-' + APP_VERSION);
 
-            // 2. Mode d'accès (installed / browser)
-            const mode = window.matchMedia('(display-mode: standalone)').matches ? 'installed' : 'browser';
-            sendToGoatCounter('DailyUser-' + mode);
+            // 2. Mode d'accès (envoie installed uniquement, browser est en 2b)
+            const mode = isPWAInstalled() ? 'installed' : 'browser';
+            if (mode === 'installed') {
+                sendToGoatCounter('DailyUser-installed');
+            }
 
             // 2b. Canal navigateur — uniquement en mode navigateur (pas de sens une fois installé).
             // Le détail "browser-Other" reste volontairement exclu au quotidien (fourre-tout moins
@@ -8239,6 +8311,11 @@
                     sendToGoatCounter('DailyUser-' + channel);
                 }
                 sendToGoatCounter('DailyUser-' + channel.split('-')[0] + '-TOTAL');
+            }
+
+            // 2c. Alerte active réglée dans les paramètres
+            if (settings && Array.isArray(settings.alerts) && settings.alerts.some(a => a.enabled)) {
+                sendToGoatCounter('DailyUser-alertON');
             }
 
             // 3. Profil actif
@@ -8680,27 +8757,43 @@
         // Construit l'index par jour sur l'intégralité de l'historique — volontairement sans
         // fenêtrage : c'est le seul endroit de l'app qui a besoin de "tout", et seulement une
         // fois par ouverture d'overlay (voir commentaire d'en-tête ci-dessus).
-        // La période active en cours est EXCLUE ici, contrairement à renderDailyCharts()/
-        // renderWeeklyCharts() : elle n'est jamais découpée à minuit tant qu'elle n'est pas
-        // arrêtée (closePeriod() ne s'applique qu'à state.history[]). Une période ouverte
-        // depuis >24h gonflerait totalMins au-delà de 1440 min pour son jour de départ, ce qui
-        // faussait à la fois la détection "jour complet" (faussement vraie) et l'échelle Y en
-        // mode zoom (computeYAxisRange() pouvait dépasser 24h). Le jour "aujourd'hui" est de
-        // toute façon presque toujours incomplet tant qu'il n'est pas terminé — l'exclure ici
-        // est cohérent avec ce que fait déjà isComplete() pour lui.
+        // La période active en cours est désormais INCLUSE (avant : exclue en entier — voir
+        // synthèse précédente), mais découpée à minuit comme partout ailleurs dans l'app (même
+        // helper splitPeriodIntoDayFragments() que Résultats/graphiques/Historique). Sans cette
+        // découpe, une période ouverte depuis >24h gonflerait totalMins au-delà de 1440 min pour
+        // son jour de départ, faussant à la fois la détection "jour complet" et l'échelle Y en
+        // mode zoom (computeYAxisRange() pouvait dépasser 24h) — c'est pour cette raison qu'elle
+        // avait été exclue en entier à l'origine. Le seuil "jour complet" (isComplete(), voir
+        // computeEvolutionData()) reste strictement identique pour "aujourd'hui" que pour tout
+        // autre jour — aucun traitement de faveur : un jour très rempli peut donc apparaître
+        // avant même minuit, un jour avec des trous reste invisible jusqu'à ce que le seuil soit
+        // atteint, exactement comme n'importe quel jour passé.
         function buildEvolutionFullDaysIndex() {
             const daysData = {};
-            state.history.forEach(e => {
-                const d = new Date(e.start);
+
+            // Agrège une période dans daysData — factorisé pour être appelé à la fois sur
+            // l'historique clos (state.history[]) et sur les fragments de la période active
+            // (voir plus bas), sans dupliquer la logique de bucket par jour.
+            function addPeriod(typeId, start, end) {
+                const d = new Date(start);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                const mins = (e.end - e.start) / 60000;
+                const mins = (end - start) / 60000;
                 if (!daysData[dateKey]) {
                     daysData[dateKey] = { timestamp: new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), totalMins: 0, typeTotals: {} };
                 }
                 daysData[dateKey].totalMins += mins;
-                if (!daysData[dateKey].typeTotals[e.typeId]) daysData[dateKey].typeTotals[e.typeId] = 0;
-                daysData[dateKey].typeTotals[e.typeId] += mins;
-            });
+                if (!daysData[dateKey].typeTotals[typeId]) daysData[dateKey].typeTotals[typeId] = 0;
+                daysData[dateKey].typeTotals[typeId] += mins;
+            }
+
+            state.history.forEach(e => addPeriod(e.typeId, e.start, e.end));
+
+            if (state.activeType !== null && state.startTime !== null) {
+                splitPeriodIntoDayFragments(state.startTime, Date.now()).forEach(frag => {
+                    addPeriod(state.activeType, frag.start, frag.end);
+                });
+            }
+
             return { daysData, dateKeys: Object.keys(daysData).sort() };
         }
 
@@ -8836,6 +8929,16 @@
         //
         // window.evolutionExploreTimestamp (jour, minuit local) : null hors exploration, sinon
         // la date actuellement explorée — lu par le plugin ci-dessous à chaque redraw.
+        //
+        // Persistance et bascule (voir onEvolutionTouchStart/End) : le CONTACT (touchstart)
+        // bascule l'affichage — rien de visible → l'affiche à l'endroit touché ; quelque chose
+        // de visible → le masque. Le déplacement (touchmove) fait suivre le doigt SAUF si ce
+        // contact vient de fermer l'affichage (isClosing) — dans ce cas, tout déplacement est
+        // ignoré jusqu'au relâchement, pour qu'un micro-tremblement du doigt ne rouvre jamais
+        // l'affichage juste après l'avoir fermé (il faut relever puis retoucher pour explorer
+        // ailleurs). Au relâchement (touchend), rien n'est masqué automatiquement — l'état
+        // reste tel quel jusqu'au prochain contact ou jusqu'à un vrai changement d'affichage
+        // (palier, sélection, navigation — voir le masquage en tête de renderEvolutionChart()).
         // ============================================================
 
         // Cherche la valeur Y d'un tableau de points {x,y} (trié par x croissant) à un x donné :
@@ -9419,7 +9522,7 @@
         // que rien n'a été coché (confusant, notamment pour un public en brouillard cognitif).
         function countActiveEvolutionRepresentations() {
             return [settings.evolutionShowRawPoints, settings.evolutionShowMovingAvg,
-                settings.evolutionShowMovingAvg5, settings.evolutionShowMovingAvg7]
+            settings.evolutionShowMovingAvg5, settings.evolutionShowMovingAvg7]
                 .filter(Boolean).length;
         }
 
@@ -9584,6 +9687,16 @@
             console.log("[renderEvolutionChart] Rendu du graphique évolution");
             const canvas = document.getElementById('evolutionChart');
             if (!canvas) return;
+
+            // Masque l'exploration en cours (ligne + carte de valeurs) dès qu'un vrai changement
+            // d'affichage se produit — palier, sélection de série, navigation temporelle, etc.
+            // Appelé uniquement au COMMIT d'un changement (jamais pendant un simple geste de
+            // pincement/swipe en cours, qui ne passe que par renderEvolutionPreviewBand()) :
+            // l'affichage doit refléter la situation actuelle, pas une exploration qui pointait
+            // sur un contexte devenu obsolète (même principe que ailleurs dans ce projet).
+            window.evolutionExploreTimestamp = null;
+            const exploreCard = document.getElementById('evolution-value-card');
+            if (exploreCard) exploreCard.style.display = 'none';
 
             // Palier courant (largeur de fenêtre) — en mémoire pour la session uniquement,
             // pas de localStorage (même convention que evolutionYAxisMode). window.evolutionPaliers
@@ -9932,8 +10045,7 @@
             } else {
                 lines.forEach(line => {
                     const mins = line.value * 60;
-                    const h = Math.floor(mins / 60);
-                    const m = Math.round(mins % 60);
+                    const { h, m } = splitMinutesHM(mins);
                     // Padding par "0" transparent (même convention que renderResults()) : garantit
                     // une largeur identique aux vrais chiffres sous la police monospace.
                     const hStr = h < 10 ? `<span style="color:transparent;">0</span>${h}` : `${h}`;
@@ -10077,14 +10189,23 @@
                 if (e.target.closest && e.target.closest('#evolution-yaxis-toggle')) return;
 
                 // Sinon : exploration du graphe (ligne verticale + carte de valeurs, section
-                // 25d) — drag continu, démarre immédiatement au toucher (pas de seuil de
-                // confirmation comme pour le pan : le tooltip natif de Chart.js étant
-                // désactivé, il n'y a plus rien d'autre à quoi ce tap pourrait légitimement
-                // appartenir dans cette zone).
+                // 25d). Le CONTACT lui-même bascule l'affichage : rien n'était visible → ce
+                // contact l'affiche à l'endroit touché ; quelque chose était déjà visible
+                // (persistant d'un geste précédent, voir touchend plus bas) → ce contact le
+                // masque. Dans ce second cas (fermeture), tout déplacement du doigt PENDANT ce
+                // même contact est ensuite ignoré (voir isClosing / onEvolutionTouchMove) — un
+                // tap pour fermer ne doit jamais rouvrir l'affichage à cause d'un micro-tremblement
+                // du doigt avant relâchement. Un contact qui affiche, lui, reste suivi normalement
+                // par le déplacement (touchmove), sans condition.
                 if (!evolutionChartInstance) return;
                 e.preventDefault();
-                evolutionGestureState = { type: 'explore' };
-                updateEvolutionExplore(touch);
+                const wasShowing = window.evolutionExploreTimestamp !== null && typeof window.evolutionExploreTimestamp !== 'undefined';
+                evolutionGestureState = { type: 'explore', isClosing: wasShowing };
+                if (wasShowing) {
+                    clearEvolutionExplore();
+                } else {
+                    updateEvolutionExplore(touch);
+                }
             }
         }
 
@@ -10135,6 +10256,11 @@
                 // reste celle actuellement committée, inchangée par ce geste).
                 updateEvolutionPalierLabel(null, candidate);
             } else if (evolutionGestureState.type === 'explore' && e.touches.length === 1) {
+                // Un contact qui vient de FERMER l'affichage (isClosing) ignore tout déplacement
+                // pour le reste de ce même contact — évite qu'un micro-tremblement du doigt
+                // avant relâchement ne rouvre l'affichage juste après l'avoir fermé (voir
+                // onEvolutionTouchStart). Il faut relever puis retoucher pour explorer ailleurs.
+                if (evolutionGestureState.isClosing) return;
                 e.preventDefault();
                 updateEvolutionExplore(e.touches[0]);
             }
@@ -10164,9 +10290,11 @@
                 } else {
                     updateEvolutionPalierLabel(); // aucun changement — revient à l'état committé
                 }
-            } else if (evolutionGestureState.type === 'explore') {
-                clearEvolutionExplore();
             }
+            // type === 'explore' : rien à faire ici — l'affichage (ligne + carte) reste tel
+            // quel au relâchement, décidé uniquement au contact (voir touchstart) et suivi en
+            // continu pendant un drag (voir touchmove). Masqué uniquement par un nouveau
+            // contact (bascule) ou par un vrai changement d'affichage (voir renderEvolutionChart()).
             evolutionGestureState = null;
         }
 
