@@ -5134,7 +5134,11 @@
         // ============================================================
 
         function saveState() {
-            safeSave('pacingState', JSON.stringify(state));
+            const t0 = performance.now();
+            const ok = safeSave('pacingState', JSON.stringify(state));
+            const elapsed = (performance.now() - t0).toFixed(1);
+            console.log(`[saveState] durée: ${elapsed}ms — historique: ${state.history.length} entrées`);
+            return ok;
         }
 
         function saveSettings() {
@@ -8600,6 +8604,7 @@
         // NOUVEAU : AVEC enregistrement des alertes déjà jouées, pour ne pas en perdre la mémoire si nouvelle veille
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState !== 'visible') return;
+            console.log(`[visibilitychange] ⏱️ Début séquence retour visible`);
 
             // 1. Re-acquérir le Wake Lock si besoin
             if (wakeLock !== null) await requestWakeLock();
@@ -8722,6 +8727,7 @@
             saveState();
 
             console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
+            console.log(`[visibilitychange] ⏱️ Fin séquence retour visible`);
         });
 
 
