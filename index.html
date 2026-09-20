@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -402,6 +402,70 @@
 
         .results-day-item:last-child {
             border-bottom: none;
+        }
+
+        /* Rangée de date des blocs-jour (Résultats) : date à gauche, sélecteurs tristate des
+           événements journaliers (ex. MPE) à droite. flex-wrap : si plusieurs tags tristate
+           sont actifs un jour, ils passent à la ligne sous la date au lieu de déborder. */
+        .results-date-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            margin-bottom: 4px;
+        }
+
+        .results-event-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: 6px 14px;
+        }
+
+        .results-event-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        .results-event-label {
+            font-weight: bold;
+            opacity: 0.85;
+        }
+
+        .results-event-buttons {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        /* Non renseigné : contour gris neutre, sans remplissage. Cible tactile ~30px de haut. */
+        .event-state-btn {
+            min-width: 44px;
+            height: 30px;
+            padding: 0 10px;
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid #666;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        /* Oui = rouge sombre, Non = vert sombre (états sélectionnés). */
+        .event-state-btn.event-state-yes.active {
+            background: #8e2b2b;
+            border-color: #8e2b2b;
+            color: white;
+            font-weight: bold;
+        }
+
+        .event-state-btn.event-state-no.active {
+            background: #2e6b3a;
+            border-color: #2e6b3a;
+            color: white;
+            font-weight: bold;
         }
 
         .history-time {
@@ -2985,8 +3049,8 @@
             };
         }
 
-        const SNAP_THRESHOLD = 60000; // 60 secondes — seuil de raccordement des bornes adjacentes
-        const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
+        // SNAP_THRESHOLD : déplacé près de snapAdjacentBorders() (section 17b).
+        // LATE_ALERT_THRESHOLD : déplacé près de scheduleAlerts() (section 8b).
 
         // ============================================================
         // 2b. DÉTECTION DE LANGUE AU PREMIER LANCEMENT
@@ -3383,6 +3447,8 @@
                 resPeriodeSing: "période", resPeriodePlur: "périodes",
                 resMoy: "moy", resMax: "max", resMin: "min",
                 resIncomplet: "Journée incomplète",
+                // Sélecteur tristate des événements journaliers (Résultats) — états oui / non
+                eventStateYes: "Oui", eventStateNo: "Non",
                 // Alertes de périodes
                 alertsTitle: "Alertes de périodes",
                 alertAdd: "+ Ajouter une alerte",
@@ -3625,6 +3691,7 @@
                 resPeriodeSing: "period", resPeriodePlur: "periods",
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
+                eventStateYes: "Yes", eventStateNo: "No",
                 storageNearFull: "Storage almost full (≥90%)",
                 storageNearFullDetail: "Consider exporting your data to archive it.",
                 storageFull: "Storage full",
@@ -3841,6 +3908,7 @@
                 resPeriodeSing: "periode", resPeriodePlur: "periodes",
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
+                eventStateYes: "Ja", eventStateNo: "Nee",
                 storageNearFull: "Opslag bijna vol (≥90%)",
                 storageNearFullDetail: "Denk eraan je gegevens te exporteren als archief.",
                 storageFull: "Opslag vol",
@@ -4968,6 +5036,8 @@
             return ` (${getNotifStatusLabel()})`;
         }
 
+        const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
+
         // Tableau pour stocker les IDs des setTimeout() locaux
         let localAlertTimers = [];
         let autoReleaseWakeLockTimer = null; // NOUVEAU : Pour relâcher le Wake Lock
@@ -5831,6 +5901,51 @@
             renderDailyCharts();
         }
 
+        // Valeur d'un événement journalier pour un jour et un tag : 'yes' | 'no' | null
+        // (null = non renseigné = aucun event stocké — "absence d'info ≠ info d'absence").
+        function getDailyEventValue(dateKey, tagId) {
+            const ev = dailyData[dateKey]?.events?.find(e => e.tagId === tagId);
+            return ev ? ev.value : null;
+        }
+
+        // Sélecteur tristate (Oui / Non, contour neutre par défaut) pour chaque tag actif de mode
+        // 'tristate' — générique : un futur tag tristate apparaît ici sans code supplémentaire.
+        function buildEventTristateHTML(dateKey) {
+            const tags = settings.eventTags.filter(tg => tg.active && tg.mode === 'tristate');
+            if (tags.length === 0) return '';
+            let html = '<div class="results-event-group">';
+            tags.forEach(tg => {
+                const val = getDailyEventValue(dateKey, tg.id);
+                html += `<span class="results-event-tag"><span class="results-event-label">${tg.label}</span><span class="results-event-buttons">`;
+                html += `<button class="event-state-btn event-state-yes${val === 'yes' ? ' active' : ''}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')">${t('eventStateYes')}</button>`;
+                html += `<button class="event-state-btn event-state-no${val === 'no' ? ' active' : ''}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')">${t('eventStateNo')}</button>`;
+                html += `</span></span>`;
+            });
+            return html + '</div>';
+        }
+
+        // Tap sur Oui / Non : sélectionne la valeur ; un second tap sur la valeur déjà active
+        // revient à "non renseigné" (l'event est retiré, jamais stocké comme valeur vide).
+        // La clé du jour est supprimée dès qu'elle ne contient plus rien (pas de jour "fantôme").
+        function toggleEventTristate(dateKey, tagId, value) {
+            const day = dailyData[dateKey] || (dailyData[dateKey] = {});
+            const events = Array.isArray(day.events) ? day.events : [];
+            const existing = events.find(ev => ev.tagId === tagId);
+            if (existing && existing.value === value) {
+                day.events = events.filter(ev => ev.tagId !== tagId);
+            } else if (existing) {
+                existing.value = value;
+                day.events = events;
+            } else {
+                events.push({ tagId, value });
+                day.events = events;
+            }
+            if (day.events.length === 0) delete day.events;
+            if (Object.keys(day).length === 0) delete dailyData[dateKey];
+            saveDailyData();
+            renderResults();
+        }
+
         function renderResults() {
             console.log("[renderResults] Rendu des résultats");
             cleanupCombinedTypeIds(); // retire les typeIds fantômes avant tout calcul/affichage
@@ -5942,7 +6057,7 @@
                 let html = '';
 
                 // Ligne 1 : date
-                html += `<strong>${day.displayDate}</strong><br>`;
+                html += `<div class="results-date-row"><strong>${day.displayDate}</strong>${buildEventTristateHTML(key)}</div>`;
 
                 // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour.
                 // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
@@ -6779,6 +6894,8 @@
         // on redéfinit la borne existante pour qu'elle coïncide exactement.
         // Évite tout trou ou fragment entre périodes de précisions différentes.
         // ============================================================
+
+        const SNAP_THRESHOLD = 60000; // 60 secondes — seuil de raccordement des bornes adjacentes
 
         function snapAdjacentBorders(periods, newEntries, threshold = SNAP_THRESHOLD) {
             const result = periods.map(p => ({ ...p }));
@@ -8417,6 +8534,17 @@
             // 2c. Alerte active réglée dans les paramètres
             if (settings && Array.isArray(settings.alerts) && settings.alerts.some(a => a.enabled)) {
                 sendToGoatCounter('DailyUser-alertON');
+            }
+
+            // 2d. Taille du localStorage — un seul palier envoyé (le plus haut atteint), pour
+            // obtenir une vraie distribution sur la base d'utilisateurs (voir TODO stockage).
+            {
+                const storageBytes = getLocalStorageSize();
+                const MB = 1024 * 1024;
+                if (storageBytes >= 4 * MB) sendToGoatCounter('DailyUser-LS-above-4MB');
+                else if (storageBytes >= 3 * MB) sendToGoatCounter('DailyUser-LS-above-3MB');
+                else if (storageBytes >= 2 * MB) sendToGoatCounter('DailyUser-LS-above-2MB');
+                else if (storageBytes >= 1 * MB) sendToGoatCounter('DailyUser-LS-above-1MB');
             }
 
             // 3. Profil actif
@@ -10839,6 +10967,8 @@
         DailyUser-webview-TOTAL
         DailyUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera}  (Other exclu du détail)
         DailyUser-browser-TOTAL
+        DailyUser-alertON
+        DailyUser-LS-above-{1|2|3|4}MB  (taille localStorage, un seul palier : le plus haut atteint)
 
 
         8. Arbre d'installation : Splashes et cadre dans onglet Réglages
