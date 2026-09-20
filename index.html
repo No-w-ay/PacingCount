@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1392,6 +1392,21 @@
             </button>
         </div>
 
+        <!-- Format CSV (périodes uniquement) — export/import CSV conservés pour ceux qui tiennent à
+             ce format partiel. Réutilise le sélecteur de fichier #csv-file du footer Historique. -->
+        <div class="settings-group">
+            <label id="label-csv-format" style="display:block; margin-bottom:10px; font-weight:bold;">Format CSV
+                (périodes uniquement)</label>
+            <p id="csv-format-note" style="margin:0 0 12px 0; font-size:0.85rem; opacity:0.8; line-height:1.5;"></p>
+            <div style="display:flex; gap:8px;">
+                <button class="export-btn" id="btn-export-csv-settings" onclick="exportCSV()"
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">Exporter (.csv)</button>
+                <button class="export-btn" id="btn-import-csv-settings"
+                    onclick="document.getElementById('csv-file').click()"
+                    style="flex: 1; padding: 8px; margin: 0;">Importer (.csv)</button>
+            </div>
+        </div>
+
         <!-- Communauté et feedback -->
         <div class="settings-group">
             <label id="label-community" style="display:block; margin-bottom:10px; font-weight:bold;">Communauté &amp;
@@ -1443,7 +1458,8 @@
                     Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
                     substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes
                     de vie ou de traitement, consultez votre médecin en tenant compte de votre situation
-                    personnelle.
+                    personnelle. Des statistiques anonymes d'usage de l'application et de ses fonctionnalités
+                    peuvent être visualisées par le concepteur dans un but d'amélioration de l'application.
                 </p>
             </div>
             <div id="about-tap-zone" class="version-display"
@@ -1532,9 +1548,9 @@
 
             <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-                <button class="export-btn" onclick="exportCSV()" id="btn-export"
+                <button class="export-btn" onclick="exportJSON()" id="btn-export"
                     style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">
-                    Exporter (.csv)
+                    Exporter (.json)
                 </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
                     style="flex: 1; padding: 8px; margin: 0;" id="btn-import">
@@ -2599,10 +2615,10 @@
             document.body.appendChild(overlay);
             console.log(`[Install] Blocage navigateur intégré affiché (${appName}, pas de données significatives)`);
 
-            // ⚠️ TEMPORAIRE — TEST UNIQUEMENT — À RETIRER AVANT MISE EN PROD ⚠️
-            // 7 taps sur l'icône pour contourner le blocage (impossible de tester l'export
-            // manuel autrement, ce blocage étant volontairement sans issue). Voir demande
-            // explicite de test — ne pas laisser ce bypass en production.
+            // DÉPANNAGE VOLONTAIREMENT CONSERVÉ : 7 taps sur l'icône pour contourner le blocage
+            // (ce blocage étant volontairement sans issue, c'est la seule sortie de secours, utile
+            // notamment pour tester l'export manuel). À documenter comme tel — ne pas retirer
+            // sans décision explicite.
             attachFacebookBlockDebugBypass();
         }
 
@@ -3449,6 +3465,10 @@
                 resIncomplet: "Journée incomplète",
                 // Sélecteur tristate des événements journaliers (Résultats) — états oui / non
                 eventStateYes: "Oui", eventStateNo: "Non",
+                // Export JSON (sauvegarde complète) et bloc Réglages "Format CSV"
+                exportJson: "Exporter (.json)",
+                titleCsvFormat: "Format CSV (périodes uniquement)",
+                csvFormatNote: "Ce format ne contient que les périodes : ni les événements journaliers (MPE), ni la configuration des types. Pour une sauvegarde complète, utilisez « Exporter (.json) » dans l'onglet Historique.",
                 // Alertes de périodes
                 alertsTitle: "Alertes de périodes",
                 alertAdd: "+ Ajouter une alerte",
@@ -3607,7 +3627,7 @@
                 communityLinkLabel: "👥 PacingCount : communauté & feedback (↗)",
                 aboutIntro: "<b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et objectiver leur niveau d'activité et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par une personne concernée par l'EM/SFC.",
                 aboutInvitation: "<i>Une invitation&nbsp;: n'utilisez pas cette app de façon trop perfectionniste — le pacing est avant tout une stratégie de repos et de récupération, dans un cadre de bienveillance envers soi-même.</i>",
-                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle.",
+                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle. Des statistiques anonymes d'usage de l'application et de ses fonctionnalités peuvent être visualisées par le concepteur dans un but d'amélioration de l'application.",
                 devModeIndicator: "🛠️ Mode développeur",
                 btnCheckUpdate: "Vérifier mise à jour",
                 editModalTitle: "Modifier l'entrée",
@@ -3692,6 +3712,9 @@
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
                 eventStateYes: "Yes", eventStateNo: "No",
+                exportJson: "Export (.json)",
+                titleCsvFormat: "CSV format (periods only)",
+                csvFormatNote: "This format only contains periods: no daily events (PEM) and no period type settings. For a complete backup, use “Export (.json)” in the History tab.",
                 storageNearFull: "Storage almost full (≥90%)",
                 storageNearFullDetail: "Consider exporting your data to archive it.",
                 storageFull: "Storage full",
@@ -3833,7 +3856,7 @@
                 titleAbout: "About",
                 aboutIntro: "<b>PacingCount:</b> An application designed for people who wish to measure and objectify their activity and rest levels, in order to refine their pacing strategy. It was created by someone living with ME/CFS.",
                 aboutInvitation: "<i>An invitation: do not use this app in an overly perfectionist way — pacing is above all a rest and recovery strategy, in a spirit of self-compassion.</i>",
-                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account.",
+                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account. Anonymous statistics on the use of the app and its features may be viewed by its designer in order to improve the app.",
                 devModeIndicator: "🛠️ Developer mode",
                 btnCheckUpdate: "Check for updates",
                 editModalTitle: "Edit entry",
@@ -3909,6 +3932,9 @@
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 eventStateYes: "Ja", eventStateNo: "Nee",
+                exportJson: "Exporteren (.json)",
+                titleCsvFormat: "CSV-formaat (alleen periodes)",
+                csvFormatNote: "Dit formaat bevat alleen periodes: geen dagelijkse gebeurtenissen (PEM) en geen instellingen van de periodetypes. Gebruik voor een volledige back-up « Exporteren (.json) » in het tabblad Historiek.",
                 storageNearFull: "Opslag bijna vol (≥90%)",
                 storageNearFullDetail: "Denk eraan je gegevens te exporteren als archief.",
                 storageFull: "Opslag vol",
@@ -4050,7 +4076,7 @@
                 titleAbout: "Over",
                 aboutIntro: "<b>PacingCount:</b> Een app voor mensen die hun activiteits- en rustniveau willen meten en objectiveren, om hun pacing-strategie te verfijnen. Ze werd ontworpen door iemand die zelf betrokken is bij ME/CVS.",
                 aboutInvitation: "<i>Een uitnodiging: gebruik deze app niet te perfectionistisch — pacing is in de eerste plaats een strategie voor rust en herstel, vanuit zelfzorg.</i>",
-                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie.",
+                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie. Anonieme gebruiksstatistieken van de app en haar functies kunnen door de ontwikkelaar worden bekeken met het oog op het verbeteren van de app.",
                 devModeIndicator: "🛠️ Ontwikkelaarsmodus",
                 btnCheckUpdate: "Controleren op updates",
                 editModalTitle: "Invoer bewerken",
@@ -5707,7 +5733,7 @@
             if (navLegendEl) navLegendEl.title = t('legendToggleTitle');
 
             // Footer historique
-            document.getElementById('btn-export').innerText = t('export');
+            document.getElementById('btn-export').innerText = t('exportJson');
             document.getElementById('btn-import').innerText = t('import');
             document.getElementById('btn-add-period').innerText = t('addManual');
 
@@ -5732,6 +5758,10 @@
             document.getElementById('label-profiles').innerText = t('titleProfiles');
             document.getElementById('label-alerts').innerText = t('alertsTitle');
             document.getElementById('btn-add-alert').innerText = t('alertAdd');
+            document.getElementById('label-csv-format').innerText = t('titleCsvFormat');
+            document.getElementById('csv-format-note').innerText = t('csvFormatNote');
+            document.getElementById('btn-export-csv-settings').innerText = t('export');
+            document.getElementById('btn-import-csv-settings').innerText = t('import');
             document.getElementById('label-community').innerText = t('titleCommunity');
             const communityIntroEl = document.getElementById('community-intro');
             if (communityIntroEl) communityIntroEl.innerHTML = t('communityIntro');
@@ -7214,6 +7244,63 @@
                 console.log("[exportCSV] Export terminé");
             } catch (err) {
                 console.error("[exportCSV] Erreur :", err);
+            }
+        }
+
+        // ============================================================
+        // 19a. EXPORT JSON (sauvegarde complète)
+        // Miroir direct des structures internes, sans transformation (voir synthèse notes/événements,
+        // §4) : ce qui est exporté = ce qui existe en mémoire à cet instant. Contrairement au CSV
+        // (périodes seules), contient aussi les événements journaliers, la définition des tags et la
+        // configuration des types. Les alertes et préférences d'affichage (propres à l'appareil) ne
+        // sont PAS exportées. Cas d'un navigateur intégré (webview) : pas de traitement particulier
+        // ici pour l'instant (décision reportée) — le téléchargement y est tenté normalement.
+        // ============================================================
+        function buildJSONExport() {
+            // Périodes : historique tel quel (champ `note` conservé s'il existe) + période active
+            // exportée comme période close (end = maintenant), comme le fait buildCSVString().
+            const periodData = state.history.map(e => ({ ...e }));
+            if (state.activeType !== null && state.startTime !== null) {
+                periodData.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
+            }
+            return {
+                format: 'pacingcount-export',
+                formatVersion: 1,
+                exportedAt: new Date().toISOString(),
+                appVersion: APP_VERSION,
+                periodData,
+                dailyData,
+                eventTags: settings.eventTags,
+                typesConfig: {
+                    activeProfile: settings.activeProfile,
+                    types: settings.types
+                }
+            };
+        }
+
+        function exportJSON() {
+            console.log("[exportJSON] Début de l'export");
+            try {
+                const json = JSON.stringify(buildJSONExport());
+                const blob = new Blob([json], { type: 'application/json;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `pacing_export_${new Date().toISOString().slice(0, 10)}.json`;
+
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+
+                if (navigator.onLine) sendToGoatCounter('export-json');
+                console.log("[exportJSON] Export terminé");
+            } catch (err) {
+                console.error("[exportJSON] Erreur :", err);
             }
         }
 
