@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2949,6 +2949,42 @@
             }
         };
 
+        // ============================================================
+        // 2a. TAGS D'ÉVÉNEMENTS JOURNALIERS BUILTIN (chantier notes/événements)
+        // Même principe que PROFILES[...].types[].label : labels multilingues {fr,en,nl}, résolus
+        // une fois dans la langue courante quand le tag est fusionné dans settings.eventTags[]
+        // (voir bootstrap section 4, et retraduction dans changeLang()).
+        // mode : "tristate" (oui / non / non renseigné = absence d'event), extensible.
+        // ============================================================
+        const BUILTIN_EVENT_TAGS = [
+            {
+                id: "pem",
+                label: { fr: "MPE", en: "PEM", nl: "PEM" },
+                description: {
+                    fr: "Malaise post-effort en cours",
+                    en: "Post-exertional malaise ongoing",
+                    nl: "Post-exertionele malaise aan de gang"
+                },
+                mode: "tristate",
+                timed: false,
+                repeatable: false
+            }
+        ];
+
+        // Construit l'entrée settings.eventTags[] d'un tag builtin, dans la langue demandée.
+        function buildEventTagFromBuiltin(def, lang) {
+            return {
+                id: def.id,
+                label: def.label[lang] || def.label['fr'] || '',
+                description: def.description?.[lang] || def.description?.['fr'] || '',
+                mode: def.mode,
+                active: true,
+                timed: def.timed ?? false,
+                repeatable: def.repeatable ?? false,
+                builtin: true
+            };
+        }
+
         const SNAP_THRESHOLD = 60000; // 60 secondes — seuil de raccordement des bornes adjacentes
         const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
 
@@ -3287,6 +3323,34 @@
         // Anciennement une simple variable de session (window.evolutionShowLegend, jamais
         // persistée) — désormais un vrai champ settings, comme combinedTypeIds.
         if (typeof settings.evolutionShowLegend === 'undefined') settings.evolutionShowLegend = true;
+
+        // Garantit que settings.eventTags existe, et que chaque tag builtin y est présent.
+        // Ajoute seulement les tags manquants (jamais d'écrasement) : couvre à la fois un nouvel
+        // utilisateur et un utilisateur existant, et une future addition d'un tag builtin.
+        if (!Array.isArray(settings.eventTags)) settings.eventTags = [];
+        BUILTIN_EVENT_TAGS.forEach(def => {
+            if (!settings.eventTags.some(tg => tg.id === def.id)) {
+                settings.eventTags.push(buildEventTagFromBuiltin(def, settings.lang));
+            }
+        });
+
+        // Données journalières (événements, et plus tard notes) — clé localStorage dédiée,
+        // indexée par date ISO "AAAA-MM-JJ". Un jour sans donnée n'a simplement pas de clé.
+        // Structure : { "2026-07-15": { text?: "...", events?: [{ tagId, value?, time? }] } }
+        let dailyData = {};
+        try {
+            const rawDaily = localStorage.getItem('pacingDailyData');
+            if (rawDaily) {
+                const parsedDaily = JSON.parse(rawDaily);
+                if (parsedDaily && typeof parsedDaily === 'object' && !Array.isArray(parsedDaily)) dailyData = parsedDaily;
+            }
+        } catch (e) {
+            console.warn('[dailyData] pacingDailyData illisible — démarrage à vide', e);
+        }
+
+        function saveDailyData() {
+            return safeSave('pacingDailyData', JSON.stringify(dailyData));
+        }
 
         // Garantit que settings.labels existe toujours pour la compatibilité
         // avec les fonctions graphiques qui l'utilisent encore (renderTimelineChart, etc.)
@@ -5504,6 +5568,16 @@
                     }
                 });
             }
+
+            // Retraduction des tags d'événements builtin (jamais les tags créés par l'utilisateur)
+            settings.eventTags.forEach(tg => {
+                if (!tg.builtin) return;
+                const def = BUILTIN_EVENT_TAGS.find(d => d.id === tg.id);
+                if (!def) return;
+                tg.label = def.label[settings.lang] || def.label['fr'] || tg.label;
+                tg.description = def.description?.[settings.lang] || def.description?.['fr'] || tg.description;
+            });
+
             // Mise à jour de settings.labels pour compatibilité avec les fonctions graphiques
             settings.labels = settings.types.filter(tp => tp.active).map(tp => tp.label);
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
