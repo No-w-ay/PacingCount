@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1403,7 +1403,7 @@
                     style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">Exporter (.csv)</button>
                 <button class="export-btn" id="btn-import-csv-settings"
                     onclick="document.getElementById('csv-file').click()"
-                    style="flex: 1; padding: 8px; margin: 0;">Importer (.csv)</button>
+                    style="flex: 1.4; padding: 8px; margin: 0; font-size: 0.95rem;">Importer (.json/.csv)</button>
             </div>
         </div>
 
@@ -1549,15 +1549,15 @@
             <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
                 <button class="export-btn" onclick="exportJSON()" id="btn-export"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">
                     Exporter (.json)
                 </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                    style="flex: 1; padding: 8px; margin: 0;" id="btn-import">
-                    Importer (.csv)
+                    style="flex: 1.4; padding: 8px; margin: 0; font-size: 0.95rem;" id="btn-import">
+                    Importer (.json/.csv)
                 </button>
-                <input type="file" id="csv-file" accept=".csv, text/csv, text/plain, application/vnd.ms-excel"
-                    style="display:none;" onchange="importCSV(event)">
+                <input type="file" id="csv-file" accept=".json, .csv, application/json, text/csv, text/plain, application/vnd.ms-excel"
+                    style="display:none;" onchange="importFile(event)">
             </div>
 
             <!-- Ligne 5 : total absolu — même style que la légende -->
@@ -1679,7 +1679,7 @@
                 ⚠️ Remplacer l'historique
             </button>
             <p id="import-replace-detail" style="font-size:0.85rem; margin:0 0 16px 0; opacity:0.82;">
-                Efface tout l'historique actuel et importe le fichier.
+                Efface tout l'historique actuel des périodes et importe le fichier.
                 Cette action est irréversible.
             </p>
 
@@ -1697,6 +1697,14 @@
             <!-- Bouton Annuler -->
             <button id="btn-import-cancel" class="export-btn" style="background:#444;"
                 onclick="closeImportModal()">Annuler</button>
+        </div>
+    </div>
+
+    <!-- Modal d'import JSON (sauvegarde complète) — distinct du modal d'import CSV ci-dessus.
+         Contenu entièrement construit par showImportJsonModal() (section 20b). -->
+    <div id="importJsonModal" class="modal">
+        <div class="modal-content">
+            <div id="import-json-body"></div>
         </div>
     </div>
 
@@ -3467,6 +3475,30 @@
                 eventStateYes: "Oui", eventStateNo: "Non",
                 // Export JSON (sauvegarde complète) et bloc Réglages "Format CSV"
                 exportJson: "Exporter (.json)",
+                // Import JSON (Passe 2)
+                importAny: "Importer (.json/.csv)",
+                importJsonTitle: "Importer une sauvegarde",
+                importJsonSummaryPeriods: "{n} période(s)",
+                importJsonSummaryDays: "{n} jour(s) avec événements",
+                importJsonIgnored: "{n} élément(s) ignoré(s) car invalide(s).",
+                importJsonTypesTitle: "Le profil de types du fichier diffère de celui de l'application :",
+                importJsonProfileLine: "Profil : {from} → {to}",
+                importJsonPeriodsCount: "{n} période(s)",
+                importJsonReplaceBtn: "⚠️ Tout remplacer",
+                importJsonReplaceDetail: "Remplace les périodes et les événements journaliers de l'application par ceux du fichier. Cette action est irréversible.",
+                importJsonMergeDetail: "Ajoute les données du fichier à celles de l'application. Le fichier a priorité sur les périodes de la plage qu'il couvre et sur les événements qu'il renseigne. Cette action est irréversible.",
+                importJsonReplaceEvents: "Événements : {a} jour(s) dans l'application, {f} dans le fichier.",
+                importJsonReplaceLost: "⚠️ {n} jour(s) avec événements de l'application, absent(s) du fichier, seront effacé(s).",
+                importJsonMergeConflicts: "⚠️ {n} événement(s) du fichier remplaceront des valeurs différentes de l'application.",
+                importJsonProfileWarnMerge: "⚠️ Le profil de types du fichier remplacera celui de l'application et s'appliquera à tout l'historique, y compris les périodes déjà enregistrées.",
+                importJsonProfileWarnReplace: "Le profil de types du fichier remplacera celui de l'application.",
+                importJsonNotPacing: "Ce fichier n'est pas une sauvegarde PacingCount.",
+                importJsonTooNew: "Ce fichier a été créé par une version plus récente de PacingCount. Mettez l'application à jour avant de l'importer.",
+                importJsonUnreadable: "Impossible de lire ce fichier (JSON invalide).",
+                importJsonInvalid: "Ce fichier est abîmé ou ne contient aucune donnée valide.",
+                importJsonNothing: "Ce fichier ne contient rien à importer.",
+                importJsonWriteError: "L'import a échoué (stockage plein ?). Vos données précédentes ont été restaurées.",
+                importJsonSuccess: "Import terminé : {p} période(s) et {d} jour(s) avec événements importés.",
                 titleCsvFormat: "Format CSV (périodes uniquement)",
                 csvFormatNote: "Ce format ne contient que les périodes : ni les événements journaliers (MPE), ni la configuration des types. Pour une sauvegarde complète, utilisez « Exporter (.json) » dans l'onglet Historique.",
                 // Alertes de périodes
@@ -3565,7 +3597,7 @@
                 importIgnoreOption: "— Ignorer ce type",
                 importModalTitle: "Importer un fichier CSV",
                 importReplaceBtn: "⚠️ Remplacer l'historique",
-                importReplaceDetail: "Efface tout l'historique actuel et importe le fichier. Cette action est irréversible.",
+                importReplaceDetail: "Efface tout l'historique actuel des périodes et importe le fichier. Cette action est irréversible.",
                 importMergeBtn: "⚠️ Fusionner",
                 importMergeDetail: "Ajoute les données du fichier à l'historique existant. Le fichier a priorité sur la plage temporelle qu'il couvre. Cette action est irréversible.",
 
@@ -3713,6 +3745,30 @@
                 resIncomplet: "Incomplete day",
                 eventStateYes: "Yes", eventStateNo: "No",
                 exportJson: "Export (.json)",
+                // Import JSON (Passe 2)
+                importAny: "Import (.json/.csv)",
+                importJsonTitle: "Import a backup",
+                importJsonSummaryPeriods: "{n} period(s)",
+                importJsonSummaryDays: "{n} day(s) with events",
+                importJsonIgnored: "{n} invalid item(s) ignored.",
+                importJsonTypesTitle: "The file's type profile differs from the app's:",
+                importJsonProfileLine: "Profile: {from} → {to}",
+                importJsonPeriodsCount: "{n} period(s)",
+                importJsonReplaceBtn: "⚠️ Replace everything",
+                importJsonReplaceDetail: "Replaces the app's periods and daily events with those from the file. This action cannot be undone.",
+                importJsonMergeDetail: "Adds the file's data to the app's. The file takes priority over the periods in the range it covers, and over the events it specifies. This action cannot be undone.",
+                importJsonReplaceEvents: "Events: {a} day(s) in the app, {f} in the file.",
+                importJsonReplaceLost: "⚠️ {n} day(s) with events in the app, missing from the file, will be erased.",
+                importJsonMergeConflicts: "⚠️ {n} event(s) from the file will replace different values in the app.",
+                importJsonProfileWarnMerge: "⚠️ The file's type profile will replace the app's and will apply to the entire history, including periods already recorded.",
+                importJsonProfileWarnReplace: "The file's type profile will replace the app's.",
+                importJsonNotPacing: "This file is not a PacingCount backup.",
+                importJsonTooNew: "This file was created by a more recent version of PacingCount. Update the app before importing it.",
+                importJsonUnreadable: "Unable to read this file (invalid JSON).",
+                importJsonInvalid: "This file is damaged or contains no valid data.",
+                importJsonNothing: "This file contains nothing to import.",
+                importJsonWriteError: "The import failed (storage full?). Your previous data has been restored.",
+                importJsonSuccess: "Import complete: {p} period(s) and {d} day(s) with events imported.",
                 titleCsvFormat: "CSV format (periods only)",
                 csvFormatNote: "This format only contains periods: no daily events (PEM) and no period type settings. For a complete backup, use “Export (.json)” in the History tab.",
                 storageNearFull: "Storage almost full (≥90%)",
@@ -3800,7 +3856,7 @@
                 importIgnoreOption: "— Ignore this type",
                 importModalTitle: "Import a CSV file",
                 importReplaceBtn: "⚠️ Replace history",
-                importReplaceDetail: "Deletes all current history and imports the file. This action cannot be undone.",
+                importReplaceDetail: "Deletes all current period history and imports the file. This action cannot be undone.",
                 importMergeBtn: "⚠️ Merge",
                 importMergeDetail: "Adds the file data to the existing history. The file takes priority over the time range it covers. This action cannot be undone.",
 
@@ -3933,6 +3989,30 @@
                 resIncomplet: "Onvolledige dag",
                 eventStateYes: "Ja", eventStateNo: "Nee",
                 exportJson: "Exporteren (.json)",
+                // Import JSON (Passe 2)
+                importAny: "Importeren (.json/.csv)",
+                importJsonTitle: "Een back-up importeren",
+                importJsonSummaryPeriods: "{n} periode(s)",
+                importJsonSummaryDays: "{n} dag(en) met gebeurtenissen",
+                importJsonIgnored: "{n} ongeldig(e) element(en) genegeerd.",
+                importJsonTypesTitle: "Het typeprofiel van het bestand verschilt van dat van de app:",
+                importJsonProfileLine: "Profiel: {from} → {to}",
+                importJsonPeriodsCount: "{n} periode(s)",
+                importJsonReplaceBtn: "⚠️ Alles vervangen",
+                importJsonReplaceDetail: "Vervangt de periodes en dagelijkse gebeurtenissen van de app door die van het bestand. Deze actie kan niet ongedaan worden gemaakt.",
+                importJsonMergeDetail: "Voegt de gegevens van het bestand toe aan die van de app. Het bestand heeft prioriteit over de periodes in het bereik dat het bestrijkt en over de gebeurtenissen die het vermeldt. Deze actie kan niet ongedaan worden gemaakt.",
+                importJsonReplaceEvents: "Gebeurtenissen: {a} dag(en) in de app, {f} in het bestand.",
+                importJsonReplaceLost: "⚠️ {n} dag(en) met gebeurtenissen in de app die niet in het bestand staan, worden gewist.",
+                importJsonMergeConflicts: "⚠️ {n} gebeurtenis(sen) uit het bestand vervangen afwijkende waarden in de app.",
+                importJsonProfileWarnMerge: "⚠️ Het typeprofiel van het bestand vervangt dat van de app en geldt voor de hele historiek, ook voor reeds geregistreerde periodes.",
+                importJsonProfileWarnReplace: "Het typeprofiel van het bestand vervangt dat van de app.",
+                importJsonNotPacing: "Dit bestand is geen PacingCount-back-up.",
+                importJsonTooNew: "Dit bestand is gemaakt met een recentere versie van PacingCount. Update de app voordat je het importeert.",
+                importJsonUnreadable: "Kan dit bestand niet lezen (ongeldige JSON).",
+                importJsonInvalid: "Dit bestand is beschadigd of bevat geen geldige gegevens.",
+                importJsonNothing: "Dit bestand bevat niets om te importeren.",
+                importJsonWriteError: "De import is mislukt (opslag vol?). Je vorige gegevens zijn hersteld.",
+                importJsonSuccess: "Import voltooid: {p} periode(s) en {d} dag(en) met gebeurtenissen geïmporteerd.",
                 titleCsvFormat: "CSV-formaat (alleen periodes)",
                 csvFormatNote: "Dit formaat bevat alleen periodes: geen dagelijkse gebeurtenissen (PEM) en geen instellingen van de periodetypes. Gebruik voor een volledige back-up « Exporteren (.json) » in het tabblad Historiek.",
                 storageNearFull: "Opslag bijna vol (≥90%)",
@@ -4020,7 +4100,7 @@
                 importIgnoreOption: "— Dit type negeren",
                 importModalTitle: "Een CSV-bestand importeren",
                 importReplaceBtn: "⚠️ Historiek vervangen",
-                importReplaceDetail: "Wist alle huidige historiek en importeert het bestand. Deze actie kan niet ongedaan worden gemaakt.",
+                importReplaceDetail: "Wist alle huidige periodehistoriek en importeert het bestand. Deze actie kan niet ongedaan worden gemaakt.",
                 importMergeBtn: "⚠️ Samenvoegen",
                 importMergeDetail: "Voegt de bestandsgegevens toe aan de bestaande historiek. Het bestand heeft prioriteit over het tijdsbereik dat het bestrijkt. Deze actie kan niet ongedaan worden gemaakt.",
 
@@ -5734,7 +5814,7 @@
 
             // Footer historique
             document.getElementById('btn-export').innerText = t('exportJson');
-            document.getElementById('btn-import').innerText = t('import');
+            document.getElementById('btn-import').innerText = t('importAny');
             document.getElementById('btn-add-period').innerText = t('addManual');
 
             // Page mesure
@@ -5761,7 +5841,7 @@
             document.getElementById('label-csv-format').innerText = t('titleCsvFormat');
             document.getElementById('csv-format-note').innerText = t('csvFormatNote');
             document.getElementById('btn-export-csv-settings').innerText = t('export');
-            document.getElementById('btn-import-csv-settings').innerText = t('import');
+            document.getElementById('btn-import-csv-settings').innerText = t('importAny');
             document.getElementById('label-community').innerText = t('titleCommunity');
             const communityIntroEl = document.getElementById('community-intro');
             if (communityIntroEl) communityIntroEl.innerHTML = t('communityIntro');
@@ -7256,6 +7336,8 @@
         // sont PAS exportées. Cas d'un navigateur intégré (webview) : pas de traitement particulier
         // ici pour l'instant (décision reportée) — le téléchargement y est tenté normalement.
         // ============================================================
+        const JSON_EXPORT_FORMAT_VERSION = 1; // incrémenter si la structure du fichier change de façon incompatible
+
         function buildJSONExport() {
             // Périodes : historique tel quel (champ `note` conservé s'il existe) + période active
             // exportée comme période close (end = maintenant), comme le fait buildCSVString().
@@ -7265,7 +7347,7 @@
             }
             return {
                 format: 'pacingcount-export',
-                formatVersion: 1,
+                formatVersion: JSON_EXPORT_FORMAT_VERSION,
                 exportedAt: new Date().toISOString(),
                 appVersion: APP_VERSION,
                 periodData,
@@ -7752,6 +7834,566 @@
             if (modal) modal.style.display = 'none';
             pendingImportData = null;
             pendingImportMapping = null;
+        }
+
+        // ============================================================
+        // 20b. IMPORT JSON (sauvegarde complète — Passe 2 du chantier notes/événements)
+        //
+        // Le bouton d'import (footer Historique + bloc Réglages) détecte le format PAR LE CONTENU
+        // (commence par "{" → JSON, sinon CSV) : certains sélecteurs de fichiers Android renvoient
+        // "text/plain" quelle que soit l'extension. Le modal JSON (#importJsonModal) est
+        // entièrement distinct du modal CSV (#importModal), aucun code partagé.
+        //
+        // Principe directeur : un import ne remplace que ce que son format contient.
+        //   - clé absente du fichier (periodData, dailyData, eventTags, typesConfig) → rien touché ;
+        //   - "Remplacer" : l'app devient le fichier pour les clés PRÉSENTES ;
+        //   - "Fusionner" : une absence dans le fichier n'efface jamais rien ; sur un désaccord
+        //     (même jour + même tag, valeur différente), le fichier gagne — comme pour les périodes.
+        // Toute la validation se fait en mémoire avant la moindre écriture ; l'écriture est
+        // protégée par un retour arrière (voir processImportJson / rollbackJsonImport).
+        // ============================================================
+
+        let pendingJsonImport = null; // données validées et nettoyées, en attente de confirmation
+
+        const IMPORT_MAX_TYPE_ID = 6;
+        const IMPORT_TAG_MODES = ['presence', 'tristate', 'numeric'];
+        const IMPORT_MAX_DAY_TEXT = 5000;
+
+        // Point d'entrée commun du bouton d'import : lit les premiers octets pour deviner le format,
+        // puis aiguille vers importJSON() ou importCSV() (inchangée) qui relisent le fichier en entier.
+        function importFile(event) {
+            const input = event.target;
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const head = String(e.target.result || '').replace(/^\uFEFF/, '').trimStart();
+                if (head.startsWith('{')) importJSON({ target: input });
+                else importCSV({ target: input });
+            };
+            reader.onerror = function () {
+                alert(t('importJsonUnreadable'));
+                input.value = '';
+            };
+            reader.readAsText(file.slice(0, 512), 'UTF-8');
+        }
+
+        // Nettoyage d'un libellé venu d'un fichier (potentiellement d'un tiers) : les libellés sont
+        // injectés en innerHTML, en attributs title="..." et dans des gestionnaires onclick/onmouse*
+        // à chaînes JS entre apostrophes — donc < > & " ` \ sont retirés, et l'apostrophe droite est
+        // remplacée par l'apostrophe typographique (lisible en français, mais inoffensive).
+        function sanitizeImportedLabel(value, max = 30) {
+            if (typeof value !== 'string') return '';
+            return value.replace(/[<>&"`\\]/g, '').replace(/'/g, '\u2019').replace(/\s+/g, ' ').trim().slice(0, max);
+        }
+
+        function isValidISODateKey(key) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return false;
+            const [y, m, d] = key.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+        }
+
+        // Reconnaît un profil prédéfini dans N'IMPORTE LAQUELLE des trois langues (même règle que
+        // detectProfile() : état actif identique, libellé comparé uniquement pour les slots actifs).
+        // Évite qu'une sauvegarde exportée depuis une app en anglais soit prise pour un profil
+        // "Personnalisé" avec des libellés anglais quand on l'importe dans une app française.
+        function matchProfileAnyLang(types) {
+            for (const [profileId, profile] of Object.entries(PROFILES)) {
+                if (!profile.types) continue;
+                for (const lang of ['fr', 'en', 'nl']) {
+                    const ok = profile.types.every(pt => {
+                        const rt = types.find(x => x.id === pt.id);
+                        if (!rt || rt.active !== pt.active) return false;
+                        if (!pt.active) return true;
+                        const ptLabel = typeof pt.label === 'object' ? (pt.label[lang] || '') : (pt.label || '');
+                        return rt.label === ptLabel;
+                    });
+                    if (ok) return { profileId, lang };
+                }
+            }
+            return null;
+        }
+
+        function getProfileDisplayName(profileId) {
+            const p = PROFILES[profileId];
+            if (!p) return String(profileId);
+            return typeof p.name === 'object' ? (p.name[settings.lang] || p.name.fr) : p.name;
+        }
+
+        // Valide et nettoie le contenu d'un fichier JSON — RIEN n'est écrit ici, aucun effet de bord.
+        // Retourne { ok:false, errorKey } ou { ok:true, data } avec data = { periods, daily, tags,
+        // types, ignored } où chaque section vaut null si sa clé est ABSENTE du fichier (= "rien à
+        // remplacer"), et un tableau/objet (éventuellement vide) si la clé est présente.
+        function validateJSONImport(raw) {
+            if (!raw || typeof raw !== 'object' || Array.isArray(raw)
+                || raw.format !== 'pacingcount-export'
+                || typeof raw.formatVersion !== 'number' || raw.formatVersion < 1) {
+                return { ok: false, errorKey: 'importJsonNotPacing' };
+            }
+            if (raw.formatVersion > JSON_EXPORT_FORMAT_VERSION) return { ok: false, errorKey: 'importJsonTooNew' };
+
+            let ignored = 0;
+            const invalid = { ok: false, errorKey: 'importJsonInvalid' };
+
+            // --- Périodes ---
+            let periods = null;
+            if ('periodData' in raw) {
+                if (!Array.isArray(raw.periodData)) return invalid;
+                periods = [];
+                raw.periodData.forEach(p => {
+                    if (p && Number.isInteger(p.typeId) && p.typeId >= 1 && p.typeId <= IMPORT_MAX_TYPE_ID
+                        && Number.isInteger(p.start) && Number.isInteger(p.end) && p.start > 0 && p.start < p.end) {
+                        // Le champ optionnel `note` n'est volontairement pas repris : reconstructHistory()
+                        // → closePeriod() le perdrait de toute façon (point déjà noté, à traiter avec la
+                        // note de période).
+                        periods.push({ typeId: p.typeId, start: p.start, end: p.end });
+                    } else {
+                        ignored++;
+                    }
+                });
+                // Des périodes présentes mais toutes invalides = fichier abîmé : on refuse plutôt que
+                // de risquer, en mode Remplacer, d'effacer l'historique pour rien.
+                if (raw.periodData.length > 0 && periods.length === 0) return invalid;
+            }
+
+            // --- Définition des tags d'événements ---
+            let tags = null;
+            if ('eventTags' in raw) {
+                if (!Array.isArray(raw.eventTags)) return invalid;
+                tags = [];
+                const seen = new Set();
+                raw.eventTags.forEach(tg => {
+                    if (!tg || typeof tg.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(tg.id)
+                        || seen.has(tg.id) || !IMPORT_TAG_MODES.includes(tg.mode)) { ignored++; return; }
+                    seen.add(tg.id);
+                    tags.push({
+                        id: tg.id,
+                        label: sanitizeImportedLabel(tg.label) || tg.id,
+                        description: sanitizeImportedLabel(tg.description, 200),
+                        mode: tg.mode,
+                        active: tg.active !== false,
+                        timed: tg.timed === true,
+                        repeatable: tg.repeatable === true,
+                        builtin: BUILTIN_EVENT_TAGS.some(d => d.id === tg.id) // jamais cru sur parole
+                    });
+                });
+            }
+
+            // Mode de chaque tag connu — priorité : app, puis builtin, puis fichier.
+            const tagModeById = {};
+            (tags || []).forEach(tg => { tagModeById[tg.id] = tg.mode; });
+            BUILTIN_EVENT_TAGS.forEach(d => { tagModeById[d.id] = d.mode; });
+            settings.eventTags.forEach(tg => { tagModeById[tg.id] = tg.mode; });
+
+            // --- Données journalières ---
+            let daily = null;
+            if ('dailyData' in raw) {
+                if (!raw.dailyData || typeof raw.dailyData !== 'object' || Array.isArray(raw.dailyData)) return invalid;
+                daily = {};
+                Object.keys(raw.dailyData).forEach(key => {
+                    const day = raw.dailyData[key];
+                    if (!isValidISODateKey(key) || !day || typeof day !== 'object') { ignored++; return; }
+                    const clean = {};
+                    // Texte libre du jour : conservé tel quel (longueur limitée) — quiconque l'affichera
+                    // devra l'échapper (innerText / échappement HTML), jamais en innerHTML brut.
+                    if (typeof day.text === 'string' && day.text.trim()) clean.text = day.text.slice(0, IMPORT_MAX_DAY_TEXT);
+                    if (Array.isArray(day.events)) {
+                        const byTag = new Map();
+                        day.events.forEach(ev => {
+                            const mode = (ev && typeof ev.tagId === 'string') ? tagModeById[ev.tagId] : undefined;
+                            // Seul le mode tristate existe pour l'instant : yes / no.
+                            if (mode === 'tristate' && (ev.value === 'yes' || ev.value === 'no')) {
+                                byTag.set(ev.tagId, { tagId: ev.tagId, value: ev.value });
+                            } else {
+                                ignored++;
+                            }
+                        });
+                        if (byTag.size > 0) clean.events = [...byTag.values()];
+                    }
+                    if (clean.text || clean.events) daily[key] = clean;
+                });
+            }
+
+            // --- Profil de types ---
+            let types = null;
+            if ('typesConfig' in raw) {
+                const tc = raw.typesConfig;
+                if (!tc || typeof tc !== 'object' || !Array.isArray(tc.types)) return invalid;
+                const provided = {};
+                tc.types.forEach(tp => {
+                    if (tp && Number.isInteger(tp.id) && tp.id >= 1 && tp.id <= IMPORT_MAX_TYPE_ID && !provided[tp.id]) {
+                        // Couleurs volontairement ignorées : fixes par typeId, jamais lues d'un fichier.
+                        provided[tp.id] = { id: tp.id, label: sanitizeImportedLabel(tp.label), active: tp.active === true };
+                    } else {
+                        ignored++;
+                    }
+                });
+                // Slot non fourni par le fichier → on garde celui de l'app (aucune différence à signaler).
+                let resolved = settings.types.map(st => provided[st.id]
+                    ? { ...provided[st.id] }
+                    : { id: st.id, label: sanitizeImportedLabel(st.label), active: st.active });
+                if (!resolved.some(rt => rt.active)) return invalid; // au moins un type actif, toujours
+                const matched = matchProfileAnyLang(resolved);
+                if (matched) {
+                    // Profil prédéfini reconnu : libellés des slots actifs réaffichés dans la langue de l'app.
+                    resolved = resolved.map(rt => {
+                        const pt = PROFILES[matched.profileId].types.find(p => p.id === rt.id);
+                        return (pt && pt.active && typeof pt.label === 'object')
+                            ? { ...rt, label: pt.label[settings.lang] || pt.label.fr || rt.label }
+                            : rt;
+                    });
+                }
+                types = { resolved, profileId: matched ? matched.profileId : 'custom' };
+            }
+
+            if (!periods && !daily && !tags && !types) return { ok: false, errorKey: 'importJsonNothing' };
+            return { ok: true, data: { periods, daily, tags, types, ignored, typeDiffs: [] } };
+        }
+
+        // Différences de types à signaler à l'utilisateur. Un type est "pertinent" s'il est actif d'un
+        // côté OU s'il a des périodes (dans l'app ou dans le fichier) : un type inactif peut avoir des
+        // données dont le libellé donne le sens (ex. "Sieste" dans l'app, "Douleur" dans le fichier —
+        // fusionner relirait silencieusement les périodes "Sieste" comme "Douleur"). Un type inactif
+        // des deux côtés et sans aucune donnée est ignoré (un nom tapé à l'avance ne doit pas alerter).
+        function computeImportTypeDiffs(imp) {
+            if (!imp.types) return [];
+            const appCounts = {};
+            state.history.forEach(e => { appCounts[e.typeId] = (appCounts[e.typeId] || 0) + 1; });
+            if (state.activeType !== null) appCounts[state.activeType] = (appCounts[state.activeType] || 0) + 1;
+            const fileCounts = {};
+            (imp.periods || []).forEach(p => { fileCounts[p.typeId] = (fileCounts[p.typeId] || 0) + 1; });
+
+            const diffs = [];
+            imp.types.resolved.forEach(ft => {
+                const at = settings.types.find(tp => tp.id === ft.id);
+                if (!at) return;
+                const aC = appCounts[ft.id] || 0;
+                const fC = fileCounts[ft.id] || 0;
+                if (!(at.active || ft.active || aC > 0 || fC > 0)) return;
+                // Libellé de l'app passé par le même nettoyage que celui du fichier : évite une fausse
+                // différence (apostrophe, etc.) quand on réimporte sa propre sauvegarde.
+                const appLabel = sanitizeImportedLabel(at.label);
+                if (at.active === ft.active && appLabel === ft.label) return;
+                diffs.push({
+                    id: ft.id,
+                    app: { label: at.label || '', active: at.active, count: aC },
+                    file: { label: ft.label, active: ft.active, count: fC }
+                });
+            });
+            return diffs;
+        }
+
+        // Fusion des événements journaliers : par jour ET par tag. Une absence dans le fichier
+        // n'efface rien ; sur un désaccord (même jour, même tag, valeur différente) le fichier gagne
+        // et le désaccord est compté. Pure : retourne une copie, ne modifie pas `base`.
+        function mergeDailyDataInto(base, fileDaily) {
+            const result = JSON.parse(JSON.stringify(base));
+            let conflicts = 0;
+            Object.keys(fileDaily).forEach(key => {
+                const f = fileDaily[key];
+                const day = result[key] || (result[key] = {});
+                if (f.text) day.text = f.text;
+                if (f.events) {
+                    const events = Array.isArray(day.events) ? day.events : [];
+                    f.events.forEach(fe => {
+                        const ex = events.find(e => e.tagId === fe.tagId);
+                        if (!ex) events.push({ tagId: fe.tagId, value: fe.value });
+                        else if (ex.value !== fe.value) { ex.value = fe.value; conflicts++; }
+                    });
+                    day.events = events;
+                }
+            });
+            return { result, conflicts };
+        }
+
+        function importJSON(event) {
+            const input = event.target;
+            const file = input.files[0];
+            if (!file) return;
+            console.log(`[importJSON] Lecture du fichier : ${file.name}`);
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                try {
+                    const raw = JSON.parse(String(e.target.result).replace(/^\uFEFF/, ''));
+                    const res = validateJSONImport(raw);
+                    if (!res.ok) {
+                        alert(t(res.errorKey));
+                    } else {
+                        pendingJsonImport = res.data;
+                        showImportJsonModal();
+                    }
+                } catch (err) {
+                    console.error('[importJSON] Erreur :', err);
+                    alert(t('importJsonUnreadable'));
+                }
+                input.value = ''; // permet de ré-importer le même fichier
+            };
+            reader.onerror = function () {
+                alert(t('importJsonUnreadable'));
+                input.value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // Tableau des différences de types (modal JSON) — n'apparaît que s'il y en a.
+        function buildImportTypeDiffHTML(imp) {
+            const cell = (x) => {
+                const name = x.active
+                    ? (x.label || t('typeNoNameOption'))
+                    : (x.label ? `${x.label} ${t('typeInactivePlaceholder')}` : t('typeInactivePlaceholder'));
+                const count = x.count > 0
+                    ? `<br><span style="opacity:0.65; font-size:0.75rem;">${t('importJsonPeriodsCount', { n: x.count })}</span>`
+                    : '';
+                return name + count;
+            };
+            const rows = imp.typeDiffs.map(d => `
+                <tr>
+                    <td style="padding:4px 6px 4px 0; font-size:0.83rem; white-space:nowrap; vertical-align:top;"><span style="color:${getColorForId(d.id)};">●</span> #${d.id}</td>
+                    <td style="padding:4px 6px; font-size:0.83rem; vertical-align:top;">${cell(d.app)}</td>
+                    <td style="padding:4px 0; font-size:0.83rem; vertical-align:top;">${cell(d.file)}</td>
+                </tr>`).join('');
+            const from = getProfileDisplayName(settings.activeProfile);
+            const to = getProfileDisplayName(imp.types.profileId);
+            return `
+                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${t('importJsonTypesTitle')}</p>
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
+                            <th></th>
+                            <th style="padding:3px 6px; text-align:left;">${t('importAppHeader')}</th>
+                            <th style="padding:3px 0; text-align:left;">${t('importFileHeader')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                <p style="font-size:0.85rem; margin:8px 0 0 0;">${t('importJsonProfileLine', { from, to })}</p>`;
+        }
+
+        function showImportJsonModal() {
+            const imp = pendingJsonImport;
+            if (!imp) return;
+            imp.typeDiffs = computeImportTypeDiffs(imp);
+            const hasTypeDiff = imp.typeDiffs.length > 0;
+            const locale = getLocale();
+
+            // Résumé du fichier
+            const parts = [];
+            if (imp.periods) {
+                let s = t('importJsonSummaryPeriods', { n: imp.periods.length });
+                if (imp.periods.length > 0) {
+                    let from = Infinity, to = -Infinity;
+                    imp.periods.forEach(p => { if (p.start < from) from = p.start; if (p.end > to) to = p.end; });
+                    s += ` (${new Date(from).toLocaleDateString(locale)} → ${new Date(to).toLocaleDateString(locale)})`;
+                }
+                parts.push(s);
+            }
+            if (imp.daily) parts.push(t('importJsonSummaryDays', { n: Object.keys(imp.daily).length }));
+
+            // Chiffres pour les avertissements propres à chaque mode
+            const appDays = Object.keys(dailyData).length;
+            const fileDays = imp.daily ? Object.keys(imp.daily).length : 0;
+            const lostDays = imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : 0;
+            const mergeConflicts = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
+
+            const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
+            const warnStyle = 'font-size:0.85rem; margin:0 0 6px 0; color:var(--orange);';
+
+            let html = `<h3 style="margin-top:0;">${t('importJsonTitle')}</h3>`;
+            if (parts.length > 0) html += `<p style="font-size:0.9rem; margin:0 0 12px 0; line-height:1.5;">${parts.join(' · ')}</p>`;
+            if (imp.ignored > 0) html += `<p style="font-size:0.82rem; color:var(--orange); margin:0 0 12px 0;">${t('importJsonIgnored', { n: imp.ignored })}</p>`;
+            if (hasTypeDiff) html += buildImportTypeDiffHTML(imp);
+            html += `<div style="border-top:1px solid #444; margin:16px 0;"></div>`;
+
+            // Remplacer
+            html += `<button class="export-btn" style="background:var(--red); margin-bottom:6px;" onclick="processImportJson('replace')">${t('importJsonReplaceBtn')}</button>`;
+            html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
+            if (imp.daily && (appDays > 0 || fileDays > 0)) html += `<p style="${infoStyle}">${t('importJsonReplaceEvents', { a: appDays, f: fileDays })}</p>`;
+            if (lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: lostDays })}</p>`;
+            if (hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
+
+            // Fusionner
+            html += `<button class="export-btn" style="background:var(--blue); margin:16px 0 6px 0;" onclick="processImportJson('merge')">${t('importMergeBtn')}</button>`;
+            html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
+            if (mergeConflicts > 0) html += `<p style="${warnStyle}">${t('importJsonMergeConflicts', { n: mergeConflicts })}</p>`;
+            if (hasTypeDiff) html += `<p style="${warnStyle}">${t('importJsonProfileWarnMerge')}</p>`;
+
+            html += `<button class="export-btn" style="background:#444; margin-top:16px;" onclick="closeImportJsonModal()">${t('btnCancel')}</button>`;
+
+            document.getElementById('import-json-body').innerHTML = html;
+            document.getElementById('importJsonModal').style.display = 'flex';
+            console.log(`[importJSON] Modal affiché — périodes:${imp.periods ? imp.periods.length : '-'} jours:${imp.daily ? fileDays : '-'} diffTypes:${imp.typeDiffs.length} désaccords:${mergeConflicts}`);
+        }
+
+        function closeImportJsonModal() {
+            const modal = document.getElementById('importJsonModal');
+            if (modal) modal.style.display = 'none';
+            pendingJsonImport = null;
+        }
+
+        // Applique le profil de types du fichier — uniquement les types listés dans les différences
+        // (les autres restent strictement intacts). Recalcule le profil actif avec detectProfile() au
+        // lieu de croire le fichier, et crée le snapshot "Personnalisé" si besoin (même règle que
+        // saveSettings(), qu'on ne peut pas appeler ici car elle relit les champs de saisie).
+        function applyImportedTypes(imp) {
+            imp.typeDiffs.forEach(d => {
+                const rt = imp.types.resolved.find(x => x.id === d.id);
+                const st = settings.types.find(x => x.id === d.id);
+                if (rt && st) { st.label = rt.label; st.active = rt.active; }
+            });
+            settings.labels = getActiveTypes().map(tp => tp.label);
+            const detected = detectProfile();
+            if (detected === 'custom') {
+                if (!settings.customProfiles) settings.customProfiles = [];
+                settings.customProfiles[0] = { name: 'Personnalisé', types: JSON.parse(JSON.stringify(settings.types)) };
+            }
+            settings.activeProfile = detected;
+        }
+
+        // Définition des tags : Fusionner → on n'ajoute que les tags inconnus (l'app gagne pour les
+        // tags qu'elle connaît : sinon une sauvegarde anglaise renommerait "MPE" en "PEM" sur un
+        // téléphone français). Remplacer → tags du fichier, mais les tags builtin sont reconstruits
+        // dans la langue de l'app, et tout builtin manquant est ré-ajouté.
+        function applyImportedEventTags(imp, mode) {
+            if (!imp.tags) return;
+            if (mode === 'merge') {
+                imp.tags.forEach(ft => {
+                    if (!settings.eventTags.some(tg => tg.id === ft.id)) settings.eventTags.push({ ...ft });
+                });
+                return;
+            }
+            const next = imp.tags.map(ft => {
+                const def = BUILTIN_EVENT_TAGS.find(d => d.id === ft.id);
+                return def ? { ...buildEventTagFromBuiltin(def, settings.lang), active: ft.active } : { ...ft };
+            });
+            BUILTIN_EVENT_TAGS.forEach(def => {
+                if (!next.some(tg => tg.id === def.id)) next.push(buildEventTagFromBuiltin(def, settings.lang));
+            });
+            settings.eventTags = next;
+        }
+
+        // Retour arrière complet (mémoire + localStorage) si une écriture échoue en cours d'import
+        // (typiquement quota dépassé) : jamais de réglages du fichier avec un historique de l'app.
+        function rollbackJsonImport(raw, mem) {
+            // Deux passes : si un état intermédiaire dépasse le quota, la clé qui a échoué est
+            // retentée une fois les autres restaurées (l'état final, lui, est celui d'avant l'import).
+            let pending = [['pacingSettings', raw.settings], ['pacingDailyData', raw.daily], ['pacingState', raw.state]];
+            for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
+                const failed = [];
+                pending.forEach(([key, val]) => {
+                    try {
+                        if (val === null) localStorage.removeItem(key);
+                        else localStorage.setItem(key, val);
+                    } catch (e) {
+                        failed.push([key, val]);
+                    }
+                });
+                pending = failed;
+            }
+            if (pending.length > 0) console.error('[rollbackJsonImport] Restauration localStorage incomplète :', pending.map(x => x[0]));
+            settings = mem.settings;
+            dailyData = mem.dailyData;
+            state = mem.state;
+            // reconstructHistory() a pu reprogrammer/annuler des alertes : on remet celles de l'état restauré.
+            if (state.activeType !== null && state.startTime !== null) {
+                const savedSent = [...(state.sentAlerts || [])];
+                scheduleAlerts(state.activeType, state.startTime);
+                state.sentAlerts = savedSent;
+                saveState();
+            } else {
+                cancelAlerts();
+                releaseWakeLock();
+            }
+            refreshAfterJsonImport();
+        }
+
+        function refreshAfterJsonImport() {
+            renderMeasureButtons();
+            renderTypesSettings();
+            renderProfileSelector();
+            updateUI();
+            const activeId = document.querySelector('.page.active')?.id;
+            if (activeId === 'page-results') {
+                populateResultsMonthDropdown();
+                updateResultsNavButtons();
+                updateResultsFooterRange();
+                renderDailyCharts();
+                renderWeeklyCharts();
+                renderResults();
+            } else if (activeId === 'page-timeline') {
+                populateHistoryDropdowns();
+                updateNavButtons();
+                renderTimelineChart();
+                renderHistory();
+            }
+        }
+
+        // mode : 'replace' | 'merge'. Ordre d'écriture : réglages → jours → périodes.
+        function processImportJson(mode) {
+            const imp = pendingJsonImport;
+            if (!imp) return;
+            console.log(`[processImportJson] Mode : ${mode}`);
+
+            // Copies de sécurité (localStorage brut + mémoire) pour un retour arrière en cas d'échec.
+            const raw = {
+                settings: localStorage.getItem('pacingSettings'),
+                daily: localStorage.getItem('pacingDailyData'),
+                state: localStorage.getItem('pacingState')
+            };
+            const mem = {
+                settings: JSON.parse(JSON.stringify(settings)),
+                dailyData: JSON.parse(JSON.stringify(dailyData)),
+                state: JSON.parse(JSON.stringify(state))
+            };
+
+            try {
+                // 1. Réglages : profil de types + définition des tags
+                const hasTypeDiff = imp.typeDiffs.length > 0;
+                if (hasTypeDiff) applyImportedTypes(imp);
+                applyImportedEventTags(imp, mode);
+                if (hasTypeDiff || imp.tags) localStorage.setItem('pacingSettings', JSON.stringify(settings));
+
+                // 2. Événements journaliers
+                if (imp.daily) {
+                    dailyData = mode === 'replace'
+                        ? JSON.parse(JSON.stringify(imp.daily))
+                        : mergeDailyDataInto(dailyData, imp.daily).result;
+                    localStorage.setItem('pacingDailyData', JSON.stringify(dailyData));
+                }
+
+                // 3. Périodes (même chaîne que l'import CSV : steamroller → snap → merge)
+                if (imp.periods) {
+                    if (mode === 'replace') {
+                        reconstructHistory(imp.periods.map(p => ({ ...p })));
+                    } else if (imp.periods.length > 0) {
+                        const basePeriods = [...state.history];
+                        if (state.activeType !== null) {
+                            basePeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
+                        }
+                        const incoming = imp.periods.map(p => ({ ...p }));
+                        reconstructHistory(mergeAdjacentPeriods(
+                            snapAdjacentBorders(applySteamroller(basePeriods, incoming), incoming)
+                        ));
+                    }
+                    // saveState()/safeSave() ne lèvent pas d'erreur (simple toast) : on vérifie l'écriture.
+                    if (localStorage.getItem('pacingState') !== JSON.stringify(state)) {
+                        throw new Error('pacingState non écrit (quota ?)');
+                    }
+                }
+            } catch (err) {
+                console.error('[processImportJson] Échec — retour arrière :', err);
+                rollbackJsonImport(raw, mem);
+                alert(t('importJsonWriteError'));
+                closeImportJsonModal();
+                return;
+            }
+
+            refreshAfterJsonImport();
+            if (navigator.onLine) sendToGoatCounter('import-json');
+            const p = imp.periods ? imp.periods.length : 0;
+            const d = imp.daily ? Object.keys(imp.daily).length : 0;
+            closeImportJsonModal();
+            alert(t('importJsonSuccess', { p, d }));
         }
 
         // ============================================================
@@ -8350,6 +8992,7 @@
             // Désactivation du swipe si un modal est ouvert
             if (document.getElementById('editModal').style.display === 'flex') return;
             if (document.getElementById('importModal').style.display === 'flex') return;
+            if (document.getElementById('importJsonModal').style.display === 'flex') return;
 
             //   document.querySelectorAll('.page, nav button').forEach(el => el.classList.remove('active'));
             // On cible uniquement les boutons de changement de page (bonne pratique)
@@ -8762,6 +9405,7 @@
             // Annule le swipe si un modal est ouvert
             if (document.getElementById('editModal').style.display === 'flex') return;
             if (document.getElementById('importModal').style.display === 'flex') return;
+            if (document.getElementById('importJsonModal').style.display === 'flex') return;
 
             const swipeThreshold = 50; // Distance minimum en pixels pour valider le glissement
             let diffX = touchendX - touchstartX;
