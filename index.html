@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1392,18 +1392,18 @@
             </button>
         </div>
 
-        <!-- Format CSV (périodes uniquement) — export/import CSV conservés pour ceux qui tiennent à
+        <!-- Export CSV partiel — export/import CSV conservés pour ceux qui tiennent à
              ce format partiel. Réutilise le sélecteur de fichier #csv-file du footer Historique. -->
         <div class="settings-group">
-            <label id="label-csv-format" style="display:block; margin-bottom:10px; font-weight:bold;">Format CSV
-                (périodes uniquement)</label>
+            <label id="label-csv-format" style="display:block; margin-bottom:10px; font-weight:bold;">Export CSV
+                partiel</label>
             <p id="csv-format-note" style="margin:0 0 12px 0; font-size:0.85rem; opacity:0.8; line-height:1.5;"></p>
             <div style="display:flex; gap:8px;">
                 <button class="export-btn" id="btn-export-csv-settings" onclick="exportCSV()"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0;">Exporter (.csv)</button>
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">Export partiel (.csv)</button>
                 <button class="export-btn" id="btn-import-csv-settings"
                     onclick="document.getElementById('csv-file').click()"
-                    style="flex: 1.4; padding: 8px; margin: 0; font-size: 0.95rem;">Importer (.json/.csv)</button>
+                    style="flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">Importer (.json/.csv)</button>
             </div>
         </div>
 
@@ -1549,11 +1549,11 @@
             <!-- Ligne 4 : boutons Export / Import -->
             <div style="display: flex; gap: 8px; margin-bottom: 6px;">
                 <button class="export-btn" onclick="exportJSON()" id="btn-export"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 1rem;">
                     Exporter (.json)
                 </button>
                 <button class="export-btn" onclick="document.getElementById('csv-file').click()"
-                    style="flex: 1.4; padding: 8px; margin: 0; font-size: 0.95rem;" id="btn-import">
+                    style="flex: 1.2; padding: 8px; margin: 0; font-size: 1rem;" id="btn-import">
                     Importer (.json/.csv)
                 </button>
                 <input type="file" id="csv-file" accept=".json, .csv, application/json, text/csv, text/plain, application/vnd.ms-excel"
@@ -1721,12 +1721,12 @@
             <label id="label-alert-threshold" for="alert-threshold" style="display:block; margin-top:15px;">
                 1re alerte après (min)
             </label>
-            <input type="number" id="alert-threshold" min="5" max="480" step="5" value="40">
+            <input type="number" id="alert-threshold" min="5" max="480" step="5" value="30">
 
             <label id="label-alert-interval" for="alert-interval" style="display:block; margin-top:15px;">
                 Intervalle entre rappels (min)
             </label>
-            <input type="number" id="alert-interval" min="5" max="120" step="5" value="20">
+            <input type="number" id="alert-interval" min="5" max="120" step="5" value="10">
 
             <label id="label-alert-maxcount" for="alert-maxcount" style="display:block; margin-top:15px;">
                 Nombre total de notifications
@@ -1908,6 +1908,18 @@
         // Permet de lire les variables CSS définies dans :root depuis JS.
         // ============================================================
         const getCSSColor = (varName) => getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+
+        // Échappe un texte pour l'insérer dans du HTML ou dans un attribut entre guillemets.
+        // Sert notamment aux libellés de types injectés dans des attributs (data-tip, title) :
+        // un libellé contenant ' ou " ne doit jamais casser le balisage ni un gestionnaire inline.
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         // URL de la page sans les paramètres de tracking ajoutés automatiquement par certains
         // contextes (ex. ?fbclid=... rajouté par le navigateur intégré Facebook) ni fragment
@@ -3463,7 +3475,7 @@
                 futureError: "Impossible d'enregistrer une période dans le futur.",
                 overlapWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s) qui seront ajustées. Continuer ?",
                 overlapLiveWarning: "Nouvelle période : de {start} à {end}\n\nCette modification empiète sur {n} autre(s) période(s), dont celle EN COURS, qui seront ajustées. Continuer ?",
-                importError: "Erreur lors de la lecture du fichier CSV.",
+                importError: "Fichier illisible : fichier d'origine PacingCount attendu (.json ou .csv).",
                 importFileHeader: "Dans le fichier", importAppHeader: "Dans l'application",
                 importCancel: "Annuler",
                 resMoy3j: "moy.3j",
@@ -3499,8 +3511,11 @@
                 importJsonNothing: "Ce fichier ne contient rien à importer.",
                 importJsonWriteError: "L'import a échoué (stockage plein ?). Vos données précédentes ont été restaurées.",
                 importJsonSuccess: "Import terminé : {p} période(s) et {d} jour(s) avec événements importés.",
-                titleCsvFormat: "Format CSV (périodes uniquement)",
-                csvFormatNote: "Ce format ne contient que les périodes : ni les événements journaliers (MPE), ni la configuration des types. Pour une sauvegarde complète, utilisez « Exporter (.json) » dans l'onglet Historique.",
+                titleCsvFormat: "Export CSV partiel",
+                exportCsvPartial: "Export partiel (.csv)",
+                csvFormatNote: "<b>Ce format ne contient que les périodes</b>, pas les événements journaliers (MPE), ni le profil de types. Pour une sauvegarde complète, utilisez « Exporter (.json) » dans l'onglet Historique.",
+                alertTypeInactiveToggle: "Le type « {label} » est inactif. Il doit être réactivé avant de pouvoir rendre cette alerte active.",
+                alertTypeInactiveEdit: "Le type « {label} » est inactif. Il doit être réactivé avant de pouvoir modifier cette alerte.",
                 // Alertes de périodes
                 alertsTitle: "Alertes de périodes",
                 alertAdd: "+ Ajouter une alerte",
@@ -3735,7 +3750,7 @@
                 futureError: "Cannot record a period in the future.",
                 overlapWarning: "This edit overlaps {n} existing period(s). They will be adjusted. Continue?",
                 overlapLiveWarning: "Warning, this edit overlaps {n} period(s), INCLUDING the current recording! The timer will be adjusted. Continue?",
-                importError: "Error reading CSV file.",
+                importError: "Unreadable file: original PacingCount file expected (.json or .csv).",
                 importFileHeader: "In the file", importAppHeader: "In the app",
                 importCancel: "Cancel",
                 resMoy3j: "3d avg",
@@ -3769,8 +3784,11 @@
                 importJsonNothing: "This file contains nothing to import.",
                 importJsonWriteError: "The import failed (storage full?). Your previous data has been restored.",
                 importJsonSuccess: "Import complete: {p} period(s) and {d} day(s) with events imported.",
-                titleCsvFormat: "CSV format (periods only)",
-                csvFormatNote: "This format only contains periods: no daily events (PEM) and no period type settings. For a complete backup, use “Export (.json)” in the History tab.",
+                titleCsvFormat: "Partial CSV export",
+                exportCsvPartial: "Partial export (.csv)",
+                csvFormatNote: "<b>This format only contains periods</b>, not the daily events (PEM), nor the type profile. For a complete backup, use “Export (.json)” in the History tab.",
+                alertTypeInactiveToggle: "The type “{label}” is inactive. It must be reactivated before this alert can be made active.",
+                alertTypeInactiveEdit: "The type “{label}” is inactive. It must be reactivated before this alert can be edited.",
                 storageNearFull: "Storage almost full (≥90%)",
                 storageNearFullDetail: "Consider exporting your data to archive it.",
                 storageFull: "Storage full",
@@ -3979,7 +3997,7 @@
                 futureError: "Kan geen periode in de toekomst opnemen.",
                 overlapWarning: "Deze wijziging overlapt {n} bestaande periode(s). Ze worden aangepast. Doorgaan?",
                 overlapLiveWarning: "Let op, deze wijziging overlapt {n} periode(s), INCLUSIEF de huidige opname! De timer wordt aangepast. Doorgaan?",
-                importError: "Fout bij het lezen van het CSV-bestand.",
+                importError: "Onleesbaar bestand: origineel PacingCount-bestand verwacht (.json of .csv).",
                 importFileHeader: "In het bestand", importAppHeader: "In de app",
                 importCancel: "Annuleren",
                 resMoy3j: "3d gem",
@@ -4013,8 +4031,11 @@
                 importJsonNothing: "Dit bestand bevat niets om te importeren.",
                 importJsonWriteError: "De import is mislukt (opslag vol?). Je vorige gegevens zijn hersteld.",
                 importJsonSuccess: "Import voltooid: {p} periode(s) en {d} dag(en) met gebeurtenissen geïmporteerd.",
-                titleCsvFormat: "CSV-formaat (alleen periodes)",
-                csvFormatNote: "Dit formaat bevat alleen periodes: geen dagelijkse gebeurtenissen (PEM) en geen instellingen van de periodetypes. Gebruik voor een volledige back-up « Exporteren (.json) » in het tabblad Historiek.",
+                titleCsvFormat: "Gedeeltelijke CSV-export",
+                exportCsvPartial: "Gedeeltelijke export (.csv)",
+                csvFormatNote: "<b>Dit formaat bevat alleen periodes</b>, geen dagelijkse gebeurtenissen (PEM) en ook niet het typeprofiel. Gebruik voor een volledige back-up « Exporteren (.json) » in het tabblad Historiek.",
+                alertTypeInactiveToggle: "Het type “{label}” is inactief. Het moet opnieuw worden geactiveerd voordat deze alert actief kan worden gemaakt.",
+                alertTypeInactiveEdit: "Het type “{label}” is inactief. Het moet opnieuw worden geactiveerd voordat deze alert kan worden bewerkt.",
                 storageNearFull: "Opslag bijna vol (≥90%)",
                 storageNearFullDetail: "Denk eraan je gegevens te exporteren als archief.",
                 storageFull: "Opslag vol",
@@ -4380,6 +4401,16 @@
             if (idx === -1) {
                 alert(t('alertDevWarning', { notifParen: getNotifParenText(), iosLine: getIosLineText() }));
             }
+            // Modifier l'alerte d'un type inactif est refusé (le menu ne listerait pas ce type, et
+            // l'enregistrement produirait une alerte sans type valide) — elle reste supprimable.
+            if (idx !== -1) {
+                const a0 = settings.alerts[idx];
+                const tp0 = settings.types.find(x => x.id === a0.typeId);
+                if (!tp0 || !tp0.active) {
+                    alert(t('alertTypeInactiveEdit', { label: getLabelForId(a0.typeId) || `#${a0.typeId}` }));
+                    return;
+                }
+            }
             const active = getActiveTypes();
 
             // Rempli le select des types
@@ -4392,9 +4423,10 @@
             if (idx === -1) {
                 document.getElementById('alert-modal-title').innerText = t('alertNewTitle');
                 document.getElementById('alert-edit-index').value = -1;
-                document.getElementById('alert-type').value = active.some(tp => tp.id === 3) ? 3 : (active[0]?.id || 1);
-                document.getElementById('alert-threshold').value = 40;
-                document.getElementById('alert-interval').value = 20;
+                // Préremplissage : type 4 (à défaut, le premier type actif), 30 min, rappel 10 min, 3 alertes
+                document.getElementById('alert-type').value = active.some(tp => tp.id === 4) ? 4 : (active[0]?.id || 1);
+                document.getElementById('alert-threshold').value = 30;
+                document.getElementById('alert-interval').value = 10;
                 document.getElementById('alert-maxcount').value = 3;
                 // document.getElementById('alert-wave-single').checked = true;
             } else {
@@ -4437,6 +4469,14 @@
             if (isNaN(interval) || interval < 1) return alert(t('alertValidInterval'));
             if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
                 return alert(t('alertValidMaxCount'));
+
+            // Type invalide ou inactif : ne devrait pas arriver (le menu ne liste que les types actifs),
+            // mais ne jamais enregistrer une alerte sans type valide.
+            if (!settings.types.some(tp => tp.id === typeId && tp.active)) {
+                console.warn('[saveAlert] typeId invalide ou inactif :', typeId);
+                closeAlertModal();
+                return;
+            }
 
             const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
 
@@ -4484,8 +4524,62 @@
             }
         }
 
+        // Règle : quand un type devient inactif (quel que soit le mécanisme : toggle, profil, import),
+        // ses alertes passent automatiquement à inactif (même toggle que d'habitude — un seul
+        // moyen d'avoir une alerte inactive) ; on ne les réactive pas seul quand le type revient.
+        // Supprime aussi les alertes sans type valide (typeId null/NaN, hérité d'un ancien bug
+        // d'édition d'alerte). persist=false : l'appelant écrit lui-même les réglages (import JSON,
+        // toggle de type...). Retourne true si l'alerte de la période EN COURS vient d'être
+        // désactivée (l'appelant doit alors appeler rescheduleAlertsForActivePeriod()).
+        function syncAlertsWithTypes(persist = true) {
+            if (!Array.isArray(settings.alerts)) return false;
+            let changed = false;
+            let activeTypeAffected = false;
+
+            const before = settings.alerts.length;
+            settings.alerts = settings.alerts.filter(a => settings.types.some(tp => tp.id === a.typeId));
+            if (settings.alerts.length !== before) changed = true;
+
+            settings.alerts.forEach(a => {
+                const tp = settings.types.find(x => x.id === a.typeId);
+                if (a.enabled && tp && !tp.active) {
+                    a.enabled = false;
+                    changed = true;
+                    if (a.typeId === state.activeType) activeTypeAffected = true;
+                }
+            });
+
+            if (changed) {
+                console.log('[syncAlertsWithTypes] Alertes ajustées (type inactif ou type invalide)');
+                if (persist) {
+                    safeSave('pacingSettings', JSON.stringify(settings));
+                    if (document.getElementById('page-settings').classList.contains('active')) renderAlertsList();
+                }
+            }
+            return activeTypeAffected;
+        }
+
+        // Reprogramme les alertes de la période en cours après un changement de réglages (même
+        // schéma que le retour au premier plan : sentAlerts conservé autour de scheduleAlerts()).
+        // scheduleAlerts() relâche lui-même le Wake Lock s'il ne reste aucune alerte active.
+        function rescheduleAlertsForActivePeriod() {
+            if (state.activeType === null || state.startTime === null) return;
+            const savedSent = [...(state.sentAlerts || [])];
+            scheduleAlerts(state.activeType, state.startTime);
+            state.sentAlerts = savedSent;
+            saveState();
+        }
+
         // Active/désactive une alerte via le toggle
         function toggleAlert(idx) {
+            // Activer l'alerte d'un type inactif est refusé : le type doit d'abord être réactivé.
+            if (!settings.alerts[idx].enabled) {
+                const tp = settings.types.find(x => x.id === settings.alerts[idx].typeId);
+                if (!tp || !tp.active) {
+                    alert(t('alertTypeInactiveToggle', { label: getLabelForId(settings.alerts[idx].typeId) || `#${settings.alerts[idx].typeId}` }));
+                    return;
+                }
+            }
             settings.alerts[idx].enabled = !settings.alerts[idx].enabled;
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             renderAlertsList();
@@ -5658,10 +5752,12 @@
                     }
                 }
             }
+            const alertsAffected = syncAlertsWithTypes(false); // alertes du type désactivé → inactives
             saveSettings();
             renderTypesSettings();
             renderMeasureButtons();
             renderProfileSelector();
+            if (alertsAffected) rescheduleAlertsForActivePeriod();
         }
 
         // Applique un profil prédéfini.
@@ -5688,6 +5784,7 @@
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
             settings.activeProfile = profileId;
+            const alertsAffected = syncAlertsWithTypes(false); // alertes des types désactivés → inactives
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             console.log(`[applyProfile] OK — ${getActiveTypes().length} types actifs, activeProfile="${profileId}"`);
 
@@ -5695,6 +5792,7 @@
             renderMeasureButtons();
             renderProfileSelector();
             updateUI();
+            if (alertsAffected) rescheduleAlertsForActivePeriod();
         }
 
         // Restaure le profil personnalisé sauvegardé (customProfiles[0]) dans settings.types[].
@@ -5715,6 +5813,7 @@
             });
             settings.labels = getActiveTypes().map(tp => tp.label);
             settings.activeProfile = 'custom';
+            const alertsAffected = syncAlertsWithTypes(false); // alertes des types désactivés → inactives
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             console.log('[restoreCustomProfile] OK');
 
@@ -5722,6 +5821,7 @@
             renderMeasureButtons();
             renderProfileSelector();
             updateUI();
+            if (alertsAffected) rescheduleAlertsForActivePeriod();
         }
 
         function changeLang() {
@@ -5839,8 +5939,8 @@
             document.getElementById('label-alerts').innerText = t('alertsTitle');
             document.getElementById('btn-add-alert').innerText = t('alertAdd');
             document.getElementById('label-csv-format').innerText = t('titleCsvFormat');
-            document.getElementById('csv-format-note').innerText = t('csvFormatNote');
-            document.getElementById('btn-export-csv-settings').innerText = t('export');
+            document.getElementById('csv-format-note').innerHTML = t('csvFormatNote'); // HTML : partie en gras (texte interne, jamais saisi)
+            document.getElementById('btn-export-csv-settings').innerText = t('exportCsvPartial');
             document.getElementById('btn-import-csv-settings').innerText = t('importAny');
             document.getElementById('label-community').innerText = t('titleCommunity');
             const communityIntroEl = document.getElementById('community-intro');
@@ -6484,11 +6584,16 @@
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
                     const timeStr = formatMins(mins);
+                    // Texte de l'infobulle dans data-tip (échappé), jamais dans le JS inline : un libellé
+                    // contenant ' ou " casserait sinon le gestionnaire (infobulle muette). Le libellé est
+                    // échappé une fois pour le HTML de l'infobulle, puis le tout pour l'attribut.
+                    const tipHtml = escapeHtml(`${escapeHtml(label)} : <b>${timeStr}</b>`);
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
-                                             onmousemove="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             data-tip="${tipHtml}"
+                                             onmousemove="showBarTooltip(event, this.dataset.tip)"
                                              onmouseout="hideBarTooltip()"
-                                             ontouchstart="showBarTooltip(event, '${label} : <b>${timeStr}</b>')"
+                                             ontouchstart="showBarTooltip(event, this.dataset.tip)"
                                              ontouchend="hideBarTooltip()">
                                         </div>` : '';
                 }).join('')}
@@ -6676,12 +6781,14 @@
                     const color = colorMap[typeId] || getColorValueForId(typeId);
                     const label = labelMap[typeId] || getLabelForId(typeId) || `Type #${typeId}`;
                     const timeStr = formatMins(avgMins);
-                    const tooltipText = `${label} : <b>${timeStr}</b> (moy. ${n}j)`;
+                    // Même principe que le graphe journalier : texte échappé dans data-tip, pas dans le JS inline.
+                    const tooltipText = escapeHtml(`${escapeHtml(label)} : <b>${timeStr}</b> (moy. ${n}j)`);
                     return perc > 0 ? `
                                         <div style="width: ${perc}%; background-color: ${color}; height: 100%;"
-                                             onmousemove="showBarTooltip(event, '${tooltipText}')"
+                                             data-tip="${tooltipText}"
+                                             onmousemove="showBarTooltip(event, this.dataset.tip)"
                                              onmouseout="hideBarTooltip()"
-                                             ontouchstart="showBarTooltip(event, '${tooltipText}')"
+                                             ontouchstart="showBarTooltip(event, this.dataset.tip)"
                                              ontouchend="hideBarTooltip()">
                                         </div>` : '';
                 }).join('')}
@@ -8346,10 +8453,14 @@
                 state: JSON.parse(JSON.stringify(state))
             };
 
+            let alertsAffected = false;
             try {
                 // 1. Réglages : profil de types + définition des tags
                 const hasTypeDiff = imp.typeDiffs.length > 0;
-                if (hasTypeDiff) applyImportedTypes(imp);
+                if (hasTypeDiff) {
+                    applyImportedTypes(imp);
+                    alertsAffected = syncAlertsWithTypes(false); // écrit avec les réglages plus bas
+                }
                 applyImportedEventTags(imp, mode);
                 if (hasTypeDiff || imp.tags) localStorage.setItem('pacingSettings', JSON.stringify(settings));
 
@@ -8389,6 +8500,7 @@
             }
 
             refreshAfterJsonImport();
+            if (alertsAffected) rescheduleAlertsForActivePeriod();
             if (navigator.onLine) sendToGoatCounter('import-json');
             const p = imp.periods ? imp.periods.length : 0;
             const d = imp.daily ? Object.keys(imp.daily).length : 0;
@@ -9379,6 +9491,10 @@
                 }
             }, 2500);
         });
+
+        // Nettoyage au démarrage : alertes des types déjà inactifs → inactives, alertes sans type
+        // valide supprimées (comptes existants créés avant cette règle). Avant la reprogrammation ci-dessous.
+        syncAlertsWithTypes();
 
         // Si une période est déjà active au démarrage (rechargement, retour sur l'app),
         // reprogramme les alertes depuis son heure de début réelle.
@@ -10430,7 +10546,7 @@
                 const selected = settings.evolutionSelectedSeries.includes(tp.id);
                 const cls = selected ? 'evolution-chip-selected' : 'evolution-chip-unselected';
                 html += `<div class="evolution-chip ${cls}" style="background:${getColorValueForId(tp.id)};"
-                              onclick="toggleEvolutionSeries(${tp.id})" title="${tp.label || `Type #${tp.id}`}"></div>`;
+                              onclick="toggleEvolutionSeries(${tp.id})" title="${escapeHtml(tp.label || `Type #${tp.id}`)}"></div>`;
             });
             // La pastille blanche n'existe que si la combinaison a au moins un type composant —
             // cohérent avec le nettoyage déjà fait côté données (cleanupCombinedTypeIds() /
