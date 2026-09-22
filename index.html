@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1979,7 +1979,7 @@
                 style="background:none; border:none; color:#aaa; font-size:1.1rem; cursor:pointer; padding:0; margin-left:12px; flex-shrink:0;">✕</button>
         </div>
         <div style="margin-bottom:10px; line-height:1.5;">${t('storageNearFullDetail')}</div>
-        <button onclick="exportCSV(); document.getElementById('storage-warning-toast').remove();"
+        <button onclick="exportJSON(); document.getElementById('storage-warning-toast').remove();"
             style="background:var(--orange); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
             💾 ${t('storageExport')}
@@ -2007,7 +2007,7 @@
         <div style="margin-bottom:10px; line-height:1.5;">
             <strong>${t('storageFullBold')}</strong><br>${t('storageFullDetail')}
         </div>
-        <button onclick="exportCSV(); document.getElementById('storage-full-toast').remove();"
+        <button onclick="exportJSON(); document.getElementById('storage-full-toast').remove();"
             style="background:var(--red); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
             💾 ${t('storageExportFull')}
@@ -2455,7 +2455,7 @@
                         <p>${t('installTierCExportText', { n: state.history.length })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                            onclick="exportJSON()">${t('installTierCExportBtn')}</button>
                     </div>`;
             }
 
@@ -2948,7 +2948,7 @@
                         <p>${t('installTierCExportText', { n: state.history.length })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                            onclick="exportJSON()">${t('installTierCExportBtn')}</button>
                     </div>` : '';
                 content = `
                     <div class="install-splash-instructions">
@@ -3535,8 +3535,8 @@
                 storageFullDetail: "Exportez vos données maintenant pour les archiver et ne rien perdre.",
                 storageExport: "Exporter mes données",
                 storageExportFull: "Exporter mes données",
-                storageAfterExportWarn: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
-                storageAfterExportFull: "Après l'export : votre fichier CSV est votre archive. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé.",
+                storageAfterExportWarn: "Après l'export : votre fichier exporté est votre sauvegarde. Pour continuer à utiliser l'app, l'historique actuel devra bientôt être vidé ou allégé.",
+                storageAfterExportFull: "Après l'export : votre fichier exporté est votre sauvegarde. Pour continuer à utiliser l'app, l'historique actuel doit être vidé ou allégé.",
 
                 // ============================================================
                 // NOUVELLES CLÉS — Audit traductions Bloc 2 (2026-07)
@@ -3623,7 +3623,7 @@
                 updateCurrentVersionLabel: "Version actuelle :",
                 updateAvailableVersionLabel: "Version disponible :",
                 updateConseilLabel: "CONSEIL :",
-                updateConseilText: "Exportez vos données en CSV avant la mise à jour, par précaution. (tout redémarrage de l'app appliquera automatiquement la mise à jour)",
+                updateConseilText: "Exportez vos données avant la mise à jour, par précaution. (tout redémarrage de l'app appliquera automatiquement la mise à jour)",
                 updateUpToDate: "✅ Vous avez la dernière version",
                 updateForceRestart: "En cas d'échec d'une mise à jour, forcez le redémarrage de l'application.",
                 updateOffline: "📡 Hors ligne — Impossible de vérifier",
@@ -3631,7 +3631,7 @@
                 updateWillRestart: "L'application va redémarrer dans quelques instants.",
                 btnUpdateNow: "🔄 Mettre à jour",
                 btnLater: "Plus tard",
-                btnExportBeforeUpdate: "💾 Exporter mes données (.csv)",
+                btnExportBeforeUpdate: "💾 Exporter mes données",
                 updateNewVersionFallback: "nouvelle version",
                 msgDefaultBtn: "J'ai compris",
                 updateInstalled: "Mise à jour installée",
@@ -3704,7 +3704,7 @@
                 installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
                 installTierCStep3: "confirmer par « Ajouter »",
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
-                installTierCExportBtn: "💾 Exporter mes données (.csv)",
+                installTierCExportBtn: "💾 Exporter mes données",
                 installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
                 installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur et passer par l'icône installée !",
                 installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur et passer par l'icône installée !",
@@ -3796,8 +3796,8 @@
                 storageFullDetail: "Export your data now to archive it and avoid any loss.",
                 storageExport: "Export my data",
                 storageExportFull: "Export my data",
-                storageAfterExportWarn: "After export: your CSV file is your archive. To keep using the app, the current history will soon need to be cleared or reduced.",
-                storageAfterExportFull: "After export: your CSV file is your archive. To keep using the app, the current history must be cleared or reduced.",
+                storageAfterExportWarn: "After export: your exported file is your backup. To keep using the app, the current history will soon need to be cleared or reduced.",
+                storageAfterExportFull: "After export: your exported file is your backup. To keep using the app, the current history must be cleared or reduced.",
 
                 // Boutons génériques
                 noDataAvailable: "No data available.",
@@ -3885,7 +3885,7 @@
                 updateCurrentVersionLabel: "Current version:",
                 updateAvailableVersionLabel: "Available version:",
                 updateConseilLabel: "TIP:",
-                updateConseilText: "Export your data to CSV before updating, as a precaution. (any restart of the app will automatically apply the update)",
+                updateConseilText: "Export your data before updating, as a precaution. (any restart of the app will automatically apply the update)",
                 updateUpToDate: "✅ You have the latest version",
                 updateForceRestart: "If an update fails, force-restart the app.",
                 updateOffline: "📡 Offline — Unable to check",
@@ -3893,7 +3893,7 @@
                 updateWillRestart: "The app will restart shortly.",
                 btnUpdateNow: "🔄 Update now",
                 btnLater: "Later",
-                btnExportBeforeUpdate: "💾 Export my data (.csv)",
+                btnExportBeforeUpdate: "💾 Export my data",
                 updateNewVersionFallback: "new version",
                 msgDefaultBtn: "Got it",
                 updateInstalled: "Update installed",
@@ -3955,7 +3955,7 @@
                 installTierCStep2: "scroll down the list to \"Add to Home Screen\"",
                 installTierCStep3: "confirm with \"Add\"",
                 installTierCExportText: "You already have {n} recorded periods. To avoid losing anything, export them to a file now — you'll be able to re-import them into the installed app afterwards.",
-                installTierCExportBtn: "💾 Export my data (.csv)",
+                installTierCExportBtn: "💾 Export my data",
                 installConfirmSelfReportBtn: "I was able to follow these installation steps",
                 installConfirmTextIOS: "Well done on installing! Check that the icon has appeared on your home screen — that's your confirmation the installation worked. You can now close this browser tab and use the installed icon instead!",
                 installConfirmTextAB: "Installation successful! The app is now available on your home screen — you can close this browser tab and use the installed icon instead!",
@@ -4043,8 +4043,8 @@
                 storageFullDetail: "Exporteer je gegevens nu om ze te archiveren en niets te verliezen.",
                 storageExport: "Mijn gegevens exporteren",
                 storageExportFull: "Mijn gegevens exporteren",
-                storageAfterExportWarn: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek binnenkort worden gewist of verkleind.",
-                storageAfterExportFull: "Na de export: je CSV-bestand is je archief. Om de app te blijven gebruiken, moet de historiek worden gewist of verkleind.",
+                storageAfterExportWarn: "Na de export: je geëxporteerde bestand is je back-up. Om de app te blijven gebruiken, moet de historiek binnenkort worden gewist of verkleind.",
+                storageAfterExportFull: "Na de export: je geëxporteerde bestand is je back-up. Om de app te blijven gebruiken, moet de historiek worden gewist of verkleind.",
 
                 // Boutons génériques
                 noDataAvailable: "Geen gegevens.",
@@ -4132,7 +4132,7 @@
                 updateCurrentVersionLabel: "Huidige versie:",
                 updateAvailableVersionLabel: "Beschikbare versie:",
                 updateConseilLabel: "TIP:",
-                updateConseilText: "Exporteer je gegevens als CSV vóór de update, voor alle zekerheid. (elke herstart van de app past de update automatisch toe)",
+                updateConseilText: "Exporteer je gegevens vóór de update, voor alle zekerheid. (elke herstart van de app past de update automatisch toe)",
                 updateUpToDate: "✅ Je hebt de laatste versie",
                 updateForceRestart: "Als een update mislukt, forceer dan de herstart van de app.",
                 updateOffline: "📡 Offline — Kan niet controleren",
@@ -4140,7 +4140,7 @@
                 updateWillRestart: "De app wordt over enkele ogenblikken herstart.",
                 btnUpdateNow: "🔄 Nu updaten",
                 btnLater: "Later",
-                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren (.csv)",
+                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren",
                 updateNewVersionFallback: "nieuwe versie",
                 msgDefaultBtn: "Begrepen",
                 updateInstalled: "Update geïnstalleerd",
@@ -4202,7 +4202,7 @@
                 installTierCStep2: "scroll naar beneden tot « Zet op beginscherm »",
                 installTierCStep3: "bevestig met « Voeg toe »",
                 installTierCExportText: "Je hebt al {n} geregistreerde periodes. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later opnieuw importeren in de geïnstalleerde app.",
-                installTierCExportBtn: "💾 Mijn gegevens exporteren (.csv)",
+                installTierCExportBtn: "💾 Mijn gegevens exporteren",
                 installConfirmSelfReportBtn: "Ik heb deze installatiestappen kunnen volgen",
                 installConfirmTextIOS: "Goed gedaan met installeren! Controleer of het icoon op je beginscherm is verschenen — dat bevestigt dat de installatie gelukt is. Je kunt dit browsertabblad nu sluiten en voortaan het geïnstalleerde icoon gebruiken!",
                 installConfirmTextAB: "Installatie gelukt! De app staat nu op je beginscherm — je kunt dit browsertabblad sluiten en voortaan het geïnstalleerde icoon gebruiken!",
@@ -4740,7 +4740,7 @@
 
             // Ajout du bouton d'export dans le layout des actions
             const actionsCas1 = `
-            <button onclick="exportCSV()" style="${btnExport}">
+            <button onclick="exportJSON()" style="${btnExport}">
                 ${t('btnExportBeforeUpdate')}
             </button>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -5037,7 +5037,7 @@
 
             if (msg.type === 'update') {
                 // Bouton export toujours présent pour update
-                let html = `<button onclick="exportCSV()" style="${btnExport}">${t('btnExportBeforeUpdate')}</button>`;
+                let html = `<button onclick="exportJSON()" style="${btnExport}">${t('btnExportBeforeUpdate')}</button>`;
                 html += `<div style="display:flex; gap:10px; margin-bottom:10px;">`;
                 if (!isBlocking) {
                     // Non bloquant : bouton "Plus tard"
@@ -5511,6 +5511,10 @@
 
             safeSave('pacingSettings', JSON.stringify(settings));
             updateUI();
+            // La surbrillance du sélecteur de profils doit suivre le profil détecté : sans ce
+            // rafraîchissement, elle restait sur l'ancien profil après un renommage de type (qu'on
+            // rejoigne un profil de base ou qu'on le quitte), alors que activeProfile avait changé.
+            renderProfileSelector();
         }
 
         // ============================================================
@@ -7492,6 +7496,23 @@
                 console.error("[exportJSON] Erreur :", err);
             }
         }
+
+        // ============================================================
+        // ⚠️ EXPORT MANUEL (navigateurs intégrés) — OUTIL DE DÉPANNAGE, PRATIQUEMENT INUTILISÉ
+        // Ce qu'il fait : dans un navigateur intégré (Facebook, Reddit…), le téléchargement de fichier
+        //   par blob échoue ("Impossible de charger la page"). Ce modal affiche donc le CSV en texte
+        //   à copier/coller.
+        // Pourquoi il est quasi inutilisé : un splash bloquant empêche tout nouvel utilisateur d'utiliser
+        //   l'app dans une webview, et les anciens utilisateurs webview ont migré. Seul le contournement
+        //   des 7 taps (attachFacebookBlockDebugBypass) permet encore d'y saisir des données.
+        // Où il reste branché (contextes webview uniquement) : détection au début de exportCSV() (donc
+        //   le bouton "Export CSV partiel" des Réglages), écran d'export du cas webview avec données
+        //   (renderFacebookExportScreen), carte Réglages tier F.
+        // Les boutons d'export généraux (footer, toasts de stockage, mise à jour, iOS) appellent
+        //   exportJSON() directement et ne passent PAS par ici : ils ne fonctionnent donc pas dans un
+        //   webview. Voulu (simplicité, comportement identique sur toutes les plateformes).
+        // Code volontairement conservé.
+        // ============================================================
 
         // ============================================================
         // 19b. REPLI EXPORT MANUEL (navigateurs intégrés — Facebook, Reddit, WhatsApp, etc.)
