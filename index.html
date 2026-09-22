@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1458,8 +1458,9 @@
                     Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se
                     substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes
                     de vie ou de traitement, consultez votre médecin en tenant compte de votre situation
-                    personnelle. Des statistiques anonymes d'usage de l'application et de ses fonctionnalités
-                    peuvent être visualisées par le concepteur dans un but d'amélioration de l'application.
+                    personnelle. Des statistiques anonymes d'installation et d'utilisation de l'application
+                    et de ses fonctionnalités peuvent être accessibles au concepteur dans un but
+                    d'amélioration de l'application.
                 </p>
             </div>
             <div id="about-tap-zone" class="version-display"
@@ -1982,7 +1983,7 @@
         <button onclick="exportJSON(); document.getElementById('storage-warning-toast').remove();"
             style="background:var(--orange); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t('storageExport')}
+            💾 ${t('btnExportBeforeStorage')}
         </button>
         <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportWarn')}</div>`;
             document.body.appendChild(toast);
@@ -2010,7 +2011,7 @@
         <button onclick="exportJSON(); document.getElementById('storage-full-toast').remove();"
             style="background:var(--red); color:white; border:none; border-radius:6px;
                    padding:8px 14px; font-size:0.85rem; cursor:pointer; width:100%; margin-bottom:8px;">
-            💾 ${t('storageExportFull')}
+            💾 ${t('btnExportBeforeStorage')}
         </button>
         <div style="font-size:0.78rem; opacity:0.7; line-height:1.4;">${t('storageAfterExportFull')}</div>`;
             document.body.appendChild(toast);
@@ -2705,7 +2706,7 @@
                         <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                            onclick="exportCSV()">${t('installFBExportBtn')}</button>
                     </div>
                 </div>
                 <div class="install-splash-link" onclick="renderFacebookWarningScreen()">${t('installSplashBack')}</div>
@@ -2934,7 +2935,7 @@
                         <p>${t('installFBExportText', { n: state.history.length, appName })}</p>
                         <button class="export-btn"
                             style="background:rgba(255,180,0,0.1); color:#ffcc55; border:1px solid rgba(255,180,0,0.5);"
-                            onclick="exportCSV()">${t('installTierCExportBtn')}</button>
+                            onclick="exportCSV()">${t('installFBExportBtn')}</button>
                     </div>` : '';
                 content = `
                     <div class="install-splash-instructions">
@@ -3631,7 +3632,7 @@
                 updateWillRestart: "L'application va redémarrer dans quelques instants.",
                 btnUpdateNow: "🔄 Mettre à jour",
                 btnLater: "Plus tard",
-                btnExportBeforeUpdate: "💾 Exporter mes données",
+                btnExportBeforeUpdate: "💾 Exporter mes données (.json)",
                 updateNewVersionFallback: "nouvelle version",
                 msgDefaultBtn: "J'ai compris",
                 updateInstalled: "Mise à jour installée",
@@ -3674,7 +3675,7 @@
                 communityLinkLabel: "👥 PacingCount : communauté & feedback (↗)",
                 aboutIntro: "<b>PacingCount :</b> Une application à destination des personnes qui souhaitent mesurer et objectiver leur niveau d'activité et de repos, pour éventuellement affiner leur stratégie de pacing. Elle a été conçue par une personne concernée par l'EM/SFC.",
                 aboutInvitation: "<i>Une invitation&nbsp;: n'utilisez pas cette app de façon trop perfectionniste — le pacing est avant tout une stratégie de repos et de récupération, dans un cadre de bienveillance envers soi-même.</i>",
-                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle. Des statistiques anonymes d'usage de l'application et de ses fonctionnalités peuvent être visualisées par le concepteur dans un but d'amélioration de l'application.",
+                aboutDisclaimer: "Note : Application à titre informatif, distribuée sans garantie d'aucune sorte. Elle ne se substitue pas à un avis médical. Avant toute modification substantielle de vos habitudes de vie ou de traitement, consultez votre médecin en tenant compte de votre situation personnelle. Des statistiques anonymes d'installation et d'utilisation de l'application et de ses fonctionnalités peuvent être accessibles au concepteur dans un but d'amélioration de l'application.",
                 devModeIndicator: "🛠️ Mode développeur",
                 btnCheckUpdate: "Vérifier mise à jour",
                 editModalTitle: "Modifier l'entrée",
@@ -3704,7 +3705,9 @@
                 installTierCStep2: "faire défiler la liste jusqu'à « Sur l'écran d'accueil »",
                 installTierCStep3: "confirmer par « Ajouter »",
                 installTierCExportText: "Vous avez déjà {n} périodes enregistrées. Pour ne rien perdre, exportez-les dans un fichier maintenant — vous pourrez ensuite les réimporter dans l'application installée.",
-                installTierCExportBtn: "💾 Exporter mes données",
+                installTierCExportBtn: "💾 Exporter mes données (.json)",
+                installFBExportBtn: "💾 Exporter mes données (.csv)",
+                btnExportBeforeStorage: "💾 Exporter mes données (.json)",
                 installConfirmSelfReportBtn: "J'ai pu suivre ces instructions d'installation",
                 installConfirmTextIOS: "Bravo pour cette installation ! Vérifiez que l'icône est bien apparue sur l'écran d'accueil, c'est la confirmation que l'installation est réussie. Vous pouvez alors fermer cet onglet de navigateur et passer par l'icône installée !",
                 installConfirmTextAB: "Installation réussie ! L'application est maintenant disponible sur votre écran d'accueil, vous pouvez fermer cet onglet de navigateur et passer par l'icône installée !",
@@ -3893,7 +3896,7 @@
                 updateWillRestart: "The app will restart shortly.",
                 btnUpdateNow: "🔄 Update now",
                 btnLater: "Later",
-                btnExportBeforeUpdate: "💾 Export my data",
+                btnExportBeforeUpdate: "💾 Export my data (.json)",
                 updateNewVersionFallback: "new version",
                 msgDefaultBtn: "Got it",
                 updateInstalled: "Update installed",
@@ -3930,7 +3933,7 @@
                 titleAbout: "About",
                 aboutIntro: "<b>PacingCount:</b> An application designed for people who wish to measure and objectify their activity and rest levels, in order to refine their pacing strategy. It was created by someone living with ME/CFS.",
                 aboutInvitation: "<i>An invitation: do not use this app in an overly perfectionist way — pacing is above all a rest and recovery strategy, in a spirit of self-compassion.</i>",
-                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account. Anonymous statistics on the use of the app and its features may be viewed by its designer in order to improve the app.",
+                aboutDisclaimer: "Note: Application for informational purposes only, distributed without any warranty. It does not replace medical advice. Before making any significant changes to your lifestyle or treatment, consult your doctor taking your personal situation into account. Anonymous statistics on the installation and use of the app and its features may be accessible to its designer in order to improve the app.",
                 devModeIndicator: "🛠️ Developer mode",
                 btnCheckUpdate: "Check for updates",
                 editModalTitle: "Edit entry",
@@ -3955,7 +3958,9 @@
                 installTierCStep2: "scroll down the list to \"Add to Home Screen\"",
                 installTierCStep3: "confirm with \"Add\"",
                 installTierCExportText: "You already have {n} recorded periods. To avoid losing anything, export them to a file now — you'll be able to re-import them into the installed app afterwards.",
-                installTierCExportBtn: "💾 Export my data",
+                installTierCExportBtn: "💾 Export my data (.json)",
+                installFBExportBtn: "💾 Export my data (.csv)",
+                btnExportBeforeStorage: "💾 Export my data (.json)",
                 installConfirmSelfReportBtn: "I was able to follow these installation steps",
                 installConfirmTextIOS: "Well done on installing! Check that the icon has appeared on your home screen — that's your confirmation the installation worked. You can now close this browser tab and use the installed icon instead!",
                 installConfirmTextAB: "Installation successful! The app is now available on your home screen — you can close this browser tab and use the installed icon instead!",
@@ -4140,7 +4145,7 @@
                 updateWillRestart: "De app wordt over enkele ogenblikken herstart.",
                 btnUpdateNow: "🔄 Nu updaten",
                 btnLater: "Later",
-                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren",
+                btnExportBeforeUpdate: "💾 Mijn gegevens exporteren (.json)",
                 updateNewVersionFallback: "nieuwe versie",
                 msgDefaultBtn: "Begrepen",
                 updateInstalled: "Update geïnstalleerd",
@@ -4177,7 +4182,7 @@
                 titleAbout: "Over",
                 aboutIntro: "<b>PacingCount:</b> Een app voor mensen die hun activiteits- en rustniveau willen meten en objectiveren, om hun pacing-strategie te verfijnen. Ze werd ontworpen door iemand die zelf betrokken is bij ME/CVS.",
                 aboutInvitation: "<i>Een uitnodiging: gebruik deze app niet te perfectionistisch — pacing is in de eerste plaats een strategie voor rust en herstel, vanuit zelfzorg.</i>",
-                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie. Anonieme gebruiksstatistieken van de app en haar functies kunnen door de ontwikkelaar worden bekeken met het oog op het verbeteren van de app.",
+                aboutDisclaimer: "Opmerking: applicatie uitsluitend ter informatie, verspreid zonder enige garantie. Ze vervangt geen medisch advies. Raadpleeg je arts vóór je ingrijpende wijzigingen aanbrengt in je levensstijl of behandeling, rekening houdend met je persoonlijke situatie. Anonieme statistieken over de installatie en het gebruik van de app en haar functies kunnen toegankelijk zijn voor de ontwikkelaar met het oog op het verbeteren van de app.",
                 devModeIndicator: "🛠️ Ontwikkelaarsmodus",
                 btnCheckUpdate: "Controleren op updates",
                 editModalTitle: "Invoer bewerken",
@@ -4202,7 +4207,9 @@
                 installTierCStep2: "scroll naar beneden tot « Zet op beginscherm »",
                 installTierCStep3: "bevestig met « Voeg toe »",
                 installTierCExportText: "Je hebt al {n} geregistreerde periodes. Exporteer ze nu naar een bestand om niets te verliezen — je kunt ze later opnieuw importeren in de geïnstalleerde app.",
-                installTierCExportBtn: "💾 Mijn gegevens exporteren",
+                installTierCExportBtn: "💾 Mijn gegevens exporteren (.json)",
+                installFBExportBtn: "💾 Mijn gegevens exporteren (.csv)",
+                btnExportBeforeStorage: "💾 Mijn gegevens exporteren (.json)",
                 installConfirmSelfReportBtn: "Ik heb deze installatiestappen kunnen volgen",
                 installConfirmTextIOS: "Goed gedaan met installeren! Controleer of het icoon op je beginscherm is verschenen — dat bevestigt dat de installatie gelukt is. Je kunt dit browsertabblad nu sluiten en voortaan het geïnstalleerde icoon gebruiken!",
                 installConfirmTextAB: "Installatie gelukt! De app staat nu op je beginscherm — je kunt dit browsertabblad sluiten en voortaan het geïnstalleerde icoon gebruiken!",
@@ -9355,6 +9362,11 @@
             console.warn('[Init] ⚠️ localStorage inaccessible — toast et events version désactivés', e);
         }
 
+        // Événements GoatCounter DailyUser-Custom-* actuellement désactivés par la condition
+        // SEND_DAILY_CUSTOM_PROFILE_EVENT = false ; pertinence à réévaluer ultérieurement
+        // (le code inactif reste présent, voir plus bas dans ce ping quotidien).
+        const SEND_DAILY_CUSTOM_PROFILE_EVENT = false;
+
         // Ping quotidien GoatCounter — envoyé une seule fois par jour, uniquement si en ligne
         const _lastPing = localStorage.getItem('lastDailyPingSent');
         const _today = new Date().toDateString();
@@ -9434,8 +9446,15 @@
                     .join('-');
                 profilePath = `DailyUser-Custom-${activeParts}`;
             }
-            sendToGoatCounter(profilePath);
-            console.log(`[GoatCounter] Profil envoyé : ${profilePath}`);
+            // Événements GoatCounter DailyUser-Custom-* actuellement désactivés par la condition
+            // SEND_DAILY_CUSTOM_PROFILE_EVENT = false ; pertinence à réévaluer ultérieurement
+            // (le code inactif reste présent ci-dessous).
+            if (profilePath.startsWith('DailyUser-Custom-') && !SEND_DAILY_CUSTOM_PROFILE_EVENT) {
+                console.log(`[GoatCounter] Profil custom — event désactivé (non envoyé) : ${profilePath}`);
+            } else {
+                sendToGoatCounter(profilePath);
+                console.log(`[GoatCounter] Profil envoyé : ${profilePath}`);
+            }
 
             localStorage.setItem('lastDailyPingSent', Date.now());
         }
