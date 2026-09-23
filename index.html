@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -3067,6 +3067,18 @@
                     nl: "Post-exertionele malaise aan de gang"
                 },
                 mode: "tristate",
+                timed: false,
+                repeatable: false
+            },
+            {
+                id: "malade",
+                label: { fr: "Malade", en: "Sick", nl: "Ziek" },
+                description: {
+                    fr: "Se sent malade ce jour (plus que d'ordinaire)",
+                    en: "Feels sick today (more than usual)",
+                    nl: "Voelt zich vandaag ziek (meer dan gewoonlijk)"
+                },
+                mode: "presence",
                 timed: false,
                 repeatable: false
             }
@@ -6129,6 +6141,25 @@
             return ev ? ev.value : null;
         }
 
+        // Présence d'un événement 'presence' pour un jour et un tag : true | false — seule la
+        // présence de l'event dans le tableau fait foi, jamais de value:false stockée (cohérent
+        // avec le principe déjà en place pour 'tristate' : une absence n'est pas une donnée).
+        function getDailyEventPresence(dateKey, tagId) {
+            return !!dailyData[dateKey]?.events?.some(e => e.tagId === tagId);
+        }
+
+        // Tap sur une case 'presence' : ajoute l'event (présent) ou le retire (absent) — jamais de
+        // value stockée. Même nettoyage qu'ailleurs : clé du jour supprimée si elle devient vide.
+        function toggleEventPresence(dateKey, tagId) {
+            const day = dailyData[dateKey] || (dailyData[dateKey] = {});
+            const events = Array.isArray(day.events) ? day.events : [];
+            const already = events.some(ev => ev.tagId === tagId);
+            day.events = already ? events.filter(ev => ev.tagId !== tagId) : [...events, { tagId }];
+            if (day.events.length === 0) delete day.events;
+            if (Object.keys(day).length === 0) delete dailyData[dateKey];
+            saveDailyData();
+        }
+
         // Sélecteur tristate (Oui / Non, contour neutre par défaut) pour chaque tag actif de mode
         // 'tristate' — générique : un futur tag tristate apparaît ici sans code supplémentaire.
         function buildEventTristateHTML(dateKey) {
@@ -8137,9 +8168,11 @@
                         const byTag = new Map();
                         day.events.forEach(ev => {
                             const mode = (ev && typeof ev.tagId === 'string') ? tagModeById[ev.tagId] : undefined;
-                            // Seul le mode tristate existe pour l'instant : yes / no.
                             if (mode === 'tristate' && (ev.value === 'yes' || ev.value === 'no')) {
                                 byTag.set(ev.tagId, { tagId: ev.tagId, value: ev.value });
+                            } else if (mode === 'presence' && ev.value === undefined) {
+                                // Seule la présence de l'event compte — jamais de value pour ce mode.
+                                byTag.set(ev.tagId, { tagId: ev.tagId });
                             } else {
                                 ignored++;
                             }
