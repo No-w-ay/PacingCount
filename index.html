@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -179,6 +179,30 @@
         h1 {
             font-size: 1.5rem;
             text-align: center;
+        }
+
+        /* Enveloppe le titre pour permettre au bouton "Événements journaliers" d'être positionné
+           en absolu sur son bord droit, sans jamais décentrer le titre (toujours centré sur toute
+           la largeur — même technique que le bouton fermer d'Évolution, ancré sur un conteneur
+           relatif). */
+        .measure-header {
+            position: relative;
+        }
+
+        #btn-daily-events {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-color);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
         }
 
         .measure-btn {
@@ -1277,6 +1301,12 @@
                au même niveau, qu'il y ait 1 seule ligne (jour/mois) ou 2 (janvier + millésime,
                voir renderEvolutionPreviewBand()) — le millésime s'étend alors vers le bas,
                sous le niveau commun, plutôt que de faire remonter "janv." au-dessus des autres
+            .evolution-preview-tick {
+            position: absolute;
+            /* Ancrage par le HAUT (pas le bas) : la 1ère ligne de chaque tick s'aligne ainsi
+               au même niveau, qu'il y ait 1 seule ligne (jour/mois) ou 2 (janvier + millésime,
+               voir renderEvolutionPreviewBand()) — le millésime s'étend alors vers le bas,
+               sous le niveau commun, plutôt que de faire remonter "janv." au-dessus des autres
                ticks. Même logique que le rendu natif Chart.js (1ère ligne près de l'axe). */
             top: 1px;
             transform: translateX(-50%);
@@ -1284,7 +1314,185 @@
             color: var(--chart-gray-text);
             white-space: nowrap;
         }
+
+        /* ============================================================
+           OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2)
+           Portrait plein écran, pas de rotation (contrairement à Évolution) : un tableau se lit
+           bien en portrait. En-tête à 2 niveaux et 1ère colonne fixes en CSS pur (position:sticky),
+           défilement natif du navigateur — volontairement PAS de geste personnalisé pour cette V1
+           (voir décision projet ; un glisser-coche horizontal est envisagé en V2, une fois la
+           taille réelle des cases connue à l'usage).
+           z-index 480 : sous Évolution (450 — non superposables en pratique, mais cohérent) et
+           sous splash(500)/toasts(550), au-dessus de l'usage normal de l'app.
+           ============================================================ */
+        #daily-events-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-color);
+            z-index: 480;
+            display: none;
+            flex-direction: column;
+        }
+
+        #daily-events-header {
+            flex-shrink: 0;
+            position: relative;
+            padding: 14px 14px 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #daily-events-close-btn {
+            position: absolute;
+            top: 11px;
+            left: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-color);
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        #daily-events-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #daily-events-month-label {
+            font-weight: bold;
+            font-size: 1rem;
+            min-width: 130px;
+            text-align: center;
+        }
+
+        #daily-events-scroll {
+            flex-grow: 1;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #daily-events-table {
+            border-collapse: collapse;
+            width: max-content;
+            /* La table peut dépasser la largeur de l'écran (plusieurs tags) — défilement
+               horizontal naturel du conteneur #daily-events-scroll, pas de calcul JS. */
+        }
+
+        #daily-events-table th,
+        #daily-events-table td {
+            box-sizing: border-box;
+            border: 1px solid var(--border);
+        }
+
+        /* Hauteurs d'en-tête FIXES (32px / 28px), jamais mesurées en JS — permet un offset sticky
+           simple et fiable pour la 2e ligne (top:32px), même principe que scale.height figé pour
+           l'axe X d'Évolution (afterFit) : ne jamais deviner une hauteur, la fixer. */
+        #daily-events-table thead tr:first-child th {
+            height: 32px;
+        }
+
+        #daily-events-table thead tr:last-child th {
+            height: 28px;
+        }
+
+        #daily-events-table th {
+            position: sticky;
+            background: var(--card-bg);
+            font-size: 0.78rem;
+            font-weight: bold;
+            padding: 4px 6px;
+            z-index: 2;
+        }
+
+        #daily-events-table thead tr:first-child th {
+            top: 0;
+        }
+
+        #daily-events-table thead tr:last-child th {
+            top: 32px;
+        }
+
+        /* Colonne Date — fixe aussi horizontalement (sticky left), coin toujours au-dessus de
+           tout (z-index le plus élevé de la table) puisqu'elle est fixe dans les deux sens. */
+        #daily-events-table .de-col-date {
+            position: sticky;
+            left: 0;
+            background: var(--card-bg);
+            text-align: left;
+            padding: 4px 8px;
+            font-size: 0.82rem;
+            white-space: nowrap;
+            z-index: 3;
+        }
+
+        #daily-events-table th.de-col-date {
+            z-index: 4;
+        }
+
+        #daily-events-table .de-weekend {
+            opacity: 0.6;
+        }
+
+        #daily-events-table .de-today {
+            background: color-mix(in srgb, var(--blue) 15%, var(--card-bg));
+        }
+
+        #daily-events-table td.de-today.de-col-date {
+            background: color-mix(in srgb, var(--blue) 28%, var(--card-bg));
+        }
+
+        /* Cases tapables — génériques : un tag 'tristate' occupe 2 cellules (Oui/Non, voir
+           renderDailyEventsTable()), tout autre mode (ex. 'presence') en occupe 1 seule. Même
+           couleurs Oui/Non que les boutons de Résultats (rouge/vert sombre), pour rester cohérent
+           avec ce qui existe déjà — un point (pas un bouton texte) car la place est réduite ici
+           et l'en-tête porte déjà le libellé. */
+        .de-cell {
+            width: 46px;
+            height: 44px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .de-cell-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .de-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1.5px solid #666;
+            box-sizing: border-box;
+        }
+
+        .de-dot.de-active-yes {
+            background: #8e2b2b;
+            border-color: #8e2b2b;
+        }
+
+        .de-dot.de-active-no {
+            background: #2e6b3a;
+            border-color: #2e6b3a;
+        }
+
+        /* Couleur générique pour tout mode à un seul état stocké (ex. 'presence') — pas de couleur
+           par tag pour l'instant (pas de système de personnalisation de couleur des tags). */
+        .de-dot.de-active-presence {
+            background: var(--blue);
+            border-color: var(--blue);
+        }
     </style>
+
 </head>
 
 <body>
@@ -1303,7 +1511,11 @@
     </div>
 
     <div id="page-measure" class="page active">
-        <h1 id="title-measure">PacingCount</h1>
+        <div class="measure-header">
+            <h1 id="title-measure">PacingCount</h1>
+            <button id="btn-daily-events" onclick="openDailyEventsOverlay()"
+                title="Événements journaliers">📝</button>
+        </div>
         <div class="timer-container">
             <div id="main-timer" class="timer-display text-default">00:00:00</div>
             <div id="prev-timer" class="timer-previous" style="display: none;">Précédent: 00:00:00</div>
@@ -1844,6 +2056,29 @@
         </div>
     </div>
     <!-- FIN OVERLAY GRAPHIQUE ÉVOLUTION -->
+
+    <!-- ============================================================ -->
+    <!-- OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2) -->
+    <!-- Portrait plein écran — voir CSS pour le détail (sticky, pas de rotation). -->
+    <!-- ============================================================ -->
+    <div id="daily-events-overlay">
+        <div id="daily-events-header">
+            <button id="daily-events-close-btn" onclick="closeDailyEventsOverlay()">✕</button>
+            <div id="daily-events-nav">
+                <button class="history-nav-btn" id="daily-events-prev-btn"
+                    onclick="navigateDailyEventsMonth(-1)">‹</button>
+                <span id="daily-events-month-label"></span>
+                <button class="history-nav-btn" id="daily-events-next-btn"
+                    onclick="navigateDailyEventsMonth(1)">›</button>
+                <button class="history-nav-btn" id="daily-events-today-btn"
+                    onclick="goToDailyEventsToday()">⬆</button>
+            </div>
+        </div>
+        <div id="daily-events-scroll">
+            <table id="daily-events-table"></table>
+        </div>
+    </div>
+    <!-- FIN OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS -->
 
     <nav>
         <button onclick="showPage('timeline')" id="nav-timeline">Historique</button>
@@ -3498,6 +3733,8 @@
                 resIncomplet: "Journée incomplète",
                 // Sélecteur tristate des événements journaliers (Résultats) — états oui / non
                 eventStateYes: "Oui", eventStateNo: "Non",
+                dailyEventsButtonTitle: "Événements journaliers",
+                dailyEventsDateHeader: "Date",
                 // Export JSON (sauvegarde complète) et bloc Réglages "Format CSV"
                 exportJson: "Exporter (.json)",
                 // Import JSON (Passe 2)
@@ -3774,6 +4011,8 @@
                 resMoy: "avg", resMax: "max", resMin: "min",
                 resIncomplet: "Incomplete day",
                 eventStateYes: "Yes", eventStateNo: "No",
+                dailyEventsButtonTitle: "Daily events",
+                dailyEventsDateHeader: "Date",
                 exportJson: "Export (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Import (.json/.csv)",
@@ -4023,6 +4262,8 @@
                 resMoy: "gem", resMax: "max", resMin: "min",
                 resIncomplet: "Onvolledige dag",
                 eventStateYes: "Ja", eventStateNo: "Nee",
+                dailyEventsButtonTitle: "Dagelijkse gebeurtenissen",
+                dailyEventsDateHeader: "Datum",
                 exportJson: "Exporteren (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Importeren (.json/.csv)",
@@ -5882,6 +6123,8 @@
             localStorage.setItem('pacingSettings', JSON.stringify(settings));
             updateUI();
             if (document.getElementById('page-results').classList.contains('active')) renderResults();
+            const deOverlayLang = document.getElementById('daily-events-overlay');
+            if (deOverlayLang && deOverlayLang.style.display !== 'none') renderDailyEventsTable();
         }
 
         // ============================================================
@@ -6056,6 +6299,9 @@
             const aboutVersion = document.getElementById('about-version');
             if (aboutVersion) aboutVersion.innerText = `Version ${APP_VERSION}`;
 
+            const btnDailyEvents = document.getElementById('btn-daily-events');
+            if (btnDailyEvents) btnDailyEvents.title = t('dailyEventsButtonTitle');
+
             // Rafraîchit la liste des alertes si l'onglet réglages est visible
             if (document.getElementById('page-settings').classList.contains('active')) {
                 renderAlertsList();
@@ -6158,6 +6404,7 @@
             if (day.events.length === 0) delete day.events;
             if (Object.keys(day).length === 0) delete dailyData[dateKey];
             saveDailyData();
+            refreshDailyEventUIs();
         }
 
         // Sélecteur tristate (Oui / Non, contour neutre par défaut) pour chaque tag actif de mode
@@ -6195,7 +6442,7 @@
             if (day.events.length === 0) delete day.events;
             if (Object.keys(day).length === 0) delete dailyData[dateKey];
             saveDailyData();
-            renderResults();
+            refreshDailyEventUIs();
         }
 
         function renderResults() {
@@ -8567,6 +8814,116 @@
             const d = imp.daily ? Object.keys(imp.daily).length : 0;
             closeImportJsonModal();
             alert(t('importJsonSuccess', { p, d }));
+        }
+
+
+        // ============================================================
+        // 20c. TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2)
+        // Overlay portrait plein écran, ouvert depuis la page Mesure (#btn-daily-events).
+        // Générique par tag actif (tous modes confondus) : 'tristate' occupe 2 colonnes (Oui/Non),
+        // tout autre mode (ex. 'presence') en occupe 1 seule — un futur tag apparaît ici sans code
+        // supplémentaire, même principe que buildEventTristateHTML() dans Résultats.
+        // Défilement natif (CSS position:sticky, voir <style>) — pas de geste personnalisé en V1.
+        // ============================================================
+
+        window.dailyEventsMonth = null; // Date (1er du mois affiché), initialisé à l'ouverture
+
+        function openDailyEventsOverlay() {
+            const overlay = document.getElementById('daily-events-overlay');
+            if (!overlay) return;
+            if (!window.dailyEventsMonth) {
+                const n = new Date();
+                window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+            }
+            overlay.style.display = 'flex';
+            renderDailyEventsTable();
+        }
+
+        function closeDailyEventsOverlay() {
+            const overlay = document.getElementById('daily-events-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function navigateDailyEventsMonth(delta) {
+            const m = window.dailyEventsMonth;
+            window.dailyEventsMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
+            renderDailyEventsTable();
+        }
+
+        function goToDailyEventsToday() {
+            const n = new Date();
+            window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
+            renderDailyEventsTable();
+        }
+
+        // Rafraîchit toute vue actuellement affichée qui dépend des événements journaliers —
+        // Résultats (si l'onglet est actif) et/ou ce tableau (s'il est ouvert). Point d'appel
+        // unique partagé par toggleEventTristate()/toggleEventPresence(), pour ne jamais dupliquer
+        // cette logique à chaque nouveau point de saisie (page Mesure, tableau, futurs écrans...).
+        function refreshDailyEventUIs() {
+            if (document.getElementById('page-results').classList.contains('active')) renderResults();
+            const overlay = document.getElementById('daily-events-overlay');
+            if (overlay && overlay.style.display !== 'none') renderDailyEventsTable();
+        }
+
+        function renderDailyEventsTable() {
+            const table = document.getElementById('daily-events-table');
+            if (!table) return;
+            const m = window.dailyEventsMonth;
+            const tags = settings.eventTags.filter(tg => tg.active);
+            const locale = getLocale();
+
+            document.getElementById('daily-events-month-label').textContent =
+                m.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+
+            // Navigation bornée au mois courant côté futur (on ne journalise pas l'avenir) — aucune
+            // borne côté passé, contrairement à Historique/Résultats : cet outil n'est pas lié aux
+            // périodes enregistrées, un jour sans période reste journalisable.
+            const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+            const isCurrentMonth = (m.getFullYear() === todayMidnight.getFullYear() && m.getMonth() === todayMidnight.getMonth());
+            document.getElementById('daily-events-today-btn').disabled = isCurrentMonth;
+            document.getElementById('daily-events-next-btn').disabled = isCurrentMonth;
+
+            // --- En-tête à 2 niveaux ---
+            let thead = '<thead><tr>';
+            thead += `<th class="de-col-date" rowspan="2">${t('dailyEventsDateHeader')}</th>`;
+            tags.forEach(tg => {
+                if (tg.mode === 'tristate') thead += `<th colspan="2">${escapeHtml(tg.label)}</th>`;
+                else thead += `<th rowspan="2">${escapeHtml(tg.label)}</th>`;
+            });
+            thead += '</tr><tr>';
+            tags.forEach(tg => {
+                if (tg.mode === 'tristate') thead += `<th>${t('eventStateYes')}</th><th>${t('eventStateNo')}</th>`;
+            });
+            thead += '</tr></thead>';
+
+            // --- Corps : tous les jours civils du mois affiché, du plus récent au plus ancien ---
+            const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+            let tbody = '<tbody>';
+            for (let day = daysInMonth; day >= 1; day--) {
+                const d = new Date(m.getFullYear(), m.getMonth(), day);
+                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const isWeekend = [0, 6].includes(d.getDay());
+                const isToday = d.getTime() === todayMidnight.getTime();
+                const rowClass = isToday ? ' de-today' : '';
+                const dateClass = 'de-col-date' + rowClass + (isWeekend ? ' de-weekend' : '');
+                tbody += `<tr>`;
+                tbody += `<td class="${dateClass}">${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>`;
+                tags.forEach(tg => {
+                    if (tg.mode === 'tristate') {
+                        const val = getDailyEventValue(dateKey, tg.id);
+                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></td>`;
+                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></td>`;
+                    } else {
+                        const on = getDailyEventPresence(dateKey, tg.id);
+                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot${on ? ' de-active-presence' : ''}"></div></div></td>`;
+                    }
+                });
+                tbody += `</tr>`;
+            }
+            tbody += '</tbody>';
+
+            table.innerHTML = thead + tbody;
         }
 
         // ============================================================
