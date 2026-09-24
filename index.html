@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1346,7 +1346,7 @@
         #daily-events-close-btn {
             position: absolute;
             top: 11px;
-            left: 14px;
+            right: 14px;
             background: rgba(255, 255, 255, 0.1);
             border: none;
             color: var(--text-color);
@@ -1429,6 +1429,52 @@
             font-size: 0.82rem;
             white-space: nowrap;
             z-index: 3;
+        }
+
+        /* 3 flèches compactes dans la case d'en-tête Date (remplace le mot "Date", qui n'apporte
+           rien ici) : ↓ recule d'un mois, ↑ avance d'un mois (masqué sur le mois courant, rien à
+           avancer), ⬆ retour direct au mois courant. Réutilisent navigateDailyEventsMonth() /
+           goToDailyEventsToday() — aucune nouvelle logique de navigation, juste ces déclencheurs. */
+        #daily-events-table th.de-col-date {
+            text-align: center;
+        }
+
+        .de-col-date-buttons {
+            display: flex;
+            gap: 3px;
+            justify-content: center;
+        }
+
+        .de-nav-mini-btn {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid #555;
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .de-nav-mini-btn:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Lignes-teaser de changement de mois — en bas (mois précédent, toujours présente) et en
+           haut (mois suivant, seulement si le mois affiché n'est pas déjà le mois courant). Un tap
+           REMPLACE le mois ancre affiché (jamais de cumul de plusieurs mois dans le tableau — sa
+           taille reste donc toujours bornée à un mois, quelle que soit la distance parcourue dans
+           le passé). Pas sticky : ligne normale du corps, elle défile avec le reste. */
+        .de-month-teaser td {
+            background: rgba(255, 255, 255, 0.04);
+            text-align: center;
+            font-size: 0.8rem;
+            opacity: 0.75;
+            padding: 10px 6px;
+            cursor: pointer;
         }
 
         #daily-events-table th.de-col-date {
@@ -3735,6 +3781,9 @@
                 eventStateYes: "Oui", eventStateNo: "Non",
                 dailyEventsButtonTitle: "Événements journaliers",
                 dailyEventsDateHeader: "Date",
+                dailyEventsPrevMonth: "Mois précédent",
+                dailyEventsNextMonth: "Mois suivant",
+                dailyEventsBackToToday: "Retour à aujourd'hui",
                 // Export JSON (sauvegarde complète) et bloc Réglages "Format CSV"
                 exportJson: "Exporter (.json)",
                 // Import JSON (Passe 2)
@@ -4013,6 +4062,9 @@
                 eventStateYes: "Yes", eventStateNo: "No",
                 dailyEventsButtonTitle: "Daily events",
                 dailyEventsDateHeader: "Date",
+                dailyEventsPrevMonth: "Previous month",
+                dailyEventsNextMonth: "Next month",
+                dailyEventsBackToToday: "Back to today",
                 exportJson: "Export (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Import (.json/.csv)",
@@ -4264,6 +4316,9 @@
                 eventStateYes: "Ja", eventStateNo: "Nee",
                 dailyEventsButtonTitle: "Dagelijkse gebeurtenissen",
                 dailyEventsDateHeader: "Datum",
+                dailyEventsPrevMonth: "Vorige maand",
+                dailyEventsNextMonth: "Volgende maand",
+                dailyEventsBackToToday: "Terug naar vandaag",
                 exportJson: "Exporteren (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Importeren (.json/.csv)",
@@ -8848,12 +8903,16 @@
             const m = window.dailyEventsMonth;
             window.dailyEventsMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
             renderDailyEventsTable();
+            const scroll = document.getElementById('daily-events-scroll');
+            if (scroll) scroll.scrollTop = 0;
         }
 
         function goToDailyEventsToday() {
             const n = new Date();
             window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
             renderDailyEventsTable();
+            const scroll = document.getElementById('daily-events-scroll');
+            if (scroll) scroll.scrollTop = 0;
         }
 
         // Rafraîchit toute vue actuellement affichée qui dépend des événements journaliers —
@@ -8885,11 +8944,19 @@
             document.getElementById('daily-events-next-btn').disabled = isCurrentMonth;
 
             // --- En-tête à 2 niveaux ---
+            // Case Date : 3 flèches compactes plutôt que le mot "Date" (qui n'apportait rien) —
+            // ↓ recule d'un mois (toujours actif), ↑ avance d'un mois (masqué sur le mois courant,
+            // symétrique de "next" en haut), ⬆ retour direct au mois courant (masqué si déjà dessus).
             let thead = '<thead><tr>';
-            thead += `<th class="de-col-date" rowspan="2">${t('dailyEventsDateHeader')}</th>`;
+            thead += `<th class="de-col-date" rowspan="2"><div class="de-col-date-buttons">
+                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(-1)" title="${t('dailyEventsPrevMonth')}">↓</button>
+                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(1)" ${isCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsNextMonth')}">↑</button>
+                <button class="de-nav-mini-btn" onclick="goToDailyEventsToday()" ${isCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsBackToToday')}">⬆</button>
+            </div></th>`;
+            let totalDataCols = 0;
             tags.forEach(tg => {
-                if (tg.mode === 'tristate') thead += `<th colspan="2">${escapeHtml(tg.label)}</th>`;
-                else thead += `<th rowspan="2">${escapeHtml(tg.label)}</th>`;
+                if (tg.mode === 'tristate') { thead += `<th colspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 2; }
+                else { thead += `<th rowspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 1; }
             });
             thead += '</tr><tr>';
             tags.forEach(tg => {
@@ -8897,10 +8964,22 @@
             });
             thead += '</tr></thead>';
 
-            // --- Corps : tous les jours civils du mois affiché, du plus récent au plus ancien ---
+            // --- Corps : jours civils du mois affiché, du plus récent au plus ancien — plafonné à
+            // aujourd'hui si le mois affiché est le mois courant (jamais de jour futur, même
+            // principe que pour les périodes : on n'enregistre rien pour un avenir pas encore connu).
             const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+            const lastDay = isCurrentMonth ? todayMidnight.getDate() : daysInMonth;
             let tbody = '<tbody>';
-            for (let day = daysInMonth; day >= 1; day--) {
+
+            // Ligne-teaser mois suivant — seulement si on n'est pas déjà sur le mois courant (sinon
+            // rien de plus récent à proposer). Un tap REMPLACE le mois ancre (voir CSS) : jamais de
+            // cumul, le tableau reste toujours borné à un seul mois affiché.
+            if (!isCurrentMonth) {
+                const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+                tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(1)"><td colspan="${1 + totalDataCols}">↑ ${escapeHtml(nextMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
+            }
+
+            for (let day = lastDay; day >= 1; day--) {
                 const d = new Date(m.getFullYear(), m.getMonth(), day);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const isWeekend = [0, 6].includes(d.getDay());
@@ -8921,6 +9000,13 @@
                 });
                 tbody += `</tr>`;
             }
+
+            // Ligne-teaser mois précédent — toujours présente, aucune limite dans le passé. C'est
+            // elle qui assure la continuité de navigation (le mois adjacent reste toujours à portée
+            // d'un tap), sans jamais faire grossir le tableau au-delà d'un seul mois affiché.
+            const prevMonth = new Date(m.getFullYear(), m.getMonth() - 1, 1);
+            tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(-1)"><td colspan="${1 + totalDataCols}">↓ ${escapeHtml(prevMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
+
             tbody += '</tbody>';
 
             table.innerHTML = thead + tbody;
