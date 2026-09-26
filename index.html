@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -1531,11 +1531,80 @@
             border-color: #2e6b3a;
         }
 
-        /* Couleur générique pour tout mode à un seul état stocké (ex. 'presence') — pas de couleur
-           par tag pour l'instant (pas de système de personnalisation de couleur des tags). */
-        .de-dot.de-active-presence {
-            background: var(--blue);
-            border-color: var(--blue);
+        /* Panneau de note journalière — permanent, juste sous l'en-tête de l'overlay. */
+        #daily-events-note-panel {
+            flex-shrink: 0;
+            padding: 8px 14px 10px 14px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        #daily-events-note-date {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+            text-transform: capitalize;
+        }
+
+        #daily-events-note-textarea {
+            width: 100%;
+            box-sizing: border-box;
+            resize: none;
+            font-family: inherit;
+            font-size: 0.9rem;
+            line-height: 1.35;
+            padding: 6px 8px;
+            margin-top: 0;
+        }
+
+        #daily-events-note-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            opacity: 0.65;
+            margin-top: 3px;
+        }
+
+        /* Colonne Note du tableau — plus large que les cases d'événements (texte, pas un point),
+           plafonnée visuellement à 2 lignes (-webkit-line-clamp), jamais de coupure au milieu d'un
+           mot (comportement natif du navigateur). */
+        .de-note-cell {
+            width: 170px;
+            min-width: 150px;
+            height: 44px;
+            padding: 4px 8px;
+            text-align: left;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        .de-note-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            font-size: 0.78rem;
+            line-height: 1.3;
+        }
+
+        .de-note-empty {
+            opacity: 0.45;
+            font-style: italic;
+        }
+
+        /* Contour (pas un fond, pour rester distinct de .de-today) autour de TOUTE la ligne dont la
+           note est actuellement chargée dans le panneau — technique standard pour un contour de
+           ligne dans une table à bordures fusionnées (border-collapse) : box-shadow inset sur
+           chaque cellule plutôt qu'une bordure classique, qui serait absorbée par la fusion. */
+        tr.de-row-editing td {
+            box-shadow: inset 0 2px 0 0 var(--blue), inset 0 -2px 0 0 var(--blue);
+        }
+
+        tr.de-row-editing td:first-child {
+            box-shadow: inset 0 2px 0 0 var(--blue), inset 0 -2px 0 0 var(--blue), inset 2px 0 0 0 var(--blue);
+        }
+
+        tr.de-row-editing td:last-child {
+            box-shadow: inset 0 2px 0 0 var(--blue), inset 0 -2px 0 0 var(--blue), inset -2px 0 0 0 var(--blue);
         }
     </style>
 
@@ -2118,6 +2187,21 @@
                     onclick="navigateDailyEventsMonth(1)">›</button>
                 <button class="history-nav-btn" id="daily-events-today-btn"
                     onclick="goToDailyEventsToday()">⬆</button>
+            </div>
+        </div>
+        <!-- Panneau de note journalière — PERMANENT (pas seulement au tap), toujours visible en
+             haut de l'overlay. Date affichée = window.dailyEventsNoteDate, réinitialisée sur
+             aujourd'hui à l'ouverture de l'overlay, changée uniquement par un tap explicite sur la
+             colonne Date ou la colonne Note du tableau (jamais par le défilement — voir décision
+             projet : pas de geste personnalisé pour cette V1). Persiste à travers la navigation de
+             mois (voir openDailyEventsOverlay()/editDailyNoteFor()). -->
+        <div id="daily-events-note-panel">
+            <div id="daily-events-note-date"></div>
+            <textarea id="daily-events-note-textarea" maxlength="80" rows="2"
+                oninput="onDailyNoteInput(this)"></textarea>
+            <div id="daily-events-note-meta">
+                <span id="daily-events-note-counter"></span>
+                <span id="daily-events-note-saved"></span>
             </div>
         </div>
         <div id="daily-events-scroll">
@@ -3338,6 +3422,13 @@
         // (voir bootstrap section 4, et retraduction dans changeLang()).
         // mode : "tristate" (oui / non / non renseigné = absence d'event), extensible.
         // ============================================================
+        // ⚠️ pem est passé de tristate à presence dans cette même session (aucune diffusion
+        // publique n'a eu lieu — pas de migration de données écrite, voir note de commentaire
+        // près du bootstrap de dailyData). polarity ('positive'/'negative') implémente la logique
+        // d'exclusion mutuelle par CAMP (pas par tag isolé, voir stripOppositePolarityEvents()) :
+        // deux tags de même polarity coexistent librement, deux tags de polarity opposée s'excluent,
+        // un tag sans polarity (ex. futur "médicament X") reste totalement indépendant, ne modifie
+        // rien et n'est jamais modifié par ce mécanisme.
         const BUILTIN_EVENT_TAGS = [
             {
                 id: "pem",
@@ -3347,7 +3438,8 @@
                     en: "Post-exertional malaise ongoing",
                     nl: "Post-exertionele malaise aan de gang"
                 },
-                mode: "tristate",
+                mode: "presence",
+                polarity: "negative",
                 timed: false,
                 repeatable: false
             },
@@ -3360,10 +3452,37 @@
                     nl: "Voelt zich vandaag ziek (meer dan gewoonlijk)"
                 },
                 mode: "presence",
+                polarity: "negative",
+                timed: false,
+                repeatable: false
+            },
+            {
+                id: "day_ok",
+                label: { fr: "Jour OK", en: "Day OK", nl: "Dag OK" },
+                description: {
+                    fr: "Jour globalement correct ou bon",
+                    en: "Overall a fine or good day",
+                    nl: "Over het algemeen een goede of prima dag"
+                },
+                mode: "presence",
+                polarity: "positive",
                 timed: false,
                 repeatable: false
             }
         ];
+
+        // Couleurs des événements — définies GLOBALEMENT ici (une seule source, par tagId), pas par
+        // mode : reconnaissables et volontairement différentes des couleurs de type (TYPE_COLORS,
+        // palette bleu/vert/jaune/orange/rouge/violet). Tag sans entrée ici (ex. futur tag
+        // indépendant) → repli neutre (--blue), pour rester utilisable sans configuration préalable.
+        const EVENT_TAG_COLORS = {
+            pem: '#8e2b2b',      // rouge sombre
+            malade: '#a45c1f',   // orange sombre
+            day_ok: '#2e6b3a'    // vert sombre
+        };
+        function getEventTagColor(tagId) {
+            return EVENT_TAG_COLORS[tagId] || 'var(--blue)';
+        }
 
         // Construit l'entrée settings.eventTags[] d'un tag builtin, dans la langue demandée.
         function buildEventTagFromBuiltin(def, lang) {
@@ -3372,6 +3491,7 @@
                 label: def.label[lang] || def.label['fr'] || '',
                 description: def.description?.[lang] || def.description?.['fr'] || '',
                 mode: def.mode,
+                polarity: def.polarity, // undefined pour un tag sans exclusion (ex. futur tag indépendant)
                 active: true,
                 timed: def.timed ?? false,
                 repeatable: def.repeatable ?? false,
@@ -3784,6 +3904,9 @@
                 dailyEventsPrevMonth: "Mois précédent",
                 dailyEventsNextMonth: "Mois suivant",
                 dailyEventsBackToToday: "Retour à aujourd'hui",
+                dailyEventsNoteHeader: "Note",
+                dailyEventsNoteEmpty: "Pas de note",
+                dailyEventsNoteSaved: "Enregistré",
                 // Export JSON (sauvegarde complète) et bloc Réglages "Format CSV"
                 exportJson: "Exporter (.json)",
                 // Import JSON (Passe 2)
@@ -4065,6 +4188,9 @@
                 dailyEventsPrevMonth: "Previous month",
                 dailyEventsNextMonth: "Next month",
                 dailyEventsBackToToday: "Back to today",
+                dailyEventsNoteHeader: "Note",
+                dailyEventsNoteEmpty: "No note",
+                dailyEventsNoteSaved: "Saved",
                 exportJson: "Export (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Import (.json/.csv)",
@@ -4319,6 +4445,9 @@
                 dailyEventsPrevMonth: "Vorige maand",
                 dailyEventsNextMonth: "Volgende maand",
                 dailyEventsBackToToday: "Terug naar vandaag",
+                dailyEventsNoteHeader: "Notitie",
+                dailyEventsNoteEmpty: "Geen notitie",
+                dailyEventsNoteSaved: "Opgeslagen",
                 exportJson: "Exporteren (.json)",
                 // Import JSON (Passe 2)
                 importAny: "Importeren (.json/.csv)",
@@ -6449,13 +6578,43 @@
             return !!dailyData[dateKey]?.events?.some(e => e.tagId === tagId);
         }
 
-        // Tap sur une case 'presence' : ajoute l'event (présent) ou le retire (absent) — jamais de
-        // value stockée. Même nettoyage qu'ailleurs : clé du jour supprimée si elle devient vide.
+        // polarity d'un tag ('positive' | 'negative' | undefined si le tag n'a pas ce champ, ou
+        // n'existe plus) — undefined = tag indépendant, jamais concerné par l'exclusion.
+        function getTagPolarity(tagId) {
+            const tg = settings.eventTags.find(t => t.id === tagId);
+            return tg ? tg.polarity : undefined;
+        }
+
+        // Retire d'un tableau d'events ceux dont le tag a une polarity DIFFÉRENTE de celle du tag
+        // qu'on est en train d'activer — jamais ceux de la même polarity (ils coexistent librement),
+        // jamais ceux d'un tag sans polarity (indépendants, ex. futur "médicament X"). N'est appelée
+        // qu'au moment d'ACTIVER un tag (jamais à la désactivation) : activer 'pem' (negative) efface
+        // 'journee_ok' (positive) s'il était coché, mais laisse 'malade' (negative, même camp) et tout
+        // tag indépendant intacts. Si le tag qu'on active n'a lui-même pas de polarity, ne retire rien.
+        function stripOppositePolarityEvents(events, activatingTagId) {
+            const pol = getTagPolarity(activatingTagId);
+            if (!pol) return events;
+            return events.filter(ev => {
+                const evPol = getTagPolarity(ev.tagId);
+                return !(evPol && evPol !== pol);
+            });
+        }
+
+        // Tap sur une case 'presence' : ajoute l'event (présent, en appliquant l'exclusion par
+        // polarity — voir stripOppositePolarityEvents()) ou le retire (absent, simple suppression,
+        // aucune règle d'exclusion à la désactivation). Jamais de value stockée. Même nettoyage
+        // qu'ailleurs : clé du jour supprimée si elle devient vide (events ET note absents).
         function toggleEventPresence(dateKey, tagId) {
             const day = dailyData[dateKey] || (dailyData[dateKey] = {});
-            const events = Array.isArray(day.events) ? day.events : [];
+            let events = Array.isArray(day.events) ? day.events : [];
             const already = events.some(ev => ev.tagId === tagId);
-            day.events = already ? events.filter(ev => ev.tagId !== tagId) : [...events, { tagId }];
+            if (already) {
+                events = events.filter(ev => ev.tagId !== tagId);
+            } else {
+                events = stripOppositePolarityEvents(events, tagId);
+                events.push({ tagId });
+            }
+            day.events = events;
             if (day.events.length === 0) delete day.events;
             if (Object.keys(day).length === 0) delete dailyData[dateKey];
             saveDailyData();
@@ -6483,17 +6642,22 @@
         // La clé du jour est supprimée dès qu'elle ne contient plus rien (pas de jour "fantôme").
         function toggleEventTristate(dateKey, tagId, value) {
             const day = dailyData[dateKey] || (dailyData[dateKey] = {});
-            const events = Array.isArray(day.events) ? day.events : [];
+            let events = Array.isArray(day.events) ? day.events : [];
             const existing = events.find(ev => ev.tagId === tagId);
             if (existing && existing.value === value) {
-                day.events = events.filter(ev => ev.tagId !== tagId);
+                // 2e tap sur la même valeur : désactivation, pas d'exclusion à appliquer.
+                events = events.filter(ev => ev.tagId !== tagId);
             } else if (existing) {
+                // Le tag était déjà actif (Oui→Non ou inverse) : sa polarity n'a pas changé, les
+                // events déjà exclus au moment de sa 1ère activation le restent — rien à refaire.
                 existing.value = value;
-                day.events = events;
             } else {
+                // Le tag n'était pas actif : c'est une activation, on applique l'exclusion par
+                // polarity avant d'ajouter (voir stripOppositePolarityEvents()).
+                events = stripOppositePolarityEvents(events, tagId);
                 events.push({ tagId, value });
-                day.events = events;
             }
+            day.events = events;
             if (day.events.length === 0) delete day.events;
             if (Object.keys(day).length === 0) delete dailyData[dateKey];
             saveDailyData();
@@ -8890,7 +9054,13 @@
                 const n = new Date();
                 window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
             }
+            // Panneau de note : toujours réinitialisé sur aujourd'hui à l'OUVERTURE de l'overlay —
+            // persiste ensuite tant qu'il reste ouvert (y compris à travers la navigation de mois),
+            // jusqu'à un nouveau tap explicite sur la colonne Date ou Note du tableau.
+            const n2 = new Date();
+            window.dailyEventsNoteDate = `${n2.getFullYear()}-${(n2.getMonth() + 1).toString().padStart(2, '0')}-${n2.getDate().toString().padStart(2, '0')}`;
             overlay.style.display = 'flex';
+            renderDailyNotePanel();
             renderDailyEventsTable();
         }
 
@@ -8925,12 +9095,88 @@
             if (overlay && overlay.style.display !== 'none') renderDailyEventsTable();
         }
 
+        // Note libre du jour — champ frère de 'events' (pas un event), même convention que
+        // conçue dès le chantier : deux champs indépendants, ni l'un ni l'autre obligatoire.
+        function getDailyNote(dateKey) {
+            return dailyData[dateKey]?.text || '';
+        }
+
+        // Écrit la note (limite 80 — déjà imposée par maxlength du <textarea>, garde-fou ici en
+        // plus) ; retire la clé 'text' si le texte est vide, retire toute la clé du jour si elle
+        // ne contient plus ni note ni events (même nettoyage que toggleEventPresence()).
+        function setDailyNote(dateKey, text) {
+            const clean = text.slice(0, 80);
+            const day = dailyData[dateKey] || (dailyData[dateKey] = {});
+            if (clean) day.text = clean; else delete day.text;
+            if ((!day.events || day.events.length === 0) && !day.text) delete dailyData[dateKey];
+            saveDailyData();
+        }
+
+        // Change le jour actuellement chargé dans le panneau de note — appelée par un tap sur la
+        // colonne Date ou la colonne Note du tableau (jamais sur une case d'événement, qui sert déjà
+        // à activer/désactiver — voir renderDailyEventsTable()).
+        function editDailyNoteFor(dateKey) {
+            window.dailyEventsNoteDate = dateKey;
+            renderDailyNotePanel();
+            renderDailyEventsTable();
+        }
+
+        // Reconstruit tout le panneau (date + contenu du textarea) — appelée uniquement au
+        // changement de jour édité (ouverture de l'overlay, editDailyNoteFor()), JAMAIS à chaque
+        // frappe : réécrire ta.value pendant la saisie ferait sauter la position du curseur.
+        function renderDailyNotePanel() {
+            const dateKey = window.dailyEventsNoteDate;
+            if (!dateKey) return;
+            const [y, mo, da] = dateKey.split('-').map(Number);
+            const d = new Date(y, mo - 1, da);
+            document.getElementById('daily-events-note-date').textContent =
+                d.toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            const ta = document.getElementById('daily-events-note-textarea');
+            ta.value = getDailyNote(dateKey);
+            updateDailyNoteCounter(ta.value.length);
+            clearTimeout(window._dailyNoteSaveTimer);
+            const ind = document.getElementById('daily-events-note-saved');
+            // Contenu déjà celui enregistré (on vient de le recharger depuis dailyData) — indicateur
+            // affiché immédiatement, pas de délai nécessaire dans ce cas précis (pas une frappe en cours).
+            if (ind) { ind.textContent = t('dailyEventsNoteSaved'); ind.style.visibility = 'visible'; }
+        }
+
+        function updateDailyNoteCounter(len) {
+            const el = document.getElementById('daily-events-note-counter');
+            if (el) el.textContent = `${len}/80`;
+        }
+
+        // À chaque frappe : sauvegarde immédiate en mémoire/localStorage (comme partout ailleurs
+        // dans l'app — aucune notion de "brouillon non enregistré"), mise à jour du compteur, et
+        // l'indicateur "Enregistré" n'apparaît qu'après un court silence de frappe (jamais à chaque
+        // caractère, pour ne pas clignoter) — voir scheduleDailyNoteSavedIndicator(). Le tableau est
+        // rafraîchi pour que l'aperçu de la case Note reste à jour, mais PAS le panneau lui-même
+        // (renderDailyNotePanel() réécrirait ta.value et ferait sauter le curseur pendant la saisie).
+        function onDailyNoteInput(el) {
+            setDailyNote(window.dailyEventsNoteDate, el.value);
+            updateDailyNoteCounter(el.value.length);
+            scheduleDailyNoteSavedIndicator();
+            renderDailyEventsTable();
+        }
+
+        function scheduleDailyNoteSavedIndicator() {
+            const ind = document.getElementById('daily-events-note-saved');
+            if (!ind) return;
+            ind.style.visibility = 'hidden'; // masqué pendant la frappe — jamais de clignotement par caractère
+            clearTimeout(window._dailyNoteSaveTimer);
+            window._dailyNoteSaveTimer = setTimeout(() => {
+                ind.textContent = t('dailyEventsNoteSaved');
+                ind.style.visibility = 'visible';
+            }, 600);
+        }
+
         function renderDailyEventsTable() {
             const table = document.getElementById('daily-events-table');
             if (!table) return;
             const m = window.dailyEventsMonth;
             const tags = settings.eventTags.filter(tg => tg.active);
             const locale = getLocale();
+            const editDate = window.dailyEventsNoteDate; // jour actuellement chargé dans le panneau de note
 
             document.getElementById('daily-events-month-label').textContent =
                 m.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
@@ -8958,6 +9204,9 @@
                 if (tg.mode === 'tristate') { thead += `<th colspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 2; }
                 else { thead += `<th rowspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 1; }
             });
+            // Colonne Note — toujours en dernier, hors boucle des tags (ce n'est pas un event).
+            thead += `<th rowspan="2">${t('dailyEventsNoteHeader')}</th>`;
+            const totalCols = 1 /* date */ + totalDataCols /* tags */ + 1 /* note */;
             thead += '</tr><tr>';
             tags.forEach(tg => {
                 if (tg.mode === 'tristate') thead += `<th>${t('eventStateYes')}</th><th>${t('eventStateNo')}</th>`;
@@ -8976,7 +9225,7 @@
             // cumul, le tableau reste toujours borné à un seul mois affiché.
             if (!isCurrentMonth) {
                 const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
-                tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(1)"><td colspan="${1 + totalDataCols}">↑ ${escapeHtml(nextMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
+                tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(1)"><td colspan="${totalCols}">↑ ${escapeHtml(nextMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
             }
 
             for (let day = lastDay; day >= 1; day--) {
@@ -8984,20 +9233,36 @@
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const isWeekend = [0, 6].includes(d.getDay());
                 const isToday = d.getTime() === todayMidnight.getTime();
-                const rowClass = isToday ? ' de-today' : '';
+                const isEditing = dateKey === editDate;
+                const rowClass = (isToday ? ' de-today' : '') + (isEditing ? ' de-row-editing' : '');
                 const dateClass = 'de-col-date' + rowClass + (isWeekend ? ' de-weekend' : '');
-                tbody += `<tr>`;
-                tbody += `<td class="${dateClass}">${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>`;
+                tbody += `<tr class="${isEditing ? 'de-row-editing' : ''}">`;
+                // Date : tapable pour ouvrir/charger la note de ce jour dans le panneau (jamais les
+                // cases d'événement, qui servent déjà à activer/désactiver — voir décision projet).
+                tbody += `<td class="${dateClass}" onclick="editDailyNoteFor('${dateKey}')">${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>`;
                 tags.forEach(tg => {
                     if (tg.mode === 'tristate') {
                         const val = getDailyEventValue(dateKey, tg.id);
                         tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></td>`;
                         tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></td>`;
                     } else {
+                        // Couleur GLOBALE par tag (EVENT_TAG_COLORS), pas par mode — reconnaissable et
+                        // différente des couleurs de type. Appliquée en style inline (pas de classe CSS
+                        // par tagId à maintenir), seulement quand la case est active.
                         const on = getDailyEventPresence(dateKey, tg.id);
-                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot${on ? ' de-active-presence' : ''}"></div></div></td>`;
+                        const color = getEventTagColor(tg.id);
+                        const dotStyle = on ? ` style="background:${color};border-color:${color};"` : '';
+                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot"${dotStyle}></div></div></td>`;
                     }
                 });
+                // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles
+                // par CSS -webkit-line-clamp), "Pas de note" en gris sinon. Tap = ouvre/charge la note
+                // de ce jour dans le panneau (même action que le tap sur la date).
+                const noteText = getDailyNote(dateKey);
+                const notePreview = noteText
+                    ? escapeHtml(noteText)
+                    : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
+                tbody += `<td class="de-cell de-note-cell${rowClass}" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></td>`;
                 tbody += `</tr>`;
             }
 
@@ -9005,7 +9270,7 @@
             // elle qui assure la continuité de navigation (le mois adjacent reste toujours à portée
             // d'un tap), sans jamais faire grossir le tableau au-delà d'un seul mois affiché.
             const prevMonth = new Date(m.getFullYear(), m.getMonth() - 1, 1);
-            tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(-1)"><td colspan="${1 + totalDataCols}">↓ ${escapeHtml(prevMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
+            tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(-1)"><td colspan="${totalCols}">↓ ${escapeHtml(prevMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
 
             tbody += '</tbody>';
 
