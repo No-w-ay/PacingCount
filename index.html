@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.13"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.14"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -426,70 +426,6 @@
 
         .results-day-item:last-child {
             border-bottom: none;
-        }
-
-        /* Rangée de date des blocs-jour (Résultats) : date à gauche, sélecteurs tristate des
-           événements journaliers (ex. MPE) à droite. flex-wrap : si plusieurs tags tristate
-           sont actifs un jour, ils passent à la ligne sous la date au lieu de déborder. */
-        .results-date-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 6px 10px;
-            margin-bottom: 4px;
-        }
-
-        .results-event-group {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 6px 14px;
-        }
-
-        .results-event-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.85rem;
-        }
-
-        .results-event-label {
-            font-weight: bold;
-            opacity: 0.85;
-        }
-
-        .results-event-buttons {
-            display: inline-flex;
-            gap: 4px;
-        }
-
-        /* Non renseigné : contour gris neutre, sans remplissage. Cible tactile ~30px de haut. */
-        .event-state-btn {
-            min-width: 44px;
-            height: 30px;
-            padding: 0 10px;
-            background: transparent;
-            color: var(--text-color);
-            border: 1px solid #666;
-            border-radius: 6px;
-            font-size: 0.82rem;
-            cursor: pointer;
-        }
-
-        /* Oui = rouge sombre, Non = vert sombre (états sélectionnés). */
-        .event-state-btn.event-state-yes.active {
-            background: #8e2b2b;
-            border-color: #8e2b2b;
-            color: white;
-            font-weight: bold;
-        }
-
-        .event-state-btn.event-state-no.active {
-            background: #2e6b3a;
-            border-color: #2e6b3a;
-            color: white;
-            font-weight: bold;
         }
 
         .history-time {
@@ -1358,17 +1294,9 @@
             cursor: pointer;
         }
 
-        #daily-events-nav {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        #daily-events-month-label {
+        #daily-events-title {
             font-weight: bold;
             font-size: 1rem;
-            min-width: 130px;
-            text-align: center;
         }
 
         #daily-events-scroll {
@@ -1431,10 +1359,20 @@
             z-index: 3;
         }
 
-        /* 3 flèches compactes dans la case d'en-tête Date (remplace le mot "Date", qui n'apporte
-           rien ici) : ↓ recule d'un mois, ↑ avance d'un mois (masqué sur le mois courant, rien à
-           avancer), ⬆ retour direct au mois courant. Réutilisent navigateDailyEventsMonth() /
-           goToDailyEventsToday() — aucune nouvelle logique de navigation, juste ces déclencheurs. */
+        /* 1ère ligne de la cellule "Aujourd'hui" (2 lignes : "Aujourd'hui" puis la date complète,
+           voir renderDailyEventsTable()) — même taille que la date, juste mise en avant. */
+        .de-today-label {
+            font-weight: bold;
+            color: var(--blue);
+        }
+
+        /* 3 flèches compactes dans la case d'en-tête Date — SEULE navigation temporelle du
+           tableau (l'ancienne barre du haut ‹mois›⬆ a été retirée, remplacée par le titre
+           statique "Saisie journalière") : ↓ recule de 2 mois (toujours actif), ↑ avance de
+           2 mois (masqué si la fenêtre affiche déjà le mois courant, rien à avancer), ⬆ retour
+           direct à la fenêtre par défaut (mois courant + précédent). Réutilisent
+           navigateDailyEventsMonth() / goToDailyEventsToday() — aucune nouvelle logique de
+           navigation, juste ces déclencheurs. */
         #daily-events-table th.de-col-date {
             text-align: center;
         }
@@ -1463,18 +1401,19 @@
             pointer-events: none;
         }
 
-        /* Lignes-teaser de changement de mois — en bas (mois précédent, toujours présente) et en
-           haut (mois suivant, seulement si le mois affiché n'est pas déjà le mois courant). Un tap
-           REMPLACE le mois ancre affiché (jamais de cumul de plusieurs mois dans le tableau — sa
-           taille reste donc toujours bornée à un mois, quelle que soit la distance parcourue dans
-           le passé). Pas sticky : ligne normale du corps, elle défile avec le reste. */
-        .de-month-teaser td {
+        /* Ligne séparatrice de mois — purement informative, une par mois affiché (fenêtre fixe de
+           2 mois désormais, voir renderDailyEventsTable()) : annonce le nom du mois dont les
+           jours suivent immédiatement en dessous (jamais celui du dessus). N'est plus cliquable
+           et ne porte plus de flèche — toute la navigation temporelle passe désormais par les 3
+           flèches de la case d'en-tête Date. Pas sticky : ligne normale du corps, elle défile
+           avec le reste. */
+        .de-month-separator td {
             background: rgba(255, 255, 255, 0.04);
             text-align: center;
             font-size: 0.8rem;
+            font-weight: bold;
             opacity: 0.75;
             padding: 10px 6px;
-            cursor: pointer;
         }
 
         #daily-events-table th.de-col-date {
@@ -1550,10 +1489,15 @@
             box-sizing: border-box;
             resize: none;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 1rem;
             line-height: 1.35;
             padding: 6px 8px;
             margin-top: 0;
+            background: #333;
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            color-scheme: dark;
         }
 
         #daily-events-note-meta {
@@ -2179,15 +2123,7 @@
     <div id="daily-events-overlay">
         <div id="daily-events-header">
             <button id="daily-events-close-btn" onclick="closeDailyEventsOverlay()">✕</button>
-            <div id="daily-events-nav">
-                <button class="history-nav-btn" id="daily-events-prev-btn"
-                    onclick="navigateDailyEventsMonth(-1)">‹</button>
-                <span id="daily-events-month-label"></span>
-                <button class="history-nav-btn" id="daily-events-next-btn"
-                    onclick="navigateDailyEventsMonth(1)">›</button>
-                <button class="history-nav-btn" id="daily-events-today-btn"
-                    onclick="goToDailyEventsToday()">⬆</button>
-            </div>
+            <div id="daily-events-title"></div>
         </div>
         <!-- Panneau de note journalière — PERMANENT (pas seulement au tap), toujours visible en
              haut de l'overlay. Date affichée = window.dailyEventsNoteDate, réinitialisée sur
@@ -3444,12 +3380,12 @@
                 repeatable: false
             },
             {
-                id: "malade",
+                id: "sick",
                 label: { fr: "Malade", en: "Sick", nl: "Ziek" },
                 description: {
-                    fr: "Se sent malade ce jour (plus que d'ordinaire)",
-                    en: "Feels sick today (more than usual)",
-                    nl: "Voelt zich vandaag ziek (meer dan gewoonlijk)"
+                    fr: "Malade (agent infectieux)",
+                    en: "Sick (infectious agent)",
+                    nl: "Ziek (infectieus agens)"
                 },
                 mode: "presence",
                 polarity: "negative",
@@ -3477,7 +3413,7 @@
         // indépendant) → repli neutre (--blue), pour rester utilisable sans configuration préalable.
         const EVENT_TAG_COLORS = {
             pem: '#8e2b2b',      // rouge sombre
-            malade: '#a45c1f',   // orange sombre
+            sick: '#a45c1f',     // orange sombre
             day_ok: '#2e6b3a'    // vert sombre
         };
         function getEventTagColor(tagId) {
@@ -3848,6 +3784,22 @@
             }
         });
 
+        // Resynchronise les champs STRUCTURELS des tags builtin déjà présents — mode, polarity,
+        // timed, repeatable. Ces champs ne sont modifiables par aucune UI (contrairement à
+        // active, un vrai réglage utilisateur, jamais touché ici) : si la définition d'un tag
+        // builtin change dans BUILTIN_EVENT_TAGS (ex. pem passé de tristate à presence), un
+        // compte existant doit suivre ce changement sans reset manuel. label/description restent
+        // gérés séparément par changeLang() (retraduction), jamais recopiés ici.
+        settings.eventTags.forEach(tg => {
+            if (!tg.builtin) return;
+            const def = BUILTIN_EVENT_TAGS.find(d => d.id === tg.id);
+            if (!def) return;
+            tg.mode = def.mode;
+            tg.polarity = def.polarity;
+            tg.timed = def.timed ?? false;
+            tg.repeatable = def.repeatable ?? false;
+        });
+
         // Données journalières (événements, et plus tard notes) — clé localStorage dédiée,
         // indexée par date ISO "AAAA-MM-JJ". Un jour sans donnée n'a simplement pas de clé.
         // Structure : { "2026-07-15": { text?: "...", events?: [{ tagId, value?, time? }] } }
@@ -3900,9 +3852,11 @@
                 // Sélecteur tristate des événements journaliers (Résultats) — états oui / non
                 eventStateYes: "Oui", eventStateNo: "Non",
                 dailyEventsButtonTitle: "Événements journaliers",
+                dailyEventsTitle: "Saisie journalière",
                 dailyEventsDateHeader: "Date",
-                dailyEventsPrevMonth: "Mois précédent",
-                dailyEventsNextMonth: "Mois suivant",
+                dailyEventsToday: "Aujourd'hui",
+                dailyEventsPrevMonth: "2 mois précédents",
+                dailyEventsNextMonth: "2 mois suivants",
                 dailyEventsBackToToday: "Retour à aujourd'hui",
                 dailyEventsNoteHeader: "Note",
                 dailyEventsNoteEmpty: "Pas de note",
@@ -4184,9 +4138,11 @@
                 resIncomplet: "Incomplete day",
                 eventStateYes: "Yes", eventStateNo: "No",
                 dailyEventsButtonTitle: "Daily events",
+                dailyEventsTitle: "Daily input",
                 dailyEventsDateHeader: "Date",
-                dailyEventsPrevMonth: "Previous month",
-                dailyEventsNextMonth: "Next month",
+                dailyEventsToday: "Today",
+                dailyEventsPrevMonth: "Previous 2 months",
+                dailyEventsNextMonth: "Next 2 months",
                 dailyEventsBackToToday: "Back to today",
                 dailyEventsNoteHeader: "Note",
                 dailyEventsNoteEmpty: "No note",
@@ -4441,9 +4397,11 @@
                 resIncomplet: "Onvolledige dag",
                 eventStateYes: "Ja", eventStateNo: "Nee",
                 dailyEventsButtonTitle: "Dagelijkse gebeurtenissen",
+                dailyEventsTitle: "Dagelijkse invoer",
                 dailyEventsDateHeader: "Datum",
-                dailyEventsPrevMonth: "Vorige maand",
-                dailyEventsNextMonth: "Volgende maand",
+                dailyEventsToday: "Vandaag",
+                dailyEventsPrevMonth: "Vorige 2 maanden",
+                dailyEventsNextMonth: "Volgende 2 maanden",
                 dailyEventsBackToToday: "Terug naar vandaag",
                 dailyEventsNoteHeader: "Notitie",
                 dailyEventsNoteEmpty: "Geen notitie",
@@ -6589,7 +6547,7 @@
         // qu'on est en train d'activer — jamais ceux de la même polarity (ils coexistent librement),
         // jamais ceux d'un tag sans polarity (indépendants, ex. futur "médicament X"). N'est appelée
         // qu'au moment d'ACTIVER un tag (jamais à la désactivation) : activer 'pem' (negative) efface
-        // 'journee_ok' (positive) s'il était coché, mais laisse 'malade' (negative, même camp) et tout
+        // 'day_ok' (positive) s'il était coché, mais laisse 'sick' (negative, même camp) et tout
         // tag indépendant intacts. Si le tag qu'on active n'a lui-même pas de polarity, ne retire rien.
         function stripOppositePolarityEvents(events, activatingTagId) {
             const pol = getTagPolarity(activatingTagId);
@@ -6619,22 +6577,6 @@
             if (Object.keys(day).length === 0) delete dailyData[dateKey];
             saveDailyData();
             refreshDailyEventUIs();
-        }
-
-        // Sélecteur tristate (Oui / Non, contour neutre par défaut) pour chaque tag actif de mode
-        // 'tristate' — générique : un futur tag tristate apparaît ici sans code supplémentaire.
-        function buildEventTristateHTML(dateKey) {
-            const tags = settings.eventTags.filter(tg => tg.active && tg.mode === 'tristate');
-            if (tags.length === 0) return '';
-            let html = '<div class="results-event-group">';
-            tags.forEach(tg => {
-                const val = getDailyEventValue(dateKey, tg.id);
-                html += `<span class="results-event-tag"><span class="results-event-label">${tg.label}</span><span class="results-event-buttons">`;
-                html += `<button class="event-state-btn event-state-yes${val === 'yes' ? ' active' : ''}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')">${t('eventStateYes')}</button>`;
-                html += `<button class="event-state-btn event-state-no${val === 'no' ? ' active' : ''}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')">${t('eventStateNo')}</button>`;
-                html += `</span></span>`;
-            });
-            return html + '</div>';
         }
 
         // Tap sur Oui / Non : sélectionne la valeur ; un second tap sur la valeur déjà active
@@ -6775,7 +6717,7 @@
                 let html = '';
 
                 // Ligne 1 : date
-                html += `<div class="results-date-row"><strong>${day.displayDate}</strong>${buildEventTristateHTML(key)}</div>`;
+                html += `<div><strong>${day.displayDate}</strong></div>`;
 
                 // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour.
                 // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
@@ -8604,6 +8546,9 @@
                         label: sanitizeImportedLabel(tg.label) || tg.id,
                         description: sanitizeImportedLabel(tg.description, 200),
                         mode: tg.mode,
+                        // polarity : uniquement 'positive'/'negative' valides, sinon absente (undefined) —
+                        // jamais crue sur parole au-delà de ces deux valeurs.
+                        polarity: (tg.polarity === 'positive' || tg.polarity === 'negative') ? tg.polarity : undefined,
                         active: tg.active !== false,
                         timed: tg.timed === true,
                         repeatable: tg.repeatable === true,
@@ -9041,11 +8986,16 @@
         // Overlay portrait plein écran, ouvert depuis la page Mesure (#btn-daily-events).
         // Générique par tag actif (tous modes confondus) : 'tristate' occupe 2 colonnes (Oui/Non),
         // tout autre mode (ex. 'presence') en occupe 1 seule — un futur tag apparaît ici sans code
-        // supplémentaire, même principe que buildEventTristateHTML() dans Résultats.
+        // supplémentaire. Le mode 'tristate' reste géré ici pour un usage futur éventuel, mais
+        // aucun tag actif ne l'utilise actuellement (les 3 tags builtin sont tous en 'presence').
         // Défilement natif (CSS position:sticky, voir <style>) — pas de geste personnalisé en V1.
+        // Fenêtre affichée : toujours 2 mois civils pleins (mois ANCRE + le mois qui le précède),
+        // jamais plus. Plus de barre de navigation en haut de l'overlay (retirée) : la seule
+        // navigation temporelle passe par les 3 flèches de la case d'en-tête Date du tableau, qui
+        // déplacent la fenêtre par pas de 2 mois. Titre statique "Saisie journalière" à la place.
         // ============================================================
 
-        window.dailyEventsMonth = null; // Date (1er du mois affiché), initialisé à l'ouverture
+        window.dailyEventsMonth = null; // Mois ANCRE (1er du mois, le plus récent des 2 mois affichés) — initialisé à l'ouverture
 
         function openDailyEventsOverlay() {
             const overlay = document.getElementById('daily-events-overlay');
@@ -9069,6 +9019,8 @@
             if (overlay) overlay.style.display = 'none';
         }
 
+        // Déplace le mois ancre — appelée avec delta=±2 (voir les 3 flèches de la case Date,
+        // renderDailyEventsTable()) : la fenêtre affichée avance/recule toujours par paire de mois.
         function navigateDailyEventsMonth(delta) {
             const m = window.dailyEventsMonth;
             window.dailyEventsMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
@@ -9077,6 +9029,7 @@
             if (scroll) scroll.scrollTop = 0;
         }
 
+        // Retour à la fenêtre par défaut : mois courant (ancre) + mois précédent.
         function goToDailyEventsToday() {
             const n = new Date();
             window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
@@ -9173,31 +9126,32 @@
         function renderDailyEventsTable() {
             const table = document.getElementById('daily-events-table');
             if (!table) return;
-            const m = window.dailyEventsMonth;
+
+            const titleEl = document.getElementById('daily-events-title');
+            if (titleEl) titleEl.textContent = t('dailyEventsTitle');
+
+            const anchor = window.dailyEventsMonth; // mois le plus récent des 2 affichés
+            const prevAnchor = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1); // mois qui le précède, toujours affiché avec lui
             const tags = settings.eventTags.filter(tg => tg.active);
             const locale = getLocale();
             const editDate = window.dailyEventsNoteDate; // jour actuellement chargé dans le panneau de note
-
-            document.getElementById('daily-events-month-label').textContent =
-                m.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
 
             // Navigation bornée au mois courant côté futur (on ne journalise pas l'avenir) — aucune
             // borne côté passé, contrairement à Historique/Résultats : cet outil n'est pas lié aux
             // périodes enregistrées, un jour sans période reste journalisable.
             const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
-            const isCurrentMonth = (m.getFullYear() === todayMidnight.getFullYear() && m.getMonth() === todayMidnight.getMonth());
-            document.getElementById('daily-events-today-btn').disabled = isCurrentMonth;
-            document.getElementById('daily-events-next-btn').disabled = isCurrentMonth;
+            const isAnchorCurrentMonth = (anchor.getFullYear() === todayMidnight.getFullYear() && anchor.getMonth() === todayMidnight.getMonth());
 
             // --- En-tête à 2 niveaux ---
-            // Case Date : 3 flèches compactes plutôt que le mot "Date" (qui n'apportait rien) —
-            // ↓ recule d'un mois (toujours actif), ↑ avance d'un mois (masqué sur le mois courant,
-            // symétrique de "next" en haut), ⬆ retour direct au mois courant (masqué si déjà dessus).
+            // Case Date : 3 flèches compactes plutôt que le mot "Date" — SEULE navigation temporelle
+            // du tableau (voir commentaire de section) : ↓ recule la fenêtre de 2 mois (toujours
+            // actif), ↑ avance de 2 mois (masqué si la fenêtre affiche déjà le mois courant, rien à
+            // avancer), ⬆ retour direct à la fenêtre par défaut (masqué dans le même cas).
             let thead = '<thead><tr>';
             thead += `<th class="de-col-date" rowspan="2"><div class="de-col-date-buttons">
-                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(-1)" title="${t('dailyEventsPrevMonth')}">↓</button>
-                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(1)" ${isCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsNextMonth')}">↑</button>
-                <button class="de-nav-mini-btn" onclick="goToDailyEventsToday()" ${isCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsBackToToday')}">⬆</button>
+                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(-2)" title="${t('dailyEventsPrevMonth')}">↓</button>
+                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(2)" ${isAnchorCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsNextMonth')}">↑</button>
+                <button class="de-nav-mini-btn" onclick="goToDailyEventsToday()" ${isAnchorCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsBackToToday')}">⬆</button>
             </div></th>`;
             let totalDataCols = 0;
             tags.forEach(tg => {
@@ -9213,65 +9167,69 @@
             });
             thead += '</tr></thead>';
 
-            // --- Corps : jours civils du mois affiché, du plus récent au plus ancien — plafonné à
-            // aujourd'hui si le mois affiché est le mois courant (jamais de jour futur, même
-            // principe que pour les périodes : on n'enregistre rien pour un avenir pas encore connu).
-            const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
-            const lastDay = isCurrentMonth ? todayMidnight.getDate() : daysInMonth;
+            // --- Corps : un bloc par mois affiché (toujours 2 : ancre + précédent), chacun précédé
+            // d'une ligne séparatrice purement informative (nom du mois des jours qui suivent,
+            // jamais cliquable — voir CSS .de-month-separator). Jours du plus récent au plus ancien
+            // à l'intérieur d'un même mois, plafonné à aujourd'hui uniquement pour le mois qui EST
+            // le mois civil courant (jamais de jour futur, même principe que pour les périodes).
+            function buildMonthBlock(monthDate) {
+                const isThisCalendarMonth = (monthDate.getFullYear() === todayMidnight.getFullYear() && monthDate.getMonth() === todayMidnight.getMonth());
+                const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+                const lastDay = isThisCalendarMonth ? todayMidnight.getDate() : daysInMonth;
+
+                const rawLabel = monthDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+                const monthLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
+                let html = `<tr class="de-month-separator"><td colspan="${totalCols}">${escapeHtml(monthLabel)}</td></tr>`;
+
+                for (let day = lastDay; day >= 1; day--) {
+                    const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+                    const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                    const isWeekend = [0, 6].includes(d.getDay());
+                    const isToday = d.getTime() === todayMidnight.getTime();
+                    const isEditing = dateKey === editDate;
+                    const rowClass = (isToday ? ' de-today' : '') + (isEditing ? ' de-row-editing' : '');
+                    const dateClass = 'de-col-date' + rowClass + (isWeekend ? ' de-weekend' : '');
+                    const formattedDate = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date complète), pour repérer le
+                    // jour courant d'un coup d'œil sans avoir à lire/comparer la date affichée.
+                    const dateContent = isToday
+                        ? `<div class="de-today-label">${t('dailyEventsToday')}</div><div>${formattedDate}</div>`
+                        : formattedDate;
+                    html += `<tr class="${isEditing ? 'de-row-editing' : ''}">`;
+                    // Date : tapable pour ouvrir/charger la note de ce jour dans le panneau (jamais les
+                    // cases d'événement, qui servent déjà à activer/désactiver — voir décision projet).
+                    html += `<td class="${dateClass}" onclick="editDailyNoteFor('${dateKey}')">${dateContent}</td>`;
+                    tags.forEach(tg => {
+                        if (tg.mode === 'tristate') {
+                            const val = getDailyEventValue(dateKey, tg.id);
+                            html += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></td>`;
+                            html += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></td>`;
+                        } else {
+                            // Couleur GLOBALE par tag (EVENT_TAG_COLORS), pas par mode — reconnaissable et
+                            // différente des couleurs de type. Appliquée en style inline (pas de classe CSS
+                            // par tagId à maintenir), seulement quand la case est active.
+                            const on = getDailyEventPresence(dateKey, tg.id);
+                            const color = getEventTagColor(tg.id);
+                            const dotStyle = on ? ` style="background:${color};border-color:${color};"` : '';
+                            html += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot"${dotStyle}></div></div></td>`;
+                        }
+                    });
+                    // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles
+                    // par CSS -webkit-line-clamp), "Pas de note" en gris sinon. Tap = ouvre/charge la note
+                    // de ce jour dans le panneau (même action que le tap sur la date).
+                    const noteText = getDailyNote(dateKey);
+                    const notePreview = noteText
+                        ? escapeHtml(noteText)
+                        : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
+                    html += `<td class="de-cell de-note-cell${rowClass}" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></td>`;
+                    html += `</tr>`;
+                }
+                return html;
+            }
+
             let tbody = '<tbody>';
-
-            // Ligne-teaser mois suivant — seulement si on n'est pas déjà sur le mois courant (sinon
-            // rien de plus récent à proposer). Un tap REMPLACE le mois ancre (voir CSS) : jamais de
-            // cumul, le tableau reste toujours borné à un seul mois affiché.
-            if (!isCurrentMonth) {
-                const nextMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1);
-                tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(1)"><td colspan="${totalCols}">↑ ${escapeHtml(nextMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
-            }
-
-            for (let day = lastDay; day >= 1; day--) {
-                const d = new Date(m.getFullYear(), m.getMonth(), day);
-                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-                const isWeekend = [0, 6].includes(d.getDay());
-                const isToday = d.getTime() === todayMidnight.getTime();
-                const isEditing = dateKey === editDate;
-                const rowClass = (isToday ? ' de-today' : '') + (isEditing ? ' de-row-editing' : '');
-                const dateClass = 'de-col-date' + rowClass + (isWeekend ? ' de-weekend' : '');
-                tbody += `<tr class="${isEditing ? 'de-row-editing' : ''}">`;
-                // Date : tapable pour ouvrir/charger la note de ce jour dans le panneau (jamais les
-                // cases d'événement, qui servent déjà à activer/désactiver — voir décision projet).
-                tbody += `<td class="${dateClass}" onclick="editDailyNoteFor('${dateKey}')">${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>`;
-                tags.forEach(tg => {
-                    if (tg.mode === 'tristate') {
-                        const val = getDailyEventValue(dateKey, tg.id);
-                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></td>`;
-                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></td>`;
-                    } else {
-                        // Couleur GLOBALE par tag (EVENT_TAG_COLORS), pas par mode — reconnaissable et
-                        // différente des couleurs de type. Appliquée en style inline (pas de classe CSS
-                        // par tagId à maintenir), seulement quand la case est active.
-                        const on = getDailyEventPresence(dateKey, tg.id);
-                        const color = getEventTagColor(tg.id);
-                        const dotStyle = on ? ` style="background:${color};border-color:${color};"` : '';
-                        tbody += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot"${dotStyle}></div></div></td>`;
-                    }
-                });
-                // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles
-                // par CSS -webkit-line-clamp), "Pas de note" en gris sinon. Tap = ouvre/charge la note
-                // de ce jour dans le panneau (même action que le tap sur la date).
-                const noteText = getDailyNote(dateKey);
-                const notePreview = noteText
-                    ? escapeHtml(noteText)
-                    : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
-                tbody += `<td class="de-cell de-note-cell${rowClass}" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></td>`;
-                tbody += `</tr>`;
-            }
-
-            // Ligne-teaser mois précédent — toujours présente, aucune limite dans le passé. C'est
-            // elle qui assure la continuité de navigation (le mois adjacent reste toujours à portée
-            // d'un tap), sans jamais faire grossir le tableau au-delà d'un seul mois affiché.
-            const prevMonth = new Date(m.getFullYear(), m.getMonth() - 1, 1);
-            tbody += `<tr class="de-month-teaser" onclick="navigateDailyEventsMonth(-1)"><td colspan="${totalCols}">↓ ${escapeHtml(prevMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' }))}</td></tr>`;
-
+            tbody += buildMonthBlock(anchor);
+            tbody += buildMonthBlock(prevAnchor);
             tbody += '</tbody>';
 
             table.innerHTML = thead + tbody;
