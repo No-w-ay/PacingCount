@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -823,22 +823,26 @@
            visible/masquée avec le même bouton "L" que la légende. Forme barrette arrondie, PAS un
            cercle : distincte à dessein des cercles de la légende des types juste en dessous (cercle
            = type de période, pastille/barrette = événement journalier — même convention que Résultats).
-           Alignement en % avec margin-left:55px, même convention que la légende juste en dessous
-           (approximation, pas un calcul pixel-parfait via Chart.js) — à revoir seulement si un
-           décalage visible apparaît au test réel. Hauteur fixe : ne bouge jamais selon le nombre de
-           pastilles d'un jour à l'autre (0, 1 ou 2). margin-top faible (proche du graphe) ;
-           margin-top de la légende (6px, inchangé) reste l'espace réel jusqu'à elle. */
+           Positionnement PIXEL-PARFAIT : #timeline-event-markers sert de référentiel (position:relative,
+           pleine largeur, même largeur que le canvas puisque même parent) ; chaque groupe de pastilles
+           est positionné en absolu via left:Xpx, X étant la position réelle de sa colonne lue depuis
+           Chart.js (scales.x.getPixelForValue(i)) — jamais une marge devinée (voir Évolution/millésime
+           pour la même philosophie : lire la géométrie réelle plutôt que l'approximer). Hauteur fixe :
+           ne bouge jamais selon le nombre de pastilles d'un jour à l'autre (0, 1 ou 2). margin-top
+           faible (proche du graphe) ; margin-top de la légende (6px, inchangé) reste l'espace réel
+           jusqu'à elle. */
         #timeline-event-markers {
-            display: flex;
-            margin-left: 55px;
+            position: relative;
+            width: 100%;
             margin-top: 2px;
             height: 8px;
         }
 
         .timeline-event-marker-slot {
-            flex: 1;
+            position: absolute;
+            top: 0;
+            transform: translateX(-50%);
             display: flex;
-            justify-content: center;
             align-items: center;
             gap: 3px;
         }
@@ -9616,6 +9620,13 @@
         // légende des types (voir toggleTimelineLegend()) — masquée/affichée ensemble, pas de
         // bouton séparé : l'utilisateur qui veut rester simple n'a rien de plus à l'écran, celui
         // qui veut le détail active "L" une seule fois pour les deux.
+        // Positionnement PIXEL-PARFAIT (pas une marge CSS approximative comme la légende juste en
+        // dessous, qui n'a jamais eu besoin d'être exacte) : chaque groupe de pastilles lit la
+        // position réelle de sa colonne directement depuis l'instance Chart.js
+        // (scales.x.getPixelForValue(i)) — l'axe Y n'ayant pas de largeur fixe, deviner une marge
+        // se décale selon le contenu réel de l'axe. #timeline-event-markers (position:relative,
+        // pleine largeur) et le canvas partagent le même parent et la même largeur ; une position
+        // en px lue sur l'un s'applique donc identiquement sur l'autre, sans conversion.
         function renderTimelineEventMarkers(daysStart) {
             let existing = document.getElementById('timeline-event-markers');
             if (existing) existing.remove();
@@ -9624,13 +9635,19 @@
             row.id = 'timeline-event-markers';
             if (!window.showTimelineLegend) row.style.display = 'none';
 
-            row.innerHTML = daysStart.map(ts => {
+            const xScale = window.timelineChartInstance && window.timelineChartInstance.scales
+                ? window.timelineChartInstance.scales.x : null;
+
+            row.innerHTML = daysStart.map((ts, i) => {
                 const d = new Date(ts);
                 const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
                 const pills = getPresentDailyEventTags(dateKey)
                     .map(tg => `<span class="timeline-event-marker-pill" style="background:${getEventTagColor(tg.id)};"></span>`)
                     .join('');
-                return `<div class="timeline-event-marker-slot">${pills}</div>`;
+                if (!pills || !xScale) return ''; // rien à positionner ce jour (ou axe indisponible)
+                const xPixel = xScale.getPixelForValue(i);
+                if (!Number.isFinite(xPixel)) return '';
+                return `<div class="timeline-event-marker-slot" style="left:${xPixel}px;">${pills}</div>`;
             }).join('');
 
             const chartContainer = document.querySelector('#timeline-scroll .chart-container');
