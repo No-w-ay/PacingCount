@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.15"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.16"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -816,6 +816,37 @@
             60% {
                 transform: translateY(-7px);
             }
+        }
+
+        /* ── MINI-PASTILLES D'ÉVÉNEMENTS JOURNALIERS (graphe timeline, page Historique) ─────
+           Rangée insérée entre le graphe et la légende des types (voir renderTimelineEventMarkers()) —
+           visible/masquée avec le même bouton "L" que la légende. Forme barrette arrondie, PAS un
+           cercle : distincte à dessein des cercles de la légende des types juste en dessous (cercle
+           = type de période, pastille/barrette = événement journalier — même convention que Résultats).
+           Alignement en % avec margin-left:55px, même convention que la légende juste en dessous
+           (approximation, pas un calcul pixel-parfait via Chart.js) — à revoir seulement si un
+           décalage visible apparaît au test réel. Hauteur fixe : ne bouge jamais selon le nombre de
+           pastilles d'un jour à l'autre (0, 1 ou 2). margin-top faible (proche du graphe) ;
+           margin-top de la légende (6px, inchangé) reste l'espace réel jusqu'à elle. */
+        #timeline-event-markers {
+            display: flex;
+            margin-left: 55px;
+            margin-top: 2px;
+            height: 8px;
+        }
+
+        .timeline-event-marker-slot {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .timeline-event-marker-pill {
+            width: 10px;
+            height: 4px;
+            border-radius: 2px;
         }
 
         /* ── BARRE NAVIGATION TEMPORELLE (page Historique) ─────────────────
@@ -6594,22 +6625,27 @@
             return !!dailyData[dateKey]?.events?.some(e => e.tagId === tagId);
         }
 
-        // Pastilles d'événements journaliers pour un jour donné (Résultats) — un tag actif =
-        // une pastille (label court, texte blanc, fond = couleur du tag via getEventTagColor()).
-        // Générique par mode, mais seul 'presence' est rendu pour l'instant : aucun tag actif
+        // Liste des tags actifs présents pour un jour donné, dans l'ordre STABLE de
+        // settings.eventTags (jamais réordonné selon les données du jour) — partagée entre les
+        // pastilles de Résultats et les mini-pastilles sous les dates d'Historique, pour garder
+        // une seule source de vérité sur "quels événements compter comme présents ce jour".
+        // Générique par mode, mais seul 'presence' est retenu pour l'instant : aucun tag actif
         // n'utilise un autre mode aujourd'hui (voir BUILTIN_EVENT_TAGS). À étendre ici le moment
-        // venu, sans toucher ailleurs — pistes déjà identifiées : un futur 'tristate' afficherait
-        // la pastille seulement si value==='yes' (un "non" explicite ne justifie pas plus de
-        // pastille que "non renseigné", cohérent avec 'presence' qui n'affiche rien dans les deux
-        // cas) ; un futur 'numeric' pourrait inclure la valeur dans le label de la pastille.
+        // venu, sans toucher les deux appelants — pistes déjà identifiées : un futur 'tristate'
+        // compterait comme présent seulement si value==='yes' (un "non" explicite ne justifie pas
+        // plus qu'un "non renseigné", cohérent avec 'presence' qui n'affiche rien dans les deux
+        // cas) ; un futur 'numeric' resterait probablement hors de cette liste (pas de pastille
+        // pertinente sans widget dédié pour afficher sa valeur).
+        function getPresentDailyEventTags(dateKey) {
+            return settings.eventTags.filter(tg => tg.active && tg.mode === 'presence' && getDailyEventPresence(dateKey, tg.id));
+        }
+
+        // Pastilles d'événements journaliers pour un jour donné (Résultats) — un tag présent =
+        // une pastille (label court, texte blanc, fond = couleur du tag via getEventTagColor()).
         function buildDailyEventPillsHTML(dateKey) {
-            let html = '';
-            settings.eventTags.filter(tg => tg.active).forEach(tg => {
-                if (tg.mode !== 'presence') return; // tristate/numeric : voir commentaire ci-dessus
-                if (!getDailyEventPresence(dateKey, tg.id)) return;
-                html += `<span class="results-event-pill" style="background:${getEventTagColor(tg.id)};">${escapeHtml(tg.label)}</span>`;
-            });
-            return html;
+            return getPresentDailyEventTags(dateKey)
+                .map(tg => `<span class="results-event-pill" style="background:${getEventTagColor(tg.id)};">${escapeHtml(tg.label)}</span>`)
+                .join('');
         }
 
         // polarity d'un tag ('positive' | 'negative' | undefined si le tag n'a pas ce champ, ou
@@ -9479,6 +9515,10 @@
 
             // Légende personnalisée sous le graphique
             renderTimelineLegend(textGray, getTypesWithHistoryData());
+            // Mini-pastilles d'événements journaliers — appelée APRÈS la légende : chartContainer.after()
+            // insère alors cette rangée juste après le graphe, poussant la légende déjà en place juste
+            // après elle (ordre final : graphe > pastilles > légende), sans logique d'ordre à coder.
+            renderTimelineEventMarkers(daysStart);
         }
 
         // Génère la légende colorée sous le graphique timeline.
@@ -9569,6 +9609,34 @@
             }, { passive: true });
         }
 
+        // Rangée de mini-pastilles d'événements journaliers sous le graphe timeline — un
+        // emplacement par jour affiché (7, mêmes jours que daysStart), 0 à 2 pastilles par
+        // emplacement selon getPresentDailyEventTags() (ordre stable, jamais plus de 2 events
+        // simultanés aujourd'hui vu l'exclusion par polarity). Respecte le même bouton "L" que la
+        // légende des types (voir toggleTimelineLegend()) — masquée/affichée ensemble, pas de
+        // bouton séparé : l'utilisateur qui veut rester simple n'a rien de plus à l'écran, celui
+        // qui veut le détail active "L" une seule fois pour les deux.
+        function renderTimelineEventMarkers(daysStart) {
+            let existing = document.getElementById('timeline-event-markers');
+            if (existing) existing.remove();
+
+            const row = document.createElement('div');
+            row.id = 'timeline-event-markers';
+            if (!window.showTimelineLegend) row.style.display = 'none';
+
+            row.innerHTML = daysStart.map(ts => {
+                const d = new Date(ts);
+                const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+                const pills = getPresentDailyEventTags(dateKey)
+                    .map(tg => `<span class="timeline-event-marker-pill" style="background:${getEventTagColor(tg.id)};"></span>`)
+                    .join('');
+                return `<div class="timeline-event-marker-slot">${pills}</div>`;
+            }).join('');
+
+            const chartContainer = document.querySelector('#timeline-scroll .chart-container');
+            if (chartContainer) chartContainer.after(row);
+        }
+
         function toggleTimelineLegend() {
             window.showTimelineLegend = !window.showTimelineLegend;
             settings.showTimelineLegend = window.showTimelineLegend;
@@ -9576,9 +9644,12 @@
             // Barre oblique via classe CSS — pas d'opacity, le bouton reste identique visuellement
             const btn = document.getElementById('nav-legend');
             if (btn) btn.classList.toggle('nav-legend-off', !window.showTimelineLegend);
-            // Affiche ou masque la légende sans redessiner le graphe
+            // Affiche ou masque la légende et les mini-pastilles d'événements, ensemble, sans
+            // redessiner le graphe.
             const legend = document.getElementById('timeline-custom-legend');
             if (legend) legend.style.display = window.showTimelineLegend ? 'flex' : 'none';
+            const markers = document.getElementById('timeline-event-markers');
+            if (markers) markers.style.display = window.showTimelineLegend ? 'flex' : 'none';
         }
 
         // ============================================================
