@@ -8,7 +8,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.17"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -851,6 +851,25 @@
             width: 10px;
             height: 4px;
             border-radius: 2px;
+        }
+
+        /* Mini-pastilles d'événements journaliers — graphe journalier (onglet Résultats, voir
+           renderDailyCharts()). Même forme que dans Historique (.timeline-event-marker-pill,
+           réutilisée telle quelle). Élément frère du <div> de date (pas un enfant) : n'hérite
+           jamais de son opacité weekend (inline, propre à ce <div>). Positionné en absolu dans
+           l'espace déjà vide sous la barre (top:26px, juste sous les 24px de hauteur de barre) —
+           ne modifie ni la hauteur de la ligne ni son margin-bottom, aucun élément existant
+           déplacé. Largeur 45px alignée sur celle du <div> de date (même colonne). */
+        .daily-chart-event-markers {
+            position: absolute;
+            left: 0;
+            top: 26px;
+            width: 45px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3px;
+            pointer-events: none;
         }
 
         /* ── BARRE NAVIGATION TEMPORELLE (page Historique) ─────────────────
@@ -7133,6 +7152,18 @@
                 const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
                 const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
+                // Mini-pastilles d'événements journaliers — même fonction et même forme (barrette,
+                // pas un cercle) que dans Historique. Élément DOM séparé (pas un enfant du <div> de
+                // date), positionné en absolu : n'hérite donc jamais de l'opacité weekend du <div>
+                // de date (inline, propre à cet élément) et ne modifie ni la hauteur de ligne ni
+                // margin-bottom — vient simplement occuper l'espace déjà vide sous la barre.
+                const eventPillsHTML = getPresentDailyEventTags(dateKey)
+                    .map(tg => `<span class="timeline-event-marker-pill" style="background:${getEventTagColor(tg.id)};"></span>`)
+                    .join('');
+                const eventMarkersHTML = eventPillsHTML
+                    ? `<div class="daily-chart-event-markers">${eventPillsHTML}</div>`
+                    : '';
+
                 const dotDisplay = window.showMoyDots ? 'block' : 'none';
 
                 const avgDot = avgPc !== null ? `
@@ -7152,6 +7183,7 @@
                         <div style="${dateLabelStyle}">
                             ${day.displayDate}
                         </div>
+                        ${eventMarkersHTML}
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(day.totals).sort().map(type => {
