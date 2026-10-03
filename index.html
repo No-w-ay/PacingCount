@@ -5,10 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+    <!-- DIRECTIVE SEO : Redirection du crédit SEO  -->
+    <link rel="canonical" href="https://home.pacingcount.pages.dev/">
+
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.18"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.19"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -468,6 +471,7 @@
         .results-day-note {
             display: -webkit-box;
             -webkit-line-clamp: 2;
+              line-clamp: 2; /* Ajout de la propriété standard */
             -webkit-box-orient: vertical;
             overflow: hidden;
             font-size: 0.85rem;
@@ -1609,7 +1613,8 @@
         #daily-events-note-textarea:focus {
             outline: none;
             border: 2px solid var(--beige-light);
-            padding: 5px 7px; /* compense l'épaississement de la bordure (+1px) pour ne pas décaler le texte */
+            padding: 5px 7px;
+            /* compense l'épaississement de la bordure (+1px) pour ne pas décaler le texte */
         }
 
         #daily-events-note-meta {
@@ -1684,8 +1689,7 @@
     <div id="page-measure" class="page active">
         <div class="measure-header">
             <h1 id="title-measure">PacingCount</h1>
-            <button id="btn-daily-events" onclick="openDailyEventsOverlay()"
-                title="Événements journaliers">📝</button>
+            <button id="btn-daily-events" onclick="openDailyEventsOverlay()" title="Événements journaliers">📝</button>
         </div>
         <div class="timer-container">
             <div id="main-timer" class="timer-display text-default">00:00:00</div>
@@ -1783,7 +1787,8 @@
             <p id="csv-format-note" style="margin:0 0 12px 0; font-size:0.85rem; opacity:0.8; line-height:1.5;"></p>
             <div style="display:flex; gap:8px;">
                 <button class="export-btn" id="btn-export-csv-settings" onclick="exportCSV()"
-                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">Export partiel (.csv)</button>
+                    style="background: var(--orange); flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">Export
+                    partiel (.csv)</button>
                 <button class="export-btn" id="btn-import-csv-settings"
                     onclick="document.getElementById('csv-file').click()"
                     style="flex: 1; padding: 8px; margin: 0; font-size: 0.95rem;">Importer (.json/.csv)</button>
@@ -1940,7 +1945,8 @@
                     style="flex: 1.2; padding: 8px; margin: 0; font-size: 1rem;" id="btn-import">
                     Importer (.json/.csv)
                 </button>
-                <input type="file" id="csv-file" accept=".json, .csv, application/json, text/csv, text/plain, application/vnd.ms-excel"
+                <input type="file" id="csv-file"
+                    accept=".json, .csv, application/json, text/csv, text/plain, application/vnd.ms-excel"
                     style="display:none;" onchange="importFile(event)">
             </div>
 
@@ -5229,6 +5235,18 @@
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                             waitingWorker = newWorker;
                             console.log('[Update] Nouveau SW installé, en attente d\'activation');
+                            // Re-déclenche checkMessages() : la détection d'un nouveau SW par le navigateur n'est pas liée au
+                            // démarrage de l'app — elle peut survenir n'importe quand pendant qu'elle tourne (même en arrière-
+                            // plan), par exemple si une mise à jour est déployée alors que l'app est déjà ouverte depuis un
+                            // moment. Le passage unique de checkMessages() au démarrage aurait alors sauté le message 'update',
+                            // faute de SW en attente à ce moment-là. Pas de flag anti-doublon nécessaire : seenMessages[]/
+                            // lastShownUpdate (voir evaluateMessageEligibility()) empêchent déjà qu'un même message réapparaisse.
+                            // Garde minimale : ne jamais interrompre un splash en cours, ni écraser un modal déjà ouvert — mais
+                            // si la garde bloque ici, ce rattrapage ne se représente pas seul ensuite (voir limite ci-dessous).
+                            if (!document.getElementById('install-splash')
+                                && document.getElementById('messageModal').style.display !== 'flex') {
+                                checkMessages();
+                            }
                         }
                     });
                 });
