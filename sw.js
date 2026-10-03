@@ -1,9 +1,11 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.29-beta.19'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.29-beta.20'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './style.css',            // nouveau refactorisation
+  './js/translations.js',   // nouveau refactorisation
   './manifest.json',
   './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux
@@ -21,7 +23,7 @@ function sendLogToPage(message) {
       });
     });
   });
-} 
+}
 
 // Utilisation :
 sendLogToPage(`[SW-SLTP] Premier SLTP pour SW ${CACHE_NAME}`);

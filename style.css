@@ -1,0 +1,1616 @@
+     :root {
+         --bg-color: #121212;
+         --card-bg: #1e1e1e;
+         --text-color: #e0e0e0;
+
+         --blue: hsl(207, 90%, 45%);
+         /* hsl(207, 90%, 54%); #2196F3; */
+         --green: hsl(122, 32%, 51%);
+         /* hsl(122, 39%, 49%); #2196F3; */
+         --yellow: hsl(48, 90%, 50%);
+         /* Jaune — typeId 3 dans la palette 6 couleurs (Passe A v0.9.24) */
+         --orange: hsl(36, 90%, 50%);
+         /* hsl(36, 100%, 50%); #2196F3; */
+         --red: #f44336;
+         --purple: hsl(291, 64%, 42%);
+         /* Équivalent de #9C27B0 */
+         --teal: hsl(174, 60%, 41%);
+         /* Nouvelle couleur pour un éventuel 7e type */
+         --beige-light: #e0c896;
+         /* Mise en évidence du jour édité dans le tableau d'événements journaliers */
+
+         --border: #333;
+
+         /* Gris spécifiques pour le graphique Chart.js */
+         --chart-gray-bar: hsl(0, 0%, 33%);
+         /* Équivalent de #555555 */
+         --chart-gray-text: hsl(0, 0%, 69%);
+         /* Équivalent de #b0b0b0 */
+         --grid-color: rgba(255, 255, 255, 0.2);
+         --grid-line: hsl(0, 0%, 45%);
+
+         --melange: color-mix(in srgb, var(--blue) 50%, var(--green));
+         --melange2: hsl(164, 61%, 48%);
+         /* Fallback de mélange si nav ne comprends pas color-mix */
+
+         --nav-height: 58px;
+         /* min-height de nav — utilisé par #timeline-footer */
+
+     }
+
+     body {
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         background-color: var(--bg-color);
+         color: var(--text-color);
+         margin: 0;
+         display: flex;
+         flex-direction: column;
+         height: 100vh;
+         overflow: hidden;
+     }
+
+     nav {
+         display: flex;
+         justify-content: space-around;
+         background: var(--card-bg);
+         padding: 15px 0;
+         border-top: 1px solid var(--border);
+         position: fixed;
+         bottom: 0;
+         width: 100%;
+         z-index: 10;
+     }
+
+     nav button {
+         background: none;
+         border: none;
+         color: var(--text-color);
+         font-size: 0.9rem;
+         opacity: 0.6;
+         cursor: pointer;
+     }
+
+     nav button.active {
+         opacity: 1;
+         font-weight: bold;
+         color: var(--blue);
+     }
+
+     /* Override pour page-timeline : scroll interne + footer fixe en bas */
+     #page-timeline {
+         padding-bottom: 0;
+         overflow: hidden;
+     }
+
+     /* Override pour page-results : même traitement, scroll interne + footer fixe
+           (voir #results-footer) — pattern répliqué de #page-timeline */
+     #page-results {
+         padding-bottom: 0;
+         overflow: hidden;
+         padding-left: 0;
+         padding-right: 0;
+     }
+
+     /* ── MODE DÉVELOPPEUR ──────────────────────────────────────────
+           Les éléments .dev-only sont cachés par défaut.
+           La classe .dev-mode sur <body> les rend visibles.        */
+     .dev-only {
+         display: none;
+     }
+
+     body.dev-mode .dev-only {
+         display: block;
+     }
+
+     /* Pour les boutons inline, on surcharge avec inline-block */
+     body.dev-mode button.dev-only {
+         display: inline-block;
+     }
+
+     /* Indicateur discret en bas de la section À propos #dev-mode-indicator */
+     body.dev-mode #dev-mode-indicator {
+         display: flex;
+     }
+
+     /* Montre ou masque Eruda - bug je retire  */
+
+     .page {
+         display: none;
+         flex-direction: column;
+         padding: 20px;
+         padding-bottom: 100px;
+         overflow-y: auto;
+         flex-grow: 1;
+     }
+
+     .page.active {
+         display: flex;
+     }
+
+     h1 {
+         font-size: 1.5rem;
+         text-align: center;
+     }
+
+     /* Enveloppe le titre pour permettre au bouton "Événements journaliers" d'être positionné
+           en absolu sur son bord droit, sans jamais décentrer le titre (toujours centré sur toute
+           la largeur — même technique que le bouton fermer d'Évolution, ancré sur un conteneur
+           relatif). */
+     .measure-header {
+         position: relative;
+     }
+
+     #btn-daily-events {
+         position: absolute;
+         top: 50%;
+         right: 0;
+         transform: translateY(-50%);
+         background: rgba(255, 255, 255, 0.1);
+         border: none;
+         color: var(--text-color);
+         width: 34px;
+         height: 34px;
+         border-radius: 50%;
+         font-size: 1rem;
+         line-height: 1;
+         cursor: pointer;
+     }
+
+     .measure-btn {
+         width: 100%;
+         padding: 25px 15px;
+         margin: 10px 0;
+         border: none;
+         border-radius: 12px;
+         font-size: 1.1rem;
+         font-weight: bold;
+         color: white;
+         cursor: pointer;
+         /* Refactoring couleurs : fond injecté via --btn-color (défini en JS par getColorForId).
+               Compatible avec tout format CSS : var(--blue), #hex, hsl(), etc. */
+         background-color: var(--btn-color, #444);
+         transition: transform 0.1s, filter 0.1s;
+     }
+
+     .measure-btn:active {
+         transform: scale(0.98);
+     }
+
+     /* btn-blue / btn-green / btn-orange supprimées — remplacées par --btn-color (Passe refactoring) */
+
+     .btn-stop {
+         background-color: transparent;
+         color: var(--red);
+         border: 1px solid var(--red);
+         padding: 10px;
+         margin-top: 15px;
+         border-radius: 8px;
+         font-size: 1rem;
+         cursor: pointer;
+     }
+
+     .active-indicator {
+         border: 4px solid white;
+         box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+     }
+
+     .timer-container {
+         text-align: center;
+         margin: 15px 0;
+     }
+
+     .timer-display {
+         font-size: 3rem;
+         font-family: monospace;
+         font-weight: bold;
+         transition: color 0.3s;
+     }
+
+     .timer-previous {
+         font-size: 1.2rem;
+         font-family: monospace;
+         opacity: 0.8;
+         margin-top: 5px;
+     }
+
+     .text-default {
+         color: var(--text-color);
+     }
+
+     .text-blue {
+         color: var(--blue);
+     }
+
+     .text-green {
+         color: var(--green);
+     }
+
+     .text-yellow {
+         color: var(--yellow);
+     }
+
+     .text-orange {
+         color: var(--orange);
+     }
+
+     /* .text-red et .text-purple ajoutés pour les typeIds 5 et 6 (Passe A v0.9.24) */
+     .text-red {
+         color: var(--red);
+     }
+
+     .text-purple {
+         color: var(--purple);
+     }
+
+     /* ============================================================
+           PASSE D — Réglages : toggles de types et sélecteur de profils
+           ============================================================ */
+
+     /* Ligne d'un slot de type : toggle coloré + input de renommage */
+     .type-settings-row {
+         display: flex;
+         align-items: center;
+         gap: 10px;
+         margin-bottom: 8px;
+     }
+
+     .type-settings-row input {
+         flex: 1;
+         margin-top: 0;
+     }
+
+     /* Bouton ON/OFF coloré pour chaque slot.
+           La couleur est injectée via --toggle-color (getColorForId), comme --btn-color sur .measure-btn */
+     .type-toggle-btn {
+         flex-shrink: 0;
+         width: 52px;
+         padding: 7px 0;
+         border: 2px solid var(--toggle-color, #555);
+         border-radius: 6px;
+         font-size: 0.72rem;
+         font-weight: bold;
+         letter-spacing: 0.05em;
+         cursor: pointer;
+         transition: background-color 0.15s, color 0.15s;
+         background-color: transparent;
+         color: var(--toggle-color, #aaa);
+     }
+
+     .type-toggle-btn.active {
+         background-color: var(--toggle-color, #555);
+         color: white;
+     }
+
+     /* Sélecteur de profils prédéfinis */
+     .profile-selector {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 8px;
+         margin-top: 4px;
+     }
+
+     .profile-btn {
+         padding: 8px 14px;
+         border-radius: 6px;
+         border: 1px solid #555;
+         background: transparent;
+         color: var(--text-color);
+         cursor: pointer;
+         font-size: 0.88rem;
+         transition: background 0.15s, border-color 0.15s;
+     }
+
+     .profile-btn.active {
+         border-color: var(--blue);
+         background: rgba(100, 160, 220, 0.15);
+         color: white;
+         font-weight: bold;
+     }
+
+     .profile-custom-label {
+         font-size: 0.85rem;
+         opacity: 0.65;
+         align-self: center;
+     }
+
+     .settings-group {
+         background: var(--card-bg);
+         padding: 15px;
+         border-radius: 8px;
+         margin-bottom: 20px;
+     }
+
+     input,
+     select {
+         width: 100%;
+         padding: 10px;
+         margin-top: 5px;
+         background: #333;
+         color: white;
+         border: 1px solid #444;
+         border-radius: 4px;
+         box-sizing: border-box;
+         color-scheme: dark;
+     }
+
+     .export-btn {
+         background: var(--blue);
+         color: white;
+         border: none;
+         padding: 15px;
+         border-radius: 5px;
+         margin-bottom: 20px;
+         width: 100%;
+         font-size: 1.1rem;
+         font-weight: bold;
+         cursor: pointer;
+         flex: 1;
+     }
+
+     .history-container {
+         background: var(--card-bg);
+         border-radius: 8px;
+         padding: 15px;
+     }
+
+     .history-item {
+         display: flex;
+         justify-content: space-between;
+         align-items: center;
+         padding: 12px 0;
+         border-bottom: 1px solid var(--border);
+         font-size: 0.9rem;
+     }
+
+     .history-item:last-child {
+         border-bottom: none;
+     }
+
+     /* Style plat façon .history-item — remplace la carte .settings-group pour chaque
+           bloc-jour de la vue Résultats (Chantier 1B, suite) : regagne de la largeur
+           horizontale (pas de padding propre, hérite de celui de la page) et unifie le
+           rendu visuel avec l'onglet Historique. */
+     .results-day-item {
+         padding: 12px 0;
+         border-bottom: 1px solid var(--border);
+     }
+
+     .results-day-item:last-child {
+         border-bottom: none;
+     }
+
+     /* Ligne 1 des blocs-jour de Résultats quand des événements journaliers existent ce jour —
+           date à gauche, pastilles à droite (voir buildDailyEventPillsHTML()). flex-wrap : si
+           plusieurs pastilles ne tiennent pas sur la largeur, elles passent à la ligne plutôt que
+           de déborder. Une ligne normale (juste <strong>date</strong>) est utilisée à la place
+           quand aucune pastille n'existe ce jour — voir renderResults(). */
+     .results-date-pills-row {
+         display: flex;
+         align-items: center;
+         justify-content: space-between;
+         flex-wrap: wrap;
+         gap: 4px 8px;
+     }
+
+     .results-event-pills {
+         display: flex;
+         flex-wrap: wrap;
+         justify-content: flex-end;
+         gap: 4px;
+     }
+
+     /* Pastille d'événement — label court, texte blanc, fond = couleur du tag
+           (EVENT_TAG_COLORS via getEventTagColor()), injecté en style inline au rendu. */
+     .results-event-pill {
+         display: inline-block;
+         padding: 2px 8px;
+         border-radius: 10px;
+         font-size: 0.72rem;
+         font-weight: bold;
+         color: white;
+         white-space: nowrap;
+     }
+
+     /* Note du jour (Résultats) — même principe visuel que .de-note-preview du tableau
+           (plafonnée à 2 lignes), en dessous de la ligne date/pastilles. N'apparaît que si une
+           note existe pour ce jour — voir renderResults(). */
+     .results-day-note {
+         display: -webkit-box;
+         -webkit-line-clamp: 2;
+         line-clamp: 2;
+         -webkit-box-orient: vertical;
+         overflow: hidden;
+         font-size: 0.85rem;
+         opacity: 0.85;
+         margin-top: 4px;
+     }
+
+     .history-time {
+         font-size: 0.85rem;
+         color: #aaa;
+         margin-bottom: 4px;
+         display: block;
+
+         /* Magie : force les chiffres à avoir la même largeur */
+         font-variant-numeric: tabular-nums;
+     }
+
+     .history-actions {
+         display: flex;
+         gap: 5px;
+     }
+
+     .btn-icon {
+         background: rgba(255, 255, 255, 0.1);
+         color: var(--text-color);
+         border: none;
+         border-radius: 4px;
+         font-size: 1rem;
+         cursor: pointer;
+         padding: 8px 12px;
+     }
+
+     .add-btn {
+         background: var(--green);
+         color: white;
+         border: none;
+         padding: 10px;
+         border-radius: 5px;
+         width: 100%;
+         font-weight: bold;
+         font-size: 1rem;
+         margin-bottom: 15px;
+         cursor: pointer;
+     }
+
+     .modal {
+         display: none;
+         position: fixed;
+         /* Au-dessus du splash d'installation (500) et des toasts (550) : un modal ouvert
+               par une action utilisateur explicite doit toujours pouvoir s'afficher, même si
+               ces éléments étaient déjà présents — protection structurelle, pas conventionnelle. */
+         z-index: 560;
+         left: 0;
+         top: 0;
+         width: 100%;
+         height: 100%;
+         background-color: rgba(0, 0, 0, 0.8);
+         align-items: center;
+         justify-content: center;
+     }
+
+     .modal-content {
+         background-color: var(--card-bg);
+         padding: 20px;
+         border-radius: 12px;
+         width: 90%;
+         max-width: 400px;
+         /* Scroll interne si le contenu dépasse (utile pour le modal d'import avec tableau) */
+         max-height: 90vh;
+         overflow-y: auto;
+     }
+
+     .version-display {
+         text-align: center;
+         /* On utilise les variables CSS pour la cohérence */
+         color: var(--text-color);
+         /* opacity: 0.5; */
+         /* Rend le texte discret sans changer la couleur */
+         font-size: 0.8rem;
+         margin-top: 30px;
+         margin-bottom: 10px;
+         font-family: monospace;
+         /* Rappelle le côté "technique/version" */
+     }
+
+     /* --- MODE PSEUDO-VEILLE --- */
+     #sleep-overlay {
+         position: fixed;
+         top: 0;
+         left: 0;
+         width: 100vw;
+         height: 100vh;
+         background-color: #000000;
+         z-index: 9999;
+         transition: opacity 0.3s ease, visibility 0.3s ease;
+     }
+
+     #sleep-overlay.hidden {
+         opacity: 0;
+         visibility: hidden;
+         pointer-events: none;
+         /* Crucial : laisse passer tes clics quand l'écran est caché */
+     }
+
+     #sleep-overlay .swipe-hint {
+         position: absolute;
+         /* On remonte la flèche pour éviter les éléments du bas d'écran */
+         bottom: 120px;
+         left: 0;
+         width: 100%;
+         text-align: center;
+         color: #555;
+         animation: bounce 2s infinite;
+     }
+
+     #sleep-overlay .swipe-hint .arrow {
+         font-size: 3rem;
+         /* Flèche un peu plus grosse puisqu'il n'y a plus de texte */
+     }
+
+     /* --- SPLASH D'INSTALLATION PWA ---
+           Injecté dynamiquement par showInstallSplash() (voir script, section dédiée).
+           Réutilise les variables CSS et classes existantes (--bg-color, --blue, .export-btn,
+           même esprit visuel que #sleep-overlay) plutôt qu'une identité graphique à part. */
+     /* Conteneur externe : scroll pur, sans centrage. Un flex centré avec overflow-y:auto
+           coupe systématiquement le haut du contenu qui déborde (bug connu du centrage
+           flex/grid, reproductible sur les WebView Android et Safari) — on ne peut alors
+           jamais atteindre le début du contenu. Le centrage est délégué à #install-splash-inner
+           ci-dessous, seul capable de centrer *et* rester scrollable sans rien couper. */
+     #install-splash {
+         position: fixed;
+         inset: 0;
+         background: var(--bg-color);
+         z-index: 500;
+         overflow-y: auto;
+         -webkit-overflow-scrolling: touch;
+         animation: installSplashFadeIn 0.25s ease;
+     }
+
+     /* min-height:100% (de la zone scrollable, pas du viewport) : remplit l'écran et centre
+           verticalement quand le contenu est court ; dès que le contenu dépasse, le conteneur
+           grandit au-delà de 100% et #install-splash (scroll normal, non centré) rend tout
+           accessible sans rien couper. */
+     #install-splash-inner {
+         min-height: 100%;
+         box-sizing: border-box;
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         justify-content: center;
+         text-align: center;
+         padding: 30px 24px;
+         gap: 16px;
+         /* Espacement uniforme entre les blocs directement présents (logo/nom/slogan/corps) —
+               fiable quelle que soit la combinaison affichée, sans marges à ajuster au cas par cas. */
+     }
+
+     /* z-index supérieur à #install-splash (500) — ce modal peut être déclenché depuis
+           l'intérieur même du splash (écran export navigateur intégré), il doit toujours passer au-dessus. */
+     #manualExportModal {
+         z-index: 600;
+     }
+
+     @keyframes installSplashFadeIn {
+         from {
+             opacity: 0;
+         }
+
+         to {
+             opacity: 1;
+         }
+     }
+
+     #install-splash-logo {
+         width: 84px;
+         height: 84px;
+         border-radius: 20px;
+         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+     }
+
+     #install-splash-appname {
+         font-family: 'Lora', serif;
+         /* Même police que le nom de l'app en À propos — cohérence de marque */
+         font-size: 1.6rem;
+         font-weight: bold;
+         color: var(--text-color);
+     }
+
+     #install-splash-slogan {
+         font-size: 0.88rem;
+         opacity: 0.6;
+         font-style: italic;
+     }
+
+     /* Corps dynamique (reminder / instructions / CTA / lien du bas) — reconstruit par
+           renderInstallSplashButtonScreen() ou renderInstallSplashInstructions(). Gap plus
+           resserré qu'au niveau supérieur : ces éléments sont plus étroitement liés entre eux. */
+     #install-splash-body {
+         display: flex;
+         flex-direction: column;
+         align-items: center;
+         width: 100%;
+         max-width: 320px;
+         gap: 10px;
+     }
+
+     /* Espace réservé pour le paragraphe de contexte du Splash 1 — même nombre de "lignes"
+           affiché avec ou sans texte (voir renderInstallSplashButtonScreen()), pour que le
+           bouton en dessous ne bouge jamais selon le cas. */
+     #install-splash-context {
+         width: 100%;
+         font-size: 0.95rem;
+         line-height: 1.6;
+     }
+
+     .install-splash-context-line {
+         line-height: 1.6;
+     }
+
+     #install-splash-reminder-text {
+         opacity: 0.88;
+     }
+
+     #install-splash-cta-area {
+         width: 100%;
+     }
+
+     /* Conteneur neutre — pas de fond propre, le texte de contexte (intro/outro) reste
+           directement sur le fond de l'overlay. Le fond bleu est uniquement sur
+           .install-splash-steps ci-dessous (les étapes concrètes), jamais ici. */
+     .install-splash-instructions {
+         text-align: left;
+         font-size: 0.9rem;
+         line-height: 1.7;
+     }
+
+     .install-splash-instructions p {
+         margin: 0 0 8px 0;
+     }
+
+     /* Enveloppe le titre "Pour... :" + les lignes d'étapes — font-weight hérité
+           par tous les enfants (propriété CSS héritée), pas besoin de règle par élément.
+           Fond bleu à faible opacité : relie visuellement ces étapes au bouton bleu
+           d'installation qui y mène. color-mix() avec repli rgba pour compatibilité. */
+     .install-splash-steps {
+         font-weight: bold;
+         background: rgba(33, 150, 243, 0.2);
+         background: color-mix(in srgb, var(--blue) 20%, transparent);
+         border-radius: 8px;
+         padding: 14px 16px;
+         margin: 8px 0;
+     }
+
+     .install-splash-export-box {
+         margin-top: 14px;
+         padding-top: 14px;
+         border-top: 1px solid rgba(255, 255, 255, 0.1);
+         text-align: left;
+     }
+
+     .install-splash-export-box p {
+         font-size: 0.85rem;
+         opacity: 0.85;
+         margin: 0 0 10px 0;
+         line-height: 1.5;
+     }
+
+     #install-splash-dismiss,
+     .install-splash-link {
+         font-size: 0.85rem;
+         opacity: 0.65;
+         cursor: pointer;
+         padding: 8px;
+     }
+
+     /* Mot cliquable inline (ex. "Copier" dans le Chemin B du blocage webview) — bleu,
+           souligné, pas un bouton pleine largeur comme .export-btn. */
+     .install-link-word {
+         color: var(--blue);
+         cursor: pointer;
+         text-decoration: underline;
+         font-weight: bold;
+     }
+
+     /* Animation points de suspension pour la période en cours */
+     @keyframes dotFade {
+         0% {
+             opacity: 0;
+         }
+
+         /* masqué  */
+         10% {
+             opacity: 1;
+         }
+
+         /* apparaît (transition ~0.6s) */
+         50% {
+             opacity: 1;
+         }
+
+         /* visible jusqu'à 3s */
+         60% {
+             opacity: 0;
+         }
+
+         /* disparaît (transition ~0.6s) */
+         100% {
+             opacity: 0;
+         }
+
+         /* masqué jusqu'à 6s */
+     }
+
+     .dot-anim {
+         display: inline-block;
+         opacity: 0;
+         animation: dotFade 6s infinite;
+     }
+
+     .dot-anim:nth-child(1) {
+         animation-delay: 0s;
+     }
+
+     .dot-anim:nth-child(2) {
+         animation-delay: 1s;
+     }
+
+     .dot-anim:nth-child(3) {
+         animation-delay: 2s;
+     }
+
+     @keyframes bounce {
+
+         0%,
+         20%,
+         50%,
+         80%,
+         100% {
+             transform: translateY(0);
+         }
+
+         40% {
+             transform: translateY(-15px);
+         }
+
+         60% {
+             transform: translateY(-7px);
+         }
+     }
+
+     /* ── MINI-PASTILLES D'ÉVÉNEMENTS JOURNALIERS (graphe timeline, page Historique) ─────
+           Rangée insérée entre le graphe et la légende des types (voir renderTimelineEventMarkers()) —
+           visible/masquée avec le même bouton "L" que la légende. Forme barrette arrondie, PAS un
+           cercle : distincte à dessein des cercles de la légende des types juste en dessous (cercle
+           = type de période, pastille/barrette = événement journalier — même convention que Résultats).
+           Positionnement PIXEL-PARFAIT : #timeline-event-markers sert de référentiel (position:relative,
+           pleine largeur, même largeur que le canvas puisque même parent) ; chaque groupe de pastilles
+           est positionné en absolu via left:Xpx, X étant la position réelle de sa colonne lue depuis
+           Chart.js (scales.x.getPixelForValue(i)) — jamais une marge devinée (voir Évolution/millésime
+           pour la même philosophie : lire la géométrie réelle plutôt que l'approximer). Hauteur fixe :
+           ne bouge jamais selon le nombre de pastilles d'un jour à l'autre (0, 1 ou 2). margin-top
+           faible (proche du graphe) ; margin-top de la légende (6px, inchangé) reste l'espace réel
+           jusqu'à elle. */
+     #timeline-event-markers {
+         position: relative;
+         width: 100%;
+         margin-top: 2px;
+         height: 8px;
+     }
+
+     .timeline-event-marker-slot {
+         position: absolute;
+         top: 0;
+         transform: translateX(-50%);
+         display: flex;
+         align-items: center;
+         gap: 3px;
+     }
+
+     .timeline-event-marker-pill {
+         width: 10px;
+         height: 4px;
+         border-radius: 2px;
+     }
+
+     /* Mini-pastilles d'événements journaliers — graphe journalier (onglet Résultats, voir
+           renderDailyCharts()). Même forme que dans Historique (.timeline-event-marker-pill,
+           réutilisée telle quelle). Élément frère du <div> de date (pas un enfant) : n'hérite
+           jamais de son opacité weekend (inline, propre à ce <div>). Positionné en absolu dans
+           l'espace déjà vide sous la barre (top:26px, juste sous les 24px de hauteur de barre) —
+           ne modifie ni la hauteur de la ligne ni son margin-bottom, aucun élément existant
+           déplacé. Largeur 45px alignée sur celle du <div> de date (même colonne). */
+     .daily-chart-event-markers {
+         position: absolute;
+         left: 0;
+         top: 26px;
+         width: 45px;
+         display: flex;
+         justify-content: center;
+         align-items: center;
+         gap: 3px;
+         pointer-events: none;
+     }
+
+     /* ── BARRE NAVIGATION TEMPORELLE (page Historique) ─────────────────
+           Placée entre le titre et le graphe timeline.
+           Boutons désactivés : opacity 0.3 + pointer-events none.         */
+     .history-nav {
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         gap: 4px;
+         flex-wrap: nowrap;
+     }
+
+     .history-nav-btn {
+         background: transparent;
+         border: 1px solid #555;
+         color: var(--text-color);
+         border-radius: 6px;
+         padding: 5px 9px;
+         font-size: 0.85rem;
+         cursor: pointer;
+         white-space: nowrap;
+         transition: opacity 0.15s;
+         flex-shrink: 0;
+         position: relative;
+         /* nécessaire pour le pseudo-élément ::after */
+         overflow: hidden;
+         /* la barre oblique s'arrête aux bords du bouton */
+     }
+
+     .history-nav-btn:disabled {
+         opacity: 0.3;
+         pointer-events: none;
+     }
+
+     /* Barre oblique sur le bouton L quand la légende est masquée */
+     .history-nav-btn.nav-legend-off::after {
+         content: '';
+         position: absolute;
+         top: 50%;
+         left: -25%;
+         width: 150%;
+         height: 2px;
+         background: #888;
+         transform: translateY(-50%) rotate(-45deg);
+         pointer-events: none;
+     }
+
+     .history-nav select {
+         background: transparent;
+         color: var(--text-color);
+         border: 1px solid #555;
+         border-radius: 6px;
+         padding: 5px 4px;
+         font-size: 0.85rem;
+         cursor: pointer;
+         /* reset largeur et marge hérités de la règle globale select */
+         width: auto;
+         margin-top: 0;
+     }
+
+     /* ============================================================
+           CHANTIER 1B (suite) — Combinaison "repos" personnalisable
+           .fix-char : force une largeur de 1ch pour ▸ et "h" — combiné à
+           .tab-num (tabular-nums) et au padding par zéro transparent
+           (voir renderResults()), chaque bloc total fait toujours 6ch,
+           ce qui permet de calculer la position des points de combinaison
+           en JS (position = rang du bloc × 7ch) sans mesurer le DOM.
+           ============================================================ */
+     .tab-num {
+         font-variant-numeric: tabular-nums;
+     }
+
+     .fix-char {
+         display: inline-block;
+         width: 1ch;
+         text-align: center;
+     }
+
+     /* Wrapper scrollable horizontal pour ligne 2 (totaux) + rangée de points — évite le
+           débordement sur les jours à 5-6 types actifs (calcul en ch suppose une seule ligne). */
+     .results-line2-scroll {
+         overflow-x: auto;
+         white-space: nowrap;
+         -webkit-overflow-scrolling: touch;
+     }
+
+     .results-combo-row {
+         position: relative;
+         height: 24px;
+         /* 24px : accueille la zone de tap élargie des points (voir .results-combo-dot-hit) —
+               le rendu visuel (point 8px, trait 2px) reste discret, centré dans cet espace. */
+         margin: 0 0 4px 0;
+     }
+
+     /* Trait reliant les deux points blancs les plus éloignés du jour (Chantier 1B, suite) —
+           traverse les points gris intermédiaires sans s'y arrêter, simple <div> positionné en
+           ch comme les points (même calcul de position, pas de mesure DOM). */
+     .results-combo-line {
+         position: absolute;
+         top: 11px;
+         height: 2px;
+         background: white;
+         z-index: 1;
+         pointer-events: none;
+     }
+
+     /* Zone de tap élargie autour de chaque point — indépendante du clic sur le total
+           (ligne 2, qui garde son propre rôle d'expand/collapse). Le point visuel reste petit,
+           la cible tactile est plus généreuse (public à précision tactile parfois réduite). */
+     .results-combo-dot-hit {
+         position: absolute;
+         top: 0;
+         width: 24px;
+         height: 24px;
+         transform: translateX(-50%);
+         cursor: pointer;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         z-index: 0;
+     }
+
+     .results-combo-dot-hit-active {
+         z-index: 2;
+     }
+
+     .results-combo-dot {
+         width: 8px;
+         height: 8px;
+         border-radius: 50%;
+     }
+
+     .results-combo-dot-active {
+         background: white;
+         box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+     }
+
+     .results-combo-dot-inactive {
+         background: transparent;
+         border: 1.5px solid #666;
+         box-sizing: border-box;
+     }
+
+     /* ============================================================
+           OVERLAY GRAPHIQUE ÉVOLUTION (Chantier 2/3)
+           Toujours affiché en "paysage" simulé par rotation CSS — l'orientation
+           physique reste verrouillée portrait (manifest.json), donc les dimensions
+           du viewport ne changent jamais : pas besoin de recalcul dynamique au
+           resize/orientationchange, un seul calcul suffit.
+           #evolution-overlay-inner fait 100vh de large / 100vw de haut (dimensions
+           inversées) puis pivote de 90deg autour de son centre — occupe alors
+           exactement tout l'écran physique une fois vu paysage.
+           Empilement : sous les splashes (500) et les toasts (550) — communication
+           au-dessus de l'usage normal de l'app, dont ce graphe fait partie.
+           IMPORTANT — repère de conception : une fois le téléphone physiquement
+           tourné pour compenser la rotation CSS, l'utilisateur perçoit exactement
+           la mise en page pré-rotation telle qu'écrite ci-dessous (haut = haut,
+           gauche = gauche...). Tout l'intérieur se conçoit donc comme une page
+           paysage normale, sans gymnastique de compensation.
+           ============================================================ */
+     #evolution-overlay {
+         position: fixed;
+         inset: 0;
+         background: var(--bg-color);
+         z-index: 450;
+         display: none;
+         overflow: hidden;
+     }
+
+     #evolution-overlay-inner {
+         position: absolute;
+         top: 50%;
+         left: 50%;
+         width: 100vh;
+         height: 100vw;
+         transform: translate(-50%, -50%) rotate(90deg);
+         transform-origin: center center;
+         display: flex;
+         flex-direction: column;
+         box-sizing: border-box;
+         padding: 16px 16px 0 16px;
+         gap: 10px;
+     }
+
+     #evolution-close-btn {
+         position: absolute;
+         /* top:12px (au lieu de 14px) : recentre verticalement le bouton (34px de haut) sur
+               le centre de la rangée de chips/pastilles juste en dessous (dominée par les
+               .evolution-chip de 26px), qui elle démarre au padding-top de l'overlay (16px). */
+         top: 11px;
+         right: 14px;
+         z-index: 5;
+         background: rgba(255, 255, 255, 0.1);
+         border: none;
+         color: var(--text-color);
+         width: 34px;
+         height: 34px;
+         border-radius: 50%;
+         font-size: 1rem;
+         line-height: 1;
+         cursor: pointer;
+     }
+
+     /* Groupe durée + fin de période — vit désormais DANS #evolution-chips-container (même
+           rangée que les chips de type et les pastilles toggle 1j/~3j/~5j/~7j), poussé à l'extrémité
+           droite de cette rangée via margin-left:auto (padding-right:46px du parent réserve déjà
+           la place pour la croix de fermeture). Regroupés en un seul élément pour ne jamais se
+           séparer en cas de retour à la ligne (flex-wrap). position:relative : ancre la palette
+           de sélection (#evolution-palier-picker) juste en dessous. */
+     #evolution-palier-group {
+         display: flex;
+         align-items: center;
+         gap: 4px;
+         margin-left: auto;
+         flex-shrink: 0;
+         position: relative;
+     }
+
+     /* Durée cliquable — même format que .evolution-toggle-pill (voir plus bas), classes
+           evolution-chip-selected appliquées en dur : elle reflète en permanence le palier
+           courant, ce n'est pas un simple on/off comme les autres pastilles. */
+     #evolution-palier-duration {
+         cursor: pointer;
+     }
+
+     /* Fin de période (→ mois année) — mêmes police/taille/couleur que les pastilles, en
+           texte simple (pas de bordure ni fond), non cliquable. */
+     #evolution-palier-end {
+         font-family: monospace;
+         font-size: 0.78rem;
+         color: var(--text-color);
+         /* Indispensable : le format à largeur fixe (voir formatEvolutionEndDateFixed())
+               s'appuie sur des espaces de padding littéraux (jour sur 1 chiffre, "mai " à 4
+               caractères) — le rendu par défaut (white-space:normal) collapse les espaces
+               consécutifs et casserait cet alignement pixel-parfait entre deux dates affichées. */
+         white-space: pre;
+     }
+
+     /* Palette de paliers — ancrée sous le groupe durée/fin, alignée sur son bord droit. */
+     #evolution-palier-picker {
+         display: none;
+         position: absolute;
+         top: 100%;
+         right: 0;
+         margin-top: 6px;
+         background: var(--card-bg);
+         border: 1px solid var(--border);
+         border-radius: 8px;
+         padding: 8px;
+         gap: 6px;
+         flex-wrap: wrap;
+         max-width: 260px;
+         z-index: 6;
+         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+     }
+
+     /* Rangée de sélection — en haut, au-dessus du graphique. padding-right réservé
+           pour ne jamais chevaucher le bouton fermeture (coin haut-droit). */
+     #evolution-chips-container {
+         display: flex;
+         flex-direction: row;
+         flex-wrap: wrap;
+         gap: 9px;
+         flex-shrink: 0;
+         padding-right: 45px;
+     }
+
+     .evolution-chip {
+         width: 26px;
+         height: 26px;
+         border-radius: 50%;
+         box-sizing: border-box;
+         cursor: pointer;
+         flex-shrink: 0;
+     }
+
+     .evolution-chip-selected {
+         border: 2px solid white;
+     }
+
+     .evolution-chip-unselected {
+         border: 2px solid #666;
+         opacity: 0.5;
+     }
+
+     /* Pastilles toggle ("1j" / "~3j" / "~5j") — même logique visuelle que les chips
+           (bord blanc + plein si actif, bord gris + opacité 0.5 sinon) mais forme
+           pastille plutôt que cercle plein coloré, puisqu'elles portent du texte. */
+     .evolution-toggle-pill {
+         box-sizing: border-box;
+         padding: 4px 8px;
+         border-radius: 12px;
+         font-size: 0.78rem;
+         font-weight: bold;
+         font-family: monospace;
+         color: var(--text-color);
+         background: transparent;
+         cursor: pointer;
+         flex-shrink: 0;
+     }
+
+     .evolution-toggle-pill.evolution-chip-selected {
+         border: 2px solid white;
+     }
+
+     .evolution-toggle-pill.evolution-chip-unselected {
+         border: 2px solid #666;
+         opacity: 0.5;
+     }
+
+     #evolution-chart-wrap {
+         flex-grow: 1;
+         position: relative;
+         min-height: 0;
+         /* min-height:0 nécessaire pour qu'un enfant flex-grow avec canvas
+               responsive (Chart.js) respecte la hauteur disponible plutôt que de
+               pousser le conteneur au-delà. */
+     }
+
+     /* Panneau de légende — superposé au coin haut-droit du graphe (au-dessus du canevas,
+           donc peut ponctuellement masquer des données à cet endroit — accepté, à ajuster si
+           ça s'avère gênant en usage réel). pointer-events:none : purement informatif, ne doit
+           jamais intercepter un tap destiné au canevas en dessous (tooltip Chart.js, geste). */
+     #evolution-legend-panel {
+         display: none;
+         position: absolute;
+         top: 0px;
+         right: 0px;
+         background: rgba(40, 40, 40, 0.8);
+         border-radius: 8px;
+         padding: 8px 10px;
+         font-size: 0.78rem;
+         line-height: 1.7;
+         max-width: 62%;
+         z-index: 5;
+         pointer-events: none;
+     }
+
+     /* Message "pas de données dans cette vue" — superposé centré au milieu du graphe,
+           visible uniquement si aucune série sélectionnée n'a de point dans la fenêtre
+           actuellement affichée (test sur les datasets réellement construits, voir
+           renderEvolutionChart()). Même esprit visuel que le panneau de légende (fond sombre,
+           coins arrondis) mais texte un cran plus grand et centré plutôt qu'en coin.
+           pointer-events:none : ne bloque jamais un geste destiné au graphe (pincement/swipe),
+           même quand aucune donnée n'est affichée. */
+     #evolution-no-data-msg {
+         display: none;
+         position: absolute;
+         top: 50%;
+         left: 50%;
+         transform: translate(-50%, -50%);
+         background: rgba(40, 40, 40, 0.8);
+         border-radius: 8px;
+         padding: 14px 18px;
+         font-size: 0.88rem;
+         line-height: 1.5;
+         text-align: center;
+         max-width: 75%;
+         z-index: 5;
+         pointer-events: none;
+     }
+
+     /* Toast temporaire — garde-fou de sélection minimale (voir showEvolutionGuardToast()) :
+           tentative de désélection du dernier type, ou de la dernière représentation temporelle
+           (1j/~3j/~5j/~7j). Même esprit visuel que #evolution-no-data-msg, mais positionné en
+           haut du graphe (pas centré) pour ne jamais se superposer à ce dernier si les deux
+           étaient visibles en même temps. Auto-masqué après 3s (voir JS). */
+     #evolution-guard-toast {
+         display: none;
+         position: absolute;
+         top: 0px;
+         left: 40px;
+         /*transform: translateX(-50%); */
+         background: rgba(40, 40, 40, 0.8);
+         border-radius: 8px;
+         padding: 14px 18px;
+         font-size: 0.88rem;
+         line-height: 1.5;
+         text-align: center;
+         max-width: 75%;
+         z-index: 6;
+         pointer-events: none;
+     }
+
+     /* Carte de valeurs — exploration tactile (drag continu, voir section 25 "gestes
+           d'exploration"). Position gauche/droite fixée dynamiquement en JS (style.left ou
+           style.right, l'autre étant vidé) — toujours du côté OPPOSÉ au point touché, pour ne
+           jamais rester cachée sous le doigt. bottom fixe : au-dessus de la bande de dates
+           (scale.height 44px de l'axe X, voir afterFit), laisse le coin haut-droit entièrement
+           libre pour la légende. Police monospace : alignement des chiffres entre les lignes. */
+     #evolution-value-card {
+         display: none;
+         position: absolute;
+         bottom: 50px;
+         background: rgba(40, 40, 40, 0.85);
+         border-radius: 8px;
+         padding: 8px 10px;
+         font-family: monospace;
+         font-size: 0.82rem;
+         line-height: 1.6;
+         max-width: 62%;
+         z-index: 5;
+         pointer-events: none;
+     }
+
+     /* Zone cliquable de bascule mode axe Y (tout/zoom) — superposée à la colonne des
+           labels de l'axe Y du graphique Chart.js. Élément DOM plutôt que détection de clic
+           dans le canvas : sous la rotation CSS de l'overlay, le calcul interne des coordonnées
+           relatives de Chart.js peut devenir peu fiable — un élément DOM classique n'a pas ce
+           problème, le navigateur gère le hit-testing sous transform nativement et correctement. */
+     #evolution-yaxis-toggle {
+         position: absolute;
+         top: 0;
+         left: 0;
+         bottom: 0;
+         width: 55px;
+         cursor: pointer;
+     }
+
+     /* Zone de reconnaissance des gestes d'échelle (swipe navigation temporelle + pincement
+           palier, section 25b) — bande basse du graphe, 120px à partir du bord physique bas
+           (repère de conception de l'overlay : ce CSS se lit comme une page paysage normale une
+           fois le téléphone physiquement tourné, "bottom" = bas visuel réel pour l'utilisateur).
+           Réduite depuis "toute la hauteur" (essayé un temps) : le pincement exige désormais
+           qu'au moins un des deux doigts démarre dans cette même zone (voir
+           isTouchInEvolutionHitzone() / onEvolutionTouchStart()) — habitue l'utilisateur à faire
+           les gestes d'échelle dans le bas plutôt que sur tout le graphe, en prévision d'un futur
+           usage du swipe ailleurs (milieu/haut du graphe) qui ne devra pas entrer en conflit.
+           pointer-events:none : sert UNIQUEMENT de référence géométrique (getBoundingClientRect()
+           dans le JS) — elle n'intercepte jamais physiquement le toucher, qui atteint donc
+           normalement le canvas en dessous (un tap sur un point y affiche son tooltip Chart.js
+           normalement). Le seuil de confirmation à 8px (EVOLUTION_PAN_CONFIRM_PX) reste la
+           protection contre l'interférence avec un tap dans cette zone. */
+     #evolution-xaxis-hitzone {
+         position: absolute;
+         left: 0;
+         right: 0;
+         bottom: 0;
+         height: 120px;
+         pointer-events: none;
+     }
+
+     /* Bande de prévisualisation des graduations pendant un geste — DOM indépendant de
+           Chart.js, jamais lié au rendu réel du graphique pendant le geste (voir section 25b).
+           Fond opaque (couleur de fond de l'app) : recouvre complètement les graduations
+           réelles dessinées par Chart.js sous le canvas, plutôt que de les superposer en léger
+           décalage (les deux rendus n'utilisent pas exactement le même calcul de position
+           verticale). Hauteur un peu plus généreuse que la seule zone de texte de Chart.js pour
+           absorber cet écart sans laisser dépasser l'ancien texte sur les bords. */
+     #evolution-xaxis-preview {
+         display: none;
+         position: absolute;
+         left: 0;
+         right: 0;
+         bottom: 0;
+         height: 33px;
+         background: var(--bg-color);
+         pointer-events: none;
+         z-index: 4;
+     }
+
+     .evolution-preview-tick {
+         position: absolute;
+         /* Ancrage par le HAUT (pas le bas) : la 1ère ligne de chaque tick s'aligne ainsi
+               au même niveau, qu'il y ait 1 seule ligne (jour/mois) ou 2 (janvier + millésime,
+               voir renderEvolutionPreviewBand()) — le millésime s'étend alors vers le bas,
+               sous le niveau commun, plutôt que de faire remonter "janv." au-dessus des autres
+            .evolution-preview-tick {
+            position: absolute;
+            /* Ancrage par le HAUT (pas le bas) : la 1ère ligne de chaque tick s'aligne ainsi
+               au même niveau, qu'il y ait 1 seule ligne (jour/mois) ou 2 (janvier + millésime,
+               voir renderEvolutionPreviewBand()) — le millésime s'étend alors vers le bas,
+               sous le niveau commun, plutôt que de faire remonter "janv." au-dessus des autres
+               ticks. Même logique que le rendu natif Chart.js (1ère ligne près de l'axe). */
+         top: 1px;
+         transform: translateX(-50%);
+         font-size: 0.75rem;
+         color: var(--chart-gray-text);
+         white-space: nowrap;
+     }
+
+     /* ============================================================
+           OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2)
+           Portrait plein écran, pas de rotation (contrairement à Évolution) : un tableau se lit
+           bien en portrait. En-tête à 2 niveaux et 1ère colonne fixes en CSS pur (position:sticky),
+           défilement natif du navigateur — volontairement PAS de geste personnalisé pour cette V1
+           (voir décision projet ; un glisser-coche horizontal est envisagé en V2, une fois la
+           taille réelle des cases connue à l'usage).
+           z-index 480 : sous Évolution (450 — non superposables en pratique, mais cohérent) et
+           sous splash(500)/toasts(550), au-dessus de l'usage normal de l'app.
+           ============================================================ */
+     #daily-events-overlay {
+         position: fixed;
+         inset: 0;
+         background: var(--bg-color);
+         z-index: 480;
+         display: none;
+         flex-direction: column;
+     }
+
+     #daily-events-header {
+         flex-shrink: 0;
+         position: relative;
+         padding: 14px 14px 10px 14px;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+     }
+
+     #daily-events-close-btn {
+         position: absolute;
+         top: 11px;
+         right: 14px;
+         background: rgba(255, 255, 255, 0.1);
+         border: none;
+         color: var(--text-color);
+         width: 34px;
+         height: 34px;
+         border-radius: 50%;
+         font-size: 1rem;
+         line-height: 1;
+         cursor: pointer;
+     }
+
+     #daily-events-title {
+         font-weight: bold;
+         font-size: 1rem;
+     }
+
+     #daily-events-scroll {
+         flex-grow: 1;
+         overflow: auto;
+         -webkit-overflow-scrolling: touch;
+     }
+
+     #daily-events-table {
+         border-collapse: collapse;
+         width: max-content;
+         /* La table peut dépasser la largeur de l'écran (plusieurs tags) — défilement
+               horizontal naturel du conteneur #daily-events-scroll, pas de calcul JS. */
+     }
+
+     #daily-events-table th,
+     #daily-events-table td {
+         box-sizing: border-box;
+         border: 1px solid var(--border);
+     }
+
+     /* Hauteurs d'en-tête FIXES (32px / 28px), jamais mesurées en JS — permet un offset sticky
+           simple et fiable pour la 2e ligne (top:32px), même principe que scale.height figé pour
+           l'axe X d'Évolution (afterFit) : ne jamais deviner une hauteur, la fixer. */
+     #daily-events-table thead tr:first-child th {
+         height: 32px;
+     }
+
+     #daily-events-table thead tr:last-child th {
+         height: 28px;
+     }
+
+     #daily-events-table th {
+         position: sticky;
+         background: var(--card-bg);
+         font-size: 0.78rem;
+         font-weight: bold;
+         padding: 4px 6px;
+         z-index: 2;
+     }
+
+     #daily-events-table thead tr:first-child th {
+         top: 0;
+     }
+
+     #daily-events-table thead tr:last-child th {
+         top: 32px;
+     }
+
+     /* Colonne Date — fixe aussi horizontalement (sticky left), coin toujours au-dessus de
+           tout (z-index le plus élevé de la table) puisqu'elle est fixe dans les deux sens. */
+     #daily-events-table .de-col-date {
+         position: sticky;
+         left: 0;
+         background: var(--card-bg);
+         text-align: left;
+         padding: 4px 8px;
+         font-size: 0.82rem;
+         white-space: nowrap;
+         z-index: 3;
+     }
+
+     /* 1ère ligne de la cellule "Aujourd'hui" (2 lignes : "Aujourd'hui" puis la date complète,
+           voir renderDailyEventsTable()) — même taille que la date, juste mise en avant. */
+     .de-today-label {
+         font-weight: bold;
+         color: var(--blue);
+     }
+
+     /* 3 flèches compactes dans la case d'en-tête Date — SEULE navigation temporelle du
+           tableau (l'ancienne barre du haut ‹mois›⬆ a été retirée, remplacée par le titre
+           statique "Saisie journalière") : ↓ recule de 2 mois (toujours actif), ↑ avance de
+           2 mois (masqué si la fenêtre affiche déjà le mois courant, rien à avancer), ⬆ retour
+           direct à la fenêtre par défaut (mois courant + précédent). Réutilisent
+           navigateDailyEventsMonth() / goToDailyEventsToday() — aucune nouvelle logique de
+           navigation, juste ces déclencheurs. */
+     #daily-events-table th.de-col-date {
+         text-align: center;
+     }
+
+     .de-col-date-buttons {
+         display: flex;
+         gap: 3px;
+         justify-content: center;
+     }
+
+     .de-nav-mini-btn {
+         width: 24px;
+         height: 24px;
+         padding: 0;
+         background: transparent;
+         border: 1px solid #555;
+         color: var(--text-color);
+         border-radius: 4px;
+         font-size: 0.85rem;
+         line-height: 1;
+         cursor: pointer;
+     }
+
+     .de-nav-mini-btn:disabled {
+         opacity: 0.3;
+         pointer-events: none;
+     }
+
+     /* Ligne séparatrice de mois — purement informative, une par mois affiché (fenêtre fixe de
+           2 mois désormais, voir renderDailyEventsTable()) : annonce le nom du mois dont les
+           jours suivent immédiatement en dessous (jamais celui du dessus). N'est plus cliquable
+           et ne porte plus de flèche — toute la navigation temporelle passe désormais par les 3
+           flèches de la case d'en-tête Date. Pas sticky : ligne normale du corps, elle défile
+           avec le reste. */
+     .de-month-separator td {
+         background: rgba(255, 255, 255, 0.04);
+         text-align: center;
+         font-size: 0.8rem;
+         font-weight: bold;
+         opacity: 0.75;
+         padding: 10px 6px;
+     }
+
+     #daily-events-table th.de-col-date {
+         z-index: 4;
+     }
+
+     /* Opacité réduite du weekend — restreinte au texte de la date (span dédié, voir
+           renderDailyEventsTable()), jamais à toute la cellule : ne doit jamais assombrir le
+           cadre de sélection (tr.de-row-editing) quand les deux se superposent. */
+     .de-weekend-text {
+         opacity: 0.6;
+     }
+
+     #daily-events-table .de-today {
+         background: color-mix(in srgb, var(--blue) 15%, var(--card-bg));
+     }
+
+     #daily-events-table td.de-today.de-col-date {
+         background: color-mix(in srgb, var(--blue) 28%, var(--card-bg));
+     }
+
+     /* Cases tapables — génériques : un tag 'tristate' occupe 2 cellules (Oui/Non, voir
+           renderDailyEventsTable()), tout autre mode (ex. 'presence') en occupe 1 seule. Même
+           couleurs Oui/Non que les boutons de Résultats (rouge/vert sombre), pour rester cohérent
+           avec ce qui existe déjà — un point (pas un bouton texte) car la place est réduite ici
+           et l'en-tête porte déjà le libellé. */
+     .de-cell {
+         width: 46px;
+         height: 44px;
+         cursor: pointer;
+         padding: 0;
+     }
+
+     .de-cell-inner {
+         width: 100%;
+         height: 100%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+     }
+
+     .de-dot {
+         width: 18px;
+         height: 18px;
+         border-radius: 50%;
+         border: 1.5px solid #666;
+         box-sizing: border-box;
+     }
+
+     .de-dot.de-active-yes {
+         background: #8e2b2b;
+         border-color: #8e2b2b;
+     }
+
+     .de-dot.de-active-no {
+         background: #2e6b3a;
+         border-color: #2e6b3a;
+     }
+
+     /* Panneau de note journalière — permanent, juste sous l'en-tête de l'overlay. */
+     #daily-events-note-panel {
+         flex-shrink: 0;
+         padding: 8px 14px 10px 14px;
+         border-bottom: 1px solid var(--border);
+     }
+
+     #daily-events-note-date {
+         font-size: 0.85rem;
+         font-weight: bold;
+         margin-bottom: 4px;
+         color: var(--beige-light);
+     }
+
+     #daily-events-note-textarea {
+         width: 100%;
+         box-sizing: border-box;
+         resize: none;
+         font-family: inherit;
+         font-size: 1rem;
+         line-height: 1.35;
+         padding: 6px 8px;
+         margin-top: 0;
+         background: #333;
+         color: var(--text-color);
+         border: 1px solid var(--beige-light);
+         border-radius: 4px;
+         color-scheme: dark;
+     }
+
+     /* Anneau de focus natif du navigateur remplacé — même couleur que le reste de la mise en
+           évidence du jour édité (cadre de ligne, date), juste plus marqué (2px) qu'au repos. */
+     #daily-events-note-textarea:focus {
+         outline: none;
+         border: 2px solid var(--beige-light);
+         padding: 5px 7px;
+         /* compense l'épaississement de la bordure (+1px) pour ne pas décaler le texte */
+     }
+
+     #daily-events-note-meta {
+         display: flex;
+         justify-content: space-between;
+         font-size: 0.75rem;
+         opacity: 0.65;
+         margin-top: 3px;
+     }
+
+     /* Colonne Note du tableau — plus large que les cases d'événements (texte, pas un point),
+           plafonnée visuellement à 2 lignes (-webkit-line-clamp), jamais de coupure au milieu d'un
+           mot (comportement natif du navigateur). */
+     .de-note-cell {
+         width: 170px;
+         min-width: 150px;
+         height: 44px;
+         padding: 4px 8px;
+         text-align: left;
+         cursor: pointer;
+         vertical-align: middle;
+     }
+
+     .de-note-preview {
+         display: -webkit-box;
+         -webkit-line-clamp: 2;
+         line-clamp: 2;
+         -webkit-box-orient: vertical;
+         overflow: hidden;
+         font-size: 0.78rem;
+         line-height: 1.3;
+     }
+
+     .de-note-empty {
+         opacity: 0.45;
+         font-style: italic;
+     }
+
+     /* Contour (pas un fond, pour rester distinct de .de-today) autour de TOUTE la ligne dont la
+           note est actuellement chargée dans le panneau — technique standard pour un contour de
+           ligne dans une table à bordures fusionnées (border-collapse) : box-shadow inset sur
+           chaque cellule plutôt qu'une bordure classique, qui serait absorbée par la fusion. */
+     tr.de-row-editing td {
+         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light);
+     }
+
+     tr.de-row-editing td:first-child {
+         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset 2px 0 0 0 var(--beige-light);
+     }
+
+     tr.de-row-editing td:last-child {
+         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset -2px 0 0 0 var(--beige-light);
+     }
