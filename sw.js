@@ -1,11 +1,13 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.29-beta.20'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.29-beta.21'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './style.css',            // nouveau refactorisation
-  './js/translations.js',   // nouveau refactorisation
+  './style.css',            // nouveau refactorisation 0.9.29-beta.20
+  './js/translations.js',   // nouveau refactorisation 0.9.29-beta.20
+  './js/install.js',        // nouveau refactorisation 0.9.29-beta.21
+  './js/evolution.js',      // nouveau refactorisation 0.9.29-beta.21
   './manifest.json',
   './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux
@@ -33,9 +35,22 @@ sendLogToPage(`[SW-SLTP] Premier SLTP pour SW ${CACHE_NAME}`);
 self.addEventListener('install', event => {
   console.log(`[SW] ⬇️ Installation de la version : ${CACHE_NAME}`);
   sendLogToPage(`[SW-SLTP] ⬇️ Installation de la version : ${CACHE_NAME}`);
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
+    event.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.all(ASSETS_TO_CACHE.map(url =>
+        // cache:'reload' = vrai téléchargement serveur, sans passer par le cache HTTP du navigateur
+        fetch(new Request(url, { cache: 'reload' })).then(response => {
+          // Une 404/500 ne doit jamais être rangée comme fichier valide : l'installation
+          // échoue en bloc et l'ancien SW (donc l'ancienne version cohérente) reste actif.
+          if (!response.ok) throw new Error(`Échec ${url} (${response.status})`);
+          return cache.put(url, response);
+        })
+      ))
+    )
   );
+  //event.waitUntil(
+  //  caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
+  //);
   // skipWaiting() désactivé — la mise à jour est gérée manuellement via le bouton "Vérifier mise à jour"
   // self.skipWaiting();
 });
