@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.29-beta.22'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.29-beta.23'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS_TO_CACHE = [
   './js/evolution.js',      // nouveau refactorisation 0.9.29-beta.21
   './js/import-export.js',  // nouveau refactorisation 0.9.29-beta.22
   './js/daily-data.js',     // nouveau refactorisation 0.9.29-beta.22
+  './js/results.js',        // nouveau refactorisation 0.9.29-beta.23
   './manifest.json',
   './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux
