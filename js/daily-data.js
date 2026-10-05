@@ -164,7 +164,7 @@ function toggleEventPresence(dateKey, tagId) {
     if (day.events.length === 0) delete day.events;
     if (Object.keys(day).length === 0) delete dailyData[dateKey];
     saveDailyData();
-    refreshDailyEventUIs();
+    refreshDailyEventUIs(dateKey);
 }
 
 // Tap sur Oui / Non : sélectionne la valeur ; un second tap sur la valeur déjà active
@@ -191,39 +191,287 @@ function toggleEventTristate(dateKey, tagId, value) {
     if (day.events.length === 0) delete day.events;
     if (Object.keys(day).length === 0) delete dailyData[dateKey];
     saveDailyData();
-    refreshDailyEventUIs();
+    refreshDailyEventUIs(dateKey);
 }
 
 
 // ============================================================
-// 20c. TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2)
+// 20c. TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements)
 // Overlay portrait plein écran, ouvert depuis la page Mesure (#btn-daily-events).
 // Générique par tag actif (tous modes confondus) : 'tristate' occupe 2 colonnes (Oui/Non),
 // tout autre mode (ex. 'presence') en occupe 1 seule — un futur tag apparaît ici sans code
 // supplémentaire. Le mode 'tristate' reste géré ici pour un usage futur éventuel, mais
 // aucun tag actif ne l'utilise actuellement (les 3 tags builtin sont tous en 'presence').
-// Défilement natif (CSS position:sticky, voir <style>) — pas de geste personnalisé en V1.
-// Fenêtre affichée : toujours 2 mois civils pleins (mois ANCRE + le mois qui le précède),
-// jamais plus. Plus de barre de navigation en haut de l'overlay (retirée) : la seule
-// navigation temporelle passe par les 3 flèches de la case d'en-tête Date du tableau, qui
-// déplacent la fenêtre par pas de 2 mois. Titre statique "Saisie journalière" à la place.
+//
+// Défilement continu du jour le plus récent (rang 0 = aujourd'hui) vers le passé, sans borne,
+// en FENÊTRE VIRTUELLE : la ligne de rang i est la date « aujourd'hui − i jours » (calculée à la
+// demande, jamais stockée), toutes les lignes ont une hauteur EXACTE (DAILY_EVENTS_ROW_H) et
+// seules ~60 lignes proches de l'écran existent dans le DOM. Le conteneur #daily-events-body
+// reçoit la hauteur totale (rangs × hauteur) : le défilement garde sa longueur réelle, et elle
+// ne fait que GRANDIR (par paquets, quand on approche de la fin). Les lignes sont positionnées
+// en absolu (top = rang × hauteur) ; en-tête et 1ère colonne restent fixes par CSS sticky.
+// Défilement natif uniquement — pas de geste tactile personnalisé.
+// Une saisie (toggle, changement de jour édité, frappe dans la note) ne remplace QUE la ligne
+// concernée (refreshDailyEventsRow), jamais tout le tableau.
+// La navigation par paires de mois (flèches ↓ ↑ ⬆, ligne séparatrice de mois) a été retirée
+// avec ce rendu : dernière version du tableau <table> = commit f99733a (branche dev).
 // ============================================================
 
-window.dailyEventsMonth = null; // Mois ANCRE (1er du mois, le plus récent des 2 mois affichés) — initialisé à l'ouverture
+const DAILY_EVENTS_ROW_H = 44;          // px — hauteur EXACTE d'une ligne (aussi posée en CSS : --de-row-h)
+const DAILY_EVENTS_COL_DATE_W = 100;    // px — colonne Date (estimation : à ajuster après test sur appareil)
+const DAILY_EVENTS_COL_TAG_W = 46;      // px — une colonne par tag 'presence', deux par tag 'tristate'
+const DAILY_EVENTS_COL_NOTE_W = 170;    // px — colonne Note
+const DAILY_EVENTS_INITIAL_ROWS = 150;  // longueur initiale de la zone défilable (en lignes)
+const DAILY_EVENTS_EXTEND_ROWS = 90;    // prolongement de la zone défilable quand on approche de la fin
+const DAILY_EVENTS_EXTEND_MARGIN = 40;  // lignes d'avance minimum au-delà de la fenêtre dessinée
+const DAILY_EVENTS_WINDOW_ROWS = 60;    // lignes dessinées dans le DOM
+const DAILY_EVENTS_MARGIN_LOW = 10;     // redessiner si la 1ère ligne visible passe sous (début de fenêtre + 10)
+const DAILY_EVENTS_MARGIN_HIGH = 30;    // redessiner si elle dépasse (début de fenêtre + 30)
+const DAILY_EVENTS_RECENTER = 20;       // après un redessin : 1ère ligne visible = début de fenêtre + 20
+
+window.dailyEventsToday = null;         // Date (minuit) figée à l'ouverture : rang 0 (null = overlay jamais ouvert)
+window.dailyEventsTotalRows = 0;        // longueur courante de la zone défilable, en lignes
+window.dailyEventsWinFrom = 0;          // fenêtre dessinée : rangs [from, to[
+window.dailyEventsWinTo = 0;
+
+function dailyEventsDateKey(d) {
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+}
+
+// Date du jour de rang i (0 = aujourd'hui). Arithmétique calendaire : jamais + 24*3600*1000 (DST).
+function dailyEventsDateForRow(i) {
+    const t0 = window.dailyEventsToday;
+    return new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() - i);
+}
+
+// Rang d'une date 'AAAA-MM-JJ' (0 = aujourd'hui) ; null si format invalide ou jour futur.
+// Date.UTC des deux côtés : écart en jours exact, sans effet de changement d'heure.
+function dailyEventsRowForDateKey(dateKey) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey || '');
+    const t0 = window.dailyEventsToday;
+    if (!m || !t0) return null;
+    const diff = Math.round((Date.UTC(t0.getFullYear(), t0.getMonth(), t0.getDate()) - Date.UTC(+m[1], +m[2] - 1, +m[3])) / 86400000);
+    return diff >= 0 ? diff : null;
+}
+
+// Contexte commun à toutes les lignes d'un même dessin (évite de le recalculer ligne par ligne).
+function getDailyEventsRenderContext() {
+    return {
+        tags: settings.eventTags.filter(tg => tg.active),
+        dateFmt: new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        editDate: window.dailyEventsNoteDate // jour actuellement chargé dans le panneau de note
+    };
+}
+
+// HTML d'UNE ligne (rang i) : date tapable (charge la note du jour dans le panneau — jamais les
+// cases d'événement, qui servent déjà à activer/désactiver), une case par colonne de tag, aperçu
+// de la note (tapable aussi). Mêmes contenus que l'ancienne ligne <tr>.
+function buildDailyEventsRowHTML(i, ctx) {
+    const d = dailyEventsDateForRow(i);
+    const dateKey = dailyEventsDateKey(d);
+    const isWeekend = [0, 6].includes(d.getDay());
+    const isToday = i === 0;
+    const isEditing = dateKey === ctx.editDate;
+    const formattedDateRaw = ctx.dateFmt.format(d);
+    // Opacité réduite du weekend — restreinte au texte de la date lui-même (span dédié), jamais à
+    // toute la cellule : sinon elle assombrirait aussi le cadre de sélection (.de-row-editing)
+    // quand les deux se superposent un jour de weekend.
+    const formattedDate = isWeekend ? `<span class="de-weekend-text">${formattedDateRaw}</span>` : formattedDateRaw;
+    // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date complète), pour repérer le jour courant
+    // d'un coup d'œil sans avoir à lire/comparer la date affichée.
+    const dateContent = isToday
+        ? `<div class="de-today-label">${t('dailyEventsToday')}</div><div>${formattedDate}</div>`
+        : formattedDate;
+
+    let html = `<div class="de-row${isToday ? ' de-today' : ''}${isEditing ? ' de-row-editing' : ''}" data-date="${dateKey}" style="top:${i * DAILY_EVENTS_ROW_H}px">`;
+    html += `<div class="de-c de-col-date" onclick="editDailyNoteFor('${dateKey}')">${dateContent}</div>`;
+    ctx.tags.forEach(tg => {
+        if (tg.mode === 'tristate') {
+            const val = getDailyEventValue(dateKey, tg.id);
+            html += `<div class="de-c de-cell" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></div>`;
+            html += `<div class="de-c de-cell" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></div>`;
+        } else {
+            // Couleur GLOBALE par tag (EVENT_TAG_COLORS), pas par mode — reconnaissable et
+            // différente des couleurs de type. Appliquée en style inline (pas de classe CSS par
+            // tagId à maintenir), seulement quand la case est active.
+            const on = getDailyEventPresence(dateKey, tg.id);
+            const color = getEventTagColor(tg.id);
+            const dotStyle = on ? ` style="background:${color};border-color:${color};"` : '';
+            html += `<div class="de-c de-cell" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot"${dotStyle}></div></div></div>`;
+        }
+    });
+    // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles par
+    // CSS -webkit-line-clamp), "Pas de note" en gris sinon.
+    const noteText = getDailyNote(dateKey);
+    const notePreview = noteText
+        ? escapeHtml(noteText)
+        : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
+    html += `<div class="de-c de-cell de-note-cell" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></div>`;
+    html += `</div>`;
+    return html;
+}
+
+// En-tête à 2 niveaux, sur la même grille de colonnes que les lignes. Un tag 'tristate' couvre
+// 2 colonnes au niveau 1 et porte Oui / Non au niveau 2 ; tout autre mode couvre les 2 niveaux.
+// Case Date : un SEUL bouton de navigation (retour à aujourd'hui) — le reste se fait en faisant
+// défiler. Grisé quand on est déjà tout en haut.
+function buildDailyEventsHeaderHTML(tags, isAtTop) {
+    let col = 2; // numéro de colonne CSS (1 = Date)
+    let html = `<div class="de-h de-h-corner" style="grid-row:1 / span 2;grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsToday')}</button></div>`;
+    tags.forEach(tg => {
+        if (tg.mode === 'tristate') {
+            html += `<div class="de-h" style="grid-row:1;grid-column:${col} / span 2">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h" style="grid-row:2;grid-column:${col}">${t('eventStateYes')}</div>`;
+            html += `<div class="de-h" style="grid-row:2;grid-column:${col + 1}">${t('eventStateNo')}</div>`;
+            col += 2;
+        } else {
+            html += `<div class="de-h" style="grid-row:1 / span 2;grid-column:${col}">${escapeHtml(tg.label)}</div>`;
+            col += 1;
+        }
+    });
+    // Colonne Note — toujours en dernier, hors boucle des tags (ce n'est pas un event).
+    html += `<div class="de-h" style="grid-row:1 / span 2;grid-column:${col}">${t('dailyEventsNoteHeader')}</div>`;
+    return html;
+}
+
+// Rendu COMPLET : en-tête, largeur et modèle de colonnes, puis fenêtre de lignes. À utiliser à
+// l'ouverture et quand les libellés changent (langue) ; pas pour une saisie. Ne touche pas à la
+// position de défilement. Sans effet tant que l'overlay n'a jamais été ouvert.
+function renderDailyEventsTable() {
+    if (!window.dailyEventsToday) return;
+    const grid = document.getElementById('daily-events-grid');
+    const head = document.getElementById('daily-events-head');
+    const scroller = document.getElementById('daily-events-scroll');
+    if (!grid || !head || !scroller) return;
+
+    const titleEl = document.getElementById('daily-events-title');
+    if (titleEl) titleEl.textContent = t('dailyEventsTitle');
+
+    // Largeurs fixes posées d'après les tags actifs (jamais mesurées) : un tag 'tristate' occupe
+    // 2 colonnes, tout autre mode 1 seule.
+    const tags = settings.eventTags.filter(tg => tg.active);
+    let template = `${DAILY_EVENTS_COL_DATE_W}px`;
+    let dataCols = 0;
+    tags.forEach(tg => {
+        const n = tg.mode === 'tristate' ? 2 : 1;
+        dataCols += n;
+        template += ` repeat(${n}, ${DAILY_EVENTS_COL_TAG_W}px)`;
+    });
+    template += ` ${DAILY_EVENTS_COL_NOTE_W}px`;
+    grid.style.width = (DAILY_EVENTS_COL_DATE_W + dataCols * DAILY_EVENTS_COL_TAG_W + DAILY_EVENTS_COL_NOTE_W) + 'px';
+    grid.style.setProperty('--de-cols', template);
+    grid.style.setProperty('--de-row-h', DAILY_EVENTS_ROW_H + 'px');
+
+    head.innerHTML = buildDailyEventsHeaderHTML(tags, scroller.scrollTop <= 1);
+    renderDailyEventsWindow(true);
+}
+
+// Dessine la fenêtre de lignes autour de la 1ère ligne visible (scrollTop ÷ hauteur de ligne : le
+// corps commence juste sous l'en-tête sticky, qui reste épinglé en haut du conteneur). N'y touche
+// pas tant que cette ligne reste dans la zone de confort de la fenêtre déjà dessinée (hystérésis
+// MARGIN_LOW / MARGIN_HIGH), sauf si force. Prolonge la zone défilable au besoin, jamais l'inverse.
+// Aucune mesure de géométrie : tout vient de constantes.
+function renderDailyEventsWindow(force) {
+    const scroller = document.getElementById('daily-events-scroll');
+    const body = document.getElementById('daily-events-body');
+    if (!scroller || !body || !window.dailyEventsToday) return;
+
+    const first = Math.floor(Math.max(0, scroller.scrollTop) / DAILY_EVENTS_ROW_H);
+    const from0 = window.dailyEventsWinFrom;
+    const outOfZone = window.dailyEventsWinTo <= from0
+        || (from0 > 0 && first < from0 + DAILY_EVENTS_MARGIN_LOW)
+        || first > from0 + DAILY_EVENTS_MARGIN_HIGH;
+    if (!force && !outOfZone) return;
+
+    const from = Math.max(0, first - DAILY_EVENTS_RECENTER);
+    const to = from + DAILY_EVENTS_WINDOW_ROWS;
+    while (to + DAILY_EVENTS_EXTEND_MARGIN > window.dailyEventsTotalRows) {
+        window.dailyEventsTotalRows += DAILY_EVENTS_EXTEND_ROWS;
+    }
+    body.style.height = (window.dailyEventsTotalRows * DAILY_EVENTS_ROW_H) + 'px';
+
+    const ctx = getDailyEventsRenderContext();
+    let html = '';
+    for (let i = from; i < to; i++) html += buildDailyEventsRowHTML(i, ctx);
+    body.innerHTML = html;
+    window.dailyEventsWinFrom = from;
+    window.dailyEventsWinTo = to;
+}
+
+// Remplace UNE seule ligne (celle de ce jour) — point de rafraîchissement local après une saisie.
+// Sans effet si la ligne n'est pas dans la fenêtre dessinée : elle sera correcte à son prochain dessin.
+function refreshDailyEventsRow(dateKey) {
+    const row = dailyEventsRowForDateKey(dateKey); // valide aussi le format de dateKey (sélecteur sûr)
+    const body = document.getElementById('daily-events-body');
+    if (row === null || !body) return;
+    const el = body.querySelector(`[data-date="${dateKey}"]`);
+    if (!el) return;
+    el.outerHTML = buildDailyEventsRowHTML(row, getDailyEventsRenderContext());
+}
+
+// Bouton « Aujourd'hui » : grisé quand on est déjà tout en haut.
+function updateDailyEventsTodayButton() {
+    const scroller = document.getElementById('daily-events-scroll');
+    const btn = document.querySelector('#daily-events-head .de-today-btn');
+    if (scroller && btn) btn.disabled = scroller.scrollTop <= 1;
+}
+
+// Écouteur de défilement : au plus un traitement par image (requestAnimationFrame). Le travail
+// réel (redessin de la fenêtre) n'a lieu que lorsqu'on sort de la zone de confort.
+function onDailyEventsScroll() {
+    if (window._dailyEventsRaf) return;
+    window._dailyEventsRaf = requestAnimationFrame(() => {
+        window._dailyEventsRaf = 0;
+        renderDailyEventsWindow(false);
+        updateDailyEventsTodayButton();
+    });
+}
+
+// Amène la ligne de cette date en 1ère position sous l'en-tête (scrollTop = rang × hauteur).
+// La zone défilable est d'abord prolongée pour couvrir la cible, sinon le navigateur bornerait
+// scrollTop.
+function scrollDailyEventsToDate(dateKey) {
+    const scroller = document.getElementById('daily-events-scroll');
+    const body = document.getElementById('daily-events-body');
+    const row = dailyEventsRowForDateKey(dateKey);
+    if (!scroller || !body || row === null) return;
+    window.dailyEventsTotalRows = Math.max(window.dailyEventsTotalRows, row + DAILY_EVENTS_EXTEND_ROWS);
+    body.style.height = (window.dailyEventsTotalRows * DAILY_EVENTS_ROW_H) + 'px';
+    scroller.scrollTop = row * DAILY_EVENTS_ROW_H;
+    renderDailyEventsWindow(true);
+    updateDailyEventsTodayButton();
+}
+
+// Unique bouton de navigation du tableau : retour tout en haut (aujourd'hui). Ne change pas le
+// jour chargé dans le panneau de note (seul un tap sur une date ou une note le change).
+function goToDailyEventsToday() {
+    if (!window.dailyEventsToday) return;
+    scrollDailyEventsToDate(dailyEventsDateKey(window.dailyEventsToday));
+}
 
 function openDailyEventsOverlay() {
     const overlay = document.getElementById('daily-events-overlay');
     if (!overlay) return;
-    if (!window.dailyEventsMonth) {
-        const n = new Date();
-        window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
-    }
+    // Rang 0 = aujourd'hui, figé à l'ouverture (un tableau laissé ouvert au-delà de minuit garde
+    // l'ancien « aujourd'hui » jusqu'à la réouverture). L'overlay s'ouvre toujours sur aujourd'hui.
+    const n = new Date();
+    window.dailyEventsToday = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    window.dailyEventsTotalRows = DAILY_EVENTS_INITIAL_ROWS;
+    window.dailyEventsWinFrom = 0;
+    window.dailyEventsWinTo = 0;
     // Panneau de note : toujours réinitialisé sur aujourd'hui à l'OUVERTURE de l'overlay —
-    // persiste ensuite tant qu'il reste ouvert (y compris à travers la navigation de mois),
-    // jusqu'à un nouveau tap explicite sur la colonne Date ou Note du tableau.
-    const n2 = new Date();
-    window.dailyEventsNoteDate = `${n2.getFullYear()}-${(n2.getMonth() + 1).toString().padStart(2, '0')}-${n2.getDate().toString().padStart(2, '0')}`;
+    // persiste ensuite tant qu'il reste ouvert (y compris à travers le défilement), jusqu'à un
+    // nouveau tap explicite sur la colonne Date ou Note du tableau.
+    window.dailyEventsNoteDate = dailyEventsDateKey(window.dailyEventsToday);
     overlay.style.display = 'flex';
+    const scroller = document.getElementById('daily-events-scroll');
+    if (scroller) {
+        if (!window._dailyEventsScrollBound) {
+            scroller.addEventListener('scroll', onDailyEventsScroll, { passive: true });
+            window._dailyEventsScrollBound = true;
+        }
+        scroller.scrollTop = 0;
+    }
     renderDailyNotePanel();
     renderDailyEventsTable();
 }
@@ -233,33 +481,17 @@ function closeDailyEventsOverlay() {
     if (overlay) overlay.style.display = 'none';
 }
 
-// Déplace le mois ancre — appelée avec delta=±2 (voir les 3 flèches de la case Date,
-// renderDailyEventsTable()) : la fenêtre affichée avance/recule toujours par paire de mois.
-function navigateDailyEventsMonth(delta) {
-    const m = window.dailyEventsMonth;
-    window.dailyEventsMonth = new Date(m.getFullYear(), m.getMonth() + delta, 1);
-    renderDailyEventsTable();
-    const scroll = document.getElementById('daily-events-scroll');
-    if (scroll) scroll.scrollTop = 0;
-}
-
-// Retour à la fenêtre par défaut : mois courant (ancre) + mois précédent.
-function goToDailyEventsToday() {
-    const n = new Date();
-    window.dailyEventsMonth = new Date(n.getFullYear(), n.getMonth(), 1);
-    renderDailyEventsTable();
-    const scroll = document.getElementById('daily-events-scroll');
-    if (scroll) scroll.scrollTop = 0;
-}
-
 // Rafraîchit toute vue actuellement affichée qui dépend des événements journaliers —
 // Résultats (si l'onglet est actif) et/ou ce tableau (s'il est ouvert). Point d'appel
 // unique partagé par toggleEventTristate()/toggleEventPresence(), pour ne jamais dupliquer
 // cette logique à chaque nouveau point de saisie (page Mesure, tableau, futurs écrans...).
-function refreshDailyEventUIs() {
+// dateKey : jour modifié → seule sa ligne du tableau est remplacée ; sans dateKey → rendu complet.
+function refreshDailyEventUIs(dateKey) {
     if (document.getElementById('page-results').classList.contains('active')) renderResults();
     const overlay = document.getElementById('daily-events-overlay');
-    if (overlay && overlay.style.display !== 'none') renderDailyEventsTable();
+    if (overlay && overlay.style.display !== 'none') {
+        if (dateKey) refreshDailyEventsRow(dateKey); else renderDailyEventsTable();
+    }
 }
 
 // Note libre du jour — champ frère de 'events' (pas un event), même convention que
@@ -281,11 +513,14 @@ function setDailyNote(dateKey, text) {
 
 // Change le jour actuellement chargé dans le panneau de note — appelée par un tap sur la
 // colonne Date ou la colonne Note du tableau (jamais sur une case d'événement, qui sert déjà
-// à activer/désactiver — voir renderDailyEventsTable()).
+// à activer/désactiver — voir buildDailyEventsRowHTML()). Seules deux lignes changent d'aspect
+// (cadre beige) : l'ancienne et la nouvelle.
 function editDailyNoteFor(dateKey) {
+    const previous = window.dailyEventsNoteDate;
     window.dailyEventsNoteDate = dateKey;
     renderDailyNotePanel();
-    renderDailyEventsTable();
+    if (previous && previous !== dateKey) refreshDailyEventsRow(previous);
+    refreshDailyEventsRow(dateKey);
 }
 
 // Reconstruit tout le panneau (date + contenu du textarea) — appelée uniquement au
@@ -317,14 +552,14 @@ function updateDailyNoteCounter(len) {
 // À chaque frappe : sauvegarde immédiate en mémoire/localStorage (comme partout ailleurs
 // dans l'app — aucune notion de "brouillon non enregistré"), mise à jour du compteur, et
 // l'indicateur "Enregistré" n'apparaît qu'après un court silence de frappe (jamais à chaque
-// caractère, pour ne pas clignoter) — voir scheduleDailyNoteSavedIndicator(). Le tableau est
-// rafraîchi pour que l'aperçu de la case Note reste à jour, mais PAS le panneau lui-même
-// (renderDailyNotePanel() réécrirait ta.value et ferait sauter le curseur pendant la saisie).
+// caractère, pour ne pas clignoter) — voir scheduleDailyNoteSavedIndicator(). Seule la ligne du
+// jour édité est rafraîchie, pour que l'aperçu de la case Note reste à jour, mais PAS le panneau
+// lui-même (renderDailyNotePanel() réécrirait ta.value et ferait sauter le curseur pendant la saisie).
 function onDailyNoteInput(el) {
     setDailyNote(window.dailyEventsNoteDate, el.value);
     updateDailyNoteCounter(el.value.length);
     scheduleDailyNoteSavedIndicator();
-    renderDailyEventsTable();
+    refreshDailyEventsRow(window.dailyEventsNoteDate);
 }
 
 function scheduleDailyNoteSavedIndicator() {
@@ -337,120 +572,3 @@ function scheduleDailyNoteSavedIndicator() {
         ind.style.visibility = 'visible';
     }, 600);
 }
-
-function renderDailyEventsTable() {
-    const table = document.getElementById('daily-events-table');
-    if (!table) return;
-
-    const titleEl = document.getElementById('daily-events-title');
-    if (titleEl) titleEl.textContent = t('dailyEventsTitle');
-
-    const anchor = window.dailyEventsMonth; // mois le plus récent des 2 affichés
-    const prevAnchor = new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1); // mois qui le précède, toujours affiché avec lui
-    const tags = settings.eventTags.filter(tg => tg.active);
-    const locale = getLocale();
-    const editDate = window.dailyEventsNoteDate; // jour actuellement chargé dans le panneau de note
-
-    // Navigation bornée au mois courant côté futur (on ne journalise pas l'avenir) — aucune
-    // borne côté passé, contrairement à Historique/Résultats : cet outil n'est pas lié aux
-    // périodes enregistrées, un jour sans période reste journalisable.
-    const todayMidnight = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
-    const isAnchorCurrentMonth = (anchor.getFullYear() === todayMidnight.getFullYear() && anchor.getMonth() === todayMidnight.getMonth());
-
-    // --- En-tête à 2 niveaux ---
-    // Case Date : 3 flèches compactes plutôt que le mot "Date" — SEULE navigation temporelle
-    // du tableau (voir commentaire de section) : ↓ recule la fenêtre de 2 mois (toujours
-    // actif), ↑ avance de 2 mois (masqué si la fenêtre affiche déjà le mois courant, rien à
-    // avancer), ⬆ retour direct à la fenêtre par défaut (masqué dans le même cas).
-    let thead = '<thead><tr>';
-    thead += `<th class="de-col-date" rowspan="2"><div class="de-col-date-buttons">
-                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(-2)" title="${t('dailyEventsPrevMonth')}">↓</button>
-                <button class="de-nav-mini-btn" onclick="navigateDailyEventsMonth(2)" ${isAnchorCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsNextMonth')}">↑</button>
-                <button class="de-nav-mini-btn" onclick="goToDailyEventsToday()" ${isAnchorCurrentMonth ? 'disabled' : ''} title="${t('dailyEventsBackToToday')}">⬆</button>
-            </div></th>`;
-    let totalDataCols = 0;
-    tags.forEach(tg => {
-        if (tg.mode === 'tristate') { thead += `<th colspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 2; }
-        else { thead += `<th rowspan="2">${escapeHtml(tg.label)}</th>`; totalDataCols += 1; }
-    });
-    // Colonne Note — toujours en dernier, hors boucle des tags (ce n'est pas un event).
-    thead += `<th rowspan="2">${t('dailyEventsNoteHeader')}</th>`;
-    const totalCols = 1 /* date */ + totalDataCols /* tags */ + 1 /* note */;
-    thead += '</tr><tr>';
-    tags.forEach(tg => {
-        if (tg.mode === 'tristate') thead += `<th>${t('eventStateYes')}</th><th>${t('eventStateNo')}</th>`;
-    });
-    thead += '</tr></thead>';
-
-    // --- Corps : un bloc par mois affiché (toujours 2 : ancre + précédent), chacun précédé
-    // d'une ligne séparatrice purement informative (nom du mois des jours qui suivent,
-    // jamais cliquable — voir CSS .de-month-separator). Jours du plus récent au plus ancien
-    // à l'intérieur d'un même mois, plafonné à aujourd'hui uniquement pour le mois qui EST
-    // le mois civil courant (jamais de jour futur, même principe que pour les périodes).
-    function buildMonthBlock(monthDate) {
-        const isThisCalendarMonth = (monthDate.getFullYear() === todayMidnight.getFullYear() && monthDate.getMonth() === todayMidnight.getMonth());
-        const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-        const lastDay = isThisCalendarMonth ? todayMidnight.getDate() : daysInMonth;
-
-        const rawLabel = monthDate.toLocaleDateString(locale, { month: 'long', year: 'numeric' });
-        const monthLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1);
-        let html = `<tr class="de-month-separator"><td colspan="${totalCols}">${escapeHtml(monthLabel)}</td></tr>`;
-
-        for (let day = lastDay; day >= 1; day--) {
-            const d = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
-            const dateKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-            const isWeekend = [0, 6].includes(d.getDay());
-            const isToday = d.getTime() === todayMidnight.getTime();
-            const isEditing = dateKey === editDate;
-            const rowClass = (isToday ? ' de-today' : '') + (isEditing ? ' de-row-editing' : '');
-            const dateClass = 'de-col-date' + rowClass;
-            const formattedDateRaw = d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
-            // Opacité réduite du weekend — restreinte au texte de la date lui-même (span
-            // dédié), jamais à toute la cellule : sinon elle assombrirait aussi le cadre de
-            // sélection (tr.de-row-editing) quand les deux se superposent un jour de weekend.
-            const formattedDate = isWeekend ? `<span class="de-weekend-text">${formattedDateRaw}</span>` : formattedDateRaw;
-            // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date complète), pour repérer le
-            // jour courant d'un coup d'œil sans avoir à lire/comparer la date affichée.
-            const dateContent = isToday
-                ? `<div class="de-today-label">${t('dailyEventsToday')}</div><div>${formattedDate}</div>`
-                : formattedDate;
-            html += `<tr class="${isEditing ? 'de-row-editing' : ''}">`;
-            // Date : tapable pour ouvrir/charger la note de ce jour dans le panneau (jamais les
-            // cases d'événement, qui servent déjà à activer/désactiver — voir décision projet).
-            html += `<td class="${dateClass}" onclick="editDailyNoteFor('${dateKey}')">${dateContent}</td>`;
-            tags.forEach(tg => {
-                if (tg.mode === 'tristate') {
-                    const val = getDailyEventValue(dateKey, tg.id);
-                    html += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','yes')"><div class="de-cell-inner"><div class="de-dot${val === 'yes' ? ' de-active-yes' : ''}"></div></div></td>`;
-                    html += `<td class="de-cell${rowClass}" onclick="toggleEventTristate('${dateKey}','${tg.id}','no')"><div class="de-cell-inner"><div class="de-dot${val === 'no' ? ' de-active-no' : ''}"></div></div></td>`;
-                } else {
-                    // Couleur GLOBALE par tag (EVENT_TAG_COLORS), pas par mode — reconnaissable et
-                    // différente des couleurs de type. Appliquée en style inline (pas de classe CSS
-                    // par tagId à maintenir), seulement quand la case est active.
-                    const on = getDailyEventPresence(dateKey, tg.id);
-                    const color = getEventTagColor(tg.id);
-                    const dotStyle = on ? ` style="background:${color};border-color:${color};"` : '';
-                    html += `<td class="de-cell${rowClass}" onclick="toggleEventPresence('${dateKey}','${tg.id}')"><div class="de-cell-inner"><div class="de-dot"${dotStyle}></div></div></td>`;
-                }
-            });
-            // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles
-            // par CSS -webkit-line-clamp), "Pas de note" en gris sinon. Tap = ouvre/charge la note
-            // de ce jour dans le panneau (même action que le tap sur la date).
-            const noteText = getDailyNote(dateKey);
-            const notePreview = noteText
-                ? escapeHtml(noteText)
-                : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
-            html += `<td class="de-cell de-note-cell${rowClass}" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></td>`;
-            html += `</tr>`;
-        }
-        return html;
-    }
-
-    let tbody = '<tbody>';
-    tbody += buildMonthBlock(anchor);
-    tbody += buildMonthBlock(prevAnchor);
-    tbody += '</tbody>';
-
-    table.innerHTML = thead + tbody;
-}
-

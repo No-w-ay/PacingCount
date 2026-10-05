@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.23"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.24"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -625,8 +625,9 @@
     <!-- FIN OVERLAY GRAPHIQUE ÉVOLUTION -->
 
     <!-- ============================================================ -->
-    <!-- OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2) -->
-    <!-- Portrait plein écran — voir CSS pour le détail (sticky, pas de rotation). -->
+    <!-- OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements) -->
+    <!-- Portrait plein écran, pas de rotation — voir CSS et js/daily-data.js (§20c) pour le détail : -->
+    <!-- grille de <div> à lignes de hauteur fixe, fenêtre virtuelle, en-tête et 1ère colonne sticky. -->
     <!-- ============================================================ -->
     <div id="daily-events-overlay">
         <div id="daily-events-header">
@@ -637,8 +638,8 @@
              haut de l'overlay. Date affichée = window.dailyEventsNoteDate, réinitialisée sur
              aujourd'hui à l'ouverture de l'overlay, changée uniquement par un tap explicite sur la
              colonne Date ou la colonne Note du tableau (jamais par le défilement — voir décision
-             projet : pas de geste personnalisé pour cette V1). Persiste à travers la navigation de
-             mois (voir openDailyEventsOverlay()/editDailyNoteFor()). -->
+             projet : pas de geste personnalisé pour cette V1). Persiste à travers le défilement
+             (voir openDailyEventsOverlay()/editDailyNoteFor()). -->
         <div id="daily-events-note-panel">
             <div id="daily-events-note-date"></div>
             <textarea id="daily-events-note-textarea" maxlength="80" rows="2"
@@ -648,8 +649,13 @@
                 <span id="daily-events-note-saved"></span>
             </div>
         </div>
+        <!-- Zone défilable : en-tête sticky + corps (hauteur totale posée en JS, lignes dessinées
+             en fenêtre virtuelle) — remplace l'ancien <table id="daily-events-table">. -->
         <div id="daily-events-scroll">
-            <table id="daily-events-table"></table>
+            <div id="daily-events-grid">
+                <div id="daily-events-head"></div>
+                <div id="daily-events-body"></div>
+            </div>
         </div>
     </div>
     <!-- FIN OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS -->

@@ -1303,14 +1303,18 @@
      }
 
      /* ============================================================
-           OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements, Passe 2)
+           OVERLAY TABLEAU ÉVÉNEMENTS JOURNALIERS (chantier notes/événements)
            Portrait plein écran, pas de rotation (contrairement à Évolution) : un tableau se lit
-           bien en portrait. En-tête à 2 niveaux et 1ère colonne fixes en CSS pur (position:sticky),
-           défilement natif du navigateur — volontairement PAS de geste personnalisé pour cette V1
-           (voir décision projet ; un glisser-coche horizontal est envisagé en V2, une fois la
-           taille réelle des cases connue à l'usage).
-           z-index 480 : sous Évolution (450 — non superposables en pratique, mais cohérent) et
-           sous splash(500)/toasts(550), au-dessus de l'usage normal de l'app.
+           bien en portrait. Grille de <div> et non <table> : chaque ligne a une hauteur EXACTE
+           (--de-row-h, posée par js/daily-data.js depuis DAILY_EVENTS_ROW_H), ce qu'une ligne de
+           tableau à bordures fusionnées ne garantit pas — la fenêtre virtuelle retrouve le rang
+           d'une ligne par scrollTop ÷ hauteur, et un écart d'une fraction de pixel par ligne se
+           cumulerait. En-tête à 2 niveaux et 1ère colonne fixes en CSS pur (position:sticky),
+           défilement natif du navigateur — volontairement PAS de geste personnalisé (un
+           glisser-coche horizontal est envisagé en V2, une fois la taille réelle des cases
+           connue à l'usage).
+           z-index 480 : au-dessus d'Évolution (450 — non superposables en pratique) et sous
+           splash(500)/toasts(550), au-dessus de l'usage normal de l'app.
            ============================================================ */
      #daily-events-overlay {
          position: fixed;
@@ -1354,148 +1358,151 @@
          flex-grow: 1;
          overflow: auto;
          -webkit-overflow-scrolling: touch;
+         overflow-anchor: none;
+         /* Les lignes sont redessinées sous les yeux (fenêtre virtuelle) : pas d'ancrage de
+               défilement automatique du navigateur, qui corrigerait scrollTop à tort. */
      }
 
-     #daily-events-table {
-         border-collapse: collapse;
-         width: max-content;
-         /* La table peut dépasser la largeur de l'écran (plusieurs tags) — défilement
-               horizontal naturel du conteneur #daily-events-scroll, pas de calcul JS. */
+     /* Conteneur de largeur fixe (posée en JS d'après les tags actifs, avec --de-cols = modèle de
+           colonnes partagé par l'en-tête et toutes les lignes) : il borne le défilement horizontal
+           et sert de bloc conteneur aux éléments sticky. */
+     #daily-events-grid {
+         position: relative;
      }
 
-     #daily-events-table th,
-     #daily-events-table td {
-         box-sizing: border-box;
-         border: 1px solid var(--border);
-     }
-
-     /* Hauteurs d'en-tête FIXES (32px / 28px), jamais mesurées en JS — permet un offset sticky
-           simple et fiable pour la 2e ligne (top:32px), même principe que scale.height figé pour
-           l'axe X d'Évolution (afterFit) : ne jamais deviner une hauteur, la fixer. */
-     #daily-events-table thead tr:first-child th {
-         height: 32px;
-     }
-
-     #daily-events-table thead tr:last-child th {
-         height: 28px;
-     }
-
-     #daily-events-table th {
+     /* En-tête fixe en haut (sticky), 2 niveaux de 32 px + 28 px. Hauteurs FIGÉES en CSS, jamais
+           mesurées en JS (même principe que scale.height figé pour l'axe X d'Évolution : ne jamais
+           deviner une hauteur, la fixer). Une case de tag 'presence' couvre les 2 niveaux ; un tag
+           'tristate' couvre 2 colonnes au niveau 1 et porte Oui / Non au niveau 2 (positions en
+           style inline, voir buildDailyEventsHeaderHTML()). */
+     #daily-events-head {
          position: sticky;
+         top: 0;
+         z-index: 6;
+         display: grid;
+         grid-template-columns: var(--de-cols);
+         grid-template-rows: 32px 28px;
+         height: 60px;
          background: var(--card-bg);
+     }
+
+     .de-h {
+         box-sizing: border-box;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         min-width: 0;
+         padding: 4px 6px;
+         background: var(--card-bg);
+         border-right: 1px solid var(--border);
+         border-bottom: 1px solid var(--border);
          font-size: 0.78rem;
          font-weight: bold;
-         padding: 4px 6px;
-         z-index: 2;
+         text-align: center;
      }
 
-     #daily-events-table thead tr:first-child th {
-         top: 0;
-     }
-
-     #daily-events-table thead tr:last-child th {
-         top: 32px;
-     }
-
-     /* Colonne Date — fixe aussi horizontalement (sticky left), coin toujours au-dessus de
-           tout (z-index le plus élevé de la table) puisqu'elle est fixe dans les deux sens. */
-     #daily-events-table .de-col-date {
+     /* Coin (case Date de l'en-tête) : fixe dans les deux sens, au-dessus des autres cases
+           d'en-tête. Porte l'UNIQUE bouton de navigation du tableau : retour à aujourd'hui (tout le
+           reste de la navigation se fait en faisant défiler). Grisé quand on y est déjà. */
+     .de-h-corner {
          position: sticky;
          left: 0;
-         background: var(--card-bg);
-         text-align: left;
-         padding: 4px 8px;
-         font-size: 0.82rem;
-         white-space: nowrap;
+         z-index: 2;
+         padding: 4px;
+         border-left: 1px solid var(--border);
+     }
+
+     .de-today-btn {
+         width: 100%;
+         height: 36px;
+         padding: 0 4px;
+         background: transparent;
+         border: 1px solid #555;
+         color: var(--text-color);
+         border-radius: 4px;
+         font-size: 0.72rem;
+         line-height: 1.1;
+         cursor: pointer;
+     }
+
+     .de-today-btn:disabled {
+         opacity: 0.3;
+         pointer-events: none;
+     }
+
+     /* Corps : conteneur de hauteur totale (posée en JS : rangs × --de-row-h) dans lequel les lignes
+           dessinées sont positionnées en absolu (top posé en style inline : rang × hauteur). */
+     #daily-events-body {
+         position: relative;
+     }
+
+     .de-row {
+         position: absolute;
+         left: 0;
+         width: 100%;
+         height: var(--de-row-h, 44px);
+         display: grid;
+         grid-template-columns: var(--de-cols);
+     }
+
+     .de-c {
+         box-sizing: border-box;
+         min-width: 0;
+         overflow: hidden;
+         border-right: 1px solid var(--border);
+         border-bottom: 1px solid var(--border);
+     }
+
+     /* Colonne Date — fixe aussi horizontalement (sticky left), au-dessus des autres cases de la
+           ligne ; fond plein pour masquer ce qui défile dessous. */
+     .de-col-date {
+         position: sticky;
+         left: 0;
          z-index: 3;
+         display: flex;
+         flex-direction: column;
+         justify-content: center;
+         padding: 4px 8px;
+         background: var(--card-bg);
+         border-left: 1px solid var(--border);
+         font-size: 0.82rem;
+         text-align: left;
+         white-space: nowrap;
      }
 
      /* 1ère ligne de la cellule "Aujourd'hui" (2 lignes : "Aujourd'hui" puis la date complète,
-           voir renderDailyEventsTable()) — même taille que la date, juste mise en avant. */
+           voir buildDailyEventsRowHTML()) — même taille que la date, juste mise en avant. */
      .de-today-label {
          font-weight: bold;
          color: var(--blue);
      }
 
-     /* 3 flèches compactes dans la case d'en-tête Date — SEULE navigation temporelle du
-           tableau (l'ancienne barre du haut ‹mois›⬆ a été retirée, remplacée par le titre
-           statique "Saisie journalière") : ↓ recule de 2 mois (toujours actif), ↑ avance de
-           2 mois (masqué si la fenêtre affiche déjà le mois courant, rien à avancer), ⬆ retour
-           direct à la fenêtre par défaut (mois courant + précédent). Réutilisent
-           navigateDailyEventsMonth() / goToDailyEventsToday() — aucune nouvelle logique de
-           navigation, juste ces déclencheurs. */
-     #daily-events-table th.de-col-date {
-         text-align: center;
-     }
-
-     .de-col-date-buttons {
-         display: flex;
-         gap: 3px;
-         justify-content: center;
-     }
-
-     .de-nav-mini-btn {
-         width: 24px;
-         height: 24px;
-         padding: 0;
-         background: transparent;
-         border: 1px solid #555;
-         color: var(--text-color);
-         border-radius: 4px;
-         font-size: 0.85rem;
-         line-height: 1;
-         cursor: pointer;
-     }
-
-     .de-nav-mini-btn:disabled {
-         opacity: 0.3;
-         pointer-events: none;
-     }
-
-     /* Ligne séparatrice de mois — purement informative, une par mois affiché (fenêtre fixe de
-           2 mois désormais, voir renderDailyEventsTable()) : annonce le nom du mois dont les
-           jours suivent immédiatement en dessous (jamais celui du dessus). N'est plus cliquable
-           et ne porte plus de flèche — toute la navigation temporelle passe désormais par les 3
-           flèches de la case d'en-tête Date. Pas sticky : ligne normale du corps, elle défile
-           avec le reste. */
-     .de-month-separator td {
-         background: rgba(255, 255, 255, 0.04);
-         text-align: center;
-         font-size: 0.8rem;
-         font-weight: bold;
-         opacity: 0.75;
-         padding: 10px 6px;
-     }
-
-     #daily-events-table th.de-col-date {
-         z-index: 4;
-     }
-
      /* Opacité réduite du weekend — restreinte au texte de la date (span dédié, voir
-           renderDailyEventsTable()), jamais à toute la cellule : ne doit jamais assombrir le
-           cadre de sélection (tr.de-row-editing) quand les deux se superposent. */
+           buildDailyEventsRowHTML()), jamais à toute la cellule : ne doit jamais assombrir le
+           cadre de sélection (.de-row-editing) quand les deux se superposent. */
      .de-weekend-text {
          opacity: 0.6;
      }
 
-     #daily-events-table .de-today {
+     .de-row.de-today .de-c {
          background: color-mix(in srgb, var(--blue) 15%, var(--card-bg));
      }
 
-     #daily-events-table td.de-today.de-col-date {
+     .de-row.de-today .de-col-date {
          background: color-mix(in srgb, var(--blue) 28%, var(--card-bg));
      }
 
      /* Cases tapables — génériques : un tag 'tristate' occupe 2 cellules (Oui/Non, voir
-           renderDailyEventsTable()), tout autre mode (ex. 'presence') en occupe 1 seule. Même
+           buildDailyEventsRowHTML()), tout autre mode (ex. 'presence') en occupe 1 seule. Même
            couleurs Oui/Non que les boutons de Résultats (rouge/vert sombre), pour rester cohérent
            avec ce qui existe déjà — un point (pas un bouton texte) car la place est réduite ici
-           et l'en-tête porte déjà le libellé. */
+           et l'en-tête porte déjà le libellé. Largeur et hauteur viennent de la grille. */
      .de-cell {
-         width: 46px;
-         height: 44px;
-         cursor: pointer;
+         display: flex;
+         align-items: center;
+         justify-content: center;
          padding: 0;
+         cursor: pointer;
      }
 
      .de-cell-inner {
@@ -1575,16 +1582,14 @@
            plafonnée visuellement à 2 lignes (-webkit-line-clamp), jamais de coupure au milieu d'un
            mot (comportement natif du navigateur). */
      .de-note-cell {
-         width: 170px;
-         min-width: 150px;
-         height: 44px;
+         justify-content: flex-start;
          padding: 4px 8px;
          text-align: left;
-         cursor: pointer;
-         vertical-align: middle;
      }
 
      .de-note-preview {
+         flex: 1 1 auto;
+         min-width: 0;
          display: -webkit-box;
          -webkit-line-clamp: 2;
          line-clamp: 2;
@@ -1600,17 +1605,16 @@
      }
 
      /* Contour (pas un fond, pour rester distinct de .de-today) autour de TOUTE la ligne dont la
-           note est actuellement chargée dans le panneau — technique standard pour un contour de
-           ligne dans une table à bordures fusionnées (border-collapse) : box-shadow inset sur
-           chaque cellule plutôt qu'une bordure classique, qui serait absorbée par la fusion. */
-     tr.de-row-editing td {
+           note est actuellement chargée dans le panneau — box-shadow inset sur chaque cellule
+           plutôt qu'un contour sur la ligne, qui serait recouvert par le fond des cellules. */
+     .de-row-editing .de-c {
          box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light);
      }
 
-     tr.de-row-editing td:first-child {
+     .de-row-editing .de-c:first-child {
          box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset 2px 0 0 0 var(--beige-light);
      }
 
-     tr.de-row-editing td:last-child {
+     .de-row-editing .de-c:last-child {
          box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset -2px 0 0 0 var(--beige-light);
      }
