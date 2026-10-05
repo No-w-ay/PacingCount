@@ -7,6 +7,10 @@
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
     `daily-data.js`, `results.js`
+  - Autres dossiers : `docs/` (cette note, `TODO.md`, `CONVENTIONS.md`, notes de chantier),
+    `icons/` (sources des icônes + générateur ; `icon-192.png` et `icon-512.png`
+    restent à la racine car référencés par le manifest et `sw.js`),
+    `archive/` (anciennes versions, hors app : jamais chargées ni mises en cache).
   - Scripts classiques (pas de modules), chargés dans le `<head>` avant le gros script.
     L'ordre entre eux est libre, sauf que `daily-data.js` doit être chargé avant
     le script inline (`BUILTIN_EVENT_TAGS` est utilisé dès la section 4).
