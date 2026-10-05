@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-10-05 (après beta.23 et rangement du dépôt). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-10-05 (après beta.23 et rangement du dépôt). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -50,6 +50,13 @@ Voir `docs/notes-events.md`, § 8.
 - Textes EN/NL du tag `day_ok` à relire.
 - Journal d'événements avec temporalité (début/fin d'état, ex. une MPE du 23 au 26 mars) : voir « Long terme ».
 
+## Installation PWA et navigateurs intégrés (terminé, à confirmer par l'usage)
+
+Voir `docs/installation.md`, § 12.
+- Confirmer sur appareils réels : cadence par jour civil (tiers C/D) sur plusieurs jours, `intent://` depuis Facebook sur Android, détection depuis un autre réseau social, affichage EN/NL, Splash 3 après installation par le menu du navigateur.
+- Nettoyage cosmétique de commentaires dans `js/install.js` : en-tête de la section 1d obsolète (« pas encore appelé… Bloc 4 »), bloc « Splash 2 » placé au-dessus de `buildInstallStepsHTML()`.
+- Idée : paramètres UTM sur les liens postés sur Facebook, pour mesurer l'impact indépendamment du navigateur.
+
 ## Stockage & performance
 
 Voir `docs/optimisation-stockage-performance.md`.
@@ -72,7 +79,7 @@ Voir `docs/optimisation-stockage-performance.md`.
 - Commentaire de fin de `index.html` (≈ l. 5071) : remplacer « voir ARCHITECTURE.md (racine du dépôt) » par « voir docs/ARCHITECTURE.md » (commentaire seul ; à grouper avec la prochaine passe).
 - `README.md` ne contient que le titre : décider s'il faut une courte présentation publique (le dépôt est public). Sans urgence.
 - Prochaine ancienne version à la racine (`index_v0.928-b54.html`, gardée visible volontairement) : la ranger dans `archive/` quand une version plus récente la remplace.
-- Nettoyer le projet Claude : retirer `index(71).html`, `sw(11).js`, `manifest(1).json`, `messages(1).json`, les anciennes synthèses (remplacées par `docs/`) ; traiter de la même façon `Handoff stratégie d'installation`, `Résumé des changements appliqués suite au Handoff`, `PWA ouverte depuis Facebook` et `Optimisation CPU, mémoire, batterie` (fusionnée dans `docs/optimisation-stockage-performance.md` : à retirer du projet).
+- Nettoyer le projet Claude : retirer `index(71).html`, `sw(11).js`, `manifest(1).json`, `messages(1).json`, les anciennes synthèses (remplacées par `docs/`) ; retirer aussi `Handoff stratégie d'installation`, `Résumé des changements appliqués suite au Handoff` et `PWA ouverte depuis Facebook` (fusionnées dans `docs/installation.md`) ainsi que `Optimisation CPU, mémoire, batterie` (fusionnée dans `docs/optimisation-stockage-performance.md`).
 
 ## Long terme (prospectif, non confirmé)
 

@@ -253,7 +253,7 @@
 
 
         8. Arbre d'installation : Splashes et cadre dans onglet Réglages
-        (descriptif à compléter)
+        Descriptif complet : docs/installation.md
 
         debugInstallState() en console pour un diagnostic complet de l'état actuel
         dans l'arbre à tout moment
