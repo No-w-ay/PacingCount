@@ -1381,8 +1381,8 @@
          z-index: 6;
          display: grid;
          grid-template-columns: var(--de-cols);
-         grid-template-rows: 32px 28px;
-         height: 60px;
+         grid-template-rows: var(--de-head-rows, 32px 28px);
+         height: var(--de-head-h, 60px);
          background: var(--card-bg);
      }
 
@@ -1404,6 +1404,9 @@
      /* Coin (case Date de l'en-tête) : fixe dans les deux sens, au-dessus des autres cases
            d'en-tête. Porte l'UNIQUE bouton de navigation du tableau : retour à aujourd'hui (tout le
            reste de la navigation se fait en faisant défiler). Grisé quand on y est déjà. */
+     /* Hauteur de l'en-tête : 44 px (1 niveau) sans tag tristate actif, 60 px (2 niveaux) sinon —
+           posée en JS dans --de-head-h / --de-head-rows (voir renderDailyEventsTable()). */
+
      /* Libellé d'un tag : le fond (couleur du tag) est posé en style inline ; texte blanc. */
      .de-h-tag {
          color: #fff;
@@ -1417,11 +1420,18 @@
          border-left: 1px solid var(--border);
      }
 
+     /* Cases d'en-tête qui ne sont pas des événements (coin Date et Note) : gris un peu plus clair. */
+     .de-h-corner,
+     .de-h-note {
+         background: #2c2c2c;
+     }
+
      .de-today-btn {
          width: 100%;
          height: 36px;
-         padding: 0 4px;
-         background: transparent;
+         max-height: 100%;
+         padding: 0 2px;
+         background: var(--bg-color);
          border: 1px solid #555;
          color: var(--text-color);
          border-radius: 4px;
@@ -1441,7 +1451,7 @@
            Hauteurs figées, comme l'en-tête et les lignes (44 px = --de-row-h). */
      #daily-events-frame {
          position: sticky;
-         top: 60px;
+         top: var(--de-head-h, 60px);
          z-index: 4;
          box-sizing: border-box;
          height: var(--de-row-h, 44px);
@@ -1558,17 +1568,24 @@
          border-bottom: 1px solid var(--border);
      }
 
-     /* Date du panneau + <input type=date> transparent par-dessus (ouvre le sélecteur natif). */
+     /* Date du panneau (monospace, largeur fixe) dans un cadre léger cliquable + <input type=date>
+           transparent par-dessus (ouvre le sélecteur natif). Plus grande que le reste du bandeau et
+           toujours vive : c'est l'indicateur de jour, même pendant le défilement. */
      #daily-events-datebox {
          position: relative;
          display: block;
-         width: fit-content;
-         margin-bottom: 4px;
+         justify-self: center;
+         border: 1px solid rgba(224, 200, 150, 0.45);
+         border-radius: 6px;
+         padding: 3px 10px;
      }
 
      #daily-events-note-date {
-         font-size: 0.85rem;
+         display: block;
+         font-family: monospace;
+         font-size: 1rem;
          font-weight: bold;
+         white-space: pre;
          color: var(--beige-light);
      }
 
@@ -1584,10 +1601,23 @@
          cursor: pointer;
      }
 
-     /* Panneau en mouvement (défilement en cours) : la note affichée n'est plus celle du haut. */
+     /* Panneau en mouvement (défilement en cours) : la note affichée n'est plus celle du haut. La
+           date, elle, reste vive. */
      #daily-events-note-panel.de-moving #daily-events-note-textarea,
-     #daily-events-note-panel.de-moving #daily-events-note-meta {
+     #daily-events-note-panel.de-moving #daily-events-note-counter,
+     #daily-events-note-panel.de-moving #daily-events-note-saved {
          opacity: 0.35;
+     }
+
+     /* Limite de 80 caractères atteinte : repère ambre (compatible avec le beige), sans message. */
+     #daily-events-note-panel.de-note-full #daily-events-note-counter {
+         color: #e3a53a;
+         font-weight: bold;
+         opacity: 1;
+     }
+
+     #daily-events-note-panel.de-note-full #daily-events-note-textarea {
+         border-color: #e3a53a;
      }
 
      #daily-events-note-textarea {
@@ -1615,12 +1645,22 @@
          /* compense l'épaississement de la bordure (+1px) pour ne pas décaler le texte */
      }
 
+     /* Sous le champ : compteur | date | « Enregistré » (3 colonnes, date centrée). */
      #daily-events-note-meta {
-         display: flex;
-         justify-content: space-between;
+         display: grid;
+         grid-template-columns: 1fr auto 1fr;
+         align-items: center;
+         margin-top: 6px;
+     }
+
+     #daily-events-note-counter,
+     #daily-events-note-saved {
          font-size: 0.75rem;
          opacity: 0.65;
-         margin-top: 3px;
+     }
+
+     #daily-events-note-saved {
+         justify-self: end;
      }
 
      /* Colonne Note du tableau — plus large que les cases d'événements (texte, pas un point),

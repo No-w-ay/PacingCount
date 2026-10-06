@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.25"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.26"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -634,22 +634,21 @@
             <button id="daily-events-close-btn" onclick="closeDailyEventsOverlay()">✕</button>
             <div id="daily-events-title"></div>
         </div>
-        <!-- Panneau de note journalière — PERMANENT (pas seulement au tap), toujours visible en
-             haut de l'overlay. Date affichée = window.dailyEventsNoteDate, réinitialisée sur
-             aujourd'hui à l'ouverture de l'overlay, changée uniquement par un tap explicite sur la
-             colonne Date ou la colonne Note du tableau (jamais par le défilement — voir décision
-             projet : pas de geste personnalisé pour cette V1). Persiste à travers le défilement
-             (voir openDailyEventsOverlay()/editDailyNoteFor()). -->
+        <!-- Panneau de note journalière — PERMANENT, toujours visible en haut de l'overlay. Le jour
+             affiché est celui de la LIGNE DU HAUT du tableau (cadre fixe) : la date suit le
+             défilement en direct, la note n'est chargée qu'à l'arrêt (voir js/daily-data.js §20c).
+             Sous le champ : compteur | date (cadre léger, cliquable) | « Enregistré ». L'<input
+             type=date> est transparent et posé sur la date : la toucher ouvre le sélecteur natif. -->
         <div id="daily-events-note-panel">
-            <div id="daily-events-datebox">
-                <span id="daily-events-note-date"></span>
-                <input type="date" id="daily-events-date-input" onclick="openDailyEventsDatePicker(this)"
-                    onchange="onDailyEventsDatePicked(this)">
-            </div>
             <textarea id="daily-events-note-textarea" maxlength="80" rows="2"
                 oninput="onDailyNoteInput(this)"></textarea>
             <div id="daily-events-note-meta">
                 <span id="daily-events-note-counter"></span>
+                <div id="daily-events-datebox">
+                    <span id="daily-events-note-date"></span>
+                    <input type="date" id="daily-events-date-input"
+                        onclick="openDailyEventsDatePicker(this)" onchange="onDailyEventsDatePicked(this)">
+                </div>
                 <span id="daily-events-note-saved"></span>
             </div>
         </div>

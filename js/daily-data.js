@@ -223,7 +223,10 @@ function toggleEventTristate(dateKey, tagId, value) {
 //   ligne la plus proche est recalée pile sous l'en-tête par JS (pas de CSS scroll-snap : incompatible
 //   avec la fenêtre virtuelle), puis sa note est chargée.
 // - Tap sur une date ou une note, bouton « Aujourd'hui », sélecteur de date du panneau : amènent le
-//   jour en haut (selectDailyEventsDate) ; sa note est chargée tout de suite.
+//   jour en haut (selectDailyEventsDate) ; sa note est chargée tout de suite (saut), ou à l'arrivée
+//   du glissement doux quand le jour est proche (≤ DAILY_EVENTS_GLIDE_ROWS lignes).
+// Colonnes : Date | un tag par colonne | Note ÉLASTIQUE (min DAILY_EVENTS_COL_NOTE_MIN_W, max
+// DAILY_EVENTS_COL_NOTE_MAX_W : 80 caractères tiennent sur 2 lignes sans troncature au maximum).
 // La navigation par paires de mois (flèches ↓ ↑ ⬆, ligne séparatrice de mois) a été retirée
 // avec ce rendu : dernière version du tableau <table> = commit f99733a (branche dev).
 // Le cadre beige par ligne (classe .de-row-editing, jour édité quelconque) a été remplacé en
@@ -231,9 +234,14 @@ function toggleEventTristate(dateKey, tagId, value) {
 // ============================================================
 
 const DAILY_EVENTS_ROW_H = 44;          // px — hauteur EXACTE d'une ligne (aussi posée en CSS : --de-row-h)
-const DAILY_EVENTS_COL_DATE_W = 100;    // px — colonne Date (estimation : à ajuster après test sur appareil)
+const DAILY_EVENTS_COL_DATE_W = 96;     // px — colonne Date : « Aujourd'hui » (FR, gras) mesure 75 px + 18 px de marges/bordures
 const DAILY_EVENTS_COL_TAG_W = 46;      // px — une colonne par tag 'presence', deux par tag 'tristate'
-const DAILY_EVENTS_COL_NOTE_W = 170;    // px — colonne Note
+const DAILY_EVENTS_COL_NOTE_MIN_W = 170; // px — colonne Note : largeur minimale (= ancienne largeur fixe)
+const DAILY_EVENTS_COL_NOTE_MAX_W = 320; // px — plafond : 80 caractères sur 2 lignes sans troncature
+const DAILY_EVENTS_HEAD_H = 44;         // px — en-tête sur 1 niveau (aucun tag tristate actif) = hauteur d'une ligne
+const DAILY_EVENTS_HEAD_H_TRISTATE = 60; // px — en-tête sur 2 niveaux (32 + 28) quand un tag tristate est actif
+const DAILY_EVENTS_GLIDE_ROWS = 14;     // glissement doux du tap si le jour visé est à ≤ 14 lignes du haut
+const DAILY_NOTE_MAX = 80;              // caractères max d'une note (aussi maxlength du <textarea>)
 const DAILY_EVENTS_INITIAL_ROWS = 150;  // longueur initiale de la zone défilable (en lignes)
 const DAILY_EVENTS_EXTEND_ROWS = 90;    // prolongement de la zone défilable quand on approche de la fin
 const DAILY_EVENTS_EXTEND_MARGIN = 40;  // lignes d'avance minimum au-delà de la fenêtre dessinée
@@ -271,11 +279,20 @@ function dailyEventsRowForDateKey(dateKey) {
     return diff >= 0 ? diff : null;
 }
 
+// Jour de semaine sur 2 lettres, quelle que soit la langue (« lun. » → « lu », « Mon » → « Mo »,
+// « ma » → « ma ») : largeur identique partout.
+function dailyEventsWeekday2(date, fmt) {
+    return fmt.format(date).replace(/[.\s]/g, '').slice(0, 2);
+}
+
 // Contexte commun à toutes les lignes d'un même dessin (évite de le recalculer ligne par ligne).
 function getDailyEventsRenderContext() {
     return {
         tags: settings.eventTags.filter(tg => tg.active),
-        dateFmt: new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+        // Colonne Date : « ma 06/10 » — jour de semaine sur 2 lettres + jour/mois, SANS année (l'année est
+        // dans la date du panneau). Le format jour/mois suit la locale.
+        dateFmt: new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit' }),
+        weekdayFmt: new Intl.DateTimeFormat(getLocale(), { weekday: 'short' })
     };
 }
 
@@ -288,11 +305,11 @@ function buildDailyEventsRowHTML(i, ctx) {
     const dateKey = dailyEventsDateKey(d);
     const isWeekend = [0, 6].includes(d.getDay());
     const isToday = i === 0;
-    const formattedDateRaw = ctx.dateFmt.format(d);
+    const formattedDateRaw = `${dailyEventsWeekday2(d, ctx.weekdayFmt)} ${ctx.dateFmt.format(d)}`;
     // Opacité réduite du weekend — restreinte au texte de la date lui-même (span dédié), jamais à
     // toute la cellule (qui porte aussi le fond de la colonne épinglée).
     const formattedDate = isWeekend ? `<span class="de-weekend-text">${formattedDateRaw}</span>` : formattedDateRaw;
-    // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date complète), pour repérer le jour courant
+    // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date), pour repérer le jour courant
     // d'un coup d'œil sans avoir à lire/comparer la date affichée.
     const dateContent = isToday
         ? `<div class="de-today-label">${t('dailyEventsToday')}</div><div>${formattedDate}</div>`
@@ -333,21 +350,24 @@ function buildDailyEventsRowHTML(i, ctx) {
 // Case-libellé d'un tag : fond = couleur GLOBALE du tag (getEventTagColor, la même que la pastille
 // active des lignes), texte blanc. Un futur tag sans couleur propre retombe sur la couleur par défaut.
 function buildDailyEventsHeaderHTML(tags, isAtTop) {
+    // Sans tag 'tristate' actif, l'en-tête n'a qu'UN niveau (pas de ligne Oui / Non à prévoir).
+    const rows = tags.some(tg => tg.mode === 'tristate') ? '1 / span 2' : '1';
     let col = 2; // numéro de colonne CSS (1 = Date)
-    let html = `<div class="de-h de-h-corner" style="grid-row:1 / span 2;grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsToday')}</button></div>`;
+    let html = `<div class="de-h de-h-corner" style="grid-row:${rows};grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsToday')}</button></div>`;
     tags.forEach(tg => {
+        const bg = `background:${getEventTagColor(tg.id)}`;
         if (tg.mode === 'tristate') {
-            html += `<div class="de-h de-h-tag" style="grid-row:1;grid-column:${col} / span 2;background:${getEventTagColor(tg.id)}">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag" style="grid-row:1;grid-column:${col} / span 2;${bg}">${escapeHtml(tg.label)}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col}">${t('eventStateYes')}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col + 1}">${t('eventStateNo')}</div>`;
             col += 2;
         } else {
-            html += `<div class="de-h de-h-tag" style="grid-row:1 / span 2;grid-column:${col};background:${getEventTagColor(tg.id)}">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag" style="grid-row:${rows};grid-column:${col};${bg}">${escapeHtml(tg.label)}</div>`;
             col += 1;
         }
     });
     // Colonne Note — toujours en dernier, hors boucle des tags (ce n'est pas un event).
-    html += `<div class="de-h" style="grid-row:1 / span 2;grid-column:${col}">${t('dailyEventsNoteHeader')}</div>`;
+    html += `<div class="de-h de-h-note" style="grid-row:${rows};grid-column:${col}">${t('dailyEventsNoteHeader')}</div>`;
     return html;
 }
 
@@ -364,9 +384,12 @@ function renderDailyEventsTable() {
     const titleEl = document.getElementById('daily-events-title');
     if (titleEl) titleEl.textContent = t('dailyEventsTitle');
 
-    // Largeurs fixes posées d'après les tags actifs (jamais mesurées) : un tag 'tristate' occupe
-    // 2 colonnes, tout autre mode 1 seule.
+    // Largeurs posées d'après les tags actifs (jamais mesurées) : un tag 'tristate' occupe 2 colonnes,
+    // tout autre mode 1 seule. Seule la colonne Note est élastique (1fr entre son min et son max) ; la
+    // grille remplit l'écran dans les bornes [colonnes fixes + min, colonnes fixes + max] et ne
+    // déborde (défilement horizontal) que si l'écran est plus étroit que le minimum.
     const tags = settings.eventTags.filter(tg => tg.active);
+    const hasTristate = tags.some(tg => tg.mode === 'tristate');
     let template = `${DAILY_EVENTS_COL_DATE_W}px`;
     let dataCols = 0;
     tags.forEach(tg => {
@@ -374,10 +397,15 @@ function renderDailyEventsTable() {
         dataCols += n;
         template += ` repeat(${n}, ${DAILY_EVENTS_COL_TAG_W}px)`;
     });
-    template += ` ${DAILY_EVENTS_COL_NOTE_W}px`;
-    grid.style.width = (DAILY_EVENTS_COL_DATE_W + dataCols * DAILY_EVENTS_COL_TAG_W + DAILY_EVENTS_COL_NOTE_W) + 'px';
+    template += ` minmax(${DAILY_EVENTS_COL_NOTE_MIN_W}px, 1fr)`;
+    const fixedW = DAILY_EVENTS_COL_DATE_W + dataCols * DAILY_EVENTS_COL_TAG_W;
+    grid.style.minWidth = (fixedW + DAILY_EVENTS_COL_NOTE_MIN_W) + 'px';
+    grid.style.maxWidth = (fixedW + DAILY_EVENTS_COL_NOTE_MAX_W) + 'px';
     grid.style.setProperty('--de-cols', template);
     grid.style.setProperty('--de-row-h', DAILY_EVENTS_ROW_H + 'px');
+    // En-tête : 1 niveau (44 px) sans tristate, 2 niveaux (32 + 28 = 60 px) sinon. Hauteurs figées.
+    grid.style.setProperty('--de-head-h', (hasTristate ? DAILY_EVENTS_HEAD_H_TRISTATE : DAILY_EVENTS_HEAD_H) + 'px');
+    grid.style.setProperty('--de-head-rows', hasTristate ? '32px 28px' : DAILY_EVENTS_HEAD_H + 'px');
 
     head.innerHTML = buildDailyEventsHeaderHTML(tags, scroller.scrollTop <= 1);
     renderDailyEventsWindow(true);
@@ -467,6 +495,10 @@ function scheduleDailyEventsSettle() {
     window._dailyEventsSettleTimer = setTimeout(settleDailyEvents, DAILY_EVENTS_SETTLE_MS);
 }
 
+function dailyEventsReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
 function settleDailyEvents() {
     window._dailyEventsSettleTimer = 0;
     const scroller = document.getElementById('daily-events-scroll');
@@ -478,8 +510,7 @@ function settleDailyEvents() {
     // Tolérance 0,5 px : sur écran à densité fractionnaire, scrollTop ne peut pas toujours valoir
     // exactement rang × 44 ; sans elle le recalage bouclerait.
     if (Math.abs(scroller.scrollTop - target) > 0.5) {
-        const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (scroller.scrollTo) scroller.scrollTo({ top: target, behavior: calm ? 'auto' : 'smooth' });
+        if (scroller.scrollTo) scroller.scrollTo({ top: target, behavior: dailyEventsReducedMotion() ? 'auto' : 'smooth' });
         else scroller.scrollTop = target;
         return; // les événements de défilement suivants réarment le recalage ; la note sera chargée à l'arrivée
     }
@@ -505,6 +536,14 @@ function commitDailyEventsRow(row) {
 function selectDailyEventsDate(dateKey) {
     const row = dailyEventsRowForDateKey(dateKey);
     if (row === null) return;
+    const scroller = document.getElementById('daily-events-scroll');
+    const cur = dailyEventsTopRow();
+    // Jour proche : glissement doux (sauf « réduire les animations »). Il passe par le suivi en direct
+    // et le recalage ordinaires : la note est chargée à l'arrivée, rien de spécial à gérer ici.
+    if (row !== cur && Math.abs(row - cur) <= DAILY_EVENTS_GLIDE_ROWS && scroller && scroller.scrollTo && !dailyEventsReducedMotion()) {
+        scroller.scrollTo({ top: row * DAILY_EVENTS_ROW_H, behavior: 'smooth' });
+        return;
+    }
     scrollDailyEventsToDate(dateKey);
     commitDailyEventsRow(row);
 }
@@ -611,7 +650,7 @@ function getDailyNote(dateKey) {
 // plus) ; retire la clé 'text' si le texte est vide, retire toute la clé du jour si elle
 // ne contient plus ni note ni events (même nettoyage que toggleEventPresence()).
 function setDailyNote(dateKey, text) {
-    const clean = text.slice(0, 80);
+    const clean = text.slice(0, DAILY_NOTE_MAX);
     const day = dailyData[dateKey] || (dailyData[dateKey] = {});
     if (clean) day.text = clean; else delete day.text;
     if ((!day.events || day.events.length === 0) && !day.text) delete dailyData[dateKey];
@@ -619,7 +658,10 @@ function setDailyNote(dateKey, text) {
 }
 
 // Affiche une date dans le panneau (texte, valeur du sélecteur, libellé accessible) SANS toucher au
-// champ de note : sert au suivi en direct pendant le défilement.
+// champ de note : sert au suivi en direct pendant le défilement. Texte visible en LARGEUR FIXE
+// (monospace) : « ma  6 oct. 2026 » = jour de semaine sur 2 lettres + le même format que la date de
+// fin d'Évolution (formatEvolutionEndDateFixed : jour sur 2, mois sur 4, année sur 4) — rien ne
+// « saute » pendant le défilement. Le libellé accessible garde la date complète en toutes lettres.
 function setDailyNotePanelDate(dateKey) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey || '');
     const label = document.getElementById('daily-events-note-date');
@@ -627,14 +669,15 @@ function setDailyNotePanelDate(dateKey) {
     const loc = getLocale();
     if (!window._dailyPanelFmt || window._dailyPanelFmtLocale !== loc) {
         window._dailyPanelFmt = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        window._dailyPanelWeekdayFmt = new Intl.DateTimeFormat(loc, { weekday: 'short' });
         window._dailyPanelFmtLocale = loc;
     }
-    const raw = window._dailyPanelFmt.format(new Date(+m[1], +m[2] - 1, +m[3]));
-    const text = raw.charAt(0).toUpperCase() + raw.slice(1);
-    label.textContent = text;
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    const longText = window._dailyPanelFmt.format(d);
+    label.textContent = `${dailyEventsWeekday2(d, window._dailyPanelWeekdayFmt)} ${formatEvolutionEndDateFixed(d)}`;
     window.dailyEventsLiveDate = dateKey;
     const pick = document.getElementById('daily-events-date-input');
-    if (pick) { pick.value = dateKey; pick.setAttribute('aria-label', text); }
+    if (pick) { pick.value = dateKey; pick.setAttribute('aria-label', longText.charAt(0).toUpperCase() + longText.slice(1)); }
 }
 
 // Panneau « en mouvement » : la ligne du haut n'est pas (encore) le jour dont la note est chargée.
@@ -668,9 +711,13 @@ function renderDailyNotePanel() {
     if (ind) { ind.textContent = t('dailyEventsNoteSaved'); ind.style.visibility = 'visible'; }
 }
 
+// Compteur « n/80 ». À la limite, le panneau passe en état « plein » (compteur et bord du champ en
+// ambre, voir CSS) : repère visuel indépendant du clavier, sans message.
 function updateDailyNoteCounter(len) {
     const el = document.getElementById('daily-events-note-counter');
-    if (el) el.textContent = `${len}/80`;
+    if (el) el.textContent = `${len}/${DAILY_NOTE_MAX}`;
+    const panel = document.getElementById('daily-events-note-panel');
+    if (panel) panel.classList.toggle('de-note-full', len >= DAILY_NOTE_MAX);
 }
 
 // À chaque frappe : sauvegarde immédiate en mémoire/localStorage (comme partout ailleurs
@@ -680,6 +727,18 @@ function updateDailyNoteCounter(len) {
 // jour édité est rafraîchie, pour que l'aperçu de la case Note reste à jour, mais PAS le panneau
 // lui-même (renderDailyNotePanel() réécrirait ta.value et ferait sauter le curseur pendant la saisie).
 function onDailyNoteInput(el) {
+    // Filet UNIVERSEL, quel que soit le clavier : maxlength seul laisse les claviers à suggestions
+    // (composition d'un mot, ex. Samsung) dépasser 80 jusqu'à la validation du mot. On coupe donc
+    // ici, tout de suite, en gardant le curseur — sans jamais couper une paire de substitution
+    // (emoji). Le champ n'est réécrit QUE s'il dépasse (jamais en frappe normale : le curseur ne saute pas).
+    if (el.value.length > DAILY_NOTE_MAX) {
+        let end = DAILY_NOTE_MAX;
+        const c = el.value.charCodeAt(end - 1);
+        if (c >= 0xD800 && c <= 0xDBFF) end--;
+        const caret = Math.min(el.selectionStart, end);
+        el.value = el.value.slice(0, end);
+        el.setSelectionRange(caret, caret);
+    }
     setDailyNote(window.dailyEventsNoteDate, el.value);
     updateDailyNoteCounter(el.value.length);
     scheduleDailyNoteSavedIndicator();
