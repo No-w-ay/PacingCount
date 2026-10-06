@@ -211,10 +211,23 @@ function toggleEventTristate(dateKey, tagId, value) {
 // ne fait que GRANDIR (par paquets, quand on approche de la fin). Les lignes sont positionnées
 // en absolu (top = rang × hauteur) ; en-tête et 1ère colonne restent fixes par CSS sticky.
 // Défilement natif uniquement — pas de geste tactile personnalisé.
-// Une saisie (toggle, changement de jour édité, frappe dans la note) ne remplace QUE la ligne
-// concernée (refreshDailyEventsRow), jamais tout le tableau.
+// Une saisie (toggle, frappe dans la note) ne remplace QUE la ligne concernée
+// (refreshDailyEventsRow), jamais tout le tableau.
+//
+// JOUR ÉDITÉ = LIGNE DU HAUT (un seul indicateur de jour) : la ligne juste sous l'en-tête, entourée
+// d'un cadre FIXE (#daily-events-frame, sticky), est celle dont la note est dans le panneau.
+// - Pendant le défilement : la date du panneau suit en direct la ligne du haut ; tant qu'elle
+//   diffère du jour chargé, le champ de note est grisé et en lecture seule (aucune frappe possible
+//   sur le mauvais jour) et le clavier est fermé.
+// - À l'arrêt (DAILY_EVENTS_SETTLE_MS sans événement de défilement ET doigt/souris relâché) : la
+//   ligne la plus proche est recalée pile sous l'en-tête par JS (pas de CSS scroll-snap : incompatible
+//   avec la fenêtre virtuelle), puis sa note est chargée.
+// - Tap sur une date ou une note, bouton « Aujourd'hui », sélecteur de date du panneau : amènent le
+//   jour en haut (selectDailyEventsDate) ; sa note est chargée tout de suite.
 // La navigation par paires de mois (flèches ↓ ↑ ⬆, ligne séparatrice de mois) a été retirée
 // avec ce rendu : dernière version du tableau <table> = commit f99733a (branche dev).
+// Le cadre beige par ligne (classe .de-row-editing, jour édité quelconque) a été remplacé en
+// beta.25 par le cadre fixe ci-dessus : dernière version avec = commit d305079 (beta.24).
 // ============================================================
 
 const DAILY_EVENTS_ROW_H = 44;          // px — hauteur EXACTE d'une ligne (aussi posée en CSS : --de-row-h)
@@ -228,11 +241,15 @@ const DAILY_EVENTS_WINDOW_ROWS = 60;    // lignes dessinées dans le DOM
 const DAILY_EVENTS_MARGIN_LOW = 10;     // redessiner si la 1ère ligne visible passe sous (début de fenêtre + 10)
 const DAILY_EVENTS_MARGIN_HIGH = 30;    // redessiner si elle dépasse (début de fenêtre + 30)
 const DAILY_EVENTS_RECENTER = 20;       // après un redessin : 1ère ligne visible = début de fenêtre + 20
+const DAILY_EVENTS_SETTLE_MS = 140;     // silence de défilement avant le recalage sur la ligne du haut
 
 window.dailyEventsToday = null;         // Date (minuit) figée à l'ouverture : rang 0 (null = overlay jamais ouvert)
 window.dailyEventsTotalRows = 0;        // longueur courante de la zone défilable, en lignes
 window.dailyEventsWinFrom = 0;          // fenêtre dessinée : rangs [from, to[
 window.dailyEventsWinTo = 0;
+window.dailyEventsLiveDate = null;      // date affichée dans le panneau (suit la ligne du haut en direct)
+window.dailyEventsFingerDown = false;   // doigt / souris posé sur la zone : pas de recalage tant que vrai
+window.dailyEventsMoving = false;       // panneau grisé : la ligne du haut n'est pas encore le jour chargé
 
 function dailyEventsDateKey(d) {
     return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
@@ -258,24 +275,22 @@ function dailyEventsRowForDateKey(dateKey) {
 function getDailyEventsRenderContext() {
     return {
         tags: settings.eventTags.filter(tg => tg.active),
-        dateFmt: new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' }),
-        editDate: window.dailyEventsNoteDate // jour actuellement chargé dans le panneau de note
+        dateFmt: new Intl.DateTimeFormat(getLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
     };
 }
 
-// HTML d'UNE ligne (rang i) : date tapable (charge la note du jour dans le panneau — jamais les
-// cases d'événement, qui servent déjà à activer/désactiver), une case par colonne de tag, aperçu
-// de la note (tapable aussi). Mêmes contenus que l'ancienne ligne <tr>.
+// HTML d'UNE ligne (rang i) : date tapable (amène le jour en haut et charge sa note dans le panneau
+// — jamais les cases d'événement, qui servent déjà à activer/désactiver), une case par colonne de
+// tag, aperçu de la note (tapable aussi). Le jour édité n'est plus marqué par ligne : c'est le cadre
+// fixe #daily-events-frame, posé sur la ligne du haut.
 function buildDailyEventsRowHTML(i, ctx) {
     const d = dailyEventsDateForRow(i);
     const dateKey = dailyEventsDateKey(d);
     const isWeekend = [0, 6].includes(d.getDay());
     const isToday = i === 0;
-    const isEditing = dateKey === ctx.editDate;
     const formattedDateRaw = ctx.dateFmt.format(d);
     // Opacité réduite du weekend — restreinte au texte de la date lui-même (span dédié), jamais à
-    // toute la cellule : sinon elle assombrirait aussi le cadre de sélection (.de-row-editing)
-    // quand les deux se superposent un jour de weekend.
+    // toute la cellule (qui porte aussi le fond de la colonne épinglée).
     const formattedDate = isWeekend ? `<span class="de-weekend-text">${formattedDateRaw}</span>` : formattedDateRaw;
     // Cellule "Aujourd'hui" sur 2 lignes (mot-clé + date complète), pour repérer le jour courant
     // d'un coup d'œil sans avoir à lire/comparer la date affichée.
@@ -283,8 +298,8 @@ function buildDailyEventsRowHTML(i, ctx) {
         ? `<div class="de-today-label">${t('dailyEventsToday')}</div><div>${formattedDate}</div>`
         : formattedDate;
 
-    let html = `<div class="de-row${isToday ? ' de-today' : ''}${isEditing ? ' de-row-editing' : ''}" data-date="${dateKey}" style="top:${i * DAILY_EVENTS_ROW_H}px">`;
-    html += `<div class="de-c de-col-date" onclick="editDailyNoteFor('${dateKey}')">${dateContent}</div>`;
+    let html = `<div class="de-row${isToday ? ' de-today' : ''}" data-date="${dateKey}" style="top:${i * DAILY_EVENTS_ROW_H}px">`;
+    html += `<div class="de-c de-col-date" onclick="selectDailyEventsDate('${dateKey}')">${dateContent}</div>`;
     ctx.tags.forEach(tg => {
         if (tg.mode === 'tristate') {
             const val = getDailyEventValue(dateKey, tg.id);
@@ -306,7 +321,7 @@ function buildDailyEventsRowHTML(i, ctx) {
     const notePreview = noteText
         ? escapeHtml(noteText)
         : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
-    html += `<div class="de-c de-cell de-note-cell" onclick="editDailyNoteFor('${dateKey}')"><div class="de-note-preview">${notePreview}</div></div>`;
+    html += `<div class="de-c de-cell de-note-cell" onclick="selectDailyEventsDate('${dateKey}')"><div class="de-note-preview">${notePreview}</div></div>`;
     html += `</div>`;
     return html;
 }
@@ -315,17 +330,19 @@ function buildDailyEventsRowHTML(i, ctx) {
 // 2 colonnes au niveau 1 et porte Oui / Non au niveau 2 ; tout autre mode couvre les 2 niveaux.
 // Case Date : un SEUL bouton de navigation (retour à aujourd'hui) — le reste se fait en faisant
 // défiler. Grisé quand on est déjà tout en haut.
+// Case-libellé d'un tag : fond = couleur GLOBALE du tag (getEventTagColor, la même que la pastille
+// active des lignes), texte blanc. Un futur tag sans couleur propre retombe sur la couleur par défaut.
 function buildDailyEventsHeaderHTML(tags, isAtTop) {
     let col = 2; // numéro de colonne CSS (1 = Date)
     let html = `<div class="de-h de-h-corner" style="grid-row:1 / span 2;grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsToday')}</button></div>`;
     tags.forEach(tg => {
         if (tg.mode === 'tristate') {
-            html += `<div class="de-h" style="grid-row:1;grid-column:${col} / span 2">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag" style="grid-row:1;grid-column:${col} / span 2;background:${getEventTagColor(tg.id)}">${escapeHtml(tg.label)}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col}">${t('eventStateYes')}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col + 1}">${t('eventStateNo')}</div>`;
             col += 2;
         } else {
-            html += `<div class="de-h" style="grid-row:1 / span 2;grid-column:${col}">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag" style="grid-row:1 / span 2;grid-column:${col};background:${getEventTagColor(tg.id)}">${escapeHtml(tg.label)}</div>`;
             col += 1;
         }
     });
@@ -416,15 +433,91 @@ function updateDailyEventsTodayButton() {
     if (scroller && btn) btn.disabled = scroller.scrollTop <= 1;
 }
 
-// Écouteur de défilement : au plus un traitement par image (requestAnimationFrame). Le travail
-// réel (redessin de la fenêtre) n'a lieu que lorsqu'on sort de la zone de confort.
+// Rang de la ligne la plus proche du haut (celle qui sera recalée sous l'en-tête).
+function dailyEventsTopRow() {
+    const scroller = document.getElementById('daily-events-scroll');
+    return scroller ? Math.max(0, Math.round(scroller.scrollTop / DAILY_EVENTS_ROW_H)) : 0;
+}
+
+// Écouteur de défilement : au plus un traitement par image (requestAnimationFrame). Le redessin de
+// la fenêtre n'a lieu que lorsqu'on sort de la zone de confort ; le reste est léger (un texte).
 function onDailyEventsScroll() {
     if (window._dailyEventsRaf) return;
     window._dailyEventsRaf = requestAnimationFrame(() => {
         window._dailyEventsRaf = 0;
         renderDailyEventsWindow(false);
         updateDailyEventsTodayButton();
+        updateDailyEventsLiveDay();
+        scheduleDailyEventsSettle();
     });
+}
+
+// Date du panneau en direct. Seul le texte de la date change ; la note (champ) reste celle du jour
+// chargé, grisée et verrouillée tant que la ligne du haut est un autre jour.
+function updateDailyEventsLiveDay() {
+    const key = dailyEventsDateKey(dailyEventsDateForRow(dailyEventsTopRow()));
+    if (key !== window.dailyEventsLiveDate) setDailyNotePanelDate(key);
+    setDailyNotePanelMoving(key !== window.dailyEventsNoteDate);
+}
+
+// Recalage : armé à chaque événement de défilement (le délai repart de zéro) et au relâchement du
+// doigt. Ne fait rien tant que le doigt / la souris est posé (il sera réarmé au relâchement).
+function scheduleDailyEventsSettle() {
+    clearTimeout(window._dailyEventsSettleTimer);
+    window._dailyEventsSettleTimer = setTimeout(settleDailyEvents, DAILY_EVENTS_SETTLE_MS);
+}
+
+function settleDailyEvents() {
+    window._dailyEventsSettleTimer = 0;
+    const scroller = document.getElementById('daily-events-scroll');
+    const overlay = document.getElementById('daily-events-overlay');
+    if (!scroller || !overlay || overlay.style.display === 'none' || !window.dailyEventsToday) return;
+    if (window.dailyEventsFingerDown) return;
+    const row = dailyEventsTopRow();
+    const target = row * DAILY_EVENTS_ROW_H;
+    // Tolérance 0,5 px : sur écran à densité fractionnaire, scrollTop ne peut pas toujours valoir
+    // exactement rang × 44 ; sans elle le recalage bouclerait.
+    if (Math.abs(scroller.scrollTop - target) > 0.5) {
+        const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (scroller.scrollTo) scroller.scrollTo({ top: target, behavior: calm ? 'auto' : 'smooth' });
+        else scroller.scrollTop = target;
+        return; // les événements de défilement suivants réarment le recalage ; la note sera chargée à l'arrivée
+    }
+    commitDailyEventsRow(row);
+}
+
+// Charge dans le panneau la note du jour de rang `row` (devenu ligne du haut). Si c'est déjà le
+// jour chargé, seule la date affichée est resynchronisée : le champ n'est PAS réécrit (curseur).
+function commitDailyEventsRow(row) {
+    const key = dailyEventsDateKey(dailyEventsDateForRow(row));
+    if (key === window.dailyEventsNoteDate) {
+        setDailyNotePanelDate(key);
+        setDailyNotePanelMoving(false);
+        return;
+    }
+    window.dailyEventsNoteDate = key;
+    renderDailyNotePanel();
+    setDailyNotePanelMoving(false);
+}
+
+// Amène un jour en haut ET charge sa note tout de suite (tap sur date/note, « Aujourd'hui »,
+// sélecteur de date). Sans effet pour une date invalide ou future.
+function selectDailyEventsDate(dateKey) {
+    const row = dailyEventsRowForDateKey(dateKey);
+    if (row === null) return;
+    scrollDailyEventsToDate(dateKey);
+    commitDailyEventsRow(row);
+}
+
+// Sélecteur de date natif du panneau (input type=date transparent posé sur la date affichée).
+function onDailyEventsDatePicked(input) {
+    if (input.value && dailyEventsRowForDateKey(input.value) !== null) selectDailyEventsDate(input.value);
+    else setDailyNotePanelDate(window.dailyEventsNoteDate); // vide ou futur : on garde le jour chargé
+}
+
+// Certains navigateurs de bureau n'ouvrent le calendrier qu'au clic sur l'icône du champ.
+function openDailyEventsDatePicker(input) {
+    try { if (input.showPicker) input.showPicker(); } catch (e) { /* ouverture native seule */ }
 }
 
 // Amène la ligne de cette date en 1ère position sous l'en-tête (scrollTop = rang × hauteur).
@@ -442,11 +535,10 @@ function scrollDailyEventsToDate(dateKey) {
     updateDailyEventsTodayButton();
 }
 
-// Unique bouton de navigation du tableau : retour tout en haut (aujourd'hui). Ne change pas le
-// jour chargé dans le panneau de note (seul un tap sur une date ou une note le change).
+// Bouton « Aujourd'hui » : retour tout en haut ; aujourd'hui devient le jour édité.
 function goToDailyEventsToday() {
     if (!window.dailyEventsToday) return;
-    scrollDailyEventsToDate(dailyEventsDateKey(window.dailyEventsToday));
+    selectDailyEventsDate(dailyEventsDateKey(window.dailyEventsToday));
 }
 
 function openDailyEventsOverlay() {
@@ -459,19 +551,32 @@ function openDailyEventsOverlay() {
     window.dailyEventsTotalRows = DAILY_EVENTS_INITIAL_ROWS;
     window.dailyEventsWinFrom = 0;
     window.dailyEventsWinTo = 0;
-    // Panneau de note : toujours réinitialisé sur aujourd'hui à l'OUVERTURE de l'overlay —
-    // persiste ensuite tant qu'il reste ouvert (y compris à travers le défilement), jusqu'à un
-    // nouveau tap explicite sur la colonne Date ou Note du tableau.
+    // Panneau de note : réinitialisé sur aujourd'hui (= ligne du haut, scrollTop 0) à l'OUVERTURE.
+    // Ensuite le jour chargé est toujours la ligne du haut, voir settleDailyEvents().
     window.dailyEventsNoteDate = dailyEventsDateKey(window.dailyEventsToday);
+    window.dailyEventsLiveDate = null;
+    window.dailyEventsFingerDown = false;
+    clearTimeout(window._dailyEventsSettleTimer);
     overlay.style.display = 'flex';
     const scroller = document.getElementById('daily-events-scroll');
     if (scroller) {
         if (!window._dailyEventsScrollBound) {
             scroller.addEventListener('scroll', onDailyEventsScroll, { passive: true });
+            // Doigt / souris posé : pas de recalage sous le doigt. touchcancel : le navigateur
+            // reprend le geste (fin du contrôle JS, l'élan continue et réarme le recalage).
+            const down = () => { window.dailyEventsFingerDown = true; };
+            const up = () => { window.dailyEventsFingerDown = false; scheduleDailyEventsSettle(); };
+            scroller.addEventListener('touchstart', down, { passive: true });
+            scroller.addEventListener('mousedown', down, { passive: true });
+            scroller.addEventListener('touchend', up, { passive: true });
+            scroller.addEventListener('touchcancel', up, { passive: true });
+            window.addEventListener('mouseup', () => { if (window.dailyEventsFingerDown) up(); }, { passive: true });
             window._dailyEventsScrollBound = true;
         }
         scroller.scrollTop = 0;
     }
+    const pick = document.getElementById('daily-events-date-input');
+    if (pick) pick.max = window.dailyEventsNoteDate; // pas de jour futur
     renderDailyNotePanel();
     renderDailyEventsTable();
 }
@@ -479,6 +584,8 @@ function openDailyEventsOverlay() {
 function closeDailyEventsOverlay() {
     const overlay = document.getElementById('daily-events-overlay');
     if (overlay) overlay.style.display = 'none';
+    clearTimeout(window._dailyEventsSettleTimer);
+    window.dailyEventsFingerDown = false;
 }
 
 // Rafraîchit toute vue actuellement affichée qui dépend des événements journaliers —
@@ -511,29 +618,46 @@ function setDailyNote(dateKey, text) {
     saveDailyData();
 }
 
-// Change le jour actuellement chargé dans le panneau de note — appelée par un tap sur la
-// colonne Date ou la colonne Note du tableau (jamais sur une case d'événement, qui sert déjà
-// à activer/désactiver — voir buildDailyEventsRowHTML()). Seules deux lignes changent d'aspect
-// (cadre beige) : l'ancienne et la nouvelle.
-function editDailyNoteFor(dateKey) {
-    const previous = window.dailyEventsNoteDate;
-    window.dailyEventsNoteDate = dateKey;
-    renderDailyNotePanel();
-    if (previous && previous !== dateKey) refreshDailyEventsRow(previous);
-    refreshDailyEventsRow(dateKey);
+// Affiche une date dans le panneau (texte, valeur du sélecteur, libellé accessible) SANS toucher au
+// champ de note : sert au suivi en direct pendant le défilement.
+function setDailyNotePanelDate(dateKey) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey || '');
+    const label = document.getElementById('daily-events-note-date');
+    if (!m || !label) return;
+    const loc = getLocale();
+    if (!window._dailyPanelFmt || window._dailyPanelFmtLocale !== loc) {
+        window._dailyPanelFmt = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        window._dailyPanelFmtLocale = loc;
+    }
+    const raw = window._dailyPanelFmt.format(new Date(+m[1], +m[2] - 1, +m[3]));
+    const text = raw.charAt(0).toUpperCase() + raw.slice(1);
+    label.textContent = text;
+    window.dailyEventsLiveDate = dateKey;
+    const pick = document.getElementById('daily-events-date-input');
+    if (pick) { pick.value = dateKey; pick.setAttribute('aria-label', text); }
+}
+
+// Panneau « en mouvement » : la ligne du haut n'est pas (encore) le jour dont la note est chargée.
+// Champ grisé et en lecture seule (aucune frappe sur le mauvais jour), clavier fermé.
+function setDailyNotePanelMoving(on) {
+    if (window.dailyEventsMoving === on) return;
+    window.dailyEventsMoving = on;
+    const panel = document.getElementById('daily-events-note-panel');
+    const ta = document.getElementById('daily-events-note-textarea');
+    if (panel) panel.classList.toggle('de-moving', on);
+    if (ta) {
+        ta.readOnly = on;
+        if (on && document.activeElement === ta) ta.blur();
+    }
 }
 
 // Reconstruit tout le panneau (date + contenu du textarea) — appelée uniquement au
-// changement de jour édité (ouverture de l'overlay, editDailyNoteFor()), JAMAIS à chaque
+// changement de jour édité (ouverture de l'overlay, commitDailyEventsRow()), JAMAIS à chaque
 // frappe : réécrire ta.value pendant la saisie ferait sauter la position du curseur.
 function renderDailyNotePanel() {
     const dateKey = window.dailyEventsNoteDate;
     if (!dateKey) return;
-    const [y, mo, da] = dateKey.split('-').map(Number);
-    const d = new Date(y, mo - 1, da);
-    const rawDateLabel = d.toLocaleDateString(getLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    document.getElementById('daily-events-note-date').textContent =
-        rawDateLabel.charAt(0).toUpperCase() + rawDateLabel.slice(1);
+    setDailyNotePanelDate(dateKey);
     const ta = document.getElementById('daily-events-note-textarea');
     ta.value = getDailyNote(dateKey);
     updateDailyNoteCounter(ta.value.length);

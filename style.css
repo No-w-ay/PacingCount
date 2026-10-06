@@ -1,4 +1,4 @@
-     :root {
+:root {
          --bg-color: #121212;
          --card-bg: #1e1e1e;
          --text-color: #e0e0e0;
@@ -1404,6 +1404,11 @@
      /* Coin (case Date de l'en-tête) : fixe dans les deux sens, au-dessus des autres cases
            d'en-tête. Porte l'UNIQUE bouton de navigation du tableau : retour à aujourd'hui (tout le
            reste de la navigation se fait en faisant défiler). Grisé quand on y est déjà. */
+     /* Libellé d'un tag : le fond (couleur du tag) est posé en style inline ; texte blanc. */
+     .de-h-tag {
+         color: #fff;
+     }
+
      .de-h-corner {
          position: sticky;
          left: 0;
@@ -1427,6 +1432,21 @@
 
      .de-today-btn:disabled {
          opacity: 0.3;
+         pointer-events: none;
+     }
+
+     /* Cadre FIXE du jour édité = ligne du haut : élément sticky posé juste sous l'en-tête
+           (top = hauteur d'en-tête 60 px) avec une marge négative d'une ligne pour ne pas décaler
+           le corps ; ne capte aucun tap. Au-dessus des cellules (z 3), sous l'en-tête (z 6).
+           Hauteurs figées, comme l'en-tête et les lignes (44 px = --de-row-h). */
+     #daily-events-frame {
+         position: sticky;
+         top: 60px;
+         z-index: 4;
+         box-sizing: border-box;
+         height: var(--de-row-h, 44px);
+         margin-bottom: calc(-1 * var(--de-row-h, 44px));
+         border: 2px solid var(--beige-light);
          pointer-events: none;
      }
 
@@ -1478,8 +1498,8 @@
      }
 
      /* Opacité réduite du weekend — restreinte au texte de la date (span dédié, voir
-           buildDailyEventsRowHTML()), jamais à toute la cellule : ne doit jamais assombrir le
-           cadre de sélection (.de-row-editing) quand les deux se superposent. */
+           buildDailyEventsRowHTML()), jamais à toute la cellule (qui porte le fond de la
+           colonne épinglée). */
      .de-weekend-text {
          opacity: 0.6;
      }
@@ -1538,11 +1558,36 @@
          border-bottom: 1px solid var(--border);
      }
 
+     /* Date du panneau + <input type=date> transparent par-dessus (ouvre le sélecteur natif). */
+     #daily-events-datebox {
+         position: relative;
+         display: block;
+         width: fit-content;
+         margin-bottom: 4px;
+     }
+
      #daily-events-note-date {
          font-size: 0.85rem;
          font-weight: bold;
-         margin-bottom: 4px;
          color: var(--beige-light);
+     }
+
+     #daily-events-date-input {
+         position: absolute;
+         inset: 0;
+         width: 100%;
+         height: 100%;
+         margin: 0;
+         padding: 0;
+         border: 0;
+         opacity: 0;
+         cursor: pointer;
+     }
+
+     /* Panneau en mouvement (défilement en cours) : la note affichée n'est plus celle du haut. */
+     #daily-events-note-panel.de-moving #daily-events-note-textarea,
+     #daily-events-note-panel.de-moving #daily-events-note-meta {
+         opacity: 0.35;
      }
 
      #daily-events-note-textarea {
@@ -1604,17 +1649,5 @@
          font-style: italic;
      }
 
-     /* Contour (pas un fond, pour rester distinct de .de-today) autour de TOUTE la ligne dont la
-           note est actuellement chargée dans le panneau — box-shadow inset sur chaque cellule
-           plutôt qu'un contour sur la ligne, qui serait recouvert par le fond des cellules. */
-     .de-row-editing .de-c {
-         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light);
-     }
-
-     .de-row-editing .de-c:first-child {
-         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset 2px 0 0 0 var(--beige-light);
-     }
-
-     .de-row-editing .de-c:last-child {
-         box-shadow: inset 0 2px 0 0 var(--beige-light), inset 0 -2px 0 0 var(--beige-light), inset -2px 0 0 0 var(--beige-light);
-     }
+     /* (Ancien cadre beige par ligne .de-row-editing retiré en beta.25, remplacé par
+           #daily-events-frame : dernière version avec = commit d305079.) */
