@@ -21,9 +21,9 @@ const BUILTIN_EVENT_TAGS = [
         id: "pem",
         label: { fr: "MPE", en: "PEM", nl: "PEM" },
         description: {
-            fr: "Malaise post-effort en cours",
-            en: "Post-exertional malaise ongoing",
-            nl: "Post-exertionele malaise aan de gang"
+            fr: "Malaise post-effort : aggravation des symptômes après un effort (apparaît généralement 1 à 3 jours après l'effort)",
+            en: "Post-exertional malaise: symptoms worsened after exertion (usually appears 1 to 3 days after the effort)",
+            nl: "Post-exertionele malaise: verergering van de klachten na inspanning (verschijnt meestal 1 tot 3 dagen na de inspanning)"
         },
         mode: "presence",
         polarity: "negative",
@@ -34,9 +34,9 @@ const BUILTIN_EVENT_TAGS = [
         id: "sick",
         label: { fr: "Malade", en: "Sick", nl: "Ziek" },
         description: {
-            fr: "Malade (agent infectieux)",
-            en: "Sick (infectious agent)",
-            nl: "Ziek (infectieus agens)"
+            fr: "Malade : infection en cours (virus, bactérie…)",
+            en: "Sick: infection ongoing (virus, bacteria…)",
+            nl: "Ziek: infectie aan de gang (virus, bacterie…)"
         },
         mode: "presence",
         polarity: "negative",
@@ -47,9 +47,9 @@ const BUILTIN_EVENT_TAGS = [
         id: "day_ok",
         label: { fr: "Jour OK", en: "Day OK", nl: "Dag OK" },
         description: {
-            fr: "Jour globalement correct ou bon",
-            en: "Overall a fine or good day",
-            nl: "Over het algemeen een goede of prima dag"
+            fr: "Jour OK : journée globalement correcte ou bonne",
+            en: "Day OK: overall an okay or good day",
+            nl: "Dag OK: over het algemeen een redelijke of goede dag"
         },
         mode: "presence",
         polarity: "positive",
@@ -234,7 +234,7 @@ function toggleEventTristate(dateKey, tagId, value) {
 // ============================================================
 
 const DAILY_EVENTS_ROW_H = 44;          // px — hauteur EXACTE d'une ligne (aussi posée en CSS : --de-row-h)
-const DAILY_EVENTS_COL_DATE_W = 96;     // px — colonne Date : « Aujourd'hui » (FR, gras) mesure 75 px + 18 px de marges/bordures
+const DAILY_EVENTS_COL_DATE_W = 92;     // px — colonne Date : « Aujourd'hui » (FR, normal) mesure 71 px + 18 px de marges/bordures + 3 px de réserve
 const DAILY_EVENTS_COL_TAG_W = 46;      // px — une colonne par tag 'presence', deux par tag 'tristate'
 const DAILY_EVENTS_COL_NOTE_MIN_W = 170; // px — colonne Note : largeur minimale (= ancienne largeur fixe)
 const DAILY_EVENTS_COL_NOTE_MAX_W = 320; // px — plafond : 80 caractères sur 2 lignes sans troncature
@@ -242,6 +242,8 @@ const DAILY_EVENTS_HEAD_H = 44;         // px — en-tête sur 1 niveau (aucun t
 const DAILY_EVENTS_HEAD_H_TRISTATE = 60; // px — en-tête sur 2 niveaux (32 + 28) quand un tag tristate est actif
 const DAILY_EVENTS_GLIDE_ROWS = 14;     // glissement doux du tap si le jour visé est à ≤ 14 lignes du haut
 const DAILY_NOTE_MAX = 80;              // caractères max d'une note (aussi maxlength du <textarea>)
+const DAILY_NOTE_INDICATOR_MS = 600;    // silence de frappe avant « Enregistré » ; durée du compteur ambre à 80/80
+const DAILY_EVENTS_TIP_MS = 5000;       // durée d'affichage de l'info-bulle d'un en-tête d'événement
 const DAILY_EVENTS_INITIAL_ROWS = 150;  // longueur initiale de la zone défilable (en lignes)
 const DAILY_EVENTS_EXTEND_ROWS = 90;    // prolongement de la zone défilable quand on approche de la fin
 const DAILY_EVENTS_EXTEND_MARGIN = 40;  // lignes d'avance minimum au-delà de la fenêtre dessinée
@@ -333,11 +335,11 @@ function buildDailyEventsRowHTML(i, ctx) {
         }
     });
     // Case Note — texte tel quel si présent (jamais tronqué, plafonné à 2 lignes visuelles par
-    // CSS -webkit-line-clamp), "Pas de note" en gris sinon.
+    // CSS -webkit-line-clamp), un tiret très pâle sinon (aucun texte : pas de pression à remplir).
     const noteText = getDailyNote(dateKey);
     const notePreview = noteText
         ? escapeHtml(noteText)
-        : `<span class="de-note-empty">${t('dailyEventsNoteEmpty')}</span>`;
+        : '<span class="de-note-empty">–</span>';
     html += `<div class="de-c de-cell de-note-cell" onclick="selectDailyEventsDate('${dateKey}')"><div class="de-note-preview">${notePreview}</div></div>`;
     html += `</div>`;
     return html;
@@ -347,28 +349,74 @@ function buildDailyEventsRowHTML(i, ctx) {
 // 2 colonnes au niveau 1 et porte Oui / Non au niveau 2 ; tout autre mode couvre les 2 niveaux.
 // Case Date : un SEUL bouton de navigation (retour à aujourd'hui) — le reste se fait en faisant
 // défiler. Grisé quand on est déjà tout en haut.
+// Texte de l'info-bulle d'un tag (tap sur son en-tête) : pris à la SOURCE (BUILTIN_EVENT_TAGS, dans la
+// langue courante) pour un tag builtin ; repli sur le texte stocké pour un tag qui n'y figure pas.
+function getDailyEventTagTip(tg) {
+    const def = BUILTIN_EVENT_TAGS.find(d => d.id === tg.id);
+    const src = def && def.description;
+    return (src && (src[settings.lang] || src.fr)) || tg.description || '';
+}
+
 // Case-libellé d'un tag : fond = couleur GLOBALE du tag (getEventTagColor, la même que la pastille
 // active des lignes), texte blanc. Un futur tag sans couleur propre retombe sur la couleur par défaut.
 function buildDailyEventsHeaderHTML(tags, isAtTop) {
     // Sans tag 'tristate' actif, l'en-tête n'a qu'UN niveau (pas de ligne Oui / Non à prévoir).
     const rows = tags.some(tg => tg.mode === 'tristate') ? '1 / span 2' : '1';
     let col = 2; // numéro de colonne CSS (1 = Date)
-    let html = `<div class="de-h de-h-corner" style="grid-row:${rows};grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsToday')}</button></div>`;
+    let html = `<div class="de-h de-h-corner" style="grid-row:${rows};grid-column:1"><button class="de-today-btn" onclick="goToDailyEventsToday()" title="${t('dailyEventsBackToToday')}"${isAtTop ? ' disabled' : ''}>${t('dailyEventsTodayBtn')}</button></div>`;
     tags.forEach(tg => {
         const bg = `background:${getEventTagColor(tg.id)}`;
+        // Info-bulle : tap (mobile, voir showDailyEventsTip) + attribut title (survol sur ordinateur).
+        const tip = getDailyEventTagTip(tg);
+        const tipAttrs = tip ? ` data-tag-id="${escapeHtml(tg.id)}" title="${escapeHtml(tip)}"` : '';
+        const tipCls = tip ? ' de-h-tip' : '';
         if (tg.mode === 'tristate') {
-            html += `<div class="de-h de-h-tag" style="grid-row:1;grid-column:${col} / span 2;${bg}">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag${tipCls}"${tipAttrs} style="grid-row:1;grid-column:${col} / span 2;${bg}">${escapeHtml(tg.label)}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col}">${t('eventStateYes')}</div>`;
             html += `<div class="de-h" style="grid-row:2;grid-column:${col + 1}">${t('eventStateNo')}</div>`;
             col += 2;
         } else {
-            html += `<div class="de-h de-h-tag" style="grid-row:${rows};grid-column:${col};${bg}">${escapeHtml(tg.label)}</div>`;
+            html += `<div class="de-h de-h-tag${tipCls}"${tipAttrs} style="grid-row:${rows};grid-column:${col};${bg}">${escapeHtml(tg.label)}</div>`;
             col += 1;
         }
     });
     // Colonne Note — toujours en dernier, hors boucle des tags (ce n'est pas un event).
     html += `<div class="de-h de-h-note" style="grid-row:${rows};grid-column:${col}">${t('dailyEventsNoteHeader')}</div>`;
     return html;
+}
+
+// Info-bulle d'un en-tête d'événement : une seule à la fois, sous la case tapée. Se ferme au tap
+// ailleurs, en retapant la même case, au défilement ou après DAILY_EVENTS_TIP_MS.
+function hideDailyEventsTip() {
+    clearTimeout(window._dailyEventsTipTimer);
+    window.dailyEventsTipTagId = null;
+    const tip = document.getElementById('daily-events-tip');
+    if (tip) tip.style.display = 'none';
+}
+
+function showDailyEventsTip(cell) {
+    const overlay = document.getElementById('daily-events-overlay');
+    const tg = settings.eventTags.find(x => x.id === cell.dataset.tagId);
+    const text = tg ? getDailyEventTagTip(tg) : '';
+    if (!overlay || !text) return;
+    let tip = document.getElementById('daily-events-tip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'daily-events-tip';
+        overlay.appendChild(tip);
+    }
+    tip.textContent = text; // texte brut : jamais interprété comme HTML
+    tip.style.visibility = 'hidden';
+    tip.style.display = 'block';
+    const o = overlay.getBoundingClientRect();
+    const c = cell.getBoundingClientRect();
+    const left = Math.max(8, Math.min(c.left + c.width / 2 - tip.offsetWidth / 2 - o.left, o.width - tip.offsetWidth - 8));
+    tip.style.left = left + 'px';
+    tip.style.top = (c.bottom - o.top + 6) + 'px';
+    tip.style.visibility = 'visible';
+    window.dailyEventsTipTagId = cell.dataset.tagId;
+    clearTimeout(window._dailyEventsTipTimer);
+    window._dailyEventsTipTimer = setTimeout(hideDailyEventsTip, DAILY_EVENTS_TIP_MS);
 }
 
 // Rendu COMPLET : en-tête, largeur et modèle de colonnes, puis fenêtre de lignes. À utiliser à
@@ -383,6 +431,9 @@ function renderDailyEventsTable() {
 
     const titleEl = document.getElementById('daily-events-title');
     if (titleEl) titleEl.textContent = t('dailyEventsTitle');
+    const noteField = document.getElementById('daily-events-note-textarea');
+    if (noteField) noteField.placeholder = t('dailyEventsNotePlaceholder');
+    hideDailyEventsTip();
 
     // Largeurs posées d'après les tags actifs (jamais mesurées) : un tag 'tristate' occupe 2 colonnes,
     // tout autre mode 1 seule. Seule la colonne Note est élastique (1fr entre son min et son max) ; la
@@ -477,6 +528,7 @@ function onDailyEventsScroll() {
         updateDailyEventsTodayButton();
         updateDailyEventsLiveDay();
         scheduleDailyEventsSettle();
+        if (window.dailyEventsTipTagId) hideDailyEventsTip();
     });
 }
 
@@ -610,6 +662,23 @@ function openDailyEventsOverlay() {
             scroller.addEventListener('touchend', up, { passive: true });
             scroller.addEventListener('touchcancel', up, { passive: true });
             window.addEventListener('mouseup', () => { if (window.dailyEventsFingerDown) up(); }, { passive: true });
+            // Info-bulle des en-têtes d'événement : tap sur la case (même case = fermer), tap ailleurs = fermer.
+            const head = document.getElementById('daily-events-head');
+            if (head) head.addEventListener('click', ev => {
+                const cell = ev.target.closest('[data-tag-id]');
+                if (!cell) { hideDailyEventsTip(); return; }
+                if (window.dailyEventsTipTagId === cell.dataset.tagId) hideDailyEventsTip(); else showDailyEventsTip(cell);
+            });
+            overlay.addEventListener('pointerdown', ev => {
+                if (window.dailyEventsTipTagId && !ev.target.closest('[data-tag-id]')) hideDailyEventsTip();
+            }, true);
+            // Tentative de dépasser 80 : l'événement précède l'insertion (que maxlength bloque en silence
+            // sur ordinateur) — sert seulement à allumer le compteur, jamais à bloquer la frappe.
+            const noteTa = document.getElementById('daily-events-note-textarea');
+            if (noteTa) noteTa.addEventListener('beforeinput', ev => {
+                if (ev.inputType && ev.inputType.indexOf('insert') === 0
+                    && noteTa.value.length - (noteTa.selectionEnd - noteTa.selectionStart) >= DAILY_NOTE_MAX) flashDailyNoteLimit();
+            });
             window._dailyEventsScrollBound = true;
         }
         scroller.scrollTop = 0;
@@ -625,6 +694,7 @@ function closeDailyEventsOverlay() {
     if (overlay) overlay.style.display = 'none';
     clearTimeout(window._dailyEventsSettleTimer);
     window.dailyEventsFingerDown = false;
+    hideDailyEventsTip();
 }
 
 // Rafraîchit toute vue actuellement affichée qui dépend des événements journaliers —
@@ -704,6 +774,10 @@ function renderDailyNotePanel() {
     const ta = document.getElementById('daily-events-note-textarea');
     ta.value = getDailyNote(dateKey);
     updateDailyNoteCounter(ta.value.length);
+    // Chargement d'un jour (pas une frappe) : compteur toujours gris.
+    clearTimeout(window._dailyNoteLimitTimer);
+    const cnt = document.getElementById('daily-events-note-counter');
+    if (cnt) cnt.classList.remove('de-limit-hit');
     clearTimeout(window._dailyNoteSaveTimer);
     const ind = document.getElementById('daily-events-note-saved');
     // Contenu déjà celui enregistré (on vient de le recharger depuis dailyData) — indicateur
@@ -711,13 +785,20 @@ function renderDailyNotePanel() {
     if (ind) { ind.textContent = t('dailyEventsNoteSaved'); ind.style.visibility = 'visible'; }
 }
 
-// Compteur « n/80 ». À la limite, le panneau passe en état « plein » (compteur et bord du champ en
-// ambre, voir CSS) : repère visuel indépendant du clavier, sans message.
+// Compteur « n/80 ». Il ne change de couleur que pendant la saisie à la limite (flashDailyNoteLimit).
 function updateDailyNoteCounter(len) {
     const el = document.getElementById('daily-events-note-counter');
     if (el) el.textContent = `${len}/${DAILY_NOTE_MAX}`;
-    const panel = document.getElementById('daily-events-note-panel');
-    if (panel) panel.classList.toggle('de-note-full', len >= DAILY_NOTE_MAX);
+}
+
+// Compteur en ambre (compatible avec le beige) tant qu'on tape ou tente de taper à la limite, puis retour
+// au gris après DAILY_NOTE_INDICATOR_MS (même délai que « Enregistré »). Aucun message, aucun cadre.
+function flashDailyNoteLimit() {
+    const el = document.getElementById('daily-events-note-counter');
+    if (!el) return;
+    el.classList.add('de-limit-hit');
+    clearTimeout(window._dailyNoteLimitTimer);
+    window._dailyNoteLimitTimer = setTimeout(() => el.classList.remove('de-limit-hit'), DAILY_NOTE_INDICATOR_MS);
 }
 
 // À chaque frappe : sauvegarde immédiate en mémoire/localStorage (comme partout ailleurs
@@ -739,6 +820,7 @@ function onDailyNoteInput(el) {
         el.value = el.value.slice(0, end);
         el.setSelectionRange(caret, caret);
     }
+    if (el.value.length >= DAILY_NOTE_MAX) flashDailyNoteLimit();
     setDailyNote(window.dailyEventsNoteDate, el.value);
     updateDailyNoteCounter(el.value.length);
     scheduleDailyNoteSavedIndicator();
@@ -753,5 +835,5 @@ function scheduleDailyNoteSavedIndicator() {
     window._dailyNoteSaveTimer = setTimeout(() => {
         ind.textContent = t('dailyEventsNoteSaved');
         ind.style.visibility = 'visible';
-    }, 600);
+    }, DAILY_NOTE_INDICATOR_MS);
 }
