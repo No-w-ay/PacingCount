@@ -14,6 +14,7 @@
 - **Champ de saisie** : un rafraîchissement ne réécrit jamais un `<textarea>`/`<input>` en cours de frappe. Séparer le rendu « au changement de contexte » du rendu « à chaque frappe ».
 - **Table `border-collapse`** : un contour de ligne se fait avec `box-shadow: inset` par cellule.
 - **Éléments de simple référence géométrique** : `pointer-events: none`.
+- **Largeur selon le texte et la police** : la mesurer plutôt que la deviner (copies hors écran `visibility: hidden` avec les **vraies classes**, retirées dans un `finally`, repli si la mesure donne 0 car un parent est `display: none`). Remesurer au changement de langue et à l'ouverture.
 - **Opacité d'une cellule** (weekend) : l'appliquer à un `<span>` du texte, pas à la cellule, sinon cadres et ombres sont atténués aussi.
 
 ## Chart.js
@@ -42,12 +43,23 @@
 - **Fins de ligne** : le dépôt mélange LF et CRLF selon les fichiers (constat au 2026-10-05 : CRLF pour `style.css`, `js/*.js` et `docs/ARCHITECTURE.md` ; LF pour `index.html`, `sw.js`, `manifest.json`, `messages.json` et les autres notes). Sans conséquence pour l'app, mais un fichier remplacé par une copie aux fins de ligne différentes apparaît entièrement modifié dans le diff. Règle : **conserver les fins de ligne existantes du fichier** quand on en remplace un (Claude les préserve) ; les nouveaux fichiers sont en LF. Vérification : `grep -c $'\r$' fichier` (nombre de lignes CRLF).
 - Bug de continuité entre un état attendu et un fichier réel : repartir du fichier réel (dépôt, branche `dev`), jamais d'un document collé plus haut dans une conversation.
 
+## Saisie et défilement
+- **Limite de longueur d'un champ** : `maxlength` seul ne suffit pas (blocage silencieux sur ordinateur, contourné par certains claviers mobiles) → troncature dans le gestionnaire `input` (curseur conservé, paires de substitution/emoji intactes) + `beforeinput` pour le retour visuel.
+- **Liste longue** : fenêtre virtuelle à lignes de hauteur exacte (CSS **et** JS), `overflow-anchor: none`, écouteur de défilement limité à une exécution par image ; pas de `scroll-snap` avec une fenêtre qui change.
+- **Gestes** : `touchcancel` = le navigateur reprend le geste (l'élan continue) ; ne jamais recaler pendant que le doigt ou la souris est posé.
+
 ## Analytics (GoatCounter)
-- Ping quotidien : `DailyUser-installed` seulement si `isPWAInstalled()` ; canaux détaillés `DailyUser-browser-X` / `-webview-X` / `-*-TOTAL` ; `DailyUser-alertON` si au moins une alerte active ; `DailyUser-LS-above-{1..4}MB` (taille localStorage). `period-started-sample10p` est échantillonné à 10 % (×10 pour estimer le volume). Interrupteur `SEND_DAILY_CUSTOM_PROFILE_EVENT = false`.
+- Ping quotidien : `DailyUser-installed` seulement si `isPWAInstalled()` ; canaux détaillés `DailyUser-browser-X` / `-webview-X` / `-*-TOTAL` ; `DailyUser-alertON` si au moins une alerte active ; `DailyUser-LS-above-{1..4}MB` (taille localStorage). `period-started-sample10p` est échantillonné à 10 % (×10 pour estimer le volume). Interrupteur `SEND_DAILY_CUSTOM_PROFILE_EVENT = false`. `Daily-event-1/2/3` (MPE, Malade, Jour OK : veille, tirage 0/1/2 avec probabilités 1/4, 1/2, 1/4) et `Daily-note` (veille, sans masquage) : voir `docs/notes-events.md`, § 3.3. Ne jamais envoyer d'identifiant ou de libellé de tag personnel.
+- **Limite GoatCounter** : `/count` est limité à 4 hits par seconde (code source, `handlers/backend.go`) ; la file d'envoi reste espacée de 400 ms (`GOATCOUNTER_QUEUE_DELAY_MS`). Ne pas la raccourcir : un 429 perd des événements sans avertissement.
+- **Lecture** : toujours rapporter un événement à `DailyUser-TOTAL` de la même période (rythmes d'ouverture très différents), agrégé sur ≥ 4 semaines ; avec peu d'utilisateurs, la composition du groupe domine le bruit.
 
 ## Tests automatisés (jsdom / Node)
 Méthode utilisée pendant les chantiers événements : extraire le `<script>` par regex, `node --check`, compter les balises `<script>`/`</script>`, et lancer des harnais Node/jsdom qui extraient les **vraies fonctions** du fichier (jamais une copie) avec des globals factices. Les harnais précédents sont relancés à chaque passe. Limites : ni rendu visuel, ni confort tactile, ni moteur de rendu mobile → le test sur appareil reste indispensable.
 - Les `let`/`const` de premier niveau (`settings`, `state`, `dailyData`) ne sont **pas** des propriétés de `window` ; y accéder via `window.eval("…")`.
 - `refreshDailyEventUIs()` teste `overlay.style.display !== 'none'` : avant tout `openDailyEventsOverlay()`, le style inline est `''` → faux positif ; ouvrir l'overlay d'abord dans le test.
 - jsdom normalise `style.background` en `rgb(…)` : comparer après conversion.
+- Charger `js/daily-data.js` seul dans un contexte `vm` (globals factices `window`, `document`, `settings`, `dailyData`) permet de tester ses fonctions pures sans jsdom (ex. `getDailyGoatCounterPaths()` avec un `rand` injecté, `TZ=Europe/Brussels` pour les changements d'heure).
+- `assert.deepStrictEqual` entre objets de deux contextes (jsdom / `vm`) échoue à cause des prototypes de **realms** différents : comparer via `JSON.stringify`.
+- jsdom n'a pas `scrollTo` : le code garde un repli.
+- **Chromium headless** pour le rendu et le tactile : `@sparticuz/chromium` + `puppeteer-core` (scripts `.mjs`, `npm` autorisé), vrais gestes via CDP `Input.dispatchTouchEvent` (un `scrollTop` programmatique ne reproduit pas l'élan). Masquer le splash d'installation (`[id*="splash" i]`), qui recouvre l'overlay. Pour tester le ping GoatCounter : stubber `window.goatcounter` et `Math.random` avec `evaluateOnNewDocument`, supprimer `lastDailyPingSent`, recharger. Les largeurs mesurées en headless diffèrent de celles d'un appareil (polices) : confirmer sur Android.
 - jsdom ne charge pas les `<script src>` externes ni `matchMedia` : stubber `window.Chart` (au moins `.scales.x.getPixelForValue`) ou encadrer par `try/catch`.

@@ -251,6 +251,10 @@
         DailyUser-alertON
         DailyUser-LS-above-{1|2|3|4}MB  (taille localStorage, un seul palier : le plus haut atteint)
 
+        Daily-event-{1|2|3}  (beta.28 : MPE / Malade / Jour OK ; la VEILLE seulement ; 0, 1 ou 2 envois tirés
+                              au hasard, probabilités 1/4, 1/2, 1/4 ; tags builtin actifs ; voir docs/notes-events.md, § 3.3)
+        Daily-note           (beta.28 : note de la veille non vide ; un seul envoi)
+
 
         8. Arbre d'installation : Splashes et cadre dans onglet Réglages
         Descriptif complet : docs/installation.md

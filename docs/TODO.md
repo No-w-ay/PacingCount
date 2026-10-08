@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-10-05 (après beta.23 et rangement du dépôt). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-10-08 (après beta.28). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -13,7 +13,7 @@
 
 ## Court terme
 
-- **Publier le refactoring** : valider beta.23 sur appareils (Windows, Android ; iOS si possible), puis PR `dev` → `main`. Avant : relire `messages.json` de `dev` (l'`id` du message update sera `update-0.9.29-beta.23`, il sera montré aux utilisateurs de `main`).
+- **Publier** : valider beta.28 sur appareils (Windows, Android ; iOS si possible), puis PR `dev` → `main`. Avant : relire `messages.json` de `dev` (l'`id` du message update sera `update-0.9.29-beta.28`, il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
 - Couleur du bouton Exporter incohérente : bleu dans Historique, jaune ailleurs (modals). Pas encore de décision.
 - Nettoyages cosmétiques sans risque : commentaire CSS faux sur le `z-index` de l'overlay du tableau (480 est *au-dessus* d'Évolution à 450) ; clé de traduction `dailyEventsDateHeader` jamais utilisée ; indentation et ancien `addAll` commenté dans `sw.js`.
 - Incohérence de limite de la note journalière : 80 caractères dans l'UI, 5 000 (`IMPORT_MAX_DAY_TEXT`) à l'import JSON.
@@ -41,13 +41,15 @@
 
 ## Chantier Notes & événements journaliers (en cours)
 
-Voir `docs/notes-events.md`, § 8.
-- **Réglages visuels et ergonomie** du tableau de saisie et des pastilles (suite prévue) : refonte de la navigation de l'overlay ; indicateur « jour non rempli » sur le bouton 📝 (pas de clignotement) ; test d'usage réel prolongé (couleurs, exclusion par polarity, note, navigation).
-- Tap sur les pastilles/note de Résultats → ouvrir l'overlay au bon jour (positionner `dailyEventsMonth`, défiler jusqu'à la ligne ; trancher si l'ancre reste décalée après fermeture).
+Voir `docs/notes-events.md`, § 3 et § 8. Tableau à défilement continu, panneau de note et mesures GoatCounter faits (beta.24 à 28).
+- **Test d'usage réel** avec 2 types d'événements (couleurs, exclusion par polarity, notes, défilement) ; ensuite décider d'une **interface de visibilité** des événements (champ `active` existant, rien à coder côté données) et d'appliquer l'exclusion par polarity **aux tags visibles seulement**.
+- **Lire les mesures GoatCounter** `Daily-event-1` (MPE), `-2` (Malade), `-3` (Jour OK) et `Daily-note` : événement ÷ `DailyUser-TOTAL`, sur ≥ 4 semaines (une semaine seule est trop bruitée). Vérifier le comptage de 2 hits identiques (total des hits, pas les visiteurs uniques).
+- Tap sur les pastilles/note de Résultats → ouvrir l'overlay au bon jour (calculer le rang depuis aujourd'hui) ; reporter `renderResults()` tant que l'overlay est ouvert.
 - Jours sans période mais avec event/note : invisibles dans Résultats (option A) — à reconsidérer si besoin.
 - **Note de période** (`note` sur `state.history[]`) : traiter d'abord les 4 points qui la perdraient (`closePeriod`, `applySteamroller`, `saveManualEdit`, `mergeAdjacentPeriods`), puis seulement l'UI. Besoin non confirmé (priorité basse).
-- Extension à d'autres tags (`numeric`…) ; suggestion « héritage de la veille » (visuelle uniquement, jamais écrite) ; modes `scale` / `choice` sur besoin confirmé ; glisser-coche horizontal (V2 du tableau) ; renommage éventuel du mode `presence` (aucune urgence).
-- Textes EN/NL du tag `day_ok` à relire.
+- Extension à d'autres tags (`numeric`…) ; suggestion « héritage de la veille » (visuelle uniquement, jamais écrite) ; modes `scale` / `choice` sur besoin confirmé ; glisser-coche horizontal (V2 du tableau) ; indicateur « jour non rempli » sur le bouton 📝 (pas de clignotement) ; renommage éventuel du mode `presence` (aucune urgence).
+- Gagner de la largeur si besoin : libellé « Aujourd'hui » (0,74 rem ≈ 6 px), colonnes de tag 44 px (≈ 6 px).
+- Textes EN/NL du tag `day_ok` et des info-bulles à relire.
 - Journal d'événements avec temporalité (début/fin d'état, ex. une MPE du 23 au 26 mars) : voir « Long terme ».
 
 ## Installation PWA et navigateurs intégrés (terminé, à confirmer par l'usage)
@@ -60,7 +62,7 @@ Voir `docs/installation.md`, § 12.
 ## Stockage & performance
 
 Voir `docs/optimisation-stockage-performance.md`.
-- Surveiller les mesures GoatCounter `DailyUser-LS-above-*MB` avant de trancher entre les options A/B/C/D/E.
+- Surveiller les mesures GoatCounter `DailyUser-LS-above-*MB` avant de trancher entre les options A/B/C/D/E. (Les `Daily-event-*` / `Daily-note` ajoutent jusqu'à 7 hits par ping ; limite GoatCounter de 4 hits/s, file à 400 ms.)
 - Passer les 6 écritures directes de `pacingSettings` à `safeSave()` (voir note). Instrumenter `renderWeeklyCharts()` (seule fonction de rendu non fenêtrée) et refaire un test arrière-plan → retour avec la page Résultats affichée, pour localiser le ralentissement perçu au réveil.
 - Optimisation générale : quelle partie de l'app demande le plus de calcul / mémoire / batterie ?
 - Chantier IndexedDB unique et dédié (plus tard, selon mesures) ; `id` / `updatedAt` / tombstones seulement à ce moment-là.
@@ -106,5 +108,7 @@ Voir `docs/optimisation-stockage-performance.md`.
 ## Fait récemment (mémoire courte)
 
 Rangement du dépôt (2026-10-05) : anciennes versions dans `archive/`, sources d'icônes dans `icons/`, documentation dans `docs/` (`ARCHITECTURE.md` déplacé de la racine). `icon-192.png` / `icon-512.png` restent à la racine (manifest, sw.js).
+
+Tableau journalier refait (beta.24 à 28, 2026-10) : défilement continu avec fenêtre virtuelle de 60 lignes, cadre fixe sur la ligne du haut, panneau de note qui suit puis se recale, bouton « Ajd ⬆ », pastille de date avec sélecteur, limite de 80 caractères fiable (ordinateur et claviers mobiles) avec compteur ambre, colonne Note élastique, info-bulles sur les en-têtes d'événement, colonne Date à largeur mesurée, descriptions des événements revues. Mesure d'usage GoatCounter (beta.28) : `Daily-event-1/2/3` (veille, tirage 0/1/2) et `Daily-note`.
 
 Refactoring en fichiers : `style.css`, `js/translations.js` (beta.20), `js/install.js` + `js/evolution.js` (beta.21), `js/import-export.js` + `js/daily-data.js` (beta.22), `js/results.js` + `ARCHITECTURE.md` (beta.23) ; `sw.js` : installation tout-ou-rien avec `cache: 'reload'`. Note journalière implémentée (80 caractères), événements MPE / Malade / Jour OK, export/import JSON, pastilles dans Résultats / Historique / graphe journalier.
