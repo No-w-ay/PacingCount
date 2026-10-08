@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.27"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -646,8 +646,8 @@
                 <span id="daily-events-note-counter"></span>
                 <div id="daily-events-datebox">
                     <span id="daily-events-note-date"></span>
-                    <input type="date" id="daily-events-date-input"
-                        onclick="openDailyEventsDatePicker(this)" onchange="onDailyEventsDatePicked(this)">
+                    <input type="date" id="daily-events-date-input" onclick="openDailyEventsDatePicker(this)"
+                        onchange="onDailyEventsDatePicked(this)">
                 </div>
                 <span id="daily-events-note-saved"></span>
             </div>
@@ -4676,6 +4676,21 @@
             }
 
             localStorage.setItem('lastDailyPingSent', Date.now());
+
+            // 4. Usage des événements / notes journaliers — la VEILLE seulement, avec masquage par tirage
+            // (voir getDailyGoatCounterPaths dans js/daily-data.js). Placé en fin de file pour ne pas
+            // retarder les events ci-dessus ; une erreur ici ne doit jamais casser le ping.
+            try {
+                if (typeof getDailyGoatCounterPaths === 'function') {
+                    const g = getDailyGoatCounterPaths(new Date());
+                    g.items.forEach(it => {
+                        console.log(`[GoatCounter] Veille ${g.dateKey} : ${it.path} → ${it.count} envoi(s)`);
+                        for (let i = 0; i < it.count; i++) sendToGoatCounter(it.path);
+                    });
+                }
+            } catch (e) {
+                console.warn('[GoatCounter] Events journaliers ignorés :', e);
+            }
         }
 
         // Vérification quotidienne du taux d'occupation localStorage (seuil 90%) — le toast est

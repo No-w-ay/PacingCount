@@ -116,6 +116,38 @@ function getPresentDailyEventTags(dateKey) {
     return settings.eventTags.filter(tg => tg.active && tg.mode === 'presence' && getDailyEventPresence(dateKey, tg.id));
 }
 
+// ---------- Mesure d'usage GoatCounter (veille) ----------
+// Appelée par le ping quotidien (index.html). Regarde UNIQUEMENT la veille (date locale, calendrier :
+// jamais jour + 24*3600*1000) :
+//  - un event 'Daily-event-<number>' par tag BUILTIN actif de mode 'presence' présent la veille ;
+//    nombre d'envois tiré au hasard : 0 (1/4), 1 (1/2), 2 (1/4) → moyenne 1 (comptage non biaisé)
+//    mais présence masquée. Jamais d'id de tag non builtin (le nom d'un tag perso pourrait être personnel) ;
+//  - 'Daily-note' une seule fois si la note de la veille n'est pas vide (pas de masquage).
+// Lecture : total de l'event ÷ DailyUser-TOTAL de la même période (voir docs/notes-events.md).
+// rand : injectable pour les tests (défaut Math.random).
+const DAILY_GOAT_DRAW = [0, 1, 1, 2];
+const DAILY_GOAT_EVENT_NUM = { pem: 1, sick: 2, day_ok: 3 }; // un nouveau tag builtin doit recevoir son numéro ici, sinon il n'est pas envoyé
+function drawDailyEventGoatCount(rand) {
+    const r = typeof rand === 'function' ? rand() : Math.random();
+    return DAILY_GOAT_DRAW[Math.min(DAILY_GOAT_DRAW.length - 1, Math.floor(r * DAILY_GOAT_DRAW.length))];
+}
+
+function getDailyGoatCounterPaths(now, rand) {
+    const n = now || new Date();
+    const yDate = new Date(n.getFullYear(), n.getMonth(), n.getDate() - 1);
+    const dateKey = dailyEventsDateKey(yDate);
+    const items = []; // { path, count } — count peut être 0 (tirage), gardé pour le log
+    settings.eventTags.forEach(tg => {
+        if (!tg.active || tg.mode !== 'presence') return;
+        if (!DAILY_GOAT_EVENT_NUM[tg.id] || !BUILTIN_EVENT_TAGS.some(d => d.id === tg.id)) return;
+        if (!getDailyEventPresence(dateKey, tg.id)) return;
+        items.push({ path: 'Daily-event-' + DAILY_GOAT_EVENT_NUM[tg.id], count: drawDailyEventGoatCount(rand) });
+    });
+    const note = dailyData[dateKey]?.text;
+    if (typeof note === 'string' && note.trim()) items.push({ path: 'Daily-note', count: 1 });
+    return { dateKey, items };
+}
+
 // Pastilles d'événements journaliers pour un jour donné (Résultats) — un tag présent =
 // une pastille (label court, texte blanc, fond = couleur du tag via getEventTagColor()).
 function buildDailyEventPillsHTML(dateKey) {
@@ -234,7 +266,8 @@ function toggleEventTristate(dateKey, tagId, value) {
 // ============================================================
 
 const DAILY_EVENTS_ROW_H = 44;          // px — hauteur EXACTE d'une ligne (aussi posée en CSS : --de-row-h)
-const DAILY_EVENTS_COL_DATE_W = 92;     // px — colonne Date : « Aujourd'hui » (FR, normal) mesure 71 px + 18 px de marges/bordures + 3 px de réserve
+const DAILY_EVENTS_COL_DATE_W = 92;     // px — REPLI seulement : la largeur de la colonne Date est MESURÉE (measureDailyEventsDateColW) ; ceci ne sert que si la mesure donne 0 (overlay masqué)
+const DAILY_EVENTS_COL_DATE_RESERVE = 2; // px — réserve ajoutée à la largeur mesurée (arrondis de sous-pixel)
 const DAILY_EVENTS_COL_TAG_W = 46;      // px — une colonne par tag 'presence', deux par tag 'tristate'
 const DAILY_EVENTS_COL_NOTE_MIN_W = 170; // px — colonne Note : largeur minimale (= ancienne largeur fixe)
 const DAILY_EVENTS_COL_NOTE_MAX_W = 320; // px — plafond : 80 caractères sur 2 lignes sans troncature
@@ -285,6 +318,40 @@ function dailyEventsRowForDateKey(dateKey) {
 // « ma » → « ma ») : largeur identique partout.
 function dailyEventsWeekday2(date, fmt) {
     return fmt.format(date).replace(/[.\s]/g, '').slice(0, 2);
+}
+
+// Largeur de la colonne Date, MESURÉE dans la police réelle : on pose hors écran (visibility:hidden,
+// jamais visible) des copies des vraies cellules (mêmes classes, donc mêmes marges, bordures, taille
+// de police) avec les textes les plus larges — dates sur deux plages de 7 jours (tous les jours de
+// semaine, chiffres variés), libellé « Aujourd'hui » de la langue courante, bouton du coin — et on
+// retient le plus large. Renvoie 0 si rien n'est mesurable (overlay masqué) : l'appelant utilise alors
+// DAILY_EVENTS_COL_DATE_W. Appelée à chaque rendu complet (ouverture, changement de langue).
+function measureDailyEventsDateColW(overlay, ctx) {
+    if (!overlay) return 0;
+    const probe = document.createElement('div');
+    probe.setAttribute('aria-hidden', 'true');
+    probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;';
+    try {
+        const texts = [t('dailyEventsToday')];
+        for (let k = 0; k < 7; k++) {
+            [new Date(2026, 7, 23 + k), new Date(2026, 11, 20 + k)].forEach(d => {
+                texts.push(`${dailyEventsWeekday2(d, ctx.weekdayFmt)} ${ctx.dateFmt.format(d)}`);
+            });
+        }
+        let html = texts.map(s => `<div class="de-c de-col-date" style="position:absolute;left:0;top:0;width:max-content;">${escapeHtml(s)}</div>`).join('');
+        // Coin : cellule d'en-tête + bouton à largeur naturelle (en vrai, le bouton remplit la cellule).
+        html += `<div class="de-h de-h-corner" style="position:absolute;left:0;top:0;width:max-content;"><button class="de-today-btn" style="width:auto;">${escapeHtml(t('dailyEventsTodayBtn'))}</button></div>`;
+        probe.innerHTML = html;
+        overlay.appendChild(probe);
+        let w = 0;
+        probe.childNodes.forEach(el => { w = Math.max(w, el.getBoundingClientRect().width); });
+        return w > 0 ? Math.ceil(w) + DAILY_EVENTS_COL_DATE_RESERVE : 0;
+    } catch (e) {
+        console.warn('[DailyEvents] mesure de la colonne Date impossible — repli', e);
+        return 0;
+    } finally {
+        probe.remove();
+    }
 }
 
 // Contexte commun à toutes les lignes d'un même dessin (évite de le recalculer ligne par ligne).
@@ -435,13 +502,16 @@ function renderDailyEventsTable() {
     if (noteField) noteField.placeholder = t('dailyEventsNotePlaceholder');
     hideDailyEventsTip();
 
-    // Largeurs posées d'après les tags actifs (jamais mesurées) : un tag 'tristate' occupe 2 colonnes,
-    // tout autre mode 1 seule. Seule la colonne Note est élastique (1fr entre son min et son max) ; la
-    // grille remplit l'écran dans les bornes [colonnes fixes + min, colonnes fixes + max] et ne
-    // déborde (défilement horizontal) que si l'écran est plus étroit que le minimum.
+    // Largeurs posées d'après les tags actifs : un tag 'tristate' occupe 2 colonnes, tout autre mode 1
+    // seule. Seule la colonne Date est MESURÉE (une fois par rendu complet, voir
+    // measureDailyEventsDateColW ; repli DAILY_EVENTS_COL_DATE_W si 0) — les autres sont des constantes.
+    // Seule la colonne Note est élastique (1fr entre son min et son max) ; la grille remplit l'écran
+    // dans les bornes [colonnes fixes + min, colonnes fixes + max] et ne déborde (défilement
+    // horizontal) que si l'écran est plus étroit que le minimum.
     const tags = settings.eventTags.filter(tg => tg.active);
     const hasTristate = tags.some(tg => tg.mode === 'tristate');
-    let template = `${DAILY_EVENTS_COL_DATE_W}px`;
+    const dateW = measureDailyEventsDateColW(document.getElementById('daily-events-overlay'), getDailyEventsRenderContext()) || DAILY_EVENTS_COL_DATE_W;
+    let template = `${dateW}px`;
     let dataCols = 0;
     tags.forEach(tg => {
         const n = tg.mode === 'tristate' ? 2 : 1;
@@ -449,7 +519,7 @@ function renderDailyEventsTable() {
         template += ` repeat(${n}, ${DAILY_EVENTS_COL_TAG_W}px)`;
     });
     template += ` minmax(${DAILY_EVENTS_COL_NOTE_MIN_W}px, 1fr)`;
-    const fixedW = DAILY_EVENTS_COL_DATE_W + dataCols * DAILY_EVENTS_COL_TAG_W;
+    const fixedW = dateW + dataCols * DAILY_EVENTS_COL_TAG_W;
     grid.style.minWidth = (fixedW + DAILY_EVENTS_COL_NOTE_MIN_W) + 'px';
     grid.style.maxWidth = (fixedW + DAILY_EVENTS_COL_NOTE_MAX_W) + 'px';
     grid.style.setProperty('--de-cols', template);

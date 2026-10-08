@@ -1351,7 +1351,7 @@
 
      #daily-events-title {
          font-weight: bold;
-         font-size: 1rem;
+         font-size: 1.1rem; /* = titres « Historique » et « Totaux par jour » */
      }
 
      #daily-events-scroll {
