@@ -173,10 +173,15 @@ function renderResults() {
 
         // Note du jour — en dessous, uniquement si une note existe ce jour (indépendant
         // des pastilles : un jour peut avoir l'une, l'autre, les deux, ou aucune des deux).
+        // DÉSACTIVÉ (beta.29) : la section est jugée trop chargée avec la note. La note reste
+        // lisible dans le tableau journalier ; à réactiver (ou à remplacer par un tap vers
+        // l'overlay, voir TODO) selon l'usage. Le style .results-day-note est conservé.
+        /*
         const dayNoteText = getDailyNote(key);
         if (dayNoteText) {
             html += `<div class="results-day-note">${escapeHtml(dayNoteText)}</div>`;
         }
+        */
 
         // Ligne 2 : totaux par type — uniquement ceux qui ont des données ce jour.
         // Chantier 1B : chaque total est cliquable (▸ + valeur, un seul élément englobant)
@@ -454,27 +459,28 @@ function renderDailyCharts() {
         const day = daysData[dateKey];
         const avgPc = moyMobileChart[dateKey]; // % ou null
 
-        // Week-end : label de date légèrement grisé pour distinguer visuellement
-        // les jours de semaine et de week-end.
+        // Week-end : texte de la date légèrement grisé pour distinguer visuellement les jours
+        // de semaine et de week-end. L'opacité s'applique au seul <span> du texte (pas au <div>
+        // de la colonne) : les mini-pastilles, frères de ce <span>, n'en héritent donc pas.
         const [dkY, dkM, dkD] = dateKey.split('-').map(Number);
         const isWeekend = [0, 6].includes(new Date(dkY, dkM - 1, dkD).getDay());
-        const dateLabelStyle = isWeekend
-            ? 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px; opacity: 0.6;'
-            : 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;';
+        const dateLabelStyle = 'width: 45px; flex-shrink: 0; font-size: 0.9rem; font-weight: bold; color: #e0e0e0; text-align: right; margin-right: 10px;';
+        const dateTextStyle = isWeekend ? ' style="opacity: 0.6;"' : '';
 
         const avgMins = avgPc !== null ? (avgPc / 100) * 1440 : 0;
         const avgLabel = avgPc !== null ? `~ ${t('resMoy3j')} : ${formatMins(avgMins)}` : '';
 
         // Mini-pastilles d'événements journaliers — même fonction et même forme (barrette,
-        // pas un cercle) que dans Historique. Élément DOM séparé (pas un enfant du <div> de
-        // date), positionné en absolu : n'hérite donc jamais de l'opacité weekend du <div>
-        // de date (inline, propre à cet élément) et ne modifie ni la hauteur de ligne ni
-        // margin-bottom — vient simplement occuper l'espace déjà vide sous la barre.
+        // pas un cercle) que dans Historique. Frères du <span> du texte de la date, dans un
+        // conteneur .daily-chart-date-wrap à la largeur exacte du texte : positionnées en
+        // absolu à 50 % de ce conteneur, elles sont donc centrées sur le texte réel (quelle que
+        // soit la police) et n'héritent jamais de l'opacité weekend (portée par le <span>).
+        // Elles ne modifient ni la hauteur de ligne ni margin-bottom.
         const eventPillsHTML = getPresentDailyEventTags(dateKey)
             .map(tg => `<span class="timeline-event-marker-pill" style="background:${getEventTagColor(tg.id)};"></span>`)
             .join('');
         const eventMarkersHTML = eventPillsHTML
-            ? `<div class="daily-chart-event-markers">${eventPillsHTML}</div>`
+            ? `<span class="daily-chart-event-markers">${eventPillsHTML}</span>`
             : '';
 
         const dotDisplay = window.showMoyDots ? 'block' : 'none';
@@ -494,9 +500,8 @@ function renderDailyCharts() {
         html += `
                     <div style="display: flex; align-items: center; margin-bottom: 15px; position: relative; z-index: 1;">
                         <div style="${dateLabelStyle}">
-                            ${day.displayDate}
+                            <span class="daily-chart-date-wrap"><span${dateTextStyle}>${day.displayDate}</span>${eventMarkersHTML}</span>
                         </div>
-                        ${eventMarkersHTML}
                         <div style="flex-grow: 1; display: flex; height: 24px; background-color: ${barGray}; border-radius: 4px; overflow: hidden; cursor: pointer; position: relative; border: 0.5px solid rgba(255,255,255,0.1);">
                             <div style="position: absolute; inset: 0; display: flex; z-index: 1;">
                                 ${Object.keys(day.totals).sort().map(type => {

@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.28"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -4671,8 +4671,8 @@
             if (profilePath.startsWith('DailyUser-Custom-') && !SEND_DAILY_CUSTOM_PROFILE_EVENT) {
                 console.log(`[GoatCounter] Profil custom — event désactivé (non envoyé) : ${profilePath}`);
             } else {
+                // Pas de log ici : l'envoi réel est déjà signalé par _processGoatQueue() (✅ Envoyé).
                 sendToGoatCounter(profilePath);
-                console.log(`[GoatCounter] Profil envoyé : ${profilePath}`);
             }
 
             localStorage.setItem('lastDailyPingSent', Date.now());
@@ -4684,7 +4684,9 @@
                 if (typeof getDailyGoatCounterPaths === 'function') {
                     const g = getDailyGoatCounterPaths(new Date());
                     g.items.forEach(it => {
-                        console.log(`[GoatCounter] Veille ${g.dateKey} : ${it.path} → ${it.count} envoi(s)`);
+                        // Les envois réels sont déjà signalés par _processGoatQueue() (✅ Envoyé) :
+                        // seul un tirage à 0 (rien envoyé, donc aucune autre trace) est loggé ici.
+                        if (it.count === 0) console.log(`[GoatCounter] Veille : ${it.path} → tirage 0 (rien envoyé)`);
                         for (let i = 0; i < it.count; i++) sendToGoatCounter(it.path);
                     });
                 }
