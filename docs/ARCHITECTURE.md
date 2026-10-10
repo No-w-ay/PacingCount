@@ -193,7 +193,7 @@
         6. Système de messages JSON
 
         Au démarrage de l'app, l'app fetche le fichier messages.json depuis le serveur
-        (cache: no-store — toujours la version fraîche). Le premier message éligible est
+        (cache: no-store + paramètre unique ?t=<timestamp> dans l'URL — toujours la version fraîche ; voir docs/messages-json.md). Le premier message éligible est
         affiché dans un modal. Un seul message par lancement.
 
         Priorité absolue : une mise à jour bloquante (isBlocking, voir blockAfter ci-dessous)
@@ -210,7 +210,7 @@
 
         welcome — affiché une seule fois au premier lancement (id jamais vu dans seenMessages)
         info — astuce ou information, affiché une seule fois (id mis en seenMessages au dismiss)
-        update — invitation à mettre à jour, au maximum une fois par semaine par id. Devient bloquant après blockAfter (voir priorité absolue ci-dessus). Nécessite un SW en attente pour s'afficher.
+        update — invitation à mettre à jour. Après un « Plus tard » (non bloquant) : masqué 7 jours, puis ré-affiché tant que la mise à jour est en attente (beta.31). Devient bloquant après blockAfter (voir priorité absolue ci-dessus). Nécessite un SW en attente pour s'afficher.
 
         Filtres d'éligibilité :
 
@@ -220,14 +220,17 @@
 
         localStorage
 
-        seenMessages — array d'ids vus définitivement (welcome, info, et update "Plus tard")
-        lastShownUpdate — timestamp du dernier affichage d'un update, pour le filtre 7 jours. Ignoré si l'id du message a changé.
+        seenMessages — array d'ids vus (welcome, info : définitivement ; update "Plus tard" : voir la règle des 7 jours ci-dessous)
+        lastShownUpdate — timestamp du dernier "Plus tard" sur un update (un seul, global) ; sert à la règle des 7 jours. Sans effet sur un nouvel id (pas encore dans seenMessages : affiché aussitôt).
+        messagesFetchDiag — trace du dernier fetch de messages.json (beta.30), écrasée à chaque lancement ; voir docs/messages-json.md
 
         Usage concret
 
         Modifier messages.json sur GitHub pour pousser un message sans mise à jour de l'app
         Désactiver un message sans l'effacer : mettre validUntil dans le passé
         Kill switch : renseigner maxVersion + blockAfter pour forcer une mise à jour
+
+        Détails (structure de l'interface auto/manuel, règle des 7 jours, incident des anciennes copies du fichier et diagnostic) : docs/messages-json.md
 
 
         7. Liste finale complète des events GoatCounter liés à l'installation/navigateur
@@ -249,6 +252,9 @@
         DailyUser-browser-{Chrome, Safari, Samsung, Firefox, Brave, Opera}  (Other exclu du détail)
         DailyUser-browser-TOTAL
         DailyUser-alertON
+        DailyUser-{PacingCountStandard|UZLeuven2018}  (profil prédéfini actif ; un seul des deux)
+        DailyUser-custom-{N}-types  (beta.31 : profil personnalisé ; N = nombre de types actifs, 1 à 6 ; aucun libellé envoyé.
+                                      Le détail DailyUser-Custom-{ids+libellés} reste désactivé : SEND_DAILY_CUSTOM_PROFILE_EVENT = false)
         DailyUser-LS-above-{1|2|3|4}MB  (taille localStorage, un seul palier : le plus haut atteint)
 
         Daily-event-{1|2|3}  (beta.28 : MPE / Malade / Jour OK ; la VEILLE seulement ; 0, 1 ou 2 envois tirés

@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-10-08 (après beta.28). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-10-10 (après beta.31). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -8,12 +8,12 @@
 - **Notifications Chrome non voulues dans la PWA installée** — 2 tests :
   1. Désactiver temporairement l'enregistrement du SW (commenter `navigator.serviceWorker.register('./sw.js')` dans `index.html`), utiliser l'app normalement pendant une journée. Si la notification disparaît, le SW est en cause.
   2. Si le SW est en cause, le réactiver mais commenter `self.skipWaiting()` et `self.clients.claim()` dans `sw.js` (activation immédiate et prise de contrôle de tous les clients : suspects). *Note : `skipWaiting()` est déjà désactivé dans `install` ; `clients.claim()` reste actif dans `activate`.*
-- **`messages.json` : anciennes infos affichées dans le message de mise à jour** — vérifier d'abord quelle URL/branche sert le fichier (`main` et `dev` n'ont pas le même `messages.json`), puis l'`id` du message (`seenMessages`), puis le timing de détection du SW. Le cache n'est probablement pas en cause (fetch `no-store`, fichier hors `ASSETS_TO_CACHE`).
-- **Confirmer le correctif de la course SW / `messages.json`** (beta.19 : second appel de `checkMessages()` quand le nouveau SW passe en `installed`) lors d'une vraie mise à jour déployée.
+- **`messages.json` : anciens messages `update` (parfois bloquants) affichés** — cause : une ancienne copie du fichier (état du 16-17 août) resservie par une couche de cache non identifiée, hors du code de l'app. Correctifs beta.30 (`?t=` + `no-store`) et beta.31 (règle des 7 jours). Voir `docs/messages-json.md`. À surveiller sur les prochaines mises à jour : lire `JSON.parse(localStorage.getItem('messagesFetchDiag'))` si un message anormal revient.
+- **Évaluer le retrait de la trace `messagesFetchDiag` et de son alerte console** après quelques semaines sans anomalie.
 
 ## Court terme
 
-- **Publier** : valider beta.28 sur appareils (Windows, Android ; iOS si possible), puis PR `dev` → `main`. Avant : relire `messages.json` de `dev` (l'`id` du message update sera `update-0.9.29-beta.28`, il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
+- **Publier** : valider beta.31 sur appareils (Windows, Android ; iOS si possible), puis PR `dev` → `main`. Avant : **rafraîchir le texte de `messages.json`** (fait au moment de publier sur `main`) et vérifier que l'`id` du message update vaut `update-0.9.29-beta.31` (il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
 - Couleur du bouton Exporter incohérente : bleu dans Historique, jaune ailleurs (modals). Pas encore de décision.
 - Nettoyages cosmétiques sans risque : commentaire CSS faux sur le `z-index` de l'overlay du tableau (480 est *au-dessus* d'Évolution à 450) ; clé de traduction `dailyEventsDateHeader` jamais utilisée ; indentation et ancien `addAll` commenté dans `sw.js`.
 - Incohérence de limite de la note journalière : 80 caractères dans l'UI, 5 000 (`IMPORT_MAX_DAY_TEXT`) à l'import JSON.
@@ -30,7 +30,7 @@
   - accompagnement pas-à-pas pour configurer les notifications (détection auto OS / version iOS, guide d'installation, test guidé) en remplacement du message d'avertissement actuel à la création d'une alerte.
   - *Bon moment pour extraire `js/alerts.js`* (voir « Architecture du code »).
 - **Questions d'export** : export XLSX (écrit directement depuis les structures internes) ; `removeAccents()` dans `exportCSV()`.
-- **Système de messages JSON** — extensions futures : sondages (poll), déclencheurs événementiels (event/moment) ; bandeau « Mise à jour disponible — relancez l'app » (remplace le `skipWaiting` agressif, après beta). *Bon moment pour extraire `js/messages.js`.*
+- **Système de messages JSON** — extensions futures : sondages (poll), déclencheurs événementiels (event/moment) . Éventuellement revoir le mode manuel (« Vérifier mise à jour ») pour y afficher aussi le texte du JSON. *Bon moment pour extraire `js/messages.js`.* Voir `docs/messages-json.md`.
 
 ## Chantier Évolution (terminé, raffinements possibles)
 
@@ -106,6 +106,8 @@ Voir `docs/optimisation-stockage-performance.md`.
 - Mettre à jour la couleur `--beige-light: #e0c896` si besoin (valeur de départ, jamais affinée).
 
 ## Fait récemment (mémoire courte)
+
+Beta.29 à 31 (2026-10) : console allégée (plus de log « Profil envoyé », log de veille seulement pour tirage 0) ; séparateur de jours de Résultats plus visible, note retirée de Résultats, pastilles du graphe journalier alignées ; beta.30 : `messages.json?t=` + trace de diagnostic `messagesFetchDiag` ; beta.31 : règle des 7 jours pour les `update` non bloquants (« Plus tard » n'était plus définitif), événement GoatCounter `DailyUser-custom-{N}-types`, note `docs/messages-json.md`.
 
 Rangement du dépôt (2026-10-05) : anciennes versions dans `archive/`, sources d'icônes dans `icons/`, documentation dans `docs/` (`ARCHITECTURE.md` déplacé de la racine). `icon-192.png` / `icon-512.png` restent à la racine (manifest, sw.js).
 

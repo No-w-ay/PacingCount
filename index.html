@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.31"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2252,16 +2252,22 @@
 
             if (blockingOnly) return { eligible: isBlocking, isBlocking };
 
+            // Règle des 7 jours (beta.31) pour un message update NON bloquant : un « Plus tard »
+            // (id ajouté à seenMessages + lastShownUpdate écrit par dismissMessage()) le masque pendant
+            // 7 jours, puis il revient tant que la mise à jour est en attente (checkMessages() exige un
+            // SW en attente). Un nouvel id n'est pas « vu » : affiché aussitôt, sans attendre.
+            // Avant la beta.31, le test seenMessages ci-dessous s'appliquait aussi aux update et rendait
+            // le « Plus tard » définitif (la règle des 7 jours n'était jamais atteinte).
             if (msg.type === 'update' && !isBlocking) {
-                const alreadySeen = seen.includes(msg.id);
-                if (alreadySeen) {
+                if (seen.includes(msg.id)) {
                     const lastShown = parseInt(localStorage.getItem('lastShownUpdate') || '0', 10);
-                    const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer un message de mise à jour identique (ignoré si nouvel id de message)
+                    const sevenDays = 7 * 24 * 60 * 60 * 1000; // durée avant de re-montrer le même message de mise à jour
                     if (lastShown && (Date.now() - lastShown) < sevenDays) return { eligible: false };
                 }
             }
 
-            if (!isBlocking && seen.includes(msg.id)) return { eligible: false };
+            // welcome / info : une fois vus, jamais re-montrés. Les update non bloquants suivent la règle ci-dessus.
+            if (!isBlocking && msg.type !== 'update' && seen.includes(msg.id)) return { eligible: false };
 
             return { eligible: true, isBlocking };
         }
@@ -4698,18 +4704,21 @@
                 profilePath = 'DailyUser-UZLeuven2018';
             } else {
                 // Profil custom : liste les types actifs avec leur id et label normalisé
-                const activeParts = getActiveTypes()
+                const activeTypes = getActiveTypes();
+                const activeParts = activeTypes
                     .map(tp => `${tp.id}-${normalizeLabel(tp.label)}`)
                     .join('-');
                 profilePath = `DailyUser-Custom-${activeParts}`;
+                // beta.31 : événement simple, toujours envoyé pour un profil personnalisé — seulement
+                // le NOMBRE de types actifs (1 à 6), jamais de libellé (donnée potentiellement personnelle).
+                // Ex. : DailyUser-custom-4-types. Remplace, dans les statistiques, le détail désactivé ci-dessous.
+                sendToGoatCounter(`DailyUser-custom-${activeTypes.length}-types`);
             }
-            // Événements GoatCounter DailyUser-Custom-* actuellement désactivés par la condition
-            // SEND_DAILY_CUSTOM_PROFILE_EVENT = false ; pertinence à réévaluer ultérieurement
-            // (le code inactif reste présent ci-dessous).
-            if (profilePath.startsWith('DailyUser-Custom-') && !SEND_DAILY_CUSTOM_PROFILE_EVENT) {
-                console.log(`[GoatCounter] Profil custom — event désactivé (non envoyé) : ${profilePath}`);
-            } else {
-                // Pas de log ici : l'envoi réel est déjà signalé par _processGoatQueue() (✅ Envoyé).
+            // Événements GoatCounter DailyUser-Custom-* (détail : ids + libellés) actuellement désactivés
+            // par SEND_DAILY_CUSTOM_PROFILE_EVENT = false ; pertinence à réévaluer ultérieurement
+            // (le code inactif reste présent). Pas de log : l'envoi réel est déjà signalé par
+            // _processGoatQueue() (✅ Envoyé).
+            if (!profilePath.startsWith('DailyUser-Custom-') || SEND_DAILY_CUSTOM_PROFILE_EVENT) {
                 sendToGoatCounter(profilePath);
             }
 
