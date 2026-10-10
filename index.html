@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.29"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.29-beta.30"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -2184,18 +2184,56 @@
         // (offline), tableau = données obtenues.
         window._messagesCache = undefined;
 
+        // Trace de diagnostic du dernier fetch de messages.json (beta.30) — enquête sur d'anciens
+        // messages update (parfois bloquants) affichés par erreur : une ancienne copie complète du
+        // fichier semble parfois servie (cache HTTP, CDN ou réseau). Écrasée à chaque lancement
+        // (quelques centaines d'octets, aucune donnée personnelle), donc lisible APRÈS COUP en
+        // console : JSON.parse(localStorage.getItem('messagesFetchDiag')).
+        // olderThanInstalled = l'id du premier message update désigne une version STRICTEMENT plus
+        // ancienne que celle installée (id égal = normal : c'est le message de la version courante).
+        // Ne fait que lire/enregistrer : ne masque ni ne modifie jamais les messages affichés.
+        function recordMessagesFetchDiag(response, messages, error) {
+            try {
+                const diag = { at: new Date().toISOString(), app: APP_VERSION };
+                if (error) {
+                    diag.error = String(error.message || error);
+                } else {
+                    const upd = Array.isArray(messages) ? messages.find(m => m && m.type === 'update') : null;
+                    const vm = upd && /^update-(\d+\.\d+\.\d+(?:-beta\.\d+)?)/.exec(String(upd.id || ''));
+                    diag.status = response.status;
+                    diag.firstUpdateId = upd ? upd.id : null;
+                    diag.blockAfter = upd ? (upd.blockAfter || '') : null;
+                    diag.olderThanInstalled = vm ? !semverLte(APP_VERSION, vm[1]) : null;
+                    diag.headers = {}; // en-têtes utiles pour situer la couche qui a servi le fichier
+                    ['age', 'cf-cache-status', 'etag', 'last-modified', 'date'].forEach(n => {
+                        const v = response.headers.get(n);
+                        if (v) diag.headers[n] = v;
+                    });
+                    if (diag.olderThanInstalled) {
+                        console.warn(`[Messages] ⚠️ Premier message update (${diag.firstUpdateId}) plus ancien que la version installée (${APP_VERSION}) — copie périmée possible, voir messagesFetchDiag.`);
+                    }
+                }
+                localStorage.setItem('messagesFetchDiag', JSON.stringify(diag));
+            } catch (e) { /* diagnostic uniquement : ne jamais perturber le système de messages */ }
+        }
+
         async function fetchMessagesJSON() {
             if (window._messagesCache !== undefined) return window._messagesCache;
             try {
-                const response = await fetch('messages.json', { cache: 'no-store' });
+                // Paramètre unique (beta.30) : contourne toute copie indexée par URL (cache HTTP,
+                // CDN, proxy, cache du SW). cache:'no-store' est conservé en plus. Le serveur ignore
+                // la query string d'un fichier statique ; hors-ligne, le comportement est inchangé.
+                const response = await fetch('messages.json?t=' + Date.now(), { cache: 'no-store' });
                 // messages.json n'est pas dans ASSETS_TO_CACHE du SW,
                 // donc caches.match() retourne toujours undefined → fetch réseau garanti.
                 const data = await response.json();
                 window._messagesCache = data.messages;
+                recordMessagesFetchDiag(response, data.messages);
             } catch (e) {
                 // Offline ou fichier absent — silencieux, pas de message cette fois
                 console.log('[Messages] Fetch messages.json échoué (offline ?) :', e.message);
                 window._messagesCache = null;
+                recordMessagesFetchDiag(null, null, e);
             }
             return window._messagesCache;
         }
