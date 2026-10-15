@@ -612,9 +612,11 @@ function closeImportModal() {
 // "text/plain" quelle que soit l'extension. Le modal JSON (#importJsonModal) est
 // entièrement distinct du modal CSV (#importModal), aucun code partagé.
 //
-// Principe directeur : un import ne remplace que ce que son format contient.
-//   - clé absente du fichier (periodData, dailyData, eventTags, typesConfig) → rien touché ;
-//   - "Remplacer" : l'app devient le fichier pour les clés PRÉSENTES ;
+// Principe directeur :
+//   - "Remplacer" : l'app revient à l'état de la sauvegarde. Périodes et jours (événements + notes) :
+//     ceux du fichier, vidés si le fichier n'en contient pas ; types : tous ceux du fichier ;
+//     tags : ceux du fichier (builtin dans la langue de l'app, builtin manquant remis par défaut).
+//     Seules les sections de RÉGLAGES absentes (eventTags, typesConfig) laissent l'app inchangée ;
 //   - "Fusionner" : une absence dans le fichier n'efface jamais rien ; sur un désaccord
 //     (même jour + même tag, valeur différente), le fichier gagne — comme pour les périodes.
 // Toute la validation se fait en mémoire avant la moindre écriture ; l'écriture est
@@ -1004,7 +1006,9 @@ function showImportJsonModal() {
 
     // Chiffres pour les avertissements propres à chaque mode
     const fileDays = imp.daily ? Object.keys(imp.daily).length : 0;
-    const lostDays = imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : 0;
+    // Remplacer : un jour de l'app absent du fichier est effacé ; si le fichier n'a pas de section jours, tous le sont.
+    const lostDays = imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : Object.keys(dailyData).length;
+    const lostPeriods = imp.periods ? 0 : appPeriods.length; // fichier sans section périodes : tout l'historique est effacé
     const mergeConflicts = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
 
     const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
@@ -1022,6 +1026,7 @@ function showImportJsonModal() {
     // Remplacer
     html += `<button class="export-btn" style="background:var(--red); margin-bottom:6px;" onclick="processImportJson('replace')">${t('importJsonReplaceBtn')}</button>`;
     html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
+    if (lostPeriods > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLostPeriods', { n: lostPeriods })}</p>`;
     if (lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: lostDays })}</p>`;
     if (hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
 
@@ -1044,15 +1049,22 @@ function closeImportJsonModal() {
     pendingJsonImport = null;
 }
 
-// Applique le profil de types du fichier — uniquement les types listés dans les différences
-// (les autres restent strictement intacts). Recalcule le profil actif avec detectProfile() au
+// Applique le profil de types du fichier. Fusionner (all = false) : uniquement les types listés dans
+// les différences (les autres restent strictement intacts). Remplacer (all = true) : tous les types
+// du fichier ; un type que le fichier ne fournit pas, ou identique, reste intact (comparaison sur le
+// libellé nettoyé, comme computeImportTypeDiffs). Recalcule le profil actif avec detectProfile() au
 // lieu de croire le fichier, et crée le snapshot "Personnalisé" si besoin (même règle que
 // saveSettings(), qu'on ne peut pas appeler ici car elle relit les champs de saisie).
-function applyImportedTypes(imp) {
-    imp.typeDiffs.forEach(d => {
-        const rt = imp.types.resolved.find(x => x.id === d.id);
-        const st = settings.types.find(x => x.id === d.id);
-        if (rt && st) { st.label = rt.label; st.active = rt.active; }
+function applyImportedTypes(imp, all) {
+    const list = all
+        ? imp.types.resolved
+        : imp.typeDiffs.map(d => imp.types.resolved.find(x => x.id === d.id));
+    list.forEach(rt => {
+        const st = rt && settings.types.find(x => x.id === rt.id);
+        if (!st) return;
+        if (st.active === rt.active && sanitizeImportedLabel(st.label) === rt.label) return;
+        st.label = rt.label;
+        st.active = rt.active;
     });
     settings.labels = getActiveTypes().map(tp => tp.label);
     const detected = detectProfile();
@@ -1083,6 +1095,23 @@ function applyImportedEventTags(imp, mode) {
         if (!next.some(tg => tg.id === def.id)) next.push(buildEventTagFromBuiltin(def, settings.lang));
     });
     settings.eventTags = next;
+}
+
+// Remplacer : écarte les événements dont le tag n'existe plus dans les réglages appliqués
+// (la validation accepte aussi les tags connus de l'app, qui peuvent disparaître avec ce remplacement),
+// puis les jours devenus vides. Sans cela, ces événements resteraient stockés mais invisibles.
+function dropEventsOfUnknownTags(daily) {
+    const known = new Set(settings.eventTags.map(tg => tg.id));
+    const out = {};
+    Object.keys(daily).forEach(key => {
+        const day = daily[key];
+        const events = Array.isArray(day.events) ? day.events.filter(ev => known.has(ev.tagId)) : [];
+        const clean = {};
+        if (day.text) clean.text = day.text;
+        if (events.length > 0) clean.events = events;
+        if (clean.text || clean.events) out[key] = clean;
+    });
+    return out;
 }
 
 // Retour arrière complet (mémoire + localStorage) si une écriture échoue en cours d'import
@@ -1159,29 +1188,33 @@ function processImportJson(mode) {
         state: JSON.parse(JSON.stringify(state))
     };
 
+    const replace = mode === 'replace';
     let alertsAffected = false;
     try {
         // 1. Réglages : profil de types + définition des tags
+        //    Remplacer : tous les types du fichier ; Fusionner : seulement les différences.
         const hasTypeDiff = imp.typeDiffs.length > 0;
-        if (hasTypeDiff) {
-            applyImportedTypes(imp);
+        const applyTypes = replace ? !!imp.types : hasTypeDiff;
+        if (applyTypes) {
+            applyImportedTypes(imp, replace);
             alertsAffected = syncAlertsWithTypes(false); // écrit avec les réglages plus bas
         }
         applyImportedEventTags(imp, mode);
-        if (hasTypeDiff || imp.tags) localStorage.setItem('pacingSettings', JSON.stringify(settings));
+        if (applyTypes || imp.tags) localStorage.setItem('pacingSettings', JSON.stringify(settings));
 
-        // 2. Événements journaliers
-        if (imp.daily) {
-            dailyData = mode === 'replace'
-                ? JSON.parse(JSON.stringify(imp.daily))
+        // 2. Événements journaliers — Remplacer : le fichier, même s'il n'en contient pas (= vidé)
+        if (replace || imp.daily) {
+            dailyData = replace
+                ? dropEventsOfUnknownTags(JSON.parse(JSON.stringify(imp.daily || {})))
                 : mergeDailyDataInto(dailyData, imp.daily).result;
             localStorage.setItem('pacingDailyData', JSON.stringify(dailyData));
         }
 
         // 3. Périodes (même chaîne que l'import CSV : steamroller → snap → merge)
-        if (imp.periods) {
-            if (mode === 'replace') {
-                reconstructHistory(imp.periods.map(p => ({ ...p })));
+        //    Remplacer : le fichier, même s'il n'en contient pas (= vidé)
+        if (replace || imp.periods) {
+            if (replace) {
+                reconstructHistory((imp.periods || []).map(p => ({ ...p })));
             } else if (imp.periods.length > 0) {
                 const basePeriods = [...state.history];
                 if (state.activeType !== null) {
