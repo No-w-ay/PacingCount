@@ -894,6 +894,7 @@ function importJSON(event) {
                 alert(t(res.errorKey));
             } else {
                 pendingJsonImport = res.data;
+                pendingJsonImport.fileName = file.name; // affiché dans le modal (échappé là-bas)
                 showImportJsonModal();
             }
         } catch (err) {
@@ -943,28 +944,65 @@ function buildImportTypeDiffHTML(imp) {
                 <p style="font-size:0.85rem; margin:8px 0 0 0;">${t('importJsonProfileLine', { from, to })}</p>`;
 }
 
+// « Forces en présence » du modal : plage de dates, nombre de périodes, de notes et
+// d'événements. periods / daily valent null si la section est absente (affichée « — »).
+// Une période qui finit pile à minuit compte pour la veille (end − 1 ms).
+function summarizeImportData(periods, daily) {
+    let from = Infinity, to = -Infinity;
+    const take = (a, b) => { if (a < from) from = a; if (b > to) to = b; };
+    if (periods) periods.forEach(p => take(p.start, p.end - 1));
+    let notes = null, events = null;
+    if (daily) {
+        notes = 0;
+        events = 0;
+        Object.keys(daily).forEach(key => {
+            const [y, m, d] = key.split('-').map(Number);
+            const ts = new Date(y, m - 1, d).getTime();
+            take(ts, ts);
+            if (daily[key].text) notes++;
+            if (Array.isArray(daily[key].events)) events += daily[key].events.length;
+        });
+    }
+    return {
+        from: isFinite(from) ? from : null,
+        to: isFinite(to) ? to : null,
+        periods: periods ? periods.length : null,
+        notes,
+        events
+    };
+}
+
+// Bloc d'affichage d'un côté (fichier ou application). `title` est du HTML déjà échappé.
+function buildImportSummaryHTML(title, s) {
+    const num = (v) => (v === null ? '—' : v);
+    const locale = getLocale();
+    const fmt = (ts) => new Date(ts).toLocaleDateString(locale);
+    const range = s.from !== null
+        ? `<div>${t('importJsonRange', { from: fmt(s.from), to: fmt(s.to) })}</div>`
+        : '';
+    return `
+                <div style="font-size:0.9rem; line-height:1.5; margin:0 0 12px 0;">
+                    <div style="font-weight:bold; word-break:break-all;">${title}</div>
+                    ${range}
+                    <div>${t('importJsonCounts', { p: num(s.periods), n: num(s.notes), e: num(s.events) })}</div>
+                </div>`;
+}
+
 function showImportJsonModal() {
     const imp = pendingJsonImport;
     if (!imp) return;
     imp.typeDiffs = computeImportTypeDiffs(imp);
     const hasTypeDiff = imp.typeDiffs.length > 0;
-    const locale = getLocale();
 
-    // Résumé du fichier
-    const parts = [];
-    if (imp.periods) {
-        let s = t('importJsonSummaryPeriods', { n: imp.periods.length });
-        if (imp.periods.length > 0) {
-            let from = Infinity, to = -Infinity;
-            imp.periods.forEach(p => { if (p.start < from) from = p.start; if (p.end > to) to = p.end; });
-            s += ` (${new Date(from).toLocaleDateString(locale)} → ${new Date(to).toLocaleDateString(locale)})`;
-        }
-        parts.push(s);
+    // Application : historique + période en cours (arrêtée « maintenant » pour le décompte) + jours
+    const appPeriods = state.history.slice();
+    if (state.activeType !== null && state.startTime !== null) {
+        appPeriods.push({ start: state.startTime, end: Date.now() });
     }
-    if (imp.daily) parts.push(t('importJsonSummaryDays', { n: Object.keys(imp.daily).length }));
+    const fileSummary = summarizeImportData(imp.periods, imp.daily);
+    const appSummary = summarizeImportData(appPeriods, dailyData);
 
     // Chiffres pour les avertissements propres à chaque mode
-    const appDays = Object.keys(dailyData).length;
     const fileDays = imp.daily ? Object.keys(imp.daily).length : 0;
     const lostDays = imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : 0;
     const mergeConflicts = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
@@ -973,15 +1011,17 @@ function showImportJsonModal() {
     const warnStyle = 'font-size:0.85rem; margin:0 0 6px 0; color:var(--orange);';
 
     let html = `<h3 style="margin-top:0;">${t('importJsonTitle')}</h3>`;
-    if (parts.length > 0) html += `<p style="font-size:0.9rem; margin:0 0 12px 0; line-height:1.5;">${parts.join(' · ')}</p>`;
+    html += buildImportSummaryHTML(`${t('importJsonFileLabel')} ${escapeHtml(imp.fileName || '')}`, fileSummary);
+    html += buildImportSummaryHTML(t('importJsonAppTitle'), appSummary);
     if (imp.ignored > 0) html += `<p style="font-size:0.82rem; color:var(--orange); margin:0 0 12px 0;">${t('importJsonIgnored', { n: imp.ignored })}</p>`;
+    // Profils : une ligne si identiques, sinon le tableau des différences (inchangé). Rien si le fichier n'a pas de typesConfig.
     if (hasTypeDiff) html += buildImportTypeDiffHTML(imp);
+    else if (imp.types) html += `<p style="font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;">${t('importJsonProfileSame', { name: getProfileDisplayName(settings.activeProfile) })}</p>`;
     html += `<div style="border-top:1px solid #444; margin:16px 0;"></div>`;
 
     // Remplacer
     html += `<button class="export-btn" style="background:var(--red); margin-bottom:6px;" onclick="processImportJson('replace')">${t('importJsonReplaceBtn')}</button>`;
     html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
-    if (imp.daily && (appDays > 0 || fileDays > 0)) html += `<p style="${infoStyle}">${t('importJsonReplaceEvents', { a: appDays, f: fileDays })}</p>`;
     if (lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: lostDays })}</p>`;
     if (hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
 
