@@ -990,57 +990,139 @@ function buildImportSummaryHTML(title, s) {
                 </div>`;
 }
 
+// Le modal JSON se déroule en deux écrans : (1) état des lieux + choix du mode, (2) vérification
+// du mode choisi (avant → après, avertissements) avec Retour / Annuler. Les chiffres sont calculés
+// une seule fois à l'ouverture (imp.ctx) ; les deux écrans ne font que les afficher.
 function showImportJsonModal() {
     const imp = pendingJsonImport;
     if (!imp) return;
     imp.typeDiffs = computeImportTypeDiffs(imp);
-    const hasTypeDiff = imp.typeDiffs.length > 0;
 
     // Application : historique + période en cours (arrêtée « maintenant » pour le décompte) + jours
     const appPeriods = state.history.slice();
+    let liveLabel = null;
     if (state.activeType !== null && state.startTime !== null) {
         appPeriods.push({ start: state.startTime, end: Date.now() });
+        const lt = settings.types.find(x => x.id === state.activeType);
+        liveLabel = lt ? lt.label : String(state.activeType);
     }
-    const fileSummary = summarizeImportData(imp.periods, imp.daily);
-    const appSummary = summarizeImportData(appPeriods, dailyData);
+    imp.ctx = {
+        hasTypeDiff: imp.typeDiffs.length > 0,
+        fileSummary: summarizeImportData(imp.periods, imp.daily),
+        appSummary: summarizeImportData(appPeriods, dailyData),
+        liveLabel,
+        // Remplacer : un jour de l'app absent du fichier est effacé ; si le fichier n'a pas de section jours, tous le sont.
+        lostDays: imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : Object.keys(dailyData).length,
+        // Périodes obtenues après Remplacer : le fichier, recoupé à minuit comme le fait closePeriod()
+        afterPeriods: imp.periods ? imp.periods.reduce((n, p) => n + splitPeriodIntoDayFragments(p.start, p.end).length, 0) : 0,
+        lostPeriods: imp.periods ? 0 : appPeriods.length, // fichier sans section périodes : tout l'historique est effacé
+        mergeConflicts: imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0
+    };
+    renderImportJsonChoose();
+    document.getElementById('importJsonModal').style.display = 'flex';
+    console.log(`[importJSON] Modal affiché — périodes:${imp.periods ? imp.periods.length : '-'} jours:${imp.daily ? Object.keys(imp.daily).length : '-'} diffTypes:${imp.typeDiffs.length} désaccords:${imp.ctx.mergeConflicts}`);
+}
 
-    // Chiffres pour les avertissements propres à chaque mode
-    const fileDays = imp.daily ? Object.keys(imp.daily).length : 0;
-    // Remplacer : un jour de l'app absent du fichier est effacé ; si le fichier n'a pas de section jours, tous le sont.
-    const lostDays = imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : Object.keys(dailyData).length;
-    const lostPeriods = imp.periods ? 0 : appPeriods.length; // fichier sans section périodes : tout l'historique est effacé
-    const mergeConflicts = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
+function setImportJsonBody(html) {
+    document.getElementById('import-json-body').innerHTML = html;
+    const box = document.querySelector('#importJsonModal .modal-content');
+    if (box) box.scrollTop = 0;
+}
 
+// Écran 1 : forces en présence, profils, choix du mode
+function renderImportJsonChoose() {
+    const imp = pendingJsonImport;
+    if (!imp) return;
+    const c = imp.ctx;
+    const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
+
+    let html = `<h3 style="margin-top:0;">${t('importJsonTitle')}</h3>`;
+    html += buildImportSummaryHTML(`${t('importJsonFileLabel')} ${escapeHtml(imp.fileName || '')}`, c.fileSummary);
+    html += buildImportSummaryHTML(t('importJsonAppTitle'), c.appSummary);
+    if (imp.ignored > 0) html += `<p style="font-size:0.82rem; color:var(--orange); margin:0 0 12px 0;">${t('importJsonIgnored', { n: imp.ignored })}</p>`;
+    // Profils : une ligne si identiques, sinon le tableau des différences. Rien si le fichier n'a pas de typesConfig.
+    if (c.hasTypeDiff) html += buildImportTypeDiffHTML(imp);
+    else if (imp.types) html += `<p style="${infoStyle}">${t('importJsonProfileSame', { name: getProfileDisplayName(settings.activeProfile) })}</p>`;
+    html += `<div style="border-top:1px solid #444; margin:16px 0;"></div>`;
+
+    html += `<button class="export-btn" style="background:var(--red); margin-bottom:6px;" onclick="renderImportJsonConfirm('replace')">${t('importJsonContinueReplace')}</button>`;
+    html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
+    html += `<button class="export-btn" style="background:var(--blue); margin:16px 0 6px 0;" onclick="renderImportJsonConfirm('merge')">${t('importJsonContinueMerge')}</button>`;
+    html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
+    html += `<button class="export-btn" style="background:#444; margin-top:16px;" onclick="closeImportJsonModal()">${t('btnCancel')}</button>`;
+    setImportJsonBody(html);
+}
+
+// Tableau « maintenant → après » (Remplacer) : l'après est le contenu du fichier, section absente = 0.
+function buildImportBeforeAfterHTML(now, after) {
+    const n = (v) => (v === null ? 0 : v);
+    const row = (label, a, b) => `
+                        <tr>
+                            <td style="padding:3px 6px 3px 0;">${label}</td>
+                            <td style="padding:3px 6px; text-align:right;">${n(a)}</td>
+                            <td style="padding:3px 6px; text-align:center; opacity:0.6;">→</td>
+                            <td style="padding:3px 0; text-align:right; font-weight:bold;">${n(b)}</td>
+                        </tr>`;
+    return `
+                <table style="width:100%; max-width:260px; border-collapse:collapse; font-size:0.9rem; margin:0 0 12px 0;">
+                    <thead>
+                        <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
+                            <th></th>
+                            <th style="padding:3px 6px; text-align:right;">${t('importJsonColNow')}</th>
+                            <th></th>
+                            <th style="padding:3px 0; text-align:right;">${t('importJsonColAfter')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${row(t('importJsonRowPeriods'), now.periods, after.periods)}
+                        ${row(t('importJsonRowNotes'), now.notes, after.notes)}
+                        ${row(t('importJsonRowEvents'), now.events, after.events)}
+                    </tbody>
+                </table>`;
+}
+
+// Écran 2 : vérification du mode choisi ('replace' | 'merge'), puis confirmation
+function renderImportJsonConfirm(mode) {
+    const imp = pendingJsonImport;
+    if (!imp) return;
+    const c = imp.ctx;
+    const replace = mode === 'replace';
     const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
     const warnStyle = 'font-size:0.85rem; margin:0 0 6px 0; color:var(--orange);';
 
-    let html = `<h3 style="margin-top:0;">${t('importJsonTitle')}</h3>`;
-    html += buildImportSummaryHTML(`${t('importJsonFileLabel')} ${escapeHtml(imp.fileName || '')}`, fileSummary);
-    html += buildImportSummaryHTML(t('importJsonAppTitle'), appSummary);
-    if (imp.ignored > 0) html += `<p style="font-size:0.82rem; color:var(--orange); margin:0 0 12px 0;">${t('importJsonIgnored', { n: imp.ignored })}</p>`;
-    // Profils : une ligne si identiques, sinon le tableau des différences (inchangé). Rien si le fichier n'a pas de typesConfig.
-    if (hasTypeDiff) html += buildImportTypeDiffHTML(imp);
-    else if (imp.types) html += `<p style="font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;">${t('importJsonProfileSame', { name: getProfileDisplayName(settings.activeProfile) })}</p>`;
-    html += `<div style="border-top:1px solid #444; margin:16px 0;"></div>`;
+    let html = `<h3 style="margin-top:0;">${t(replace ? 'importJsonConfirmReplaceTitle' : 'importJsonConfirmMergeTitle')}</h3>`;
+    if (replace) {
+        html += buildImportBeforeAfterHTML(c.appSummary, { ...c.fileSummary, periods: c.afterPeriods });
+        html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
+        if (c.lostPeriods > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLostPeriods', { n: c.lostPeriods })}</p>`;
+        if (c.lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: c.lostDays })}</p>`;
+        if (c.hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
+    } else {
+        html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
+        if (c.mergeConflicts > 0) html += `<p style="${warnStyle}">${t('importJsonMergeConflicts', { n: c.mergeConflicts })}</p>`;
+        if (c.hasTypeDiff) html += `<p style="${warnStyle}">${t('importJsonProfileWarnMerge')}</p>`;
+    }
+    // Remplacer arrête la période en cours (Fusionner la laisse courir). Le nom passe par une fonction
+    // de remplacement pour qu'un « $ » du libellé ne soit pas interprété.
+    if (replace && c.liveLabel !== null) {
+        html += `<p style="${infoStyle}">${t('importJsonLiveStopped', { name: '@@N@@' }).replace('@@N@@', () => escapeHtml(c.liveLabel))}</p>`;
+    }
+    html += `<p style="${warnStyle}">${t('importJsonIrreversible')}</p>`;
 
-    // Remplacer
-    html += `<button class="export-btn" style="background:var(--red); margin-bottom:6px;" onclick="processImportJson('replace')">${t('importJsonReplaceBtn')}</button>`;
-    html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
-    if (lostPeriods > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLostPeriods', { n: lostPeriods })}</p>`;
-    if (lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: lostDays })}</p>`;
-    if (hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
+    html += `<button class="export-btn" style="background:#444; margin:12px 0 0 0;" onclick="exportBackupFromImportModal(this)">${t('btnExportBeforeUpdate')}</button>`;
+    html += `<button class="export-btn" style="background:${replace ? 'var(--red)' : 'var(--blue)'}; margin:12px 0 0 0;" onclick="processImportJson('${mode}')">${t(replace ? 'importJsonReplaceBtn' : 'importMergeBtn')}</button>`;
+    html += `<div style="display:flex; gap:8px; margin-top:12px;">
+                    <button class="export-btn" style="background:#444; margin:0; flex:1;" onclick="renderImportJsonChoose()">${t('importJsonBack')}</button>
+                    <button class="export-btn" style="background:#444; margin:0; flex:1;" onclick="closeImportJsonModal()">${t('btnCancel')}</button>
+                </div>`;
+    setImportJsonBody(html);
+}
 
-    // Fusionner
-    html += `<button class="export-btn" style="background:var(--blue); margin:16px 0 6px 0;" onclick="processImportJson('merge')">${t('importMergeBtn')}</button>`;
-    html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
-    if (mergeConflicts > 0) html += `<p style="${warnStyle}">${t('importJsonMergeConflicts', { n: mergeConflicts })}</p>`;
-    if (hasTypeDiff) html += `<p style="${warnStyle}">${t('importJsonProfileWarnMerge')}</p>`;
-
-    html += `<button class="export-btn" style="background:#444; margin-top:16px;" onclick="closeImportJsonModal()">${t('btnCancel')}</button>`;
-
-    document.getElementById('import-json-body').innerHTML = html;
-    document.getElementById('importJsonModal').style.display = 'flex';
-    console.log(`[importJSON] Modal affiché — périodes:${imp.periods ? imp.periods.length : '-'} jours:${imp.daily ? fileDays : '-'} diffTypes:${imp.typeDiffs.length} désaccords:${mergeConflicts}`);
+// Exporte l'état actuel (même fichier que l'export habituel) sans quitter le modal d'import.
+function exportBackupFromImportModal(btn) {
+    exportJSON();
+    btn.disabled = true;
+    btn.textContent = t('importJsonExported');
 }
 
 function closeImportJsonModal() {
