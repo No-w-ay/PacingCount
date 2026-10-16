@@ -1003,7 +1003,7 @@ function showImportJsonModal() {
     const appPeriods = state.history.slice();
     let liveLabel = null;
     if (state.activeType !== null && state.startTime !== null) {
-        appPeriods.push({ start: state.startTime, end: Date.now() });
+        appPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
         const lt = settings.types.find(x => x.id === state.activeType);
         liveLabel = lt ? lt.label : String(state.activeType);
     }
@@ -1012,8 +1012,6 @@ function showImportJsonModal() {
         fileSummary: summarizeImportData(imp.periods, imp.daily),
         appSummary: summarizeImportData(appPeriods, dailyData),
         liveLabel,
-        // Remplacer : un jour de l'app absent du fichier est effacé ; si le fichier n'a pas de section jours, tous le sont.
-        lostDays: imp.daily ? Object.keys(dailyData).filter(k => !(k in imp.daily)).length : Object.keys(dailyData).length,
         // Périodes obtenues après Remplacer : le fichier, recoupé à minuit comme le fait closePeriod()
         afterPeriods: imp.periods ? imp.periods.reduce((n, p) => n + splitPeriodIntoDayFragments(p.start, p.end).length, 0) : 0,
         lostPeriods: imp.periods ? 0 : appPeriods.length, // fichier sans section périodes : tout l'historique est effacé
@@ -1030,23 +1028,33 @@ function setImportJsonBody(html) {
     if (box) box.scrollTop = 0;
 }
 
-// Fusionner : ce que le fichier écrase dans l'application. Périodes de l'app qui chevauchent une période
-// du fichier (le rouleau compresseur les coupe ou les supprime), notes de l'app qui diffèrent de celle du
-// fichier le même jour, événements (même jour, même tag) dont la valeur diffère.
+// Fusionner : ce que le fichier écrase dans l'application. Périodes de l'app dont une partie est recouverte
+// par une période du fichier d'un AUTRE type (même type = rien ne change, comme en réimportant sa propre
+// sauvegarde), notes de l'app qui diffèrent de celle du fichier le même jour, événements (même jour, même
+// tag) dont la valeur diffère.
 function computeMergeOverwrite(imp, appPeriods) {
     let p = 0, n = 0;
     if (imp.periods && imp.periods.length > 0) {
-        // Union triée des périodes du fichier, puis recherche dichotomique pour chaque période de l'app
-        const sorted = imp.periods.map(x => [x.start, x.end]).sort((a, b) => a[0] - b[0]);
-        const union = [];
-        sorted.forEach(([s, e]) => {
-            const last = union[union.length - 1];
-            if (last && s <= last[1]) last[1] = Math.max(last[1], e); else union.push([s, e]);
+        // Union triée des périodes du fichier, par type
+        const byType = {};
+        imp.periods.forEach(x => (byType[x.typeId] = byType[x.typeId] || []).push([x.start, x.end]));
+        const unions = {};
+        Object.keys(byType).forEach(id => {
+            const union = [];
+            byType[id].sort((a, b) => a[0] - b[0]).forEach(([s, e]) => {
+                const last = union[union.length - 1];
+                if (last && s <= last[1]) last[1] = Math.max(last[1], e); else union.push([s, e]);
+            });
+            unions[id] = union;
         });
-        appPeriods.forEach(a => {
-            let lo = 0, hi = union.length; // premier intervalle qui finit après le début de la période
+        // Recherche dichotomique : premier intervalle qui finit après le début de la période de l'app
+        const overlaps = (union, a) => {
+            let lo = 0, hi = union.length;
             while (lo < hi) { const mid = (lo + hi) >> 1; if (union[mid][1] > a.start) hi = mid; else lo = mid + 1; }
-            if (lo < union.length && union[lo][0] < a.end) p++;
+            return lo < union.length && union[lo][0] < a.end;
+        };
+        appPeriods.forEach(a => {
+            if (Object.keys(unions).some(id => Number(id) !== a.typeId && overlaps(unions[id], a))) p++;
         });
     }
     const e = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
@@ -1126,7 +1134,8 @@ function renderImportJsonConfirm(mode) {
         html += buildImportBeforeAfterHTML(c.appSummary, { ...c.fileSummary, periods: c.afterPeriods });
         html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
         if (c.lostPeriods > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLostPeriods', { n: c.lostPeriods })}</p>`;
-        if (c.lostDays > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLost', { n: c.lostDays })}</p>`;
+        const ap = c.appSummary;
+        if (ap.periods + ap.notes + ap.events > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceOverwritten', { p: ap.periods, n: ap.notes, e: ap.events })}</p>`;
         if (c.hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
     } else {
         html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
