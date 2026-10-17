@@ -977,7 +977,7 @@ function buildImportTypeDiffHTML(imp) {
         app: escapeHtml(getProfileDisplayName(settings.activeProfile))
     });
     return `
-                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${sentence} <button type="button" id="import-types-toggle" aria-expanded="false" onclick="toggleImportTypeTable()" style="background:none; border:none; color:inherit; font:inherit; font-weight:bold; cursor:pointer; padding:0 2px;">(+)</button></p>
+                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${sentence} <button type="button" id="import-types-toggle" aria-expanded="false" onclick="toggleImportTypeTable()" style="background:none; border:none; color:#fff; font:inherit; font-weight:bold; cursor:pointer; padding:0 2px;">[+]</button></p>
                 <div id="import-types-table" style="display:none;">
                     <table style="width:100%; border-collapse:collapse;">
                         <thead>
@@ -992,14 +992,14 @@ function buildImportTypeDiffHTML(imp) {
                 </div>`;
 }
 
-// (+) / (–) : affiche ou masque le tableau des types (écran 1 du modal JSON)
+// [+] / [-] : affiche ou masque le tableau des types (écran 1 du modal JSON)
 function toggleImportTypeTable() {
     const box = document.getElementById('import-types-table');
     const btn = document.getElementById('import-types-toggle');
     if (!box || !btn) return;
     const open = box.style.display === 'none';
     box.style.display = open ? 'block' : 'none';
-    btn.textContent = open ? '(–)' : '(+)';
+    btn.textContent = open ? '[-]' : '[+]';
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
@@ -1294,14 +1294,13 @@ function renderImportJsonConfirm(mode) {
             html += `<p style="${warnStyle}">${t('importJsonReplaceOverwritten', { p: ap.periods, n: ap.notes, e: ap.events })}${imp.types ? ' ' + t('importJsonProfileApplied') : ''}</p>`;
         }
     } else {
-        html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
         if (imp.typeMap.needsTable) {
             const sorted = Object.entries(imp.typeMap.entries).sort(([, a], [, b]) => a.csvTypeId - b.csvTypeId);
-            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}</p>`;
+            const keptName = escapeHtml(getProfileDisplayName(settings.activeProfile));
+            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}. ${t('importJsonProfileKept', { name: keptName })}</p>`;
             html += buildTypeMappingTableHTML(sorted, 'json-select-', 'json-arrow-', 'onJsonTypeSelectChange',
                 (key, m) => getJsonTypeTarget(imp, m.csvTypeId));
             html += `<p id="import-json-fusion" style="${warnStyle} display:none;"></p>`;
-            html += `<p style="${infoStyle} margin-top:8px;">${t('importJsonTypesKept')}</p>`;
         }
         html += `<p id="import-json-overwrite" style="${warnStyle} display:none;"></p>`;
     }
