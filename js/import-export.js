@@ -838,7 +838,7 @@ function validateJSONImport(raw) {
     }
 
     if (!periods && !daily && !tags && !types) return { ok: false, errorKey: 'importJsonNothing' };
-    return { ok: true, data: { periods, daily, tags, types, ignored, typeDiffs: [] } };
+    return { ok: true, data: { periods, daily, tags, types, ignored, typeRows: [] } };
 }
 
 // Différences de types à signaler à l'utilisateur. Un type est "pertinent" s'il est actif d'un
@@ -846,7 +846,7 @@ function validateJSONImport(raw) {
 // données dont le libellé donne le sens (ex. "Sieste" dans l'app, "Douleur" dans le fichier —
 // fusionner relirait silencieusement les périodes "Sieste" comme "Douleur"). Un type inactif
 // des deux côtés et sans aucune donnée est ignoré (un nom tapé à l'avance ne doit pas alerter).
-function computeImportTypeDiffs(imp) {
+function computeImportTypeRows(imp) {
     if (!imp.types) return [];
     const appCounts = {};
     state.history.forEach(e => { appCounts[e.typeId] = (appCounts[e.typeId] || 0) + 1; });
@@ -854,24 +854,26 @@ function computeImportTypeDiffs(imp) {
     const fileCounts = {};
     (imp.periods || []).forEach(p => { fileCounts[p.typeId] = (fileCounts[p.typeId] || 0) + 1; });
 
-    const diffs = [];
+    // Une ligne par type qui existe dans le fichier ou dans l'app (actif, nommé ou porteur de
+    // périodes) ; `differs` = le profil change pour ce type. Les emplacements vides des deux côtés sont omis.
+    const rows = [];
     imp.types.resolved.forEach(ft => {
         const at = settings.types.find(tp => tp.id === ft.id);
         if (!at) return;
         const aC = appCounts[ft.id] || 0;
         const fC = fileCounts[ft.id] || 0;
-        if (!(at.active || ft.active || aC > 0 || fC > 0)) return;
+        if (!(at.active || ft.active || at.label || ft.label || aC > 0 || fC > 0)) return;
         // Libellé de l'app passé par le même nettoyage que celui du fichier : évite une fausse
         // différence (apostrophe, etc.) quand on réimporte sa propre sauvegarde.
         const appLabel = sanitizeImportedLabel(at.label);
-        if (at.active === ft.active && appLabel === ft.label) return;
-        diffs.push({
+        rows.push({
             id: ft.id,
+            differs: !(at.active === ft.active && appLabel === ft.label),
             app: { label: at.label || '', active: at.active, count: aC },
             file: { label: ft.label, active: ft.active, count: fC }
         });
     });
-    return diffs;
+    return rows;
 }
 
 // Polarité d'un tag vue de l'import : la définition de l'app prime, à défaut celle du fichier
@@ -962,29 +964,43 @@ function buildImportTypeDiffHTML(imp) {
         const count = x.count > 0
             ? `<br><span style="opacity:0.65; font-size:0.75rem;">${t('importJsonPeriodsCount', { n: x.count })}</span>`
             : '';
-        return name + count;
+        return escapeHtml(name) + count;
     };
-    const rows = imp.typeDiffs.map(d => `
+    const rows = imp.typeRows.map(d => `
                 <tr>
                     <td style="padding:4px 6px 4px 0; font-size:0.83rem; white-space:nowrap; vertical-align:top;"><span style="color:${getColorForId(d.id)};">●</span> #${d.id}</td>
-                    <td style="padding:4px 6px; font-size:0.83rem; vertical-align:top;">${cell(d.app)}</td>
-                    <td style="padding:4px 0; font-size:0.83rem; vertical-align:top;">${cell(d.file)}</td>
+                    <td style="padding:4px 6px; font-size:0.83rem; vertical-align:top;">${cell(d.file)}</td>
+                    <td style="padding:4px 0; font-size:0.83rem; vertical-align:top;">${cell(d.app)}</td>
                 </tr>`).join('');
-    const from = getProfileDisplayName(settings.activeProfile);
-    const to = getProfileDisplayName(imp.types.profileId);
+    const sentence = t('importJsonTypesTitle', {
+        file: escapeHtml(getProfileDisplayName(imp.types.profileId)),
+        app: escapeHtml(getProfileDisplayName(settings.activeProfile))
+    });
     return `
-                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${t('importJsonTypesTitle')}</p>
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
-                            <th></th>
-                            <th style="padding:3px 6px; text-align:left;">${t('importAppHeader')}</th>
-                            <th style="padding:3px 0; text-align:left;">${t('importFileHeader')}</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rows}</tbody>
-                </table>
-                <p style="font-size:0.85rem; margin:8px 0 0 0;">${t('importJsonProfileLine', { from, to })}</p>`;
+                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${sentence} <button type="button" id="import-types-toggle" aria-expanded="false" onclick="toggleImportTypeTable()" style="background:none; border:none; color:inherit; font:inherit; font-weight:bold; cursor:pointer; padding:0 2px;">(+)</button></p>
+                <div id="import-types-table" style="display:none;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
+                                <th></th>
+                                <th style="padding:3px 6px; text-align:left;">${t('importFileHeader')}</th>
+                                <th style="padding:3px 0; text-align:left;">${t('importAppHeader')}</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+}
+
+// (+) / (–) : affiche ou masque le tableau des types (écran 1 du modal JSON)
+function toggleImportTypeTable() {
+    const box = document.getElementById('import-types-table');
+    const btn = document.getElementById('import-types-toggle');
+    if (!box || !btn) return;
+    const open = box.style.display === 'none';
+    box.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '(–)' : '(+)';
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 // « Forces en présence » du modal : plage de dates, nombre de périodes, de notes et
@@ -1021,14 +1037,19 @@ function buildImportSummaryHTML(label, s, nameHtml) {
     const num = (v) => (v === null ? '—' : v);
     const locale = getLocale();
     const fmt = (ts) => new Date(ts).toLocaleDateString(locale);
-    const range = s.from !== null
-        ? `<div>${t('importJsonRange', { from: fmt(s.from), to: fmt(s.to) })}</div>`
-        : '';
+    // Plage sans mots (« a → b ») ; un seul jour : une seule date ; aucune donnée datée : « — »
+    let range = '—';
+    if (s.from !== null) {
+        const f = fmt(s.from), e = fmt(s.to);
+        range = f === e ? f : t('importJsonRange', { from: f, to: e });
+    }
     return `
                 <div style="font-size:0.9rem; line-height:1.5; margin:0 0 12px 0;">
-                    <div style="word-break:break-all;"><span style="font-weight:bold; opacity:0.7;">${label}</span>${nameHtml ? ` <span style="font-family:monospace; font-weight:normal;">${nameHtml}</span>` : ''}</div>
-                    ${range}
-                    <div>${t('importJsonCounts', { p: num(s.periods), n: num(s.notes), e: num(s.events) })}</div>
+                    <div style="word-break:break-all;"><span style="font-weight:bold; color:#fff;">${label}</span>${nameHtml ? ` <span style="font-family:monospace; font-weight:normal; color:var(--beige-light);">${nameHtml}</span>` : ''}</div>
+                    <div style="opacity:0.7;">
+                        <div>${range}</div>
+                        <div>${t('importJsonCounts', { p: num(s.periods), n: num(s.notes), e: num(s.events) })}</div>
+                    </div>
                 </div>`;
 }
 
@@ -1038,7 +1059,7 @@ function buildImportSummaryHTML(label, s, nameHtml) {
 function showImportJsonModal() {
     const imp = pendingJsonImport;
     if (!imp) return;
-    imp.typeDiffs = computeImportTypeDiffs(imp);
+    imp.typeRows = computeImportTypeRows(imp);
     imp.typeMap = buildJsonTypeMap(imp);
     imp.typeChoices = {}; // choix de l'utilisateur dans le tableau de correspondance (Fusionner)
 
@@ -1051,7 +1072,7 @@ function showImportJsonModal() {
         liveLabel = lt ? lt.label : String(state.activeType);
     }
     imp.ctx = {
-        hasTypeDiff: imp.typeDiffs.length > 0,
+        hasTypeDiff: imp.typeRows.some(r => r.differs),
         fileSummary: summarizeImportData(imp.periods, imp.daily),
         appSummary: summarizeImportData(appPeriods, dailyData),
         liveLabel,
@@ -1063,7 +1084,7 @@ function showImportJsonModal() {
     };
     renderImportJsonChoose();
     document.getElementById('importJsonModal').style.display = 'flex';
-    console.log(`[importJSON] Modal affiché — périodes:${imp.periods ? imp.periods.length : '-'} jours:${imp.daily ? Object.keys(imp.daily).length : '-'} diffTypes:${imp.typeDiffs.length} écrasements:${imp.ctx.mergeOverwrite.p}/${imp.ctx.mergeOverwrite.n}/${imp.ctx.mergeOverwrite.e}`);
+    console.log(`[importJSON] Modal affiché — périodes:${imp.periods ? imp.periods.length : '-'} jours:${imp.daily ? Object.keys(imp.daily).length : '-'} diffTypes:${imp.typeRows.filter(r => r.differs).length} écrasements:${imp.ctx.mergeOverwrite.p}/${imp.ctx.mergeOverwrite.n}/${imp.ctx.mergeOverwrite.e}`);
 }
 
 function setImportJsonBody(html) {
@@ -1221,7 +1242,7 @@ function renderImportJsonChoose() {
 }
 
 // Tableau « maintenant → après » (Remplacer) : l'après est le contenu du fichier, section absente = 0.
-function buildImportBeforeAfterHTML(now, after) {
+function buildImportBeforeAfterHTML(now, after, profile) {
     const n = (v) => (v === null ? 0 : v);
     const row = (label, a, b) => `
                         <tr>
@@ -1231,7 +1252,7 @@ function buildImportBeforeAfterHTML(now, after) {
                             <td style="padding:3px 0; text-align:right; font-weight:bold;">${n(b)}</td>
                         </tr>`;
     return `
-                <table style="width:100%; max-width:260px; border-collapse:collapse; font-size:0.9rem; margin:0 0 12px 0;">
+                <table style="width:100%; max-width:340px; border-collapse:collapse; font-size:0.9rem; margin:0 0 12px 0;">
                     <thead>
                         <tr style="opacity:0.55; border-bottom:1px solid #444; font-size:0.78rem;">
                             <th></th>
@@ -1244,6 +1265,10 @@ function buildImportBeforeAfterHTML(now, after) {
                         ${row(t('importJsonRowPeriods'), now.periods, after.periods)}
                         ${row(t('importJsonRowNotes'), now.notes, after.notes)}
                         ${row(t('importJsonRowEvents'), now.events, after.events)}
+                        ${profile ? `<tr>
+                            <td style="padding:3px 6px 3px 0; vertical-align:top;">${t('importJsonRowProfile')}</td>
+                            <td colspan="3" style="padding:3px 0; text-align:right; font-size:0.78rem; line-height:1.3;">${escapeHtml(profile.from)} → <b>${escapeHtml(profile.to)}</b></td>
+                        </tr>` : ''}
                     </tbody>
                 </table>`;
 }
@@ -1259,12 +1284,15 @@ function renderImportJsonConfirm(mode) {
 
     let html = `<h3 style="margin-top:0;">${t(replace ? 'importJsonConfirmReplaceTitle' : 'importJsonConfirmMergeTitle')}</h3>`;
     if (replace) {
-        html += buildImportBeforeAfterHTML(c.appSummary, { ...c.fileSummary, periods: c.afterPeriods });
-        html += `<p style="${infoStyle}">${t('importJsonReplaceDetail')}</p>`;
+        const profile = imp.types
+            ? { from: getProfileDisplayName(settings.activeProfile), to: getProfileDisplayName(imp.types.profileId) }
+            : null;
+        html += buildImportBeforeAfterHTML(c.appSummary, { ...c.fileSummary, periods: c.afterPeriods }, profile);
         if (c.lostPeriods > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceLostPeriods', { n: c.lostPeriods })}</p>`;
         const ap = c.appSummary;
-        if (ap.periods + ap.notes + ap.events > 0) html += `<p style="${warnStyle}">${t('importJsonReplaceOverwritten', { p: ap.periods, n: ap.notes, e: ap.events })}</p>`;
-        if (c.hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
+        if (ap.periods + ap.notes + ap.events > 0) {
+            html += `<p style="${warnStyle}">${t('importJsonReplaceOverwritten', { p: ap.periods, n: ap.notes, e: ap.events })}${imp.types ? ' ' + t('importJsonProfileApplied') : ''}</p>`;
+        }
     } else {
         html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
         if (imp.typeMap.needsTable) {
@@ -1308,7 +1336,7 @@ function closeImportJsonModal() {
 
 // Applique le profil de types du fichier — Remplacer uniquement (Fusionner ne modifie jamais les types
 // de l'app). Tous les types du fichier ; un type que le fichier ne fournit pas, ou identique, reste intact
-// (comparaison sur le libellé nettoyé, comme computeImportTypeDiffs). Recalcule le profil actif avec
+// (comparaison sur le libellé nettoyé, comme computeImportTypeRows). Recalcule le profil actif avec
 // detectProfile() au lieu de croire le fichier, et crée le snapshot "Personnalisé" si besoin (même règle
 // que saveSettings(), qu'on ne peut pas appeler ici car elle relit les champs de saisie).
 function applyImportedTypes(imp) {
