@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-10-10 (après beta.31). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-10-17 (après beta.37). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -13,10 +13,10 @@
 
 ## Court terme
 
-- **Publier** : valider beta.31 sur appareils (Windows, Android ; iOS si possible), puis PR `dev` → `main`. Avant : **rafraîchir le texte de `messages.json`** (fait au moment de publier sur `main`) et vérifier que l'`id` du message update vaut `update-0.9.29-beta.31` (il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
+- **Publier** : tester beta.37 sur appareils (Windows, Android ; iOS si possible) en suivant le parcours M1 à M8 de `docs/tests-import-export.md` (import/export refondu en beta.32 à 37), puis PR `dev` → `main`. Avant : **rafraîchir le texte de `messages.json`** (fait au moment de publier sur `main`) et vérifier que l'`id` du message update vaut `update-<APP_VERSION>` (il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
+- **Import / export — à relire sur appareil après les tests** : polissage des textes des deux écrans du modal JSON ; tableau des différences de types de l'écran 1, à rendre éventuellement optionnel (« détails ») ; pas de tableau avant → après en Fusionner ; relecture EN/NL des nouveaux textes.
 - Couleur du bouton Exporter incohérente : bleu dans Historique, jaune ailleurs (modals). Pas encore de décision.
 - Nettoyages cosmétiques sans risque : commentaire CSS faux sur le `z-index` de l'overlay du tableau (480 est *au-dessus* d'Évolution à 450) ; clé de traduction `dailyEventsDateHeader` jamais utilisée ; indentation et ancien `addAll` commenté dans `sw.js`.
-- Incohérence de limite de la note journalière : 80 caractères dans l'UI, 5 000 (`IMPORT_MAX_DAY_TEXT`) à l'import JSON.
 - **Réévaluer `STORAGE_WARN_RATIO = 0.90`** (toast à 4,5 Mo : marge de réaction courte). Voir `docs/optimisation-stockage-performance.md`.
 
 ## Moyen terme
@@ -30,6 +30,18 @@
   - accompagnement pas-à-pas pour configurer les notifications (détection auto OS / version iOS, guide d'installation, test guidé) en remplacement du message d'avertissement actuel à la création d'une alerte.
   - *Bon moment pour extraire `js/alerts.js`* (voir « Architecture du code »).
 - **Questions d'export** : export XLSX (écrit directement depuis les structures internes) ; `removeAccents()` dans `exportCSV()`.
+- **Export rapport PDF : graphes et données par jours et graphe évolution** (voir aussi « Long terme », rapport pour partage médical).
+- **Sauvegarde auto proposée chaque semaine** (rappel/proposition d'export JSON ; à cadrer : déclencheur, discrétion du message, lien avec les toasts de stockage).
+
+## Import / export : points reportés (décidés « plus tard », beta.37)
+
+Voir `docs/notes-events.md` § 4.2 et `docs/tests-import-export.md`.
+- **R6 — CSV : retour arrière si le stockage est plein**, et message de succès affiché seulement après l'écriture réussie (le JSON a déjà son retour arrière). À faire après la première publication.
+- **R8 — Longueur d'une note importée** : 80 caractères dans l'UI, 5 000 (`IMPORT_MAX_DAY_TEXT`) à l'import JSON. Trancher (tronquer à l'import ?).
+- **R9 — Caractères spéciaux dans les libellés** : saisie libre à la main, mais caractères dangereux retirés à l'import (`sanitizeImportedLabel`, qui garde le texte entre balises : `<b>d'après</b>` devient « bd'après/b »). Objectif : des caractères utilisables et importables partout ; passe par un inventaire des points d'injection puis `escapeHtml` partout, avant de relâcher l'assainissement.
+- **R10 — Export JSON compact ou indenté** : le fichier est compact (une ligne) ; l'indenter coûterait ≈ 50 % de taille (2 à 3 Ko sur un fichier de test), léger. À trancher.
+- **R11 — CSV : type #5 inactif** accepté comme cible par défaut d'un type du fichier (toléré, sans avertissement).
+- Remplacer ne normalise pas les chevauchements internes du fichier (O6) ; CSV : pas de filtre des périodes futures ; libellé CSV contenant une virgule (O11, colonnes décalées).
 - **Système de messages JSON** — extensions futures : sondages (poll), déclencheurs événementiels (event/moment) . Éventuellement revoir le mode manuel (« Vérifier mise à jour ») pour y afficher aussi le texte du JSON. *Bon moment pour extraire `js/messages.js`.* Voir `docs/messages-json.md`.
 
 ## Chantier Évolution (terminé, raffinements possibles)
@@ -86,7 +98,7 @@ Voir `docs/optimisation-stockage-performance.md`.
 ## Long terme (prospectif, non confirmé)
 
 - Journal d'événements (MPE / crash) avec temporalité — à articuler avec les événements journaliers existants plutôt qu'une structure séparée.
-- Rapport PDF exportable pour partage médical.
+- Rapport PDF exportable pour partage médical (voir « Export rapport PDF » en moyen terme).
 - Statistiques avancées (heure du premier lever, % temps couché, tendances).
 - FCM (Firebase Cloud Messaging) pour des alertes fiables sur Android en veille totale.
 - Synchronisation de stockage externe (Google Drive / File System Access API) ; synchro multi-appareils (voir `docs/optimisation-stockage-performance.md`, § 5).
@@ -106,6 +118,8 @@ Voir `docs/optimisation-stockage-performance.md`.
 - Mettre à jour la couleur `--beige-light: #e0c896` si besoin (valeur de départ, jamais affinée).
 
 ## Fait récemment (mémoire courte)
+
+Beta.32 à 37 (2026-10) : **import JSON refondu** en deux écrans (« forces en présence » puis vérification), règles simples pour *Remplacer* (l'app devient le fichier) et *Fusionner* (le fichier gagne sur les désaccords ; polarité opposée gérée ; types et profil de l'app jamais modifiés ; tableau de correspondance des types partagé avec le CSV ; périodes futures ignorées), avertissements chiffrés, bouton d'export de secours dans le modal. 70 scénarios joués au harnais. Détails : `docs/notes-events.md` § 4.2 et `docs/tests-import-export.md`.
 
 Beta.29 à 31 (2026-10) : console allégée (plus de log « Profil envoyé », log de veille seulement pour tirage 0) ; séparateur de jours de Résultats plus visible, note retirée de Résultats, pastilles du graphe journalier alignées ; beta.30 : `messages.json?t=` + trace de diagnostic `messagesFetchDiag` ; beta.31 : règle des 7 jours pour les `update` non bloquants (« Plus tard » n'était plus définitif), événement GoatCounter `DailyUser-custom-{N}-types`, note `docs/messages-json.md`.
 

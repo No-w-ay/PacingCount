@@ -7,6 +7,10 @@
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
     `daily-data.js`, `results.js`
+    (`import-export.js` : exports CSV/JSON ; import CSV ; import JSON en deux écrans
+    Remplacer / Fusionner ; **helpers de correspondance des types partagés** CSV et JSON :
+    `normalizeTypeLabel`, `resolveTypeTarget`, `buildTypeMappingTableHTML`,
+    `analyzeTypeMapping`. Règles : `docs/notes-events.md` § 4.2)
   - Autres dossiers : `docs/` (cette note, `TODO.md`, `CONVENTIONS.md`, notes de chantier),
     `icons/` (sources des icônes + générateur ; `icon-192.png` et `icon-512.png`
     restent à la racine car référencés par le manifest et `sw.js`),

@@ -1,6 +1,6 @@
 # Chantier « Notes & événements journaliers » — note de référence
 
-> Source de vérité : le code (`js/daily-data.js`, `js/import-export.js`, `js/results.js`, `index.html`, `style.css`, `js/translations.js`, état beta.28).
+> Source de vérité : le code (`js/daily-data.js`, `js/import-export.js`, `js/results.js`, `index.html`, `style.css`, `js/translations.js`, état beta.28 ; § 4.2 mis à jour à beta.37).
 > Cette note remplace les 3 synthèses `synthese-transition-notes-events*.md`.
 > Chantier **en cours** : les fondations, la saisie, l'export/import, l'affichage dans plusieurs vues, le tableau à défilement continu (beta.24 à 28) et la mesure d'usage GoatCounter sont faits ; il reste un test d'usage réel avec peu de types d'événements, la décision sur la visibilité des événements et des extensions (voir `TODO.md`, section Notes & événements).
 > Le volet stockage/performance, issu des mêmes synthèses, est traité à part dans `docs/optimisation-stockage-performance.md`.
@@ -124,13 +124,32 @@ Refonte en beta.24 à 28 : l'ancien tableau `<table>` (fenêtre de 2 mois, flèc
 - Pas de zip : un second fichier téléchargé suffit pour l'instant.
 
 ### 4.2. Import (`importFile()` → `importJSON()` / `importCSV()`)
+> Refonte beta.32 à 37 (2026-10). Tests et scénarios : `docs/tests-import-export.md`.
+
 - **Détection par le contenu** (`{` en tête → JSON, sinon CSV), pas par l'extension (certains navigateurs Android renvoient `text/plain`).
-- **Principe** : un import ne remplace que ce que son format contient ; une clé absente du fichier ne touche à rien.
-- **Validation en mémoire avant toute écriture** (`validateJSONImport()`) : refuse un fichier non PacingCount ou de version plus récente ; filtre les périodes invalides ; assainit les libellés (30 caractères, caractères dangereux retirés) ; valide les clés de date ; n'accepte que les events cohérents avec le mode du tag (`tristate` → `value` obligatoire, `presence` → pas de `value`) ; propage `polarity` (valeurs strictes `positive`/`negative`).
-- Reconnaissance de profil multilingue (`matchProfileAnyLang()`), différences de types pertinentes seulement (`computeImportTypeDiffs()`), **confirmation obligatoire** avant d'écraser `typesConfig`.
-- Fusion des events (`mergeDailyDataInto()`) par jour **et** par tag : une absence dans le fichier n'efface jamais rien, le fichier gagne sur un désaccord.
-- **Retour arrière** (`rollbackJsonImport()`) : copie de sécurité avant écriture, restauration en deux passes si un quota est dépassé.
-- Modal dédié `#importJsonModal`. Tous les boutons d'export (footer Historique, toasts de stockage, splash iOS, mise à jour) pointent vers `exportJSON()`. **Seuls restent en CSV** les deux écrans de navigateur intégré (Facebook & co.) ; pas d'export JSON en webview.
+- **Validation en mémoire avant toute écriture** (`validateJSONImport()`) : refuse un fichier non PacingCount ou de version plus récente ; filtre les périodes invalides ; assainit les libellés (30 caractères, caractères dangereux retirés) ; valide les clés de date ; n'accepte que les events cohérents avec le mode du tag (`tristate` → `value` obligatoire, `presence` → pas de `value`) ; propage `polarity` (valeurs strictes `positive`/`negative`). Les périodes qui commencent dans le futur, ou finissent à plus de 5 minutes dans le futur (`IMPORT_FUTURE_TOLERANCE_MS`), sont ignorées ; une fin à moins de 5 minutes est ramenée à « maintenant » (marge d'horloge entre appareils).
+- **Modal JSON à deux écrans** (`#importJsonModal`) :
+  1. *Forces en présence* : fichier (nom en monospace, plage de dates, « N période(s) · N note(s) · N événement(s) », « — » si une section est absente) face à l'application ; ligne « profils identiques » ou tableau des différences de types ; boutons « Continuer vers Remplacer / Fusionner » et Annuler.
+  2. *Vérification* (« ‹ Retour » + Annuler) : description, avertissements chiffrés, bouton d'action, ligne « irréversible », bouton orange « Exporter mes données (.json) » de secours (`exportBackupFromImportModal()`).
+- **Remplacer = l'application devient exactement le fichier** (périodes, jours avec événements et notes, tags, types/profil). Pas de fusion cachée. Détails :
+  - section absente du fichier : `periodData` / `dailyData` absents → vidés ; `eventTags` / `typesConfig` absents → réglages inchangés ;
+  - la langue des tags et profils prédéfinis de l'application est conservée ; un tag prédéfini absent d'une liste présente revient à son état par défaut ; les événements d'un tag inconnu sont supprimés (`dropEventsOfUnknownTags()`) ;
+  - la période en cours est arrêtée (écran 2 : « La période en cours (…) sera arrêtée ») ;
+  - écran 2 : tableau *Maintenant → Après* (périodes, notes, événements ; les périodes « après » comptées après coupe à minuit via `splitPeriodIntoDayFragments()`).
+- **Fusionner = le fichier gagne sur les désaccords** :
+  - périodes : mêmes étapes que l'import CSV (`applySteamroller` : les périodes du fichier écrasent ce qu'elles recouvrent → `snapAdjacentBorders` 60 s → `mergeAdjacentPeriods` → `reconstructHistory`) ; la période en cours est traitée comme les autres ;
+  - notes : texte du fichier gagnant ; événements : par jour **et** par tag, valeur à 3 états du fichier gagnante ;
+  - **polarité opposée** : si le fichier pose un événement positif (ou négatif) un jour, les événements de polarité opposée de l'application ce jour-là sont retirés (`mergeDailyDataInto(base, fileDaily, polarityOf)`) ; le fichier lui-même n'est pas touché (s'il porte les deux camps, ils sont conservés) ;
+  - tags : les définitions de l'application sont conservées, les tags inconnus sont ajoutés ;
+  - **types et profil de l'application jamais modifiés** : un tableau de correspondance (le même que le CSV : `resolveTypeTarget()`, `buildTypeMappingTableHTML()`, `analyzeTypeMapping()`) n'apparaît que si un type du fichier n'est pas une correspondance exacte ; cibles par défaut ✅ exact / 🔍 approchant / Ignorer ;
+  - si tous les types sont ignorés et sans notes ni événements : message `importNoPeriods`, rien n'est modifié ;
+  - écran 2 : avertissement « N période(s), X note(s) et Y événement(s) actuels de l'application seront écrasés par des données du fichier qui diffèrent dans la même plage temporelle » (`computeMergeOverwrite()` ; une période n'est comptée que si elle recouvre une période d'un **autre** type du fichier, ce qui évite d'alerter pour la réimportation de sa propre sauvegarde).
+- **CSV** (`importCSV()`) : périodes uniquement, événements, notes, tags et types intouchés ; tableau de correspondance des types ; Remplacer / Fusionner comme ci-dessus pour les périodes. Pas de retour arrière en cas de stockage plein (R6, voir `TODO.md`).
+- **Retour arrière JSON** (`rollbackJsonImport()`) : copie de sécurité avant écriture, restauration en deux passes si un quota est dépassé.
+- Reconnaissance de profil multilingue (`matchProfileAnyLang()`), différences de types pertinentes seulement (`computeImportTypeDiffs()`).
+- Tous les boutons d'export (footer Historique, toasts de stockage, splash iOS, mise à jour) pointent vers `exportJSON()`. **Seuls restent en CSV** les deux écrans de navigateur intégré (Facebook & co.) ; pas d'export JSON en webview. L'export JSON est compact (sans indentation ; indenter ≈ +50 % de taille, à trancher, voir `TODO.md`).
+- **Décisions écartées** : fusion « cachée » à l'intérieur de Remplacer (illisible : une sauvegarde doit se restaurer à l'identique) ; profil de l'application modifié par une fusion (O8 de l'ancienne note : relisait tout l'historique avec d'autres libellés) ; fichier de sauvegarde annoté de la date de sauvegarde dans le modal (inutile).
+- **Limites connues** : voir `TODO.md` (R6 à R11, O6, O11).
 
 ## 5. Décisions de conception à retenir
 

@@ -297,10 +297,6 @@ function importCSV(event) {
                 if (!typesSeen[key]) {
                     let resolved = null;
 
-                    // Normalisation pour comparaison accent+casse insensible
-                    const normLabel = (s) => (s || '').normalize('NFD')
-                        .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
                     // Résolution par typeId en priorité — actifs et inactifs inclus
                     if (csvTypeId !== null) {
                         resolved = settings.types.find(t => t.id === csvTypeId) || null;
@@ -308,7 +304,7 @@ function importCSV(event) {
                     // Fallback par label normalisé (casse et accents insensibles)
                     if (!resolved && csvLabel) {
                         resolved = settings.types.find(t =>
-                            normLabel(t.label) === normLabel(csvLabel)
+                            normalizeTypeLabel(t.label) === normalizeTypeLabel(csvLabel)
                         ) || null;
                     }
 
@@ -344,128 +340,113 @@ function importCSV(event) {
     // reader.readAsText(file, 'windows-1252'); // test
 }
 
-// Affiche le modal d'import avec le tableau de correspondances des types.
-// Chaque type du fichier a un <select> pré-rempli automatiquement si possible :
-//   - correspondance exacte par typeId ou label → sélectionné automatiquement
-//   - migration connue (ancien id 3 + label standard) → redirigé vers id 4
-//   - type non reconnu → "Ignorer" pré-sélectionné, ⚠️ visible
-// processImport() lit les valeurs des selects au moment du clic.
-function showImportModal() {
-    console.log("[showImportModal] Affichage du modal de confirmation");
+// ------------------------------------------------------------
+// Correspondance des types (partagée : import CSV et Fusionner JSON)
+// Une entrée de correspondance décrit un type du fichier : { csvTypeId, csvLabel, resolvedId[, count] }.
+// ------------------------------------------------------------
 
-    // Normalisation pour comparaison accent+casse insensible — même logique que importCSV
-    const normLabel = (s) => (s || '').normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+// Normalisation pour comparaison accent+casse insensible
+function normalizeTypeLabel(s) {
+    return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
 
-    // Labels connus de l'ancien typeId 3 avant migration v0.9.24
-    const OLD_TYPE3_LABELS = ["Non couché", "Not lying down", "Niet liggend"];
+// Labels connus de l'ancien typeId 3 avant migration v0.9.24
+const OLD_TYPE3_LABELS = ["Non couché", "Not lying down", "Niet liggend"];
 
-    // Détermine la cible et si c'est une correspondance exacte
-    // ✅ = typeId identique ET label normalisé identique
-    // 🔍 = tout le reste
-    function resolveTarget(m) {
-        const normCsv = normLabel(m.csvLabel);
+// Détermine la cible d'un type du fichier et si c'est une correspondance exacte
+// ✅ = typeId identique ET label normalisé identique
+// 🔍 = tout le reste
+function resolveTypeTarget(m) {
+    const normCsv = normalizeTypeLabel(m.csvLabel);
 
-        // ✅ Exact : même typeId ET même label normalisé
-        if (m.csvTypeId !== null && m.resolvedId === m.csvTypeId) {
-            const appType = settings.types.find(tp => tp.id === m.csvTypeId);
-            if (appType && normLabel(appType.label) === normCsv) {
-                return { targetId: m.csvTypeId, isExact: true };
-            }
+    // ✅ Exact : même typeId ET même label normalisé
+    if (m.csvTypeId !== null && m.resolvedId === m.csvTypeId) {
+        const appType = settings.types.find(tp => tp.id === m.csvTypeId);
+        if (appType && normalizeTypeLabel(appType.label) === normCsv) {
+            return { targetId: m.csvTypeId, isExact: true };
         }
-
-        // 🔍 Migration connue : ancien label type 3 → type 4
-        if (m.csvTypeId === 3 && OLD_TYPE3_LABELS.some(l => normLabel(l) === normCsv)) {
-            if (settings.types.find(tp => tp.id === 4)) return { targetId: 4, isExact: false };
-        }
-
-        // 🔍 Label normalisé identique, typeId différent (actifs en priorité)
-        const labelMatchActive = settings.types.find(tp =>
-            tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
-        if (labelMatchActive) return { targetId: labelMatchActive.id, isExact: false };
-
-        const labelMatchInactive = settings.types.find(tp =>
-            !tp.active && normLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
-        if (labelMatchInactive) return { targetId: labelMatchInactive.id, isExact: false };
-
-        // 🔍 typeId identique mais label différent (déjà dans resolvedId)
-        if (m.resolvedId) return { targetId: m.resolvedId, isExact: false };
-
-        // 🔍 Aucune correspondance → Ignorer
-        return { targetId: null, isExact: false };
     }
 
-    // Construit les options du select (tous les types, actifs et inactifs)
-    function buildSelectOptions(selectedId) {
-        let opts = settings.types.map(tp => {
-            const sel = selectedId === tp.id ? ' selected' : '';
-            const inactifNote = tp.active ? '' : ` ${t('typeInactivePlaceholder')}`;
-            // Point 5 : format #N pour les ids dans les options
-            return `<option value="${tp.id}"${sel}>${tp.label || t('typeNoNameOption')}${inactifNote} #${tp.id}</option>`;
-        }).join('');
-        const ignoreSel = selectedId === null ? ' selected' : '';
-        opts += `<option value="ignore"${ignoreSel}>${t('importIgnoreOption')}</option>`;
-        return opts;
+    // 🔍 Migration connue : ancien label type 3 → type 4
+    if (m.csvTypeId === 3 && OLD_TYPE3_LABELS.some(l => normalizeTypeLabel(l) === normCsv)) {
+        if (settings.types.find(tp => tp.id === 4)) return { targetId: 4, isExact: false };
     }
 
-    // Couleur de la flèche → selon le type cible (grise si Ignorer ou null)
-    function arrowColor(targetId) {
-        return targetId !== null ? getColorForId(targetId) : '#666';
-    }
+    // 🔍 Label normalisé identique, typeId différent (actifs en priorité)
+    const labelMatchActive = settings.types.find(tp =>
+        tp.active && normalizeTypeLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
+    if (labelMatchActive) return { targetId: labelMatchActive.id, isExact: false };
 
-    // Couleur de la bordure du select :
-    // Point 7 : un seul gris #666 pour inactif ET ignorer (supprime le test #555 vs #666)
-    function borderColor(targetId) {
-        if (targetId === null) return '#666';
-        const tp = settings.types.find(tp => tp.id === targetId);
-        return tp?.active ? getColorForId(targetId) : '#666';
-    }
+    const labelMatchInactive = settings.types.find(tp =>
+        !tp.active && normalizeTypeLabel(tp.label) === normCsv && tp.id !== m.csvTypeId);
+    if (labelMatchInactive) return { targetId: labelMatchInactive.id, isExact: false };
 
-    // Tri des entrées par csvTypeId croissant (sans id à la fin)
-    const sortedEntries = Object.entries(pendingImportMapping).sort(([, a], [, b]) => {
-        const ai = a.csvTypeId ?? 9999;
-        const bi = b.csvTypeId ?? 9999;
-        return ai - bi;
-    });
+    // 🔍 typeId identique mais label différent (déjà dans resolvedId)
+    if (m.resolvedId) return { targetId: m.resolvedId, isExact: false };
 
-    // Construction des lignes
+    // 🔍 Aucune correspondance → Ignorer
+    return { targetId: null, isExact: false };
+}
+
+// Construit les options du select (tous les types, actifs et inactifs)
+function buildTypeSelectOptions(selectedId) {
+    let opts = settings.types.map(tp => {
+        const sel = selectedId === tp.id ? ' selected' : '';
+        const inactifNote = tp.active ? '' : ` ${t('typeInactivePlaceholder')}`;
+        // Format #N pour les ids dans les options
+        return `<option value="${tp.id}"${sel}>${escapeHtml(tp.label || '') || t('typeNoNameOption')}${inactifNote} #${tp.id}</option>`;
+    }).join('');
+    const ignoreSel = selectedId === null ? ' selected' : '';
+    opts += `<option value="ignore"${ignoreSel}>${t('importIgnoreOption')}</option>`;
+    return opts;
+}
+
+// Couleur de la flèche → selon le type cible (grise si Ignorer ou null)
+function typeArrowColor(targetId) {
+    return targetId !== null ? getColorForId(targetId) : '#666';
+}
+
+// Couleur de la bordure du select : un seul gris #666 pour inactif ET ignorer
+function typeBorderColor(targetId) {
+    if (targetId === null) return '#666';
+    const tp = settings.types.find(tp => tp.id === targetId);
+    return tp?.active ? getColorForId(targetId) : '#666';
+}
+
+// Tableau de correspondance : `entries` = [[clé, entrée], …] déjà triées ; `targetOf(clé, entrée)`
+// donne la cible initiale du select. Les ids des select / flèches sont `${selPrefix}${clé}` et
+// `${arrowPrefix}${clé}` ; `onchangeFn` est le nom du gestionnaire appelé avec la clé.
+function buildTypeMappingTableHTML(entries, selPrefix, arrowPrefix, onchangeFn, targetOf) {
     let tableRows = '';
-    sortedEntries.forEach(([key, m]) => {
-        const { targetId, isExact } = resolveTarget(m);
-        const icon = isExact ? '✅' : '🔍';
-        // Point 3 : #N grisé via span opacity:0.65
+    entries.forEach(([key, m]) => {
+        const targetId = targetOf(key, m);
+        const icon = resolveTypeTarget(m).isExact ? '✅' : '🔍';
+        // #N grisé via span opacity:0.65
         const idStr = m.csvTypeId !== null
             ? ` <span style="opacity:0.65">#${m.csvTypeId}</span>` : '';
-        const selectId = `import-select-${key}`;
-        const initBorder = borderColor(targetId);
-        const initArrow = arrowColor(targetId);
-
+        const countStr = m.count !== undefined
+            ? ` <span style="opacity:0.65">· ${t('importJsonPeriodsCount', { n: m.count })}</span>` : '';
         tableRows += `
                     <tr>
                         <td style="padding:3px 3px 3px 0; font-size:0.83rem; width:1px; white-space:nowrap;">${icon}</td>
                         <td style="padding:3px 0; font-size:0.83rem;">
-                            ${m.csvLabel || ''}${idStr}
+                            ${escapeHtml(m.csvLabel || '')}${idStr}${countStr}
                         </td>
-                        <td style="padding:3px 4px; color:${initArrow}; font-weight:bold;"
-                            id="arrow-${key}">→</td>
+                        <td style="padding:3px 4px; color:${typeArrowColor(targetId)}; font-weight:bold;"
+                            id="${arrowPrefix}${key}">→</td>
                         <td style="padding:3px 0;">
-                            <select id="${selectId}"
+                            <select id="${selPrefix}${key}"
                                 style="font-size:0.82rem; background:var(--input-bg,#222);
-                                       color:var(--text-color); border:2px solid ${initBorder};
+                                       color:var(--text-color); border:2px solid ${typeBorderColor(targetId)};
                                        border-radius:4px; padding:3px 5px; width:100%;
                                        outline:none;"
-                                onchange="onImportSelectChange('${key}')">
-                                ${buildSelectOptions(targetId)}
+                                onchange="${onchangeFn}('${key}')">
+                                ${buildTypeSelectOptions(targetId)}
                             </select>
                         </td>
                     </tr>`;
     });
-
-    document.getElementById('import-mapping-table').innerHTML = `
-                <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
-                    ${t('importMappingDesc')}
-                    ${t('importMappingLegend')}
-                </p>
+    return `
                 <table style="width:100%; border-collapse:collapse;">
                     <colgroup>
                         <col>
@@ -483,25 +464,67 @@ function showImportModal() {
                     </thead>
                     <tbody>${tableRows}</tbody>
                 </table>`;
+}
+
+// Met à jour couleurs de bordure et de flèche après un changement de sélection
+function updateTypeSelectStyle(selId, arrowId) {
+    const sel = document.getElementById(selId);
+    const arrow = document.getElementById(arrowId);
+    if (!sel || !arrow) return;
+    const targetId = sel.value === 'ignore' ? null : parseInt(sel.value);
+    sel.style.borderColor = typeBorderColor(targetId);
+    arrow.style.color = typeArrowColor(targetId);
+}
+
+// Analyse des sélections courantes : types du fichier fusionnés vers un même type de l'app
+// (fusions = [[idCible, [libellés]], …], seulement si plusieurs) et correspondances toutes exactes.
+function analyzeTypeMapping(entries, selPrefix) {
+    const targets = {};
+    let allExact = true;
+    entries.forEach(([key, m]) => {
+        const sel = document.getElementById(`${selPrefix}${key}`);
+        if (!sel) return;
+        if (sel.value === 'ignore') { allExact = false; return; }
+        if (!targets[sel.value]) targets[sel.value] = [];
+        targets[sel.value].push(m.csvLabel || key);
+        const appType = settings.types.find(tp => tp.id === parseInt(sel.value));
+        const isExact = appType && parseInt(sel.value) === m.csvTypeId
+            && normalizeTypeLabel(appType.label) === normalizeTypeLabel(m.csvLabel);
+        if (!isExact) allExact = false;
+    });
+    const fusions = Object.entries(targets).filter(([, labels]) => labels.length > 1);
+    return { fusions, allExact };
+}
+
+// Affiche le modal d'import avec le tableau de correspondances des types.
+// Chaque type du fichier a un <select> pré-rempli automatiquement si possible :
+//   - correspondance exacte par typeId ou label → sélectionné automatiquement
+//   - migration connue (ancien id 3 + label standard) → redirigé vers id 4
+//   - type non reconnu → "Ignorer" pré-sélectionné, ⚠️ visible
+// processImport() lit les valeurs des selects au moment du clic.
+function showImportModal() {
+    console.log("[showImportModal] Affichage du modal de confirmation");
+
+    // Tri des entrées par csvTypeId croissant (sans id à la fin)
+    const sortedEntries = Object.entries(pendingImportMapping).sort(([, a], [, b]) => {
+        const ai = a.csvTypeId ?? 9999;
+        const bi = b.csvTypeId ?? 9999;
+        return ai - bi;
+    });
+
+    document.getElementById('import-mapping-table').innerHTML = `
+                <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
+                    ${t('importMappingDesc')}
+                    ${t('importMappingLegend')}
+                </p>` + buildTypeMappingTableHTML(sortedEntries, 'import-select-', 'arrow-', 'onImportSelectChange',
+        (key, m) => resolveTypeTarget(m).targetId);
 
     checkImportFusion();
     document.getElementById('importModal').style.display = 'flex';
 }
 
 function onImportSelectChange(key) {
-    const sel = document.getElementById(`import-select-${key}`);
-    const arrow = document.getElementById(`arrow-${key}`);
-    if (!sel || !arrow) return;
-    const val = sel.value;
-    if (val === 'ignore') {
-        sel.style.borderColor = '#666';
-        arrow.style.color = '#666';
-    } else {
-        const id = parseInt(val);
-        const tp = settings.types.find(t => t.id === id);
-        sel.style.borderColor = tp?.active ? getColorForId(id) : '#666';
-        arrow.style.color = getColorForId(id);
-    }
+    updateTypeSelectStyle(`import-select-${key}`, `arrow-${key}`);
     checkImportFusion();
 }
 
@@ -557,28 +580,10 @@ function processImport(mode) {
 }
 
 // Vérifie les sélections courantes : fusions (plusieurs → un) et correspondances exactes.
-// Point 4 : affiche ✅ si tous les types sont résolus exactement, ⚠️ si fusion détectée.
+// Affiche ✅ si tous les types sont résolus exactement, ⚠️ si fusion détectée.
 function checkImportFusion() {
-    const targets = {};
-    let hasUnresolved = false;
-    let allExact = true;
-
-    Object.keys(pendingImportMapping).forEach(key => {
-        const sel = document.getElementById(`import-select-${key}`);
-        if (!sel) return;
-        if (sel.value === 'ignore') { hasUnresolved = true; allExact = false; return; }
-        if (!targets[sel.value]) targets[sel.value] = [];
-        targets[sel.value].push(pendingImportMapping[key].csvLabel || key);
-        // Vérifier si ce mapping est exact (même logique que resolveTarget isExact)
-        const m = pendingImportMapping[key];
-        const normL = (s) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-        const appType = settings.types.find(tp => tp.id === parseInt(sel.value));
-        const isExact = appType && parseInt(sel.value) === m.csvTypeId
-            && normL(appType.label) === normL(m.csvLabel);
-        if (!isExact) allExact = false;
-    });
-
-    const fusions = Object.entries(targets).filter(([, labels]) => labels.length > 1);
+    const entries = Object.entries(pendingImportMapping);
+    const { fusions, allExact } = analyzeTypeMapping(entries, 'import-select-');
     const notice = document.getElementById('import-merge-notice');
 
     if (fusions.length > 0) {
@@ -587,7 +592,7 @@ function checkImportFusion() {
         notice.style.display = 'block';
         notice.style.color = 'var(--orange)';
         notice.innerHTML = t('importFusionWarning', { target: targetLabel });
-    } else if (allExact && Object.keys(pendingImportMapping).length > 0) {
+    } else if (allExact && entries.length > 0) {
         notice.style.display = 'block';
         notice.style.color = 'var(--green)';
         notice.innerHTML = t('importFusionOk');
@@ -617,8 +622,11 @@ function closeImportModal() {
 //     ceux du fichier, vidés si le fichier n'en contient pas ; types : tous ceux du fichier ;
 //     tags : ceux du fichier (builtin dans la langue de l'app, builtin manquant remis par défaut).
 //     Seules les sections de RÉGLAGES absentes (eventTags, typesConfig) laissent l'app inchangée ;
-//   - "Fusionner" : une absence dans le fichier n'efface jamais rien ; sur un désaccord
-//     (même jour + même tag, valeur différente), le fichier gagne — comme pour les périodes.
+//   - "Fusionner" : une absence dans le fichier n'efface jamais rien ; sur un désaccord le fichier gagne
+//     (périodes, valeur d'un événement, note ; un événement du camp de polarité opposé est retiré de
+//     l'app pour ce jour). Les réglages de l'app sont conservés : tags connus gardés, tags inconnus
+//     ajoutés, types de l'app jamais modifiés (les périodes du fichier y sont ramenées par le tableau
+//     de correspondance, comme l'import CSV).
 // Toute la validation se fait en mémoire avant la moindre écriture ; l'écriture est
 // protégée par un retour arrière (voir processImportJson / rollbackJsonImport).
 // ============================================================
@@ -626,6 +634,7 @@ function closeImportModal() {
 let pendingJsonImport = null; // données validées et nettoyées, en attente de confirmation
 
 const IMPORT_MAX_TYPE_ID = 6;
+const IMPORT_FUTURE_TOLERANCE_MS = 5 * 60 * 1000; // marge d'horloge acceptée pour la fin d'une période
 const IMPORT_TAG_MODES = ['presence', 'tristate', 'numeric'];
 const IMPORT_MAX_DAY_TEXT = 5000;
 
@@ -707,17 +716,23 @@ function validateJSONImport(raw) {
     const invalid = { ok: false, errorKey: 'importJsonInvalid' };
 
     // --- Périodes ---
+    // Une période ne peut pas se terminer dans le futur : une sauvegarde exportée par un appareil dont
+    // l'horloge avance de quelques minutes (période en cours arrêtée à l'export) reste acceptée grâce
+    // à une tolérance de 5 minutes, et sa fin est ramenée à « maintenant ». Au-delà, ou si la période
+    // commence dans le futur, elle est ignorée (comptée dans « élément(s) ignoré(s) »).
+    const nowMs = Date.now();
     let periods = null;
     if ('periodData' in raw) {
         if (!Array.isArray(raw.periodData)) return invalid;
         periods = [];
         raw.periodData.forEach(p => {
             if (p && Number.isInteger(p.typeId) && p.typeId >= 1 && p.typeId <= IMPORT_MAX_TYPE_ID
-                && Number.isInteger(p.start) && Number.isInteger(p.end) && p.start > 0 && p.start < p.end) {
+                && Number.isInteger(p.start) && Number.isInteger(p.end) && p.start > 0 && p.start < p.end
+                && p.end <= nowMs + IMPORT_FUTURE_TOLERANCE_MS && p.start < nowMs) {
                 // Le champ optionnel `note` n'est volontairement pas repris : reconstructHistory()
                 // → closePeriod() le perdrait de toute façon (point déjà noté, à traiter avec la
                 // note de période).
-                periods.push({ typeId: p.typeId, start: p.start, end: p.end });
+                periods.push({ typeId: p.typeId, start: p.start, end: Math.min(p.end, nowMs) });
             } else {
                 ignored++;
             }
@@ -859,10 +874,25 @@ function computeImportTypeDiffs(imp) {
     return diffs;
 }
 
+// Polarité d'un tag vue de l'import : la définition de l'app prime, à défaut celle du fichier
+// (un tag inconnu de l'app y sera ajouté). undefined = tag indépendant.
+function importPolarityLookup(imp) {
+    const fileTags = {};
+    (imp.tags || []).forEach(tg => { fileTags[tg.id] = tg.polarity; });
+    return (tagId) => {
+        const appTag = settings.eventTags.find(tg => tg.id === tagId);
+        return appTag ? appTag.polarity : fileTags[tagId];
+    };
+}
+
 // Fusion des événements journaliers : par jour ET par tag. Une absence dans le fichier
 // n'efface rien ; sur un désaccord (même jour, même tag, valeur différente) le fichier gagne
-// et le désaccord est compté. Pure : retourne une copie, ne modifie pas `base`.
-function mergeDailyDataInto(base, fileDaily) {
+// et le désaccord est compté. Exclusion par polarité (comme à la saisie manuelle) : si le fichier
+// renseigne un événement d'un camp ce jour-là, les événements de l'app du camp opposé sont retirés
+// (comptés aussi) — sauf ceux que le fichier renseigne lui-même, qui suivent la règle de la valeur.
+// Le fichier n'est jamais modifié : s'il contient les deux camps, ils sont conservés tels quels.
+// Pure : retourne une copie, ne modifie pas `base`. `polarityOf(tagId)` → 'positive' | 'negative' | undefined.
+function mergeDailyDataInto(base, fileDaily, polarityOf) {
     const result = JSON.parse(JSON.stringify(base));
     let conflicts = 0;
     Object.keys(fileDaily).forEach(key => {
@@ -870,7 +900,18 @@ function mergeDailyDataInto(base, fileDaily) {
         const day = result[key] || (result[key] = {});
         if (f.text) day.text = f.text;
         if (f.events) {
-            const events = Array.isArray(day.events) ? day.events : [];
+            let events = Array.isArray(day.events) ? day.events : [];
+            if (polarityOf) {
+                const fileTagIds = new Set(f.events.map(fe => fe.tagId));
+                const fileCamps = new Set(f.events.map(fe => polarityOf(fe.tagId)).filter(Boolean));
+                events = events.filter(ev => {
+                    const pol = polarityOf(ev.tagId);
+                    if (fileTagIds.has(ev.tagId) || !pol) return true;
+                    const opposed = [...fileCamps].some(camp => camp !== pol);
+                    if (opposed) conflicts++;
+                    return !opposed;
+                });
+            }
             f.events.forEach(fe => {
                 const ex = events.find(e => e.tagId === fe.tagId);
                 if (!ex) events.push({ tagId: fe.tagId, value: fe.value });
@@ -998,6 +1039,8 @@ function showImportJsonModal() {
     const imp = pendingJsonImport;
     if (!imp) return;
     imp.typeDiffs = computeImportTypeDiffs(imp);
+    imp.typeMap = buildJsonTypeMap(imp);
+    imp.typeChoices = {}; // choix de l'utilisateur dans le tableau de correspondance (Fusionner)
 
     // Application : historique + période en cours (arrêtée « maintenant » pour le décompte) + jours
     const appPeriods = state.history.slice();
@@ -1015,7 +1058,8 @@ function showImportJsonModal() {
         // Périodes obtenues après Remplacer : le fichier, recoupé à minuit comme le fait closePeriod()
         afterPeriods: imp.periods ? imp.periods.reduce((n, p) => n + splitPeriodIntoDayFragments(p.start, p.end).length, 0) : 0,
         lostPeriods: imp.periods ? 0 : appPeriods.length, // fichier sans section périodes : tout l'historique est effacé
-        mergeOverwrite: computeMergeOverwrite(imp, appPeriods)
+        appPeriods,
+        mergeOverwrite: computeMergeOverwrite(imp, appPeriods, getJsonMergePeriods(imp))
     };
     renderImportJsonChoose();
     document.getElementById('importJsonModal').style.display = 'flex';
@@ -1031,13 +1075,14 @@ function setImportJsonBody(html) {
 // Fusionner : ce que le fichier écrase dans l'application. Périodes de l'app dont une partie est recouverte
 // par une période du fichier d'un AUTRE type (même type = rien ne change, comme en réimportant sa propre
 // sauvegarde), notes de l'app qui diffèrent de celle du fichier le même jour, événements (même jour, même
-// tag) dont la valeur diffère.
-function computeMergeOverwrite(imp, appPeriods) {
+// tag) dont la valeur diffère ou qui sont retirés par l'exclusion de polarité. `filePeriods` : périodes
+// du fichier déjà ramenées aux types de l'app (voir getJsonMergePeriods), null si le fichier n'en a pas.
+function computeMergeOverwrite(imp, appPeriods, filePeriods) {
     let p = 0, n = 0;
-    if (imp.periods && imp.periods.length > 0) {
+    if (filePeriods && filePeriods.length > 0) {
         // Union triée des périodes du fichier, par type
         const byType = {};
-        imp.periods.forEach(x => (byType[x.typeId] = byType[x.typeId] || []).push([x.start, x.end]));
+        filePeriods.forEach(x => (byType[x.typeId] = byType[x.typeId] || []).push([x.start, x.end]));
         const unions = {};
         Object.keys(byType).forEach(id => {
             const union = [];
@@ -1057,7 +1102,7 @@ function computeMergeOverwrite(imp, appPeriods) {
             if (Object.keys(unions).some(id => Number(id) !== a.typeId && overlaps(unions[id], a))) p++;
         });
     }
-    const e = imp.daily ? mergeDailyDataInto(dailyData, imp.daily).conflicts : 0;
+    const e = imp.daily ? mergeDailyDataInto(dailyData, imp.daily, importPolarityLookup(imp)).conflicts : 0;
     if (imp.daily) {
         Object.keys(imp.daily).forEach(key => {
             const fText = imp.daily[key].text;
@@ -1066,6 +1111,89 @@ function computeMergeOverwrite(imp, appPeriods) {
         });
     }
     return { p, n, e };
+}
+
+// Fusionner : correspondance entre les types utilisés par les périodes du fichier et ceux de l'app,
+// avec la même logique que l'import CSV (resolveTypeTarget). Le tableau n'est proposé que si au moins un
+// type ne correspond pas exactement (id ET libellé) ; sinon les périodes gardent leur numéro de type.
+function buildJsonTypeMap(imp) {
+    const entries = {};
+    if (!imp.types || !imp.periods) return { entries, needsTable: false };
+    const counts = {};
+    imp.periods.forEach(p => { counts[p.typeId] = (counts[p.typeId] || 0) + 1; });
+    Object.keys(counts).forEach(id => {
+        const typeId = Number(id);
+        const ft = imp.types.resolved.find(x => x.id === typeId);
+        const at = settings.types.find(x => x.id === typeId);
+        const label = ft && ft.label ? ft.label : `Type ${typeId}`;
+        // Libellé de l'app passé par le même nettoyage que celui du fichier (apostrophe…) : évite une
+        // fausse différence quand on réimporte sa propre sauvegarde.
+        const sameAsApp = at && sanitizeImportedLabel(at.label) === label;
+        entries[`id_${typeId}`] = {
+            csvTypeId: typeId,
+            csvLabel: sameAsApp ? at.label : label,
+            resolvedId: at ? at.id : null,
+            count: counts[id]
+        };
+    });
+    const needsTable = Object.values(entries).some(m => !resolveTypeTarget(m).isExact);
+    return { entries, needsTable };
+}
+
+// Type de l'app visé pour un type du fichier : choix de l'utilisateur, sinon cible par défaut
+// (null = ignorer). Sans tableau (profils identiques ou fichier sans réglages de types) : même numéro.
+function getJsonTypeTarget(imp, typeId) {
+    const key = `id_${typeId}`;
+    if (key in imp.typeChoices) return imp.typeChoices[key];
+    const m = imp.typeMap.entries[key];
+    return m ? resolveTypeTarget(m).targetId : typeId;
+}
+
+// Périodes du fichier ramenées aux types de l'app (celles dont le type est ignoré sont écartées).
+function getJsonMergePeriods(imp) {
+    if (!imp.periods) return null;
+    const out = [];
+    imp.periods.forEach(p => {
+        const target = getJsonTypeTarget(imp, p.typeId);
+        if (target !== null) out.push({ ...p, typeId: target });
+    });
+    return out;
+}
+
+function onJsonTypeSelectChange(key) {
+    const imp = pendingJsonImport;
+    const sel = document.getElementById(`json-select-${key}`);
+    if (!imp || !sel) return;
+    imp.typeChoices[key] = sel.value === 'ignore' ? null : parseInt(sel.value);
+    updateTypeSelectStyle(`json-select-${key}`, `json-arrow-${key}`);
+    refreshJsonMergeWarnings();
+}
+
+// Met à jour, sur l'écran 2 de Fusionner, l'avertissement « écrasés » et celui de fusion de types
+// (appelée à l'affichage et à chaque changement du tableau de correspondance).
+function refreshJsonMergeWarnings() {
+    const imp = pendingJsonImport;
+    if (!imp) return;
+    const ow = computeMergeOverwrite(imp, imp.ctx.appPeriods, getJsonMergePeriods(imp));
+    imp.ctx.mergeOverwrite = ow;
+    const owEl = document.getElementById('import-json-overwrite');
+    if (owEl) {
+        const any = ow.p + ow.n + ow.e > 0;
+        owEl.style.display = any ? 'block' : 'none';
+        owEl.textContent = any ? t('importJsonMergeOverwritten', { p: ow.p, n: ow.n, e: ow.e }) : '';
+    }
+    const fuEl = document.getElementById('import-json-fusion');
+    if (fuEl) {
+        const { fusions } = analyzeTypeMapping(Object.entries(imp.typeMap.entries), 'json-select-');
+        if (fusions.length > 0) {
+            const tp = settings.types.find(x => x.id === parseInt(fusions[0][0]));
+            fuEl.style.display = 'block';
+            // Le libellé passe par une fonction de remplacement : un « $ » n'y est pas interprété
+            fuEl.textContent = t('importFusionWarning', { target: '@@T@@' }).replace('@@T@@', () => tp ? `"${tp.label}"` : `id ${fusions[0][0]}`);
+        } else {
+            fuEl.style.display = 'none';
+        }
+    }
 }
 
 // Écran 1 : forces en présence, profils, choix du mode
@@ -1139,9 +1267,15 @@ function renderImportJsonConfirm(mode) {
         if (c.hasTypeDiff) html += `<p style="${infoStyle}">${t('importJsonProfileWarnReplace')}</p>`;
     } else {
         html += `<p style="${infoStyle}">${t('importJsonMergeDetail')}</p>`;
-        const ow = c.mergeOverwrite;
-        if (ow.p + ow.n + ow.e > 0) html += `<p style="${warnStyle}">${t('importJsonMergeOverwritten', { p: ow.p, n: ow.n, e: ow.e })}</p>`;
-        if (c.hasTypeDiff) html += `<p style="${warnStyle}">${t('importJsonProfileWarnMerge')}</p>`;
+        if (imp.typeMap.needsTable) {
+            const sorted = Object.entries(imp.typeMap.entries).sort(([, a], [, b]) => a.csvTypeId - b.csvTypeId);
+            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}</p>`;
+            html += buildTypeMappingTableHTML(sorted, 'json-select-', 'json-arrow-', 'onJsonTypeSelectChange',
+                (key, m) => getJsonTypeTarget(imp, m.csvTypeId));
+            html += `<p id="import-json-fusion" style="${warnStyle} display:none;"></p>`;
+            html += `<p style="${infoStyle} margin-top:8px;">${t('importJsonTypesKept')}</p>`;
+        }
+        html += `<p id="import-json-overwrite" style="${warnStyle} display:none;"></p>`;
     }
     // Remplacer arrête la période en cours (Fusionner la laisse courir). Le nom passe par une fonction
     // de remplacement pour qu'un « $ » du libellé ne soit pas interprété.
@@ -1156,6 +1290,7 @@ function renderImportJsonConfirm(mode) {
                     <button class="export-btn" style="background:#444; margin:0; flex:1;" onclick="closeImportJsonModal()">${t('btnCancel')}</button>
                 </div>`;
     setImportJsonBody(html);
+    if (!replace) refreshJsonMergeWarnings();
 }
 
 // Exporte l'état actuel (même fichier que l'export habituel) sans quitter le modal d'import.
@@ -1171,18 +1306,14 @@ function closeImportJsonModal() {
     pendingJsonImport = null;
 }
 
-// Applique le profil de types du fichier. Fusionner (all = false) : uniquement les types listés dans
-// les différences (les autres restent strictement intacts). Remplacer (all = true) : tous les types
-// du fichier ; un type que le fichier ne fournit pas, ou identique, reste intact (comparaison sur le
-// libellé nettoyé, comme computeImportTypeDiffs). Recalcule le profil actif avec detectProfile() au
-// lieu de croire le fichier, et crée le snapshot "Personnalisé" si besoin (même règle que
-// saveSettings(), qu'on ne peut pas appeler ici car elle relit les champs de saisie).
-function applyImportedTypes(imp, all) {
-    const list = all
-        ? imp.types.resolved
-        : imp.typeDiffs.map(d => imp.types.resolved.find(x => x.id === d.id));
-    list.forEach(rt => {
-        const st = rt && settings.types.find(x => x.id === rt.id);
+// Applique le profil de types du fichier — Remplacer uniquement (Fusionner ne modifie jamais les types
+// de l'app). Tous les types du fichier ; un type que le fichier ne fournit pas, ou identique, reste intact
+// (comparaison sur le libellé nettoyé, comme computeImportTypeDiffs). Recalcule le profil actif avec
+// detectProfile() au lieu de croire le fichier, et crée le snapshot "Personnalisé" si besoin (même règle
+// que saveSettings(), qu'on ne peut pas appeler ici car elle relit les champs de saisie).
+function applyImportedTypes(imp) {
+    imp.types.resolved.forEach(rt => {
+        const st = settings.types.find(x => x.id === rt.id);
         if (!st) return;
         if (st.active === rt.active && sanitizeImportedLabel(st.label) === rt.label) return;
         st.label = rt.label;
@@ -1311,14 +1442,21 @@ function processImportJson(mode) {
     };
 
     const replace = mode === 'replace';
+    // Fusionner : périodes du fichier ramenées aux types de l'app (tableau de correspondance)
+    const mergePeriods = replace ? null : getJsonMergePeriods(imp);
+    const mergeDays = !replace && imp.daily ? Object.keys(imp.daily).length : 0;
+    if (!replace && imp.periods && mergePeriods.length === 0 && mergeDays === 0) {
+        // Tous les types du fichier sont ignorés et il n'y a ni note ni événement : rien à fusionner
+        alert(t('importNoPeriods'));
+        closeImportJsonModal();
+        return;
+    }
     let alertsAffected = false;
     try {
-        // 1. Réglages : profil de types + définition des tags
-        //    Remplacer : tous les types du fichier ; Fusionner : seulement les différences.
-        const hasTypeDiff = imp.typeDiffs.length > 0;
-        const applyTypes = replace ? !!imp.types : hasTypeDiff;
+        // 1. Réglages : profil de types (Remplacer uniquement) + définition des tags
+        const applyTypes = replace && !!imp.types;
         if (applyTypes) {
-            applyImportedTypes(imp, replace);
+            applyImportedTypes(imp);
             alertsAffected = syncAlertsWithTypes(false); // écrit avec les réglages plus bas
         }
         applyImportedEventTags(imp, mode);
@@ -1328,7 +1466,7 @@ function processImportJson(mode) {
         if (replace || imp.daily) {
             dailyData = replace
                 ? dropEventsOfUnknownTags(JSON.parse(JSON.stringify(imp.daily || {})))
-                : mergeDailyDataInto(dailyData, imp.daily).result;
+                : mergeDailyDataInto(dailyData, imp.daily, importPolarityLookup(imp)).result;
             localStorage.setItem('pacingDailyData', JSON.stringify(dailyData));
         }
 
@@ -1337,12 +1475,12 @@ function processImportJson(mode) {
         if (replace || imp.periods) {
             if (replace) {
                 reconstructHistory((imp.periods || []).map(p => ({ ...p })));
-            } else if (imp.periods.length > 0) {
+            } else if (mergePeriods.length > 0) {
                 const basePeriods = [...state.history];
                 if (state.activeType !== null) {
                     basePeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now(), isLive: true });
                 }
-                const incoming = imp.periods.map(p => ({ ...p }));
+                const incoming = mergePeriods.map(p => ({ ...p }));
                 reconstructHistory(mergeAdjacentPeriods(
                     snapAdjacentBorders(applySteamroller(basePeriods, incoming), incoming)
                 ));
@@ -1363,7 +1501,7 @@ function processImportJson(mode) {
     refreshAfterJsonImport();
     if (alertsAffected) rescheduleAlertsForActivePeriod();
     if (navigator.onLine) sendToGoatCounter('import-json');
-    const p = imp.periods ? imp.periods.length : 0;
+    const p = replace ? (imp.periods ? imp.periods.length : 0) : (mergePeriods ? mergePeriods.length : 0);
     const d = imp.daily ? Object.keys(imp.daily).length : 0;
     closeImportJsonModal();
     alert(t('importJsonSuccess', { p, d }));
