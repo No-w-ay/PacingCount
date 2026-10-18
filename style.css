@@ -10,6 +10,8 @@
          --yellow: hsl(48, 90%, 50%);
          /* Jaune — typeId 3 dans la palette 6 couleurs (Passe A v0.9.24) */
          --orange: hsl(36, 90%, 50%);
+         /* Orange éclairci (≈ 35 % de blanc mélangé) : messages d'avertissement des modals d'import */
+         --orange-soft: #f6c062;
          /* hsl(36, 100%, 50%); #2196F3; */
          --red: #f44336;
          --purple: hsl(291, 64%, 42%);

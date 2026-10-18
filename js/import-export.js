@@ -560,6 +560,7 @@ function processImport(mode) {
 
         if (mode === 'replace') {
             reconstructHistory(resolvedPeriods);
+            if (navigator.onLine) sendToGoatCounter('import-csv-replace');
             alert(successMessage);
         } else if (mode === 'merge') {
             let basePeriods = [...state.history];
@@ -570,6 +571,7 @@ function processImport(mode) {
                 snapAdjacentBorders(applySteamroller(basePeriods, resolvedPeriods), resolvedPeriods)
             );
             reconstructHistory(finalPeriods);
+            if (navigator.onLine) sendToGoatCounter('import-csv-merge');
             alert(successMessage);
         }
     } catch (err) {
@@ -590,7 +592,7 @@ function checkImportFusion() {
         const tp = settings.types.find(tp => tp.id === parseInt(fusions[0][0]));
         const targetLabel = tp ? `"${tp.label}"` : `id ${fusions[0][0]}`;
         notice.style.display = 'block';
-        notice.style.color = 'var(--orange)';
+        notice.style.color = 'var(--orange-soft)';
         notice.innerHTML = t('importFusionWarning', { target: targetLabel });
     } else if (allExact && entries.length > 0) {
         notice.style.display = 'block';
@@ -977,7 +979,7 @@ function buildImportTypeDiffHTML(imp) {
         app: escapeHtml(getProfileDisplayName(settings.activeProfile))
     });
     return `
-                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange);">${sentence} <button type="button" id="import-types-toggle" aria-expanded="false" onclick="toggleImportTypeTable()" style="background:none; border:none; color:#fff; font:inherit; font-weight:bold; cursor:pointer; padding:0 2px;">[+]</button></p>
+                <p style="font-size:0.85rem; margin:0 0 8px 0; color:var(--orange-soft);">${sentence} <button type="button" id="import-types-toggle" aria-expanded="false" onclick="toggleImportTypeTable()" style="background:none; border:none; color:#fff; font-family:monospace; font-size:1.05rem; font-weight:normal; cursor:pointer; padding:4px 8px; margin:-4px 0;">[+]</button></p>
                 <div id="import-types-table" style="display:none;">
                     <table style="width:100%; border-collapse:collapse;">
                         <thead>
@@ -1033,7 +1035,7 @@ function summarizeImportData(periods, daily) {
 
 // Bloc d'affichage d'un côté (fichier ou application). `label` est un texte de traduction ;
 // `nameHtml` (optionnel) est du HTML déjà échappé, affiché en monospace non gras après le libellé.
-function buildImportSummaryHTML(label, s, nameHtml) {
+function buildImportSummaryHTML(label, s, nameHtml, noteHtml) {
     const num = (v) => (v === null ? '—' : v);
     const locale = getLocale();
     const fmt = (ts) => new Date(ts).toLocaleDateString(locale);
@@ -1050,6 +1052,7 @@ function buildImportSummaryHTML(label, s, nameHtml) {
                         <div>${range}</div>
                         <div>${t('importJsonCounts', { p: num(s.periods), n: num(s.notes), e: num(s.events) })}</div>
                     </div>
+                    ${noteHtml ? `<div style="color:var(--orange-soft);">${noteHtml}</div>` : ''}
                 </div>`;
 }
 
@@ -1225,9 +1228,9 @@ function renderImportJsonChoose() {
     const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
 
     let html = `<h3 style="margin-top:0;">${t('importJsonTitle')}</h3>`;
-    html += buildImportSummaryHTML(t('importJsonFileLabel'), c.fileSummary, escapeHtml(imp.fileName || ''));
+    html += buildImportSummaryHTML(t('importJsonFileLabel'), c.fileSummary, escapeHtml(imp.fileName || ''),
+        imp.ignored > 0 ? t('importJsonIgnored', { n: imp.ignored }) : '');
     html += buildImportSummaryHTML(t('importJsonAppTitle'), c.appSummary);
-    if (imp.ignored > 0) html += `<p style="font-size:0.82rem; color:var(--orange); margin:0 0 12px 0;">${t('importJsonIgnored', { n: imp.ignored })}</p>`;
     // Profils : une ligne si identiques, sinon le tableau des différences. Rien si le fichier n'a pas de typesConfig.
     if (c.hasTypeDiff) html += buildImportTypeDiffHTML(imp);
     else if (imp.types) html += `<p style="${infoStyle}">${t('importJsonProfileSame', { name: getProfileDisplayName(settings.activeProfile) })}</p>`;
@@ -1280,7 +1283,7 @@ function renderImportJsonConfirm(mode) {
     const c = imp.ctx;
     const replace = mode === 'replace';
     const infoStyle = 'font-size:0.85rem; margin:0 0 6px 0; opacity:0.9;';
-    const warnStyle = 'font-size:0.85rem; margin:0 0 6px 0; color:var(--orange);';
+    const warnStyle = 'font-size:0.85rem; margin:0 0 6px 0; color:var(--orange-soft);';
 
     let html = `<h3 style="margin-top:0;">${t(replace ? 'importJsonConfirmReplaceTitle' : 'importJsonConfirmMergeTitle')}</h3>`;
     if (replace) {
@@ -1297,7 +1300,8 @@ function renderImportJsonConfirm(mode) {
         if (imp.typeMap.needsTable) {
             const sorted = Object.entries(imp.typeMap.entries).sort(([, a], [, b]) => a.csvTypeId - b.csvTypeId);
             const keptName = escapeHtml(getProfileDisplayName(settings.activeProfile));
-            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}. ${t('importJsonProfileKept', { name: keptName })}</p>`;
+            html += `<p style="${infoStyle}">${t('importJsonProfileKept', { name: keptName })}</p>`;
+            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}.</p>`;
             html += buildTypeMappingTableHTML(sorted, 'json-select-', 'json-arrow-', 'onJsonTypeSelectChange',
                 (key, m) => getJsonTypeTarget(imp, m.csvTypeId));
             html += `<p id="import-json-fusion" style="${warnStyle} display:none;"></p>`;
@@ -1527,7 +1531,7 @@ function processImportJson(mode) {
 
     refreshAfterJsonImport();
     if (alertsAffected) rescheduleAlertsForActivePeriod();
-    if (navigator.onLine) sendToGoatCounter('import-json');
+    if (navigator.onLine) sendToGoatCounter('import-json-' + mode); // mode : 'replace' | 'merge'
     const p = replace ? (imp.periods ? imp.periods.length : 0) : (mergePeriods ? mergePeriods.length : 0);
     const d = imp.daily ? Object.keys(imp.daily).length : 0;
     closeImportJsonModal();
