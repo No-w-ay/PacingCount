@@ -512,11 +512,10 @@ function showImportModal() {
         return ai - bi;
     });
 
+    const keptName = escapeHtml(getProfileDisplayName(settings.activeProfile));
     document.getElementById('import-mapping-table').innerHTML = `
-                <p style="font-size:0.85rem; opacity:0.82; margin:0 0 10px 0;">
-                    ${t('importMappingDesc')}
-                    ${t('importMappingLegend')}
-                </p>` + buildTypeMappingTableHTML(sortedEntries, 'import-select-', 'arrow-', 'onImportSelectChange',
+                <p style="font-size:0.85rem; opacity:0.9; margin:0 0 6px 0;">${t('importJsonProfileKept', { name: keptName })}</p>
+                <p style="font-size:0.85rem; opacity:0.9; margin:0 0 10px 0;">${t('importMappingDesc')} ${t('importMappingLegend')}</p>` + buildTypeMappingTableHTML(sortedEntries, 'import-select-', 'arrow-', 'onImportSelectChange',
         (key, m) => resolveTypeTarget(m).targetId);
 
     checkImportFusion();
@@ -1068,17 +1067,13 @@ function showImportJsonModal() {
 
     // Application : historique + période en cours (arrêtée « maintenant » pour le décompte) + jours
     const appPeriods = state.history.slice();
-    let liveLabel = null;
     if (state.activeType !== null && state.startTime !== null) {
         appPeriods.push({ typeId: state.activeType, start: state.startTime, end: Date.now() });
-        const lt = settings.types.find(x => x.id === state.activeType);
-        liveLabel = lt ? lt.label : String(state.activeType);
     }
     imp.ctx = {
         hasTypeDiff: imp.typeRows.some(r => r.differs),
         fileSummary: summarizeImportData(imp.periods, imp.daily),
         appSummary: summarizeImportData(appPeriods, dailyData),
-        liveLabel,
         // Périodes obtenues après Remplacer : le fichier, recoupé à minuit comme le fait closePeriod()
         afterPeriods: imp.periods ? imp.periods.reduce((n, p) => n + splitPeriodIntoDayFragments(p.start, p.end).length, 0) : 0,
         lostPeriods: imp.periods ? 0 : appPeriods.length, // fichier sans section périodes : tout l'historique est effacé
@@ -1301,17 +1296,12 @@ function renderImportJsonConfirm(mode) {
             const sorted = Object.entries(imp.typeMap.entries).sort(([, a], [, b]) => a.csvTypeId - b.csvTypeId);
             const keptName = escapeHtml(getProfileDisplayName(settings.activeProfile));
             html += `<p style="${infoStyle}">${t('importJsonProfileKept', { name: keptName })}</p>`;
-            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}.</p>`;
-            html += buildTypeMappingTableHTML(sorted, 'json-select-', 'json-arrow-', 'onJsonTypeSelectChange',
-                (key, m) => getJsonTypeTarget(imp, m.csvTypeId));
+            html += `<p style="${infoStyle}">${t('importMappingDesc')} ${t('importMappingLegend')}</p>`;
+            html += `<div style="margin-bottom:16px;">${buildTypeMappingTableHTML(sorted, 'json-select-', 'json-arrow-', 'onJsonTypeSelectChange',
+                (key, m) => getJsonTypeTarget(imp, m.csvTypeId))}</div>`;
             html += `<p id="import-json-fusion" style="${warnStyle} display:none;"></p>`;
         }
         html += `<p id="import-json-overwrite" style="${warnStyle} display:none;"></p>`;
-    }
-    // Remplacer arrête la période en cours (Fusionner la laisse courir). Le nom passe par une fonction
-    // de remplacement pour qu'un « $ » du libellé ne soit pas interprété.
-    if (replace && c.liveLabel !== null) {
-        html += `<p style="${infoStyle}">${t('importJsonLiveStopped', { name: '@@N@@' }).replace('@@N@@', () => escapeHtml(c.liveLabel))}</p>`;
     }
     html += `<button class="export-btn" style="background:${replace ? 'var(--red)' : 'var(--blue)'}; margin:12px 0 0 0;" onclick="processImportJson('${mode}')">${t(replace ? 'importJsonReplaceBtn' : 'importMergeBtn')}</button>`;
     html += `<p style="${warnStyle} margin-top:8px;">${t('importJsonIrreversible')}</p>`;

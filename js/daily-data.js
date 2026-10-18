@@ -32,6 +32,7 @@ const BUILTIN_EVENT_TAGS = [
     },
     {
         id: "sick",
+        defaultActive: false, // masqué par défaut (première diffusion : peu d'événements) ; réactivable par la console
         label: { fr: "Malade", en: "Sick", nl: "Ziek" },
         description: {
             fr: "Malade : infection en cours (virus, bactérie…)",
@@ -79,7 +80,7 @@ function buildEventTagFromBuiltin(def, lang) {
         description: def.description?.[lang] || def.description?.['fr'] || '',
         mode: def.mode,
         polarity: def.polarity, // undefined pour un tag sans exclusion (ex. futur tag indépendant)
-        active: true,
+        active: def.defaultActive ?? true,
         timed: def.timed ?? false,
         repeatable: def.repeatable ?? false,
         builtin: true
