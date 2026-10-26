@@ -1523,7 +1523,7 @@ function processImportJson(mode) {
     if (alertsAffected) rescheduleAlertsForActivePeriod();
     if (navigator.onLine) sendToGoatCounter('import-json-' + mode); // mode : 'replace' | 'merge'
     const p = replace ? (imp.periods ? imp.periods.length : 0) : (mergePeriods ? mergePeriods.length : 0);
-    const d = imp.daily ? Object.keys(imp.daily).length : 0;
+    const sum = summarizeImportData(null, imp.daily); // mêmes comptes que l'écran 1
     closeImportJsonModal();
-    alert(t('importJsonSuccess', { p, d }));
+    alert(t('importJsonSuccess', { p, n: sum.notes || 0, e: sum.events || 0 }));
 }

@@ -1,14 +1,14 @@
 # Tests systématiques — export / import (JSON et CSV)
 
-> Note de chantier. Source de vérité : le code (`js/import-export.js`, moteur des périodes dans `index.html`, `js/daily-data.js`), branche `dev`, **version `0.9.29-beta.37`**. Mise à jour le 2026-10-17 (remplace les versions beta.27 et beta.31/32 de cette note). Dépôt public : aucun contenu personnel, les fichiers de test sont fictifs.
-> Statut : la logique d'import a été **refondue en beta.32 à 37** (voir `docs/notes-events.md` § 4.2). Reste à faire : le **parcours manuel sur appareil** (§ 4).
+> Note de chantier. Source de vérité : le code (`js/import-export.js`, moteur des périodes dans `index.html`, `js/daily-data.js`), branche `dev`, **version `0.9.29-beta.42`**. Mise à jour le 2026-10-25 (remplace les versions beta.27 et beta.31/32 de cette note). Dépôt public : aucun contenu personnel, les fichiers de test sont fictifs.
+> Statut : logique d'import **refondue en beta.32 à 37**, modal peaufiné en beta.38 à 42 (voir `docs/notes-events.md` § 4.2). **Parcours manuel sur appareil passé le 2026-10-25 (beta.41) sans anomalie** (§ 4) ; il reste la relecture EN/NL des textes.
 
 ## 1. En bref
 
 - **70 scénarios** joués par un harnais Node/jsdom sur les **vraies fonctions** du dépôt (logique des périodes, fusion, validation, profils, CSV, retour arrière), plus 25 vérifications spécifiques à la dernière passe (période future, modal 2 écrans, correspondance de types) : **55 conformes à l'attendu, 15 comportements « à juger » (👁), 0 écart (⚠)**. Résultats en annexe.
 - Ce que le harnais **ne peut pas voir** reste à faire à la main : sélecteur de fichiers, vrai téléchargement, **lisibilité des deux écrans du modal** (surtout sur téléphone), rendu des écrans après import.
-- Parcours manuel : **8 étapes essentielles (M1 à M8)** et 5 compléments optionnels. Les fichiers sont fusionnés pour qu'un seul import vérifie plusieurs choses.
-- Jeu de fichiers manuel : 6 essentiels + 4 optionnels (`1_A…` à `6_H…`, `opt_…`), générés par le harnais (`gen-fixtures.js`).
+- Parcours manuel : **7 étapes (S1 à S7)** et 6 compléments optionnels ; les fichiers sont fusionnés pour qu'un seul import vérifie plusieurs choses (version courte depuis beta.41).
+- Jeu de fichiers manuel : 5 essentiels + 6 optionnels (`1_A…` à `5_H…`, `opt_…`).
 
 ## 2. Les règles à vérifier (rappel)
 
@@ -17,7 +17,7 @@
 | Principe | l'app **devient** le fichier | le **fichier gagne** sur les désaccords |
 | Section absente du fichier | périodes / jours → vidés ; tags / types → inchangés | rien n'est touché |
 | Types et profil | repris du fichier ; langue des tags/profils prédéfinis de l'app conservée | **jamais modifiés** ; tableau de correspondance si un type du fichier n'est pas une correspondance exacte |
-| Période en cours | arrêtée (annoncé à l'écran 2) | traitée comme les autres périodes |
+| Période en cours | arrêtée (non annoncée à l'écran 2 depuis beta.40) | traitée comme les autres périodes |
 | Périodes futures du fichier | ignorées (> 5 min) / ramenées à maintenant (≤ 5 min) | idem |
 | Événements | ceux d'un tag inconnu sont supprimés | par jour et par tag ; polarité opposée : le camp du fichier retire les événements opposés de l'app ce jour-là |
 | Avertissement (écran 2) | « N période(s), X note(s) et Y événement(s) actuels… seront effacés » + tableau Maintenant → Après | « … seront écrasés par des données du fichier qui diffèrent dans la même plage temporelle » |
@@ -29,25 +29,35 @@ Une étape est jugée **🔴 critique** si elle peut **faire perdre ou altérer 
 
 | Étape | Priorité | Ce qu'on contrôle à la main |
 |---|---|---|
-| **M1** A en Remplacer | 🔴 | Premier contact : sélecteur de fichiers, les 2 écrans du modal |
-| **M2** Exports JSON et CSV | 🔴 | Vrai téléchargement sur Windows **et** Android |
-| **M3** B en Fusionner | 🔴 | Le cœur : fusion, polarité, notes, textes des 2 écrans |
-| **M4** Réimport de l'export | 🔴 | Restauration : retour exact à l'état de M1 |
-| **M5** Autre profil (D), puis A | 🟠 | Tableau de différences, tableau de correspondance, types intacts |
-| **M6** Une période tourne, puis K en Remplacer | 🔴 | Ligne « période en cours sera arrêtée », alerte annulée |
-| **M7** CSV | 🟠 | Modal de correspondance sur téléphone |
-| **M8** Fichier invalide | 🟠 | Message d'erreur, données intactes |
+| **S1** App neuve, puis A en Remplacer | 🔴 | Premier contact : sélecteur de fichiers, les 2 écrans du modal, « Malade » masqué sur app neuve |
+| **S2** Exports JSON et CSV | 🔴 | Vrai téléchargement sur Windows **et** Android |
+| **S3** BD en Fusionner | 🔴 | Le cœur : fusion, polarité, notes, profil différent ([+]), correspondance de types, textes des 2 écrans |
+| **S4** Réimport de l'export | 🔴 | Restauration : retour exact à l'état de S1 |
+| **S5** CSV avec correspondance | 🟠 | Modal de correspondance sur téléphone |
+| **S6** Une période tourne, puis K en Remplacer | 🔴 | Période en cours arrêtée, alerte annulée |
+| **S7** Langues EN/NL, fichier refusé | 🟠 | Textes complets en EN/NL, message d'erreur, données intactes |
 
-> **Si le temps manque** : M1 → M2 → M3 → M4 → M6 (les cinq 🔴).
+> **Si le temps manque** : S1 → S2 → S3 → S4 → S6 (les cinq 🔴).
 
-## 4. Parcours manuel
+## 4. Parcours manuel (version courte, beta.41)
 
-**Préparation.** Version `dev` (`dev.pacingcount.pages.dev`, données séparées de la version publiée). Si l'appareil contient de vraies données : **exporter d'abord en JSON**, ou tester dans un autre profil Chrome. Partir d'une app vide (effacer les données du site). Fichiers : 14 au 30 septembre 2026 (aucun ne touche la période en cours réelle), `opt_G` : octobre 2025 et mars 2026. Boutons : **Exporter (.json)** et **Importer (.json/.csv)** en bas de l'Historique ; **Export partiel (.csv)** et un second **Importer** dans les Réglages. Dans le modal JSON : écran 1 → « Continuer vers Remplacer / Fusionner » ; écran 2 → « ‹ Retour », « Annuler », bouton d'action (rouge pour Remplacer), bouton orange d'export de secours. Notation : `#2` = type de période n° 2.
+Parcours **raccourci en beta.41** : 7 étapes, 5 imports appliqués, 2 exports, 1 fichier refusé, 2 ouvertures de modal sans appliquer (au lieu de 11 étapes et 9-10 imports). Regroupements : le fichier `2_BD_fusion_profil_UZ.json` = contenu de B (3 éléments invalides, événements, notes) + profil UZ Leuven de D (fusion identique à B seul, vérifiée au harnais) ; les étapes s'enchaînent sans réinitialisation ; le réimport de l'export sert de restauration. Retirés car couverts par le harnais : deuxième fusion de B (idempotence), CSV en Remplacer sur appareil, import séparé de D. Jeu de fichiers : `1_A…`, `2_BD…`, `3_K…`, `4_CSV…`, `5_H…`, `opt_…` (générés par `gen-fixtures.js`, sauf `2_BD…` : B avec le profil de D, assemblé à la main).
 
-### M1 🔴 — A en Remplacer (app vide)
-**Fichier** `1_A_etat_de_depart.json` → Importer → **écran 1** → « Continuer vers Remplacer » → **écran 2** → « Tout remplacer ».
+**Préparation.**
+- **Exporter d'abord** (Historique → Exporter .json) si l'appareil contient de vraies données, ou utiliser un autre profil Chrome. Partir d'une **app vide** (effacer les données du site).
+- Console ouverte si possible (Windows : F12 ; Android : `chrome://inspect`) : chaque envoi GoatCounter écrit `[GoatCounter] ✅ Envoyé : <nom>`. La version dev envoie au même GoatCounter que la version publiée : ces tests ajoutent quelques hits `import-*`.
+- Boutons : **Exporter (.json)** et **Importer** en bas de l'Historique ; **Export partiel (.csv)** et second **Importer** dans les Réglages.
+- **À chaque modal** : libellés blancs, nom de fichier monospace beige, plages « a → b » grisées, messages orange **clairs**, ⚠️ seulement sur les boutons d'action, « irréversible » et « Plusieurs types… fusionnés » ; pas de défilement horizontal, boutons distincts.
 
-Écran 1 : « Du 14/09/2026 au 18/09/2026 · 9 période(s) · 3 note(s) · 6 événement(s) » face à l'application « 0 période(s) · 0 note(s) · 0 événement(s) » ; « Les profils sont identiques : PacingCount standard ». Message final : « Import terminé : 9 période(s) et 4 jour(s) avec événements importés. »
+### S1 🔴 — App neuve, puis A en Remplacer
+**a) App neuve** (avant tout import)
+- [ ] Mesure → 📝 : seuls **MPE** et **Jour OK** sont proposés (pas « Malade »). Le message de bienvenue s'affiche.
+
+**b) Fichier** `1_A_etat_de_depart.json` → Importer → **écran 1** : `14/09/2026 → 18/09/2026`, « 9 période(s) · 3 note(s) · 6 événement(s) » face à l'application « — » / « 0 période(s) · 0 note(s) · 0 événement(s) » ; « Les profils sont identiques : PacingCount standard ».
+- [ ] **Coup d'œil sans appliquer** : « Continuer vers Fusionner » → écran 2 quasi vide (rien à écraser, pas de tableau) → « ‹ Retour ».
+- [ ] « Continuer vers Remplacer » → écran 2 : tableau Maintenant → Après (périodes 0 → 9, notes 0 → 3, événements 0 → 6), ligne **Profil** « PacingCount standard → PacingCount standard », aucun message orange (app vide), bouton rouge « ⚠️ Tout remplacer », « ⚠️ Cette action est irréversible… », bouton orange d'export, « ‹ Retour », « Annuler ». Tester « Retour » puis « Annuler » une fois (rien ne change), puis recommencer et confirmer.
+- [ ] Android : le sélecteur permet de choisir le `.json`. Console : `import-json-replace`.
+- Message : « Import terminé : 9 période(s), 3 note(s) et 6 événement(s) importé(s). » (beta.42 ; mêmes comptes que l'écran 1)
 
 | Jour | Périodes (type #) | Note et événements |
 |---|---|---|
@@ -56,88 +66,78 @@ Une étape est jugée **🔴 critique** si elle peut **faire perdre ou altérer 
 | 16/09 | 09:00–12:00 #1 · 16:00–17:00 #2 | note « Note A 16/09 », Malade, Céphalée (non) |
 | 18/09 | aucune | note « Seulement dans l'app », MPE |
 
-- [ ] Android : le sélecteur permet de choisir le `.json` (type MIME souvent `text/plain`).
-- [ ] Les deux écrans sont lisibles sans défiler en largeur ; les boutons se distinguent ; « ‹ Retour » ramène à l'écran 1 sans rien perdre.
-- [ ] Le nom du fichier est en monospace ; le tableau Maintenant → Après de l'écran 2 est lisible.
-- [ ] Historique et Résultats conformes au tableau ; le 18/09 est absent de Résultats (pas de période, comportement connu) mais présent dans le tableau de saisie 📝.
+- [ ] **Malade** est maintenant visible : le fichier A contient la liste de tags avec Malade actif, et Remplacer applique le fichier. Ce n'est pas un bug (une app neuve le masque, étape a).
 
-### M2 🔴 — Exports réels (JSON et CSV)
-**État** celui de M1. Historique → **Exporter (.json)** ; Réglages → **Export partiel (.csv)**.
-- [ ] Windows **et** Android : `pacing_export_AAAA-MM-JJ.json` téléchargé et retrouvable ; idem `.csv`.
-- [ ] **Conserver ces deux fichiers** (M4 et M7).
+### S2 🔴 — Exports réels
+- [ ] Windows **et** Android : Historique → Exporter .json, puis Réglages → Export partiel .csv ; les deux fichiers sont téléchargés et retrouvables. Console : `export-json`, `export-csv`.
+- [ ] **Conserver le `.json`** (restauration S4) et le `.csv` (option ⚪ en fin de note).
 
-### M3 🔴 — B en Fusionner
-**Fichier** `2_B_a_fusionner.json` → Importer → **lire l'écran 1** → Fusionner → **lire l'écran 2** → Fusionner.
-
-Écran 1 : fichier « 8 période(s) · 2 note(s) · 6 événement(s) », application « 9 période(s) · 3 note(s) · 6 événement(s) », « 3 élément(s) ignoré(s) car invalide(s). », profils identiques. Écran 2 : avertissement chiffré « … actuels de l'application seront écrasés par des données du fichier qui diffèrent dans la même plage temporelle » ; pas de tableau de correspondance (types identiques). Message : « Import terminé : 8 période(s) et 4 jour(s)… ».
+### S3 🔴 — BD en Fusionner (fusion + profil différent, en un seul import)
+**Fichier** `2_BD_fusion_profil_UZ.json` : le contenu de « B » (événements, notes, périodes, 3 éléments invalides) avec le profil UZ Leuven. **Lire l'écran 1 sans cliquer.**
+- Écran 1 : fichier `14/09/2026 → 19/09/2026`, « 8 période(s) · 2 note(s) · 6 événement(s) » avec, **juste dessous en orange clair, « 3 élément(s) ignoré(s) car invalide(s) »** (sans point) ; application « 9 période(s) · 3 note(s) · 6 événement(s) » ; phrase « Le profil du fichier (**UZ Leuven 2018**) diffère de celui de l'application (**PacingCount standard**) **[+]** », noms en gras.
+- [ ] **[+] au doigt** : le tableau s'ouvre ([-]), colonne « Dans le fichier » **avant** « Dans l'application » : #1 Couché sans stimulation (identique) ; #2 Détente / Couché actif ; #3 Repas et hygiène / (inactif) ; #4 Activité physique / Non couché ; #5 Activité mentale / (inactif). [-] le referme.
+- « Continuer vers Fusionner » → écran 2 : « Le profil de l'application (**PacingCount standard**) sera conservé : les périodes du fichier doivent être réparties sur ce profil. », puis « Correspondances… ✅ = … 🔍 = vérifier avant importation. » ; tableau : ✅ Couché sans stimulation #1 → #1, 🔍 Détente #2 → Couché actif #2, 🔍 Activité physique #4 → Non couché #4 ; **vrai espace sous le tableau** ; message « 4 période(s), 1 note(s) et 2 événement(s) actuels… seront écrasés par des données du fichier qui diffèrent dans la même plage temporelle » ; « ⚠️ Fusionner ».
+- [ ] Listes déroulantes utilisables au doigt (changer une cible puis remettre la valeur d'origine). Console : `import-json-merge`.
+- Après : **profil et types inchangés (standard)** ; message « Import terminé : 8 période(s), 2 note(s) et 6 événement(s) importé(s). » (beta.42).
 
 | Jour | Périodes (type #) | Note et événements |
 |---|---|---|
 | 14/09 | 08:00–09:00 #1 · 09:00–09:30 #2 · 09:30–10:00 #1 · 10:00–10:30 #2 · 10:30–12:00 #4 · 14:00–15:00 #2 | note « Note B 14/09 », MPE, Céphalée (**non**) |
-| 15/09 | 07:30–10:30 #2 · 10:30–11:00 #1 · 13:00–14:00 #2 | **MPE seul** (« Jour OK » retiré : polarité opposée) |
+| 15/09 | 07:30–10:30 #2 · 10:30–11:00 #1 · 13:00–14:00 #2 | **MPE seul** (« Jour OK » retiré) |
 | 16/09 | 09:00–12:00:30 #1 · 12:00:30–13:00 #4 · 16:00–17:00 #2 · 17:02–18:00 #4 | note « Note A 16/09 », Malade, Céphalée (non) |
 | 17/09 | 22:00–24:00 #1 | note « Note B 17/09 (seulement dans le fichier) », Jour OK, Céphalée (oui) |
 | 18/09 | 00:00–06:00 #1 | note « Seulement dans l'app », MPE |
 | 19/09 | aucune | Migraine |
 
-Profil et types inchangés ; nouveau tag « Migraine » ; les tags prédéfinis gardent leur libellé français.
-- [ ] 14/09 : l'ancienne période #2 est coupée en trois ; 14:00–15:00 devient #2. 15/09 : 07:30–10:30 #2 puis 10:30–11:00 #1. 16/09 : recollement sous 60 s à 12:00:30, mais le trou de 2 min (17:00–17:02) est conservé. 17→18/09 : coupure à minuit.
-- [ ] Notes : celle du 14/09 est remplacée par celle du fichier ; celles des 16 et 18/09 sont intactes.
-- [ ] **15/09 : plus de « Jour OK »** à côté de la MPE (règle de polarité).
-- [ ] Refaire la fusion de B une **deuxième fois** : rien ne change.
+- [ ] Nouveau tag « Migraine » ; les tags prédéfinis gardent leur libellé français. 14/09 : l'ancienne période #2 coupée en trois ; 16/09 : recollement à 12:00:30 mais trou 17:00–17:02 conservé ; 17→18/09 coupé à minuit ; notes des 16 et 18/09 intactes.
 
-### M4 🔴 — Restauration : réimporter l'export de M2
-**Fichier** le `.json` de M2 → Importer → Continuer vers Remplacer → Tout remplacer.
+### S4 🔴 — Restauration : réimporter l'export de S2
+**Fichier** : le `.json` téléchargé en S2 → Continuer vers Remplacer → Tout remplacer.
+- Écran 1 : fichier « 9 période(s) · 3 note(s) · 6 événement(s) » face à l'application « 15 période(s) · 4 note(s) · 9 événement(s) ».
+- [ ] **L'app est exactement revenue à l'état de S1** (tag « Migraine » et jours 17 et 19/09 disparus, périodes de BD parties). Console : `import-json-replace`.
 
-Écran 1 : fichier « 9 période(s) · 3 note(s) · 6 événement(s) » face à l'application « 15 période(s) · 4 note(s) · 9 événement(s) ».
-- [ ] **L'app est exactement revenue à l'état de M1** (le tag « Migraine » et les jours 17 et 19/09 ont disparu). C'est le test de la sauvegarde / restauration.
+### S5 🟠 — CSV avec correspondance de types (Fusionner)
+**Fichier** `4_CSV_types_a_mapper.csv` → Importer (Réglages ou Historique).
+- Deux paragraphes au-dessus du tableau (profil conservé, puis correspondances) ; lignes : ✅ #1, ✅ #2, 🔍 Non couché #3 → #4, ✅ #4, 🔍 Détente #5 → (sans nom) (inactif) #5, 🔍 Autre #7 → Ignorer ; **avertissement orange clair** « ⚠️ Plusieurs types du fichier seront fusionnés… » ; boutons « ⚠️ Remplacer l'historique » et « ⚠️ Fusionner » bien lisibles.
+- [ ] Listes déroulantes au doigt ; couleurs de bordure et de flèche cohérentes ; l'avertissement suit les changements de sélection.
+- Cliquer **Fusionner** : « 5 période(s) importée(s) avec succès » ; 15 périodes au total (nouveautés : 14/09 09:30–10:00 #1, 16:00–17:00 #2, 19:00–20:00 #4 ; 15/09 11:00–12:00 #4 et 18:00–19:00 **#5**). Console : `import-csv-merge`.
+- [ ] Les 4 lignes invalides du fichier sont ignorées sans message.
+- [ ] La période en **#5** (type inactif, sans nom) : comment s'affiche-t-elle dans Historique et Résultats ? (à juger)
 
-### M5 🟠 — Autre profil : D, puis A
-**a) Fichier** `3_D_profil_UZ_Leuven.json` → Importer → **lire l'écran 1** → Fusionner → écran 2 → Fusionner.
+### S6 🔴 — Une période tourne, puis K en Remplacer
+**Préparation** : dans Mesure, démarrer une période (idéalement avec alerte) et la laisser tourner.
+**Fichier** `3_K_remplacement_partiel.json` → Importer. Écran 1 : `22/09/2026 → 26/09/2026`, « 2 période(s) · — note(s) · — événement(s) » (« — » = section absente), pas de ligne de profil.
+- [ ] **Coup d'œil** : Fusionner → écran 2 quasi vide (pas de tableau) → « ‹ Retour ».
+- Remplacer → écran 2 : tableau Maintenant → Après ; « …actuels de l'application seront effacés et remplacés par les données du fichier. » (pas de phrase sur le profil ni sur la période en cours). Console : `import-json-replace`.
+- Après : historique = 22/09 09:00–10:00 **#5** et 26/09 09:00–10:00 #1 ; **plus aucune période en cours** ; **plus aucun jour d'événements** ; tag « Céphalée » supprimé ; types et profil inchangés.
+- [ ] Chrono de Mesure arrêté, alerte annulée (Android : plus de notification de cette période).
+- [ ] La période du 22/09 en type #5 : même jugement qu'en S5.
 
-Écran 1 : tableau des différences (#2 Couché actif 3 période(s) / Détente 1 ; #3 (inactif) / Repas et hygiène 1 ; #4 Non couché 2 / Activité physique 1 ; #5 (inactif) / Activité mentale 1) et « Profil : PacingCount standard → UZ Leuven 2018 ». Écran 2 : **tableau de correspondance** des types du fichier vers les types de l'app (modifiable), puis « Les types de l'application sont conservés… ».
+### S7 🟠 — Langues EN / NL et fichier refusé (sans rien appliquer)
+Réglages → **English**, puis ouvrir `2_BD_fusion_profil_UZ.json` : lire l'écran 1 ([+] et tableau), écran 2 Remplacer (ligne « Profile », « The file's profile will be applied. ») et écran 2 Fusionner (« The app's profile (…) will be kept… »), puis **Annuler**. Même chose en **Nederlands** (« Profiel… », « Het profiel van het bestand wordt toegepast. », « Het profiel van de app (…) blijft behouden… »).
+- [ ] Textes complets, jamais coupés, aucun mot français résiduel ; plages et compteurs corrects.
+- [ ] **Toujours en NL**, importer `5_H_pas_une_sauvegarde.json` : alerte « fichier pas une sauvegarde PacingCount » en néerlandais, **aucun modal**, données inchangées, **aucun** `import-*` dans la console.
+- Remettre la langue en français.
 
-Après : **profil et types de l'app inchangés** (standard) ; 13 périodes (A + 4 de D, selon la correspondance par défaut : 14/09 18:00–19:00 #3 et 19:00–20:00 #5 ; 15/09 15:00–16:00 #2 et 16:00–17:00 #4).
-- [ ] Le tableau de l'écran 1 est lisible et on comprend ce qui va se passer ; les listes déroulantes de l'écran 2 sont utilisables au doigt ; couleurs de bordure et de flèche cohérentes.
-- [ ] Les périodes #3 et #5 (types inactifs sans nom) : comment s'affichent-elles dans Historique et Résultats ? (cibles par défaut de la correspondance : à juger)
-
-**b) Fichier** `1_A_etat_de_depart.json` → Fusionner. Profils identiques : pas de tableau. Les 13 périodes restent, A est refusionné (idempotent).
-
-### M6 🔴 — Une période tourne, puis K en Remplacer
-**Préparation** : dans Mesure, démarrer une période (idéalement sur un type avec alerte active) et la laisser tourner.
-**Fichier** `4_K_remplacement_partiel.json` → Importer → Continuer vers Remplacer.
-
-Écran 1 : fichier « 2 période(s) · — note(s) · — événement(s) » (« — » = section absente). Écran 2 : tableau Maintenant → Après et la ligne **« La période en cours (…) sera arrêtée. »**
-
-Après : historique = 22/09 09:00–10:00 **#5** et 26/09 09:00–10:00 #1 ; **plus aucune période en cours** ; **plus aucun jour d'événements** (fichier sans `dailyData` : l'app devient le fichier) ; tag « Céphalée » supprimé ; types et profil inchangés.
-- [ ] Chrono de Mesure arrêté, alerte annulée.
-- [ ] La période du 22/09 est en type #5 (inactif, sans nom) : comment s'affiche-t-elle ?
-
-### M7 🟠 — CSV
-**a)** le `.csv` de M2 → Importer → modal de correspondance (3 lignes ✅, « ✅ Tous les types du fichier ont été reconnus automatiquement. ») → Tout remplacer → « 9 période(s) importée(s) avec succès. » (le CSV ne touche ni aux jours, ni aux tags, ni aux types).
-
-**b)** `5_CSV_types_a_mapper.csv` → Fusionner. Le modal liste : ✅ #1, ✅ #2, 🔍 Non couché #3 → #4, ✅ #4, 🔍 Détente #5 → (sans nom) (inactif) #5, 🔍 Autre #7 → Ignorer ; avertissement orange « Plusieurs types du fichier seront fusionnés… ». Message final : « 5 période(s) importée(s) avec succès. »
-- [ ] Listes déroulantes utilisables au doigt ; changer un choix met à jour l'avertissement ; les 4 lignes invalides du fichier sont ignorées sans message.
-
-### M8 🟠 — Fichier qui n'est pas une sauvegarde
-**Fichier** `6_H_pas_une_sauvegarde.json` → Importer.
-- [ ] Alerte « Ce fichier n'est pas une sauvegarde PacingCount. » ; **aucun modal** ; les données ne bougent pas.
+### Résultats sur appareil (2026-10-25, beta.41)
+Parcours S1 à S7 passé **sans anomalie**. Points « à juger » tranchés : une **période sur un type inactif et sans nom** (#5, S5 et S6) est visible comme attendu dans Historique **et** Résultats ; la taille du **[+]** (tableau des types, écran 1) est correcte au doigt. Corrections demandées à l'issue : texte de `messages.json` (noms d'onglets), note du CSV (Réglages) et message de confirmation JSON → **beta.42**.
 
 ## 5. Compléments optionnels ⚪
 
-Depuis l'état A (réimporter `1_A…` en Remplacer avant).
+Depuis un état connu (réimporter `1_A…` en Remplacer avant). Fichiers du jeu court : `opt_…`.
 
 | Option | Fichier | À contrôler |
 |---|---|---|
-| **Opt 1** Profil personnalisé | `opt_E_profil_perso.json` (Fusionner) | Écran 1 : tableau de différences, « Profil : PacingCount standard → ✏️ Personnalisé ». Écran 2 : correspondance ; **types de l'app inchangés** ; 3 périodes ajoutées (20/09 #1, #2 ; 21/09 #3). Les libellés du fichier dans le tableau sont nettoyés (`< > "` retirés) |
-| **Opt 2** Ancien CSV | `opt_CSV_ancien_format.csv` (Fusionner) | Lignes 🔍 : « COUCHE SANS STIMULATION » → #1, « non couche » → #4, « Marche » → Ignorer ; « 2 période(s) importée(s) » |
-| **Opt 3** Fichier vide ⚠️ destructif | `opt_V_vide_mais_valide.json` (Remplacer) | **Après avoir exporté.** Écran 2 : « 9 période(s), 3 note(s) et 6 événement(s) actuels… seront effacés » ; après : tout est vide |
-| **Opt 4** Changement d'heure | `opt_G_changement_heure.json` (Fusionner) | Résultats au 26/10/2025 (jour de 25 h) et au 29/03/2026 (jour de 23 h) : la période 00:00–04:00 vaut **5 h** puis **3 h** |
-| **Opt 5** B en Remplacer | `2_B_a_fusionner.json` (Remplacer) | Après : 8 périodes de B (celle de 22:00 à 06:00 coupée à minuit), jours 14, 15, 17, 19/09 ; le tag perso est repris en anglais (« Headache »), les tags prédéfinis restent en français |
+| **Opt 1** CSV exporté réimporté | le `.csv` de S2 (Fusionner) | 3 lignes ✅, message vert « tous les types reconnus » ; aucune période ne change ; console `import-csv-merge` |
+| **Opt 2** Profil personnalisé | `opt_E_profil_perso.json` (Fusionner) | Phrase « Le profil du fichier (✏️ Personnalisé)… » ; types de l'app inchangés ; ajoutés : 20/09 #1 et #2, 21/09 #3 |
+| **Opt 3** Ancien CSV | `opt_CSV_ancien_format.csv` (Fusionner) | Lignes 🔍 « COUCHE SANS STIMULATION » → #1, « non couche » → #4, « Marche » → Ignorer ; « 2 période(s) » |
+| **Opt 4** Fichier vide ⚠️ destructif | `opt_V_vide_mais_valide.json` (Remplacer) | **Après avoir exporté.** Écran 2 : « 9 période(s), 3 note(s) et 6 événement(s)… effacés » ; tout est vide |
+| **Opt 5** Changement d'heure | `opt_G_changement_heure.json` (Fusionner) | Résultats au 26/10/2025 (25 h) et 29/03/2026 (23 h) : la période 00:00–04:00 vaut **5 h** puis **3 h** |
+| **Opt 6** B seul, même profil | `opt_B_a_fusionner.json` (Fusionner) | Écran 1 « profils identiques », écran 2 sans tableau ; même résultat que S3 |
 
 ## 6. Rejouer le harnais
 
-Dossier `harness/` (hors dépôt) : `lib.js` (chargeur), `gen-fixtures.js` (génère `fixtures/` et `manuel/`), `run-scenarios.js` (70 scénarios → `table.md`, `results.json`), `run-parcours.js` (enchaîne M1 à M8 et Opt 1 à 5 → `parcours.json`, 27 états), `run-passe6.js` (25 vérifications : périodes futures, écrans, correspondance), `show-modal3.js` (texte des deux écrans en FR/EN/NL).
+Dossier `harness/` (hors dépôt) : `lib.js` (chargeur), `gen-fixtures.js` (génère `fixtures/` et `manuel/`), `run-scenarios.js` (70 scénarios → `table.md`, `results.json`), `run-parcours.js` (enchaîne l'ancien parcours M1 à M8 et Opt 1 à 5 → `parcours.json`, 27 états ; le parcours court S1 à S7 en est un sous-ensemble, plus le fichier BD), `run-passe6.js` (25 vérifications : périodes futures, écrans, correspondance), `show-modal3.js` (texte des deux écrans en FR/EN/NL).
 
 ```
 npm i jsdom
@@ -147,20 +147,20 @@ PC_REPO=/chemin/vers/PacingCount TZ=Europe/Brussels node run-parcours.js
 PC_REPO=/chemin/vers/PacingCount TZ=Europe/Brussels node run-passe6.js
 ```
 
-Mesuré sur beta.37 : scénarios ✔ 55 · 👁 15 · ⚠ 0 ; parcours : 27 états, 0 incohérence ; passe 6 : 25 vérifications, 0 écart. À relancer après toute modification de `js/import-export.js` ou du moteur des périodes. **Limites** : pas de rendu visuel (modals, pastilles, types sans nom) ; pas de vrai sélecteur de fichiers ni de téléchargement (le harnais appelle `buildJSONExport()` et `buildCSVString()`, pas `exportJSON()` / `exportCSV()`) ; alertes, notifications et rendus sont des stubs.
+Mesuré sur beta.42 : scénarios ✔ 55 · 👁 15 · ⚠ 0 ; parcours : 27 états, 0 incohérence ; passes 6, 8 et 9 : 25, 17 et 18 vérifications, 0 écart. Chaîne du parcours court (A → BD → restauration → CSV → K) rejouée à part (`t3.js`/`t5.js`) : restauration = état A exact, fusion de BD = fusion de B seul. À relancer après toute modification de `js/import-export.js` ou du moteur des périodes. **Limites** : pas de rendu visuel (modals, pastilles, types sans nom) ; pas de vrai sélecteur de fichiers ni de téléchargement (le harnais appelle `buildJSONExport()` et `buildCSVString()`, pas `exportJSON()` / `exportCSV()`) ; alertes, notifications et rendus sont des stubs.
 
-## 7. Observations de la première série (beta.27) et état à beta.37
+## 7. Observations de la première série (beta.27) et état (beta.37 ; inchangé depuis)
 
 | N° | Observation d'origine | État beta.37 |
 |---|---|---|
 | O1 | Fichier vide en Remplacer : périodes effacées sans être chiffrées | **Résolu** : avertissement chiffré + tableau Maintenant → Après |
-| O2 | Remplacer arrête la période en cours sans le dire | **Résolu** (JSON) : ligne dédiée à l'écran 2. CSV : toujours silencieux |
+| O2 | Remplacer arrête la période en cours sans le dire | Annoncé en beta.37 (JSON), **retiré en beta.40** (phrase jugée inutile : l'arrêt est attendu). CSV : silencieux |
 | O3 | Fusionner : note écrasée non comptée | **Résolu** : comptée dans l'avertissement |
 | O4 | Remplacer : tag perso supprimé mais événements orphelins | **Résolu** : `dropEventsOfUnknownTags()` ; l'app devient le fichier |
 | O5 | Fusion : « Jour OK » et « MPE » le même jour | **Résolu** : règle de polarité |
 | O6 | Remplacer ne normalise pas les chevauchements internes | **Ouvert** (RP6, C10) |
 | O7 | Période du fichier dans le futur acceptée | **Résolu** (JSON) : ignorée > 5 min ; CSV non filtré |
-| O8 | Fusion : le profil du fichier remplace celui de l'app | **Résolu** : types/profil de l'app jamais modifiés en Fusionner ; types « sans nom » possibles seulement par la correspondance (M5) ou Remplacer |
+| O8 | Fusion : le profil du fichier remplace celui de l'app | **Résolu** : types/profil de l'app jamais modifiés en Fusionner ; types « sans nom » possibles seulement par la correspondance (S3) ou Remplacer |
 | O9 | Sans `typesConfig`, périodes d'un type inactif importées sans question | **Ouvert** (TP8, à juger) |
 | O10 | Profil personnalisé remplacé sans avertissement spécifique | **Accepté** : le profil fait partie de ce que Remplacer annonce |
 | O11 | CSV : libellé avec virgule tronqué | **Ouvert** (C8) |
@@ -172,11 +172,12 @@ Mesuré sur beta.37 : scénarios ✔ 55 · 👁 15 · ⚠ 0 ; parcours : 27 éta
 ## 8. À retenir
 
 - Reportés (voir `TODO.md`) : R6 retour arrière CSV, R8 limite de longueur des notes, R9 caractères spéciaux dans les libellés, R10 export compact ou indenté.
-- Reste à faire : parcours M1 à M8 sur Windows et Android (iOS ponctuel) ; puis relecture EN/NL des textes du modal.
+- Parcours court S1 à S7 passé sur appareil en beta.41 (Windows, Android). Reste : iOS ponctuel si possible ; relecture EN/NL des textes du modal.
+- Ajouts beta.38 à 42 : voir `docs/notes-events.md` § 4.2.
 
 ## Annexe — les 70 scénarios du harnais (mesurés sur beta.37)
 
-Verdicts : ✔ conforme à l'attendu · 👁 comportement mesuré à juger · ⚠ écart. Colonne « Manuel » : l'étape du parcours qui le contrôle à l'écran.
+Verdicts : ✔ conforme à l'attendu · 👁 comportement mesuré à juger · ⚠ écart. Colonne « Manuel » : l'étape de l'**ancien** parcours (beta.37) qui le contrôle à l'écran ; équivalence avec le parcours court : M1→S1, M2→S2, M3 et M5a→S3, M4→S4, M6→S6, M7→S5, M8→S7.
 
 
 #### 1. Aller-retour

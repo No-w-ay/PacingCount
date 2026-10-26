@@ -265,6 +265,9 @@
                               au hasard, probabilités 1/4, 1/2, 1/4 ; tags builtin actifs ; voir docs/notes-events.md, § 3.3)
         Daily-note           (beta.28 : note de la veille non vide ; un seul envoi)
 
+        export-json | export-csv | import-json-replace | import-json-merge | import-csv-replace | import-csv-merge
+                             (beta.41 : après une exportation / importation réussie, en ligne seulement)
+
 
         8. Arbre d'installation : Splashes et cadre dans onglet Réglages
         Descriptif complet : docs/installation.md

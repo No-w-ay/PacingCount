@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-10-17 (après beta.37). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-10-25 (après beta.42). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -13,8 +13,9 @@
 
 ## Court terme
 
-- **Publier** : tester beta.37 sur appareils (Windows, Android ; iOS si possible) en suivant le parcours M1 à M8 de `docs/tests-import-export.md` (import/export refondu en beta.32 à 37), puis PR `dev` → `main`. Avant : **rafraîchir le texte de `messages.json`** (fait au moment de publier sur `main`) et vérifier que l'`id` du message update vaut `update-<APP_VERSION>` (il sera montré aux utilisateurs de `main`) ; **confirmer MPE et Jour OK actifs par défaut** (Malade reste actif pour l'instant).
-- **Import / export — à relire sur appareil après les tests** : polissage des textes des deux écrans du modal JSON ; tableau des différences de types de l'écran 1, à rendre éventuellement optionnel (« détails ») ; pas de tableau avant → après en Fusionner ; relecture EN/NL des nouveaux textes.
+- **Publier (beta.42 prête)** : parcours court S1 à S7 de `docs/tests-import-export.md` **passé sur appareil** (Windows, Android) en beta.41, sans anomalie ; corrections beta.42 faites. Reste : **tester beta.42** (3 textes) ; **relecture EN/NL** des textes du modal et des nouveaux messages (traduits par Claude) ; vérifier dans GoatCounter que les 4 événements `import-*` arrivent ; **refaire le texte de `messages.json`** pour la version finale et vérifier que l'`id` vaut `update-<APP_VERSION>` (montré aux utilisateurs de `main`) ; PR `dev` → `main`. iOS : vérification ponctuelle si possible.
+- **Événements GoatCounter de la première publication** : ne pas multiplier les types ; « Malade » est inactif par défaut (donc aucun `Daily-event-2` tant qu'un utilisateur ne l'active pas — pas d'interface pour l'instant).
+- **Détail des éléments invalides à l'import** (idée, avec [+] sous « N élément(s) ignoré(s) ») : à reconsidérer lors d'une évolution de la structure du fichier. Les anciens fichiers de test (MPE 3 états → présence, `malade` → `sick`) donnent des éléments invalides : **aucune conversion**, ce sont des données de test.
 - Couleur du bouton Exporter incohérente : bleu dans Historique, jaune ailleurs (modals). Pas encore de décision.
 - Nettoyages cosmétiques sans risque : commentaire CSS faux sur le `z-index` de l'overlay du tableau (480 est *au-dessus* d'Évolution à 450) ; clé de traduction `dailyEventsDateHeader` jamais utilisée ; indentation et ancien `addAll` commenté dans `sw.js`.
 - **Réévaluer `STORAGE_WARN_RATIO = 0.90`** (toast à 4,5 Mo : marge de réaction courte). Voir `docs/optimisation-stockage-performance.md`.
