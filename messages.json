@@ -28,9 +28,9 @@
       "validFrom": "2026-11-19",
       "validUntil": "2026-12-31",
       "title": {
-        "fr": "Une version plus récente est disponible 🔄",
-        "en": "A newer version is available 🔄",
-        "nl": "Er is een nieuwere versie beschikbaar 🔄"
+        "fr": "Mise à jour conseillée 🔄",
+        "en": "Update recommended 🔄",
+        "nl": "Update aanbevolen 🔄"
       },
       "body": {
         "fr": "Vous utilisez une version un peu ancienne de PacingCount.\n\nUne version plus récente est disponible, avec des correctifs et des fonctionnalités plus complètes. Pour l’obtenir :\n\n- Ouvrez l’onglet Réglages\n- Dans la section « À propos », appuyez sur « Vérifier mise à jour »\n\nL’application continue de fonctionner normalement, mais nous vous conseillons d’effectuer cette mise à jour maintenant.\n\nBelle journée !",
