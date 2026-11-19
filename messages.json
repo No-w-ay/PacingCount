@@ -24,7 +24,7 @@
       "type": "info",
       "id": "info-update-nudge-1",
       "_comment": "Étape 1/3 pour les anciennes versions (<= beta.41) : Réglages > Vérifier mise à jour. Étape 2 : fermer l'app. Étape 3 : redémarrer le téléphone. Ne jamais réutiliser cet id.",
-      "maxVersion": "0.9.29-beta.45",
+      "maxVersion": "0.9.29-beta.41",
       "validFrom": "2026-11-19",
       "validUntil": "2026-12-31",
       "title": {
