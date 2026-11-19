@@ -20,6 +20,29 @@
         "nl": "NIEUWE FUNCTIES:\n\n0.9.29-beta.42\n- Dagelijkse notities en gebeurtenissen (PEM), toegankelijk via het 📝-icoon in het tabblad Meting\n- Nieuw bestandsformaat (.json) voor het exporteren en importeren van gegevens\n\n0.9.28-beta.48\nEvolutiegrafiek op lange termijn, toegankelijk via het 📈-icoon in het tabblad Resultaten\n\nBugfixes en kleine verbeteringen"
       }
     },
+        {
+      "type": "info",
+      "id": "info-update-nudge-1",
+      "_comment": "Étape 1/3 pour les anciennes versions (<= beta.41) : Réglages > Vérifier mise à jour. Étape 2 : fermer l'app. Étape 3 : redémarrer le téléphone. Ne jamais réutiliser cet id.",
+      "maxVersion": "0.9.29-beta.45",
+      "validFrom": "2026-11-20",
+      "validUntil": "2026-12-04",
+      "title": {
+        "fr": "Une version plus récente est disponible 🔄",
+        "en": "A newer version is available 🔄",
+        "nl": "Er is een nieuwere versie beschikbaar 🔄"
+      },
+      "body": {
+        "fr": "Vous utilisez une version un peu ancienne de PacingCount.\n\nUne version plus récente est disponible, avec des correctifs et des fonctionnalités plus complètes. Pour l’obtenir :\n\n- Ouvrez l’onglet Réglages\n- Dans la section « À propos », appuyez sur « Vérifier mise à jour »\n\nL’application continue de fonctionner normalement, mais nous vous conseillons d’effectuer cette mise à jour maintenant.\n\nBelle journée !",
+        "en": "You are using a slightly older version of PacingCount.\n\nA newer version is available, with fixes and more complete features. To get it:\n\n- Open the Settings tab\n- In the “About” section, tap “Check for updates”\n\nThe app keeps working normally, but we recommend updating now.\n\nHave a lovely day!",
+        "nl": "Je gebruikt een wat oudere versie van PacingCount.\n\nEr is een nieuwere versie beschikbaar, met bugfixes en uitgebreidere functies. Om die te krijgen:\n\n- Open het tabblad Instellingen\n- Tik in de sectie “Over” op “Controleren op updates”\n\nDe app blijft gewoon werken, maar we raden je aan om nu te updaten.\n\nFijne dag nog!"
+      },
+      "button": {
+        "fr": "J’ai compris",
+        "en": "Got it",
+        "nl": "Begrepen"
+      }
+    },
     {
       "type": "welcome",
       "id": "welcome-v1",
