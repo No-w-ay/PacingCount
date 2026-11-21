@@ -1,0 +1,26 @@
+name = "pacingcount-push"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+
+# Origines autorisées à appeler ce serveur (séparées par des virgules).
+# Valeur non sensible. En local, un fichier .dev.vars peut la remplacer.
+[vars]
+ALLOWED_ORIGINS = "https://dev.pacingcount.pages.dev"
+
+# Un Durable Object par appareil (clé d'accès = identifiant aléatoire de l'appareil).
+[[durable_objects.bindings]]
+name = "DEVICE_ALARM"
+class_name = "DeviceAlarm"
+
+# Stockage SQLite : seul format accepté sur l'offre gratuite de Cloudflare.
+[exports.DeviceAlarm]
+type = "durable-object"
+storage = "sqlite"
+
+# Ancienne syntaxe équivalente (« legacy » dans la documentation Cloudflare), à utiliser
+# à la place du bloc [exports.DeviceAlarm] ci-dessus UNIQUEMENT si la version de wrangler
+# installée refuse ce dernier :
+#
+# [[migrations]]
+# tag = "v1"
+# new_sqlite_classes = ["DeviceAlarm"]
