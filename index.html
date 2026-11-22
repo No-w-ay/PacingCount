@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.29-beta.42"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -51,6 +51,7 @@
     <script src="js/import-export.js"></script>
     <script src="js/daily-data.js"></script>
     <script src="js/results.js"></script>
+    <script src="js/push-client.js"></script>
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
     <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
@@ -94,6 +95,15 @@
         <button id="test-notif" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
             🛠️ Test Notif Immédiate</button>
+
+        <!-- boutons test push serveur (Cloudflare, POC) — mode développeur uniquement -->
+        <button id="test-push" class="dev-only"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
+            🛠️ Test Push Serveur (30 s)</button>
+        <button id="test-push-cancel" class="dev-only"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
+            🛠️ Annuler le test push</button>
+        <div id="push-test-status" class="dev-only" style="font-size: 0.85rem; margin-top: 8px; opacity: 0.8;"></div>
 
         <!-- bouton test fullscreen — mode développeur uniquement -->
         <button id="toggle-fullscreen" class="dev-only"
@@ -1688,6 +1698,10 @@
             }
         });
 
+        // Test push serveur (POC) : logique dans js/push-client.js
+        document.getElementById('test-push').addEventListener('click', pushTestSchedule);
+        document.getElementById('test-push-cancel').addEventListener('click', pushTestCancel);
+
         // Pour le mode plein écran
         const btnFullscreen = document.getElementById('toggle-fullscreen');
 
@@ -3066,6 +3080,8 @@
             // Page mesure
             document.getElementById('btn-stop').innerText = t('stop');
             document.getElementById('test-notif').innerText = t('testNotifBtn');
+            document.getElementById('test-push').innerText = t('testPushBtn');
+            document.getElementById('test-push-cancel').innerText = t('testPushCancelBtn');
             document.getElementById('toggle-fullscreen').innerText = t('fullscreenBtn');
 
             // Page résultats

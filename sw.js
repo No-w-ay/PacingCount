@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.29-beta.42'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.30-beta.1'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS_TO_CACHE = [
   './js/import-export.js',  // nouveau refactorisation 0.9.29-beta.22
   './js/daily-data.js',     // nouveau refactorisation 0.9.29-beta.22
   './js/results.js',        // nouveau refactorisation 0.9.29-beta.23
+  './js/push-client.js',    // nouveau 0.9.30-beta.1 (alertes serveur, POC)
   './manifest.json',
   './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux
@@ -130,19 +131,42 @@ self.addEventListener('message', event => {
 });
 
 
-// BONUS : détection notification push serveur
+// ============================================================
+// ALERTES SERVEUR (POC) — push reçu depuis le Worker Cloudflare
+// Le push est VIDE (aucune donnée reçue) : le texte est fixe, défini ici. Personne ne peut donc
+// faire afficher un message arbitraire. Langue : celle du navigateur (le SW ne lit pas les réglages
+// de l'app) — à revoir à l'intégration réelle.
+// ============================================================
+const PUSH_TEXTS = {
+  fr: { title: 'PacingCount', body: "Test serveur : si tu vois ceci, le push fonctionne même app fermée." },
+  en: { title: 'PacingCount', body: 'Server test: if you see this, push works even with the app closed.' },
+  nl: { title: 'PacingCount', body: 'Servertest: als je dit ziet, werkt push ook met de app gesloten.' }
+};
+
 self.addEventListener('push', function (event) {
-  const options = {
-    body: 'Ceci est une notification de test push !'   // ,
-    //   icon: 'icon.png',
-    //  badge: 'badge.png'
-  };
-
-  // On demande au système d'afficher la bulle
+  const lang = (self.navigator.language || 'fr').slice(0, 2);
+  const text = PUSH_TEXTS[lang] || PUSH_TEXTS.fr;
+  // Toujours afficher une notification (obligatoire avec userVisibleOnly:true).
   event.waitUntil(
-    self.registration.showNotification('Ma PWA', options)
+    self.registration.showNotification(text.title, {
+      body: text.body,
+      tag: 'pacing-push',
+      renotify: true,
+      vibrate: [150, 200, 150],
+      icon: './icon-192.png'
+    })
   );
-
   console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
   sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Push reçu !`);
+});
+
+// Au toucher de la notification : ramène l'app au premier plan (ou l'ouvre si elle est fermée).
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
+      if (clients.length > 0) return clients[0].focus();
+      return self.clients.openWindow('./');
+    })
+  );
 });

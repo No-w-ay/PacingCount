@@ -4,8 +4,10 @@ compatibility_date = "2026-11-01"
 
 # Origines autorisées à appeler ce serveur (séparées par des virgules).
 # Valeur non sensible. En local, un fichier .dev.vars peut la remplacer.
+# Une origine = schéma + domaine, sans chemin ni « / » final.
+# dev (Cloudflare Pages), main (Cloudflare Pages), main (GitHub Pages).
 [vars]
-ALLOWED_ORIGINS = "https://dev.pacingcount.pages.dev"
+ALLOWED_ORIGINS = "https://dev.pacingcount.pages.dev,https://pacingcount.pages.dev,https://no-w-ay.github.io"
 
 # Un Durable Object par appareil (clé d'accès = identifiant aléatoire de l'appareil).
 [[durable_objects.bindings]]
