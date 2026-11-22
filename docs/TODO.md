@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-11-22 (après 0.9.30-beta.2). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-11-22 (après 0.9.30-beta.3). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -24,7 +24,7 @@
 
 - **Revoir la section « détails chiffrés »** (`js/results.js`) pour une meilleure présentation : vue Résultats (couleurs pour les totaux…), durée moyenne et durée max d'une période active, petit graphe empilé du temps passé dans les périodes selon leur durée (0-20 % ; 20-40 % ; … > 100 %, 5 zones, Tmax à définir).
 - **Alertes de périodes** :
-  - **alertes serveur (Web Push, Cloudflare)** : POC validée sur Android en beta.2 (voir `docs/alertes-serveur.md`). Reste : tests longs (30 min, 1 h, téléphone verrouillé, app fermée) et iOS ; bilan ; extraction `js/alerts*.js` (déplacement pur) ; réglage de mode local / serveur ; intégration aux vraies alertes ; texte et langue des notifications ; période démarrée hors ligne ; limitation des abus ; `pushsubscriptionchange` ; confidentialité ; confirmer les hôtes push Apple / Microsoft ; sauvegarder la clé privée VAPID (gestionnaire de mots de passe) ;
+  - **alertes serveur (Web Push, Cloudflare)** : POC validée sur Android en beta.2 (voir `docs/alertes-serveur.md`). Reste : tests longs (30 min, 1 h, téléphone verrouillé, app fermée) et iOS ; bilan ; ~~extraction `js/alerts*.js`~~ (fait, beta.3) ; réglage de mode local / serveur ; intégration aux vraies alertes ; texte et langue des notifications ; période démarrée hors ligne ; limitation des abus ; `pushsubscriptionchange` ; confidentialité ; confirmer les hôtes push Apple / Microsoft ; sauvegarder la clé privée VAPID (gestionnaire de mots de passe) ;
   - mode présence : alerte depuis le début de la période en cours (à réactiver proprement) ;
   - mode absence : alerte depuis la fin de la dernière période d'un type donné ; `sentAlerts` → ajouter `mode:'absence'` quand implémenté ;
   - `lastSentWaveIndex` persisté dans `sentAlerts` — à consolider si des faux positifs de rattrapage persistent ;
@@ -84,7 +84,7 @@ Voir `docs/optimisation-stockage-performance.md`.
 ## Architecture du code et dépôt
 
 - **Extractions possibles, uniquement quand on travaille dessus** (état actuel : `index.html` ≈ 5 070 lignes, script inline ≈ 4 400) :
-  - `js/alerts.js` (sections 7, 7b, 8b + planification, wake lock) — préalable : des écouteurs lisent le DOM au chargement (`getElementById('test-notif')`), donc charger le fichier en fin de `<body>` ou laisser ces écouteurs dans l'init ;
+  - ~~`js/alerts.js`~~ **fait en 0.9.30-beta.3** : `js/alerts.js` (commun), `js/alerts-local.js` (mode local), `js/alerts-server.js` (mode serveur). Les écouteurs du DOM (7b : boutons de test) et l'écouteur `visibilitychange` (qui gère aussi le changement de jour) restent dans `index.html`, qui appelle `catchUpAlertsOnVisible()`.
   - `js/messages.js` (8c mises à jour + 8d messages JSON, ≈ 700 lignes) — préalable : ranger le code d'alertes mélangé dans la zone « 8d » et l'enregistrement du SW exécuté au chargement ;
   - `js/history.js` (15, 16, 21, 21b, 21c, ≈ 900 lignes) — préalable : déplacer dans la section 4 les `if (typeof settings.xxx === 'undefined')` exécutés au chargement.
   - Le cœur (constantes, migration, état, moteur des périodes, `updateUI`, init, swipe) reste dans `index.html`.

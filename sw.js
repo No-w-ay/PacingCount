@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.30-beta.2'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.30-beta.3'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,7 +11,9 @@ const ASSETS_TO_CACHE = [
   './js/import-export.js',  // nouveau refactorisation 0.9.29-beta.22
   './js/daily-data.js',     // nouveau refactorisation 0.9.29-beta.22
   './js/results.js',        // nouveau refactorisation 0.9.29-beta.23
-  './js/push-client.js',    // nouveau 0.9.30-beta.1 (alertes serveur, POC)
+  './js/alerts.js',         // nouveau 0.9.30-beta.3 (alertes : partie commune)
+  './js/alerts-local.js',   // nouveau 0.9.30-beta.3 (alertes : mode local)
+  './js/alerts-server.js',  // nouveau 0.9.30-beta.3 (alertes : mode serveur ; ex push-client.js)
   './manifest.json',
   './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux

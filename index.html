@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.3"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -51,7 +51,9 @@
     <script src="js/import-export.js"></script>
     <script src="js/daily-data.js"></script>
     <script src="js/results.js"></script>
-    <script src="js/push-client.js"></script>
+    <script src="js/alerts.js"></script>
+    <script src="js/alerts-local.js"></script>
+    <script src="js/alerts-server.js"></script>
 
     <!-- Eruda chargé dynamiquement uniquement en mode développeur (voir initDevMode) -->
     <!-- Eruda temporairement rechargé en dur pour diagnostic — à retirer après 
@@ -947,7 +949,7 @@
 
 
         // SNAP_THRESHOLD : déplacé près de snapAdjacentBorders() (section 17b).
-        // LATE_ALERT_THRESHOLD : déplacé près de scheduleAlerts() (section 8b).
+        // LATE_ALERT_THRESHOLD : voir js/alerts-local.js (près de scheduleAlerts()).
 
         // ============================================================
         // 2b. DÉTECTION DE LANGUE AU PREMIER LANCEMENT
@@ -1442,256 +1444,8 @@
         }
 
         // ============================================================
-        // 7. GESTION DES ALERTES DE PÉRIODES (réglages)
-        // Lecture/écriture dans settings.alerts[].
-        // Le fonctionnement effectif (notifications SW) sera implémenté séparément.
-        // Structure d'une alerte :
-        //   { typeId, enabled, threshold, interval, maxCount, wave }
+        // 7. GESTION DES ALERTES DE PÉRIODES → voir js/alerts.js
         // ============================================================
-
-        // Rendu de la liste des alertes dans l'onglet réglages
-        function renderAlertsList() {
-            const container = document.getElementById('alerts-list');
-            if (!container) return;
-            const active = getActiveTypes();
-
-            if (!settings.alerts || settings.alerts.length === 0) {
-                container.innerHTML = `<p style="opacity:0.5; font-size:0.85rem; margin:0 0 6px 0;">
-                    ${t('alertNoAlerts')}</p>`;
-                return;
-            }
-
-            container.innerHTML = settings.alerts.map((alert, idx) => {
-                const alertColor = getColorForId(alert.typeId);
-                const label = getLabelForId(alert.typeId);
-                const waveLabel = alert.wave ? t('alertModeWave') : t('alertModeSingle');
-                const toggleBg = alert.enabled ? 'var(--green)' : '#555';
-                const togglePos = alert.enabled ? '22px' : '2px';
-
-                return `
-                <div style="display:flex; align-items:center; justify-content:space-between;
-                            padding:10px 0; border-bottom:1px solid var(--border);">
-                    <div style="flex-grow:1;">
-                        <span style="color: ${alertColor}; font-weight:bold;">●</span>
-                        <span style="font-weight:bold; margin-left:4px;">${label}</span>
-                        <br>
-                        <span style="font-size:0.8rem; opacity:0.7;">
-                            ${t('alertThreshold')} ${alert.threshold} min ·
-                            +${alert.interval} min · ${alert.maxCount}x · ${waveLabel}
-                        </span>
-                    </div>
-                    <!-- Toggle ON/OFF -->
-                    <div onclick="toggleAlert(${idx})"
-                         style="position:relative; width:44px; height:24px; border-radius:12px;
-                                background:${toggleBg}; cursor:pointer; flex-shrink:0;
-                                margin:0 8px; transition:background 0.2s;">
-                        <div style="position:absolute; top:2px; left:${togglePos}; width:20px; height:20px;
-                                    border-radius:50%; background:white;
-                                    transition:left 0.2s;"></div>
-                    </div>
-                    <!-- Boutons édition / suppression -->
-                    <div style="display:flex; gap:4px;">
-                        <button class="btn-icon" onclick="openAlertModal(${idx})">✏️</button>
-                        <button class="btn-icon" onclick="deleteAlert(${idx})">🗑️</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
-        function openAlertModal(idx) {
-            if (idx === -1) {
-                alert(t('alertDevWarning', { notifParen: getNotifParenText(), iosLine: getIosLineText() }));
-            }
-            // Modifier l'alerte d'un type inactif est refusé (le menu ne listerait pas ce type, et
-            // l'enregistrement produirait une alerte sans type valide) — elle reste supprimable.
-            if (idx !== -1) {
-                const a0 = settings.alerts[idx];
-                const tp0 = settings.types.find(x => x.id === a0.typeId);
-                if (!tp0 || !tp0.active) {
-                    alert(t('alertTypeInactiveEdit', { label: getLabelForId(a0.typeId) || `#${a0.typeId}` }));
-                    return;
-                }
-            }
-            const active = getActiveTypes();
-
-            // Rempli le select des types
-            const sel = document.getElementById('alert-type');
-            sel.innerHTML = active.map(tp => {
-                return `<option value="${tp.id}">${tp.label}</option>`;
-            }).join('');
-
-            // Valeurs par défaut ou existantes
-            if (idx === -1) {
-                document.getElementById('alert-modal-title').innerText = t('alertNewTitle');
-                document.getElementById('alert-edit-index').value = -1;
-                // Préremplissage : type 4 (à défaut, le premier type actif), 30 min, rappel 10 min, 3 alertes
-                document.getElementById('alert-type').value = active.some(tp => tp.id === 4) ? 4 : (active[0]?.id || 1);
-                document.getElementById('alert-threshold').value = 30;
-                document.getElementById('alert-interval').value = 10;
-                document.getElementById('alert-maxcount').value = 3;
-                // document.getElementById('alert-wave-single').checked = true;
-            } else {
-                const a = settings.alerts[idx];
-                document.getElementById('alert-modal-title').innerText = t('alertEditTitle');
-                document.getElementById('alert-edit-index').value = idx;
-                document.getElementById('alert-type').value = a.typeId;
-                document.getElementById('alert-threshold').value = a.threshold;
-                document.getElementById('alert-interval').value = a.interval;
-                document.getElementById('alert-maxcount').value = a.maxCount;
-                /*  if (a.wave) {
-                      document.getElementById('alert-wave-multi').checked = true;
-                  } else {
-                      document.getElementById('alert-wave-single').checked = true;
-                  }
-                      */
-            }
-
-            document.getElementById('alertModal').style.display = 'flex';
-        }
-
-        function closeAlertModal() {
-            document.getElementById('alertModal').style.display = 'none';
-        }
-
-        // Sauvegarde une alerte (nouvelle ou éditée)
-        function saveAlert() {
-            requestNotificationPermission(); // Demande liée au geste "Enregistrer" — requis par iOS/Safari
-            const idx = parseInt(document.getElementById('alert-edit-index').value);
-            const typeId = parseInt(document.getElementById('alert-type').value);
-            const threshold = parseInt(document.getElementById('alert-threshold').value);
-            const interval = parseInt(document.getElementById('alert-interval').value);
-            const maxCount = parseInt(document.getElementById('alert-maxcount').value);
-            //const wave = document.getElementById('alert-wave-multi').checked;
-            const wave = false; //désactivation du mode
-
-
-            // Validation minimale
-            if (isNaN(threshold) || threshold < 1) return alert(t('alertValidThreshold'));
-            if (isNaN(interval) || interval < 1) return alert(t('alertValidInterval'));
-            if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
-                return alert(t('alertValidMaxCount'));
-
-            // Type invalide ou inactif : ne devrait pas arriver (le menu ne liste que les types actifs),
-            // mais ne jamais enregistrer une alerte sans type valide.
-            if (!settings.types.some(tp => tp.id === typeId && tp.active)) {
-                console.warn('[saveAlert] typeId invalide ou inactif :', typeId);
-                closeAlertModal();
-                return;
-            }
-
-            const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
-
-            if (idx === -1) {
-                // Ajout — vérifie si une alerte pour ce type existe déjà et la remplace
-                const existing = settings.alerts.findIndex(a => a.typeId === typeId);
-                if (existing !== -1) {
-                    settings.alerts[existing] = newAlert;
-                } else {
-                    settings.alerts.push(newAlert);
-                }
-            } else {
-                // Édition
-                settings.alerts[idx] = newAlert;
-            }
-
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            closeAlertModal();
-            renderAlertsList();
-            console.log(`[saveAlert] Alerte sauvegardée pour typeId=${typeId}`);
-
-            // Si on modifie une alerte qui concerne la période EN COURS — scheduleAlerts()
-            // décide lui-même de tenir ou relâcher le Wake Lock selon les vagues restantes,
-            // pas besoin de requestWakeLock() séparé ici.
-            if (state.activeType === typeId) {
-                cancelAlerts();
-                scheduleAlerts(state.activeType, state.startTime); // Met à jour le programme des notifs
-            }
-        }
-
-        // Supprime une alerte
-        function deleteAlert(idx) {
-            if (!confirm(t('alertDeleteConfirm'))) return;
-
-            const typeId = settings.alerts[idx].typeId; // On mémorise le type avant suppression
-            settings.alerts.splice(idx, 1);
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            renderAlertsList();
-            console.log(`[deleteAlert] Alerte supprimée (index ${idx})`);
-
-            // Réagir si on supprime l'alerte de la période en cours
-            if (state.activeType === typeId) {
-                cancelAlerts();
-                scheduleAlerts(state.activeType, state.startTime);
-            }
-        }
-
-        // Règle : quand un type devient inactif (quel que soit le mécanisme : toggle, profil, import),
-        // ses alertes passent automatiquement à inactif (même toggle que d'habitude — un seul
-        // moyen d'avoir une alerte inactive) ; on ne les réactive pas seul quand le type revient.
-        // Supprime aussi les alertes sans type valide (typeId null/NaN, hérité d'un ancien bug
-        // d'édition d'alerte). persist=false : l'appelant écrit lui-même les réglages (import JSON,
-        // toggle de type...). Retourne true si l'alerte de la période EN COURS vient d'être
-        // désactivée (l'appelant doit alors appeler rescheduleAlertsForActivePeriod()).
-        function syncAlertsWithTypes(persist = true) {
-            if (!Array.isArray(settings.alerts)) return false;
-            let changed = false;
-            let activeTypeAffected = false;
-
-            const before = settings.alerts.length;
-            settings.alerts = settings.alerts.filter(a => settings.types.some(tp => tp.id === a.typeId));
-            if (settings.alerts.length !== before) changed = true;
-
-            settings.alerts.forEach(a => {
-                const tp = settings.types.find(x => x.id === a.typeId);
-                if (a.enabled && tp && !tp.active) {
-                    a.enabled = false;
-                    changed = true;
-                    if (a.typeId === state.activeType) activeTypeAffected = true;
-                }
-            });
-
-            if (changed) {
-                console.log('[syncAlertsWithTypes] Alertes ajustées (type inactif ou type invalide)');
-                if (persist) {
-                    safeSave('pacingSettings', JSON.stringify(settings));
-                    if (document.getElementById('page-settings').classList.contains('active')) renderAlertsList();
-                }
-            }
-            return activeTypeAffected;
-        }
-
-        // Reprogramme les alertes de la période en cours après un changement de réglages (même
-        // schéma que le retour au premier plan : sentAlerts conservé autour de scheduleAlerts()).
-        // scheduleAlerts() relâche lui-même le Wake Lock s'il ne reste aucune alerte active.
-        function rescheduleAlertsForActivePeriod() {
-            if (state.activeType === null || state.startTime === null) return;
-            const savedSent = [...(state.sentAlerts || [])];
-            scheduleAlerts(state.activeType, state.startTime);
-            state.sentAlerts = savedSent;
-            saveState();
-        }
-
-        // Active/désactive une alerte via le toggle
-        function toggleAlert(idx) {
-            // Activer l'alerte d'un type inactif est refusé : le type doit d'abord être réactivé.
-            if (!settings.alerts[idx].enabled) {
-                const tp = settings.types.find(x => x.id === settings.alerts[idx].typeId);
-                if (!tp || !tp.active) {
-                    alert(t('alertTypeInactiveToggle', { label: getLabelForId(settings.alerts[idx].typeId) || `#${settings.alerts[idx].typeId}` }));
-                    return;
-                }
-            }
-            settings.alerts[idx].enabled = !settings.alerts[idx].enabled;
-            localStorage.setItem('pacingSettings', JSON.stringify(settings));
-            renderAlertsList();
-            console.log(`[toggleAlert] Alerte ${idx} : enabled=${settings.alerts[idx].enabled}`);
-            // Réagir si on désactive/réactive l'alerte de la période en cours
-            if (state.activeType === settings.alerts[idx].typeId) {
-                cancelAlerts();
-                scheduleAlerts(state.activeType, state.startTime);
-            }
-        }
 
         // ================================
         // 7b. Test notifications en direct (mettre après demande acceptation notif ???)
@@ -1706,7 +1460,7 @@
             }
         });
 
-        // Test push serveur (POC) : logique dans js/push-client.js
+        // Test push serveur (POC) : logique dans js/alerts-server.js
         document.getElementById('test-push').addEventListener('click', pushTestSchedule);
         document.getElementById('test-push-cancel').addEventListener('click', pushTestCancel);
 
@@ -2353,182 +2107,10 @@
         // FIN 8d. SYSTÈME DE MESSAGES JSON
         // ============================================================
 
-        // Demande la permission notifications — appelée depuis un geste utilisateur (ex: saveAlert())
-        async function requestNotificationPermission() {
-            if (!('Notification' in window)) return;
-            if (Notification.permission === 'default') {
-                const perm = await Notification.requestPermission();
-                console.log('[Notif] Permission :', perm);
-            }
-        }
+        // Permission et état des notifications (requestNotificationPermission, getNotifStatusLabel,
+        // isIOSDevice, isPWAInstalled, getIosLineText, getNotifParenText) → voir js/alerts.js
 
-        // Retourne un texte lisible décrivant l'état actuel de la permission notif,
-        // pour affichage dans alertDevWarning (clé {status}).
-        function getNotifStatusLabel() {
-            if (!('Notification' in window)) return t('notifStatusUnsupported');
-            if (Notification.permission === 'granted') return t('notifStatusGranted');
-            if (Notification.permission === 'denied') return t('notifStatusDenied');
-            return t('notifStatusDefault');
-        }
-
-        // Détecte iOS/iPadOS (iPadOS 13+ se présente comme "MacIntel" avec support tactile)
-        function isIOSDevice() {
-            const ua = navigator.userAgent;
-            if (/iPhone|iPod|iPad/.test(ua)) return true;
-            return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-        }
-
-        // Détecte si l'app tourne en mode installé (standalone) — navigator.standalone est spécifique iOS
-        function isPWAInstalled() {
-            return window.navigator.standalone === true
-                || window.matchMedia('(display-mode: standalone)').matches;
-        }
-
-        // Construit la ligne iOS pour alertDevWarning — 1er tiret, vide si pas sur iOS (clé {iosLine})
-        function getIosLineText() {
-            if (!isIOSDevice()) return '';
-            const status = isPWAInstalled() ? t('iosInstallDone') : t('iosInstallTodo');
-            return `- ${t('iosLineLabel')} : ${status}\n`;
-        }
-
-        // Construit la parenthèse de statut notif — masquée si iOS et pas encore installé
-        // (le 1er tiret l'indique déjà, pas la peine de la répéter ici)
-        function getNotifParenText() {
-            if (isIOSDevice() && !isPWAInstalled()) return '';
-            return ` (${getNotifStatusLabel()})`;
-        }
-
-        const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
-
-        // Tableau pour stocker les IDs des setTimeout() locaux
-        let localAlertTimers = [];
-        let autoReleaseWakeLockTimer = null; // NOUVEAU : Pour relâcher le Wake Lock
-
-        // Annule toutes les alertes en cours dans l'index (page locale)
-        function cancelAlerts() {
-            localAlertTimers.forEach(id => clearTimeout(id));
-            localAlertTimers = [];
-            clearTimeout(autoReleaseWakeLockTimer); // NOUVEAU : On annule aussi le relâchement antérieurement programmé du Wake Lock
-            state.sentAlerts = [];
-            saveState();
-            console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
-        }
-
-        // Construit et programme les setTimeout en local.
-        // Source de vérité unique pour le Wake Lock : c'est la seule fonction qui sait
-        // réellement s'il reste des vagues futures à attendre, donc c'est elle qui décide en
-        // dernier ressort de tenir ou relâcher l'écran (voir la fin de la fonction). Les appelants
-        // n'ont plus besoin d'appeler requestWakeLock() eux-mêmes après scheduleAlerts().
-        async function scheduleAlerts(typeId, startTime) {
-            if (!('serviceWorker' in navigator)) { releaseWakeLock(); return; }
-            if (Notification.permission !== 'granted') { releaseWakeLock(); return; }
-
-            // Cherche la config d'alerte pour ce type (doit être enabled)
-            const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
-            if (!config) { releaseWakeLock(); return; }
-
-            const label = getLabelForId(typeId);
-
-            // Annule les potentiels anciens chronomètres avant d'en créer de nouveaux
-            cancelAlerts();
-
-            const now = Date.now();
-            let programmedCount = 0;
-            let maxDelayMs = 0; // NOUVEAU : Va mémoriser le moment de la toute dernière alerte
-
-            // Construit et lance les timers pour chaque vague
-            for (let i = 0; i < config.maxCount; i++) {
-                const fireAt = startTime
-                    + config.threshold * 60000          // seuil initial
-                    + i * config.interval * 60000;      // intervalle entre rappels
-
-                const count = config.wave ? (i + 1) : 1;
-                const delay = fireAt - now;
-
-                // Si le moment est déjà passé (ex: reprise après fermeture), on ignore
-                if (delay <= 0) {
-                    console.log(`[scheduleAlerts] ⏳ Vague ${i + 1} ignorée (délai déjà écoulé)`);
-                    continue;
-                }
-
-                // Programme chaque notification de la vague avec 1 seconde d'écart
-                for (let j = 0; j < count; j++) {
-                    const notifDelay = delay + (j * 1000);
-                    const tag = `pacing-w${i}-n${j}`;
-
-                    // On enregistre le délai le plus lointain
-                    if (notifDelay > maxDelayMs) {
-                        maxDelayMs = notifDelay;
-                    }
-
-                    const timerId = setTimeout(async () => {
-                        // Guard : si trop tardif, visibilitychange s'en charge
-                        if (Date.now() - fireAt > LATE_ALERT_THRESHOLD) {
-                            console.log(`[scheduleAlerts] ⚠️ Vague ${i + 1} abandonnée (>${LATE_ALERT_THRESHOLD / 1000}s de retard)`);
-                            return;
-                        }
-                        //const timerId = setTimeout(async () => {
-                        const bells = '🔔'.repeat(count);
-                        const mins = config.threshold + i * config.interval;
-                        const isLast = (i === config.maxCount - 1);
-                        const title = isLast
-                            ? `${bells} ${label} (${t('alertLastReminder')})`
-                            : `${bells} ${label} (${t('alertReminderN', { n: i + 1 })})`;
-                        const body = t('alertNotifBody', { mins, label, n: i + 1 });
-
-                        // 1. On résout le Service Worker pile au moment du déclenchement
-                        const registration = await navigator.serviceWorker.ready;
-
-                        // 2. On cible l'instance aux commandes
-                        const worker = navigator.serviceWorker.controller || registration.active;
-
-                        if (worker) {
-                            worker.postMessage({
-                                type: 'DISPLAY_NOW',
-                                title: title,
-                                body: body,
-                                tag: tag
-                            });
-                            console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
-
-                            // Enregistre la vague envoyée
-                            state.sentAlerts.push({
-                                waveIndex: i,
-                                typeId: typeId,
-                                firedAt: Date.now(),
-                                mode: 'presence',
-                                source: 'timer'
-                            });
-                            saveState();
-
-                        } else {
-                            console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
-                        }
-                    }, notifDelay);
-
-                    localAlertTimers.push(timerId);
-                }
-
-                programmedCount++;
-                console.log(`[scheduleAlerts] ⏱️ Vague ${i + 1} (${count}x) programmée dans ${Math.round(delay / 60000)} min`);
-            }
-
-            console.log(`[scheduleAlerts] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
-
-            if (maxDelayMs > 0) {
-                // Il reste au moins une vague future à attendre — l'écran doit rester allumé.
-                requestWakeLock();
-                // Relâchement automatique du Wake Lock après la dernière alerte
-                autoReleaseWakeLockTimer = setTimeout(() => {
-                    console.log("[WakeLock] Dernière alerte terminée, relâchement automatique pour économiser la batterie.");
-                    releaseWakeLock(); // Cette fonction s'occupe aussi d'éteindre la pseudo-veille
-                }, maxDelayMs + 60000); // Se déclenche 60 secondes après la toute dernière notification
-            } else {
-                // Aucune vague future (toutes déjà passées, ex. rattrapage qui vide tout d'un
-                // coup) — plus rien à attendre, l'écran n'a plus besoin d'être retenu.
-                releaseWakeLock();
-            }
-        }
+        // ALERTES LOCALES (cancelAlerts, scheduleAlerts, LATE_ALERT_THRESHOLD) → voir js/alerts-local.js
 
         // ============================================================
         // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
@@ -4941,86 +4523,8 @@
         }
 
         // ============================================================
-        // GESTION WAKE LOCK & PSEUDO-VEILLE (après INACTIVITY_DELAY)
+        // WAKE LOCK & PSEUDO-VEILLE → voir js/alerts-local.js
         // ============================================================
-
-        let wakeLock = null;
-        let inactivityTimer = null;
-        const INACTIVITY_DELAY = 20000; // 20000 = 20 secondes
-
-        // 1. Fonction pour demander le Wake Lock
-        async function requestWakeLock() {
-            // CORRECTION : On cherche correctement dans settings.alerts
-            const hasActiveAlarms = settings.alerts.some(a => a.typeId === state.activeType && a.enabled);
-
-            if (!hasActiveAlarms) {
-                console.log("[WakeLock] Aucune alarme active, Wake Lock inutile.");
-                releaseWakeLock(); // On relâche au cas où une alarme vient d'être désactivée en cours de route
-                return;
-            }
-
-            // Anti-doublon : un verrou est déjà actif, pas besoin d'en redemander un second —
-            // scheduleAlerts() appelle désormais requestWakeLock() à chaque reprogrammation,
-            // pas seulement au tout premier démarrage de période.
-            if (wakeLock !== null) return;
-
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    console.log("[WakeLock] Activé : l'écran restera allumé.");
-
-                    // Une fois le Wake Lock acquis, on lance la surveillance de l'inactivité
-                    startInactivityDetection();
-
-                    // Si le système coupe le Wake Lock (batterie faible, etc.)
-                    wakeLock.addEventListener('release', () => {
-                        console.log("[WakeLock] Relâché par le système.");
-                        wakeLock = null; // Sans ça, un retour de veille pouvait réacquérir un verrou fantôme sur l'ancien type actif
-                        stopInactivityDetection();
-                    });
-                }
-            } catch (err) {
-                console.error(`[WakeLock] Erreur : ${err.name}, ${err.message}`);
-            }
-        }
-        // 2. Fonction pour relâcher le Wake Lock
-        function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                    console.log("[WakeLock] Désactivé manuellement.");
-                });
-            }
-            stopInactivityDetection();
-        }
-
-        // 3. Gestion de l'inactivité (Pseudo-Veille)
-        function resetInactivityTimer() {
-            clearTimeout(inactivityTimer);
-            const sleepOverlay = document.getElementById('sleep-overlay');
-
-            // On n'active l'overlay que si on a un Wake Lock actif
-            if (wakeLock && sleepOverlay && sleepOverlay.classList.contains('hidden')) {
-                inactivityTimer = setTimeout(() => {
-                    sleepOverlay.classList.remove('hidden');
-                    console.log("[Veille] Pseudo-veille activée.");
-                }, INACTIVITY_DELAY);
-            }
-        }
-
-        function startInactivityDetection() {
-            const activities = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'scroll'];
-            activities.forEach(type => document.addEventListener(type, resetInactivityTimer, { passive: true }));
-            resetInactivityTimer();
-        }
-
-        function stopInactivityDetection() {
-            clearTimeout(inactivityTimer);
-            const activities = ['mousedown', 'mousemove', 'keypress', 'touchstart', 'scroll'];
-            activities.forEach(type => document.removeEventListener(type, resetInactivityTimer));
-            // On cache la veille si elle était affichée
-            document.getElementById('sleep-overlay').classList.add('hidden');
-        }
 
         // Gestion du retour au premier plan
         // Sur mobile, les setTimeout sont throttlés en arrière-plan.
@@ -5029,12 +4533,6 @@
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState !== 'visible') return;
             console.log(`[visibilitychange] ⏱️ Début séquence retour visible`);
-
-            // Pas de réacquisition du Wake Lock ici, volontairement : se fier à l'état de la
-            // variable wakeLock à ce stade était fragile (un vrai relâchement système, normal
-            // après extinction d'écran, pouvait laisser un état ambigu selon le moment exact).
-            // scheduleAlerts(), plus bas (étape 6), est la seule source de vérité : elle sait
-            // réellement s'il reste des vagues futures et décide alors de tenir ou relâcher.
 
             // 1b. Nouveau jour détecté pendant la veille → avancer historyEndDate à aujourd'hui,
             // systématiquement (même si l'utilisateur avait navigué dans le passé) : un nouveau jour
@@ -5077,88 +4575,7 @@
                 window.lastResultsCheckDay = _todayStr;
             }
 
-            // 2. Pas de période active → rien à faire, si ce n'est s'assurer que le Wake Lock
-            // n'est pas resté tenu par erreur (ex. après suppression de la période en cours).
-            if (state.activeType === null || state.startTime === null) {
-                releaseWakeLock();
-                return;
-            }
-            const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
-            if (!config) {
-                scheduleAlerts(state.activeType, state.startTime);
-                return;
-            }
-
-            const now = Date.now();
-
-            // 3. Timestamp du dernier catchup envoyé pour ce type (0 si aucun)
-            const lastCatchupAt = state.sentAlerts
-                .filter(s => s.source === 'catchup' && s.typeId === state.activeType)
-                .reduce((max, s) => s.firedAt > max ? s.firedAt : max, 0);
-
-            // 4. Compter les vagues manquées depuis le dernier catchup
-            let missed = 0;
-            for (let i = 0; i < config.maxCount; i++) {
-                const fireAt = state.startTime
-                    + config.threshold * 60000
-                    + i * config.interval * 60000;
-
-                const alreadySent = state.sentAlerts.some(
-                    s => s.waveIndex === i && s.typeId === state.activeType
-                );
-
-                if (fireAt < now && !alreadySent && fireAt > lastCatchupAt) missed++;
-            }
-
-            // 5. Envoyer UN catchup si des vagues ont été manquées depuis le dernier catchup
-            if (missed > 0) {
-                const label = getLabelForId(state.activeType);
-                const mins = Math.floor((now - state.startTime) / 60000);
-
-                const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
-                    state.startTime + config.threshold * 60000 + i * config.interval * 60000
-                ).some(fireAt => fireAt > now);
-
-                const title = hasMoreWaves
-                    ? `🔔 ${label} (${t('alertCatchupN', { n: missed })})`
-                    : `🔔 ${label} (${t('alertLastCatchup')})`;
-                const body = missed === 1
-                    ? t('alertCatchupBody1', { mins, label })
-                    : t('alertCatchupBodyN', { mins, label, n: missed });
-
-                try {
-                    const registration = await navigator.serviceWorker.ready;
-                    const worker = navigator.serviceWorker.controller || registration.active;
-                    if (worker) {
-                        worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                        console.log(`[visibilitychange] 🔔 Catchup : ${missed} vague(s) manquée(s)`);
-
-                        state.sentAlerts.push({
-                            waveIndex: -1,
-                            typeId: state.activeType,
-                            firedAt: now,
-                            mode: 'presence',
-                            source: 'catchup'
-                        });
-                        saveState();
-
-                        if (!hasMoreWaves) releaseWakeLock();
-                    }
-                } catch (e) {
-                    console.error('[visibilitychange] ❌ Erreur catchup :', e);
-                }
-            } else {
-                console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
-            }
-
-            // 6. Reprogrammer les vagues futures
-            const savedSentAlerts = [...state.sentAlerts]; // sauvegarde
-            scheduleAlerts(state.activeType, state.startTime);
-            state.sentAlerts = savedSentAlerts; // restauration après le cancelAlerts interne
-            saveState();
-
-            console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
-            console.log(`[visibilitychange] ⏱️ Fin séquence retour visible`);
+            await catchUpAlertsOnVisible(); // alertes : rattrapage + reprogrammation (js/alerts-local.js)
         });
 
         // ============================================================

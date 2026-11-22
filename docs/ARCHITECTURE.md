@@ -6,8 +6,14 @@
     timeline, navigation, init, swipe)
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
-    `daily-data.js`, `results.js`, `push-client.js` (alertes serveur, POC : abonnement
-    Web Push + envoi des horaires au Worker ; voir `docs/alertes-serveur.md`)
+    `daily-data.js`, `results.js`, et les trois fichiers des alertes :
+    `alerts.js` (partie commune : réglages `settings.alerts[]`, interface, état des notifications),
+    `alerts-local.js` (mode local : minuteries, Wake Lock, pseudo-veille, rattrapage,
+    `catchUpAlertsOnVisible()` appelée par l'écouteur `visibilitychange` d'index.html) et
+    `alerts-server.js` (mode serveur, POC : abonnement Web Push + envoi des horaires au Worker ;
+    voir `docs/alertes-serveur.md`). `scheduleAlerts`, `cancelAlerts` et `releaseWakeLock`
+    sont pour l'instant dans `alerts-local.js` ; ils deviendront les points d'entrée communs
+    (choix local / serveur) à l'intégration.
     (`import-export.js` : exports CSV/JSON ; import CSV ; import JSON en deux écrans
     Remplacer / Fusionner ; **helpers de correspondance des types partagés** CSV et JSON :
     `normalizeTypeLabel`, `resolveTypeTarget`, `buildTypeMappingTableHTML`,

@@ -1,5 +1,7 @@
-// js/push-client.js — alertes serveur (POC) : abonnement Web Push + envoi des horaires au Worker.
-// Script classique (pas de module). Pour l'instant : mode développeur uniquement (boutons test-push*).
+// js/alerts-server.js — Alertes de périodes, mode SERVEUR : abonnement Web Push + envoi des horaires au Worker.
+// (ex js/push-client.js.) Script classique (pas de module). Pour l'instant : mode développeur
+// uniquement (boutons test-push*) ; pas encore branché sur les vraies alertes.
+// Partie commune : js/alerts.js ; mode local : js/alerts-local.js.
 // Serveur : dossier cf-worker/. Le push est envoyé VIDE : le texte affiché vit dans sw.js.
 
 const PUSH_WORKER_URL = 'https://pacingcount-push.pacingcount.workers.dev';
