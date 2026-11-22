@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.1"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.2"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -99,7 +99,15 @@
         <!-- boutons test push serveur (Cloudflare, POC) — mode développeur uniquement -->
         <button id="test-push" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
-            🛠️ Test Push Serveur (30 s)</button>
+            🛠️ Test Push Serveur</button>
+        <!-- délai du test : liste native du système ; valeurs en secondes (voir PUSH_TEST_DELAYS_S) -->
+        <select id="test-push-delay" class="dev-only"
+            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; margin-top: 10px; padding: 10px;">
+            <option value="30">30 s</option>
+            <option value="300">5 min</option>
+            <option value="1800">30 min</option>
+            <option value="3600">1 h</option>
+        </select>
         <button id="test-push-cancel" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
             🛠️ Annuler le test push</button>

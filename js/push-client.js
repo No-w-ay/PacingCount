@@ -7,7 +7,8 @@ const PUSH_WORKER_URL = 'https://pacingcount-push.pacingcount.workers.dev';
 const PUSH_VAPID_PUBLIC_KEY = 'BLElc13cOdK7B3ophZ0svDndalSZ-sx8NTx1Nmahbjw0Vl7KWYgFUlHg7zrPJwYFol3BelWymrKEbIyqy-PFHns';
 // Clé locale séparée : jamais incluse dans l'export des données (l'identifiant sert d'accès côté serveur).
 const PUSH_DEVICE_ID_KEY = 'pushDeviceId';
-const PUSH_TEST_DELAY_MS = 30 * 1000;
+// Délais proposés par la liste #test-push-delay (index.html) ; le premier sert de valeur par défaut.
+const PUSH_TEST_DELAYS_S = [30, 300, 1800, 3600];
 const PUSH_FETCH_TIMEOUT_MS = 10 * 1000;
 const PUSH_SW_TIMEOUT_MS = 8 * 1000;
 
@@ -119,16 +120,28 @@ function pushShowError(e) {
     pushSetStatus('pushStatusError', { detail });
 }
 
+// Délai choisi dans la liste, limité aux valeurs prévues ; libellé (« 5 min ») repris de la liste.
+function pushGetTestDelay() {
+    const select = document.getElementById('test-push-delay');
+    const sec = select ? Number(select.value) : NaN;
+    const known = PUSH_TEST_DELAYS_S.includes(sec);
+    const label = known && select.selectedOptions[0] ? select.selectedOptions[0].textContent.trim() : `${PUSH_TEST_DELAYS_S[0]} s`;
+    return { ms: (known ? sec : PUSH_TEST_DELAYS_S[0]) * 1000, label };
+}
+
 async function pushTestSchedule() {
     if (pushBusy) return;
     pushBusy = true;
     try {
+        const delay = pushGetTestDelay();
         // requestPermission est appelé en premier, de façon synchrone dans le geste (voir plus haut).
         const subPromise = pushEnsureSubscription();
         pushSetStatus('pushStatusWorking');
         const sub = await subPromise;
-        await pushSchedule(sub, [Date.now() + PUSH_TEST_DELAY_MS]);
-        pushSetStatus('pushStatusScheduled', { sec: PUSH_TEST_DELAY_MS / 1000 });
+        const fireAt = Date.now() + delay.ms;
+        await pushSchedule(sub, [fireAt]);
+        const time = new Date(fireAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        pushSetStatus('pushStatusScheduled', { delay: delay.label, time });
     } catch (e) {
         pushShowError(e);
     } finally {

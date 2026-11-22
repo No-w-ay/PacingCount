@@ -44,6 +44,13 @@
 - **Fins de ligne** : le dépôt mélange LF et CRLF selon les fichiers (constat au 2026-10-05 : CRLF pour `style.css`, `js/*.js` et `docs/ARCHITECTURE.md` ; LF pour `index.html`, `sw.js`, `manifest.json`, `messages.json` et les autres notes). Sans conséquence pour l'app, mais un fichier remplacé par une copie aux fins de ligne différentes apparaît entièrement modifié dans le diff. Règle : **conserver les fins de ligne existantes du fichier** quand on en remplace un (Claude les préserve) ; les nouveaux fichiers sont en LF. Vérification : `grep -c $'\r$' fichier` (nombre de lignes CRLF).
 - Bug de continuité entre un état attendu et un fichier réel : repartir du fichier réel (dépôt, branche `dev`), jamais d'un document collé plus haut dans une conversation.
 
+## Alertes serveur / Web Push
+- **`Notification.requestPermission()`** : à appeler en tout premier, de façon synchrone, dans le gestionnaire de clic (aucun `await` ni `alert()` avant). Sur iOS, sinon la demande est ignorée ; une fois `denied`, on ne peut plus redemander.
+- **Écouteur `push` du SW** : toujours afficher une notification (`userVisibleOnly: true`). Le push est vide ; le texte est fixe dans `sw.js`, jamais déduit d'une donnée reçue.
+- **`deviceId`** (`pushDeviceId`) : clé locale à part, jamais dans l'export ; il sert d'accès côté serveur.
+- **Worker** : se déploie séparément (`npx wrangler deploy` depuis `cf-worker/`), pas par `git push`. Aucun secret dans le dépôt (`.dev.vars` ignoré). Une origine autorisée = schéma + domaine, sans chemin.
+- Détails : `docs/alertes-serveur.md`.
+
 ## Import / export
 - **Remplacer = l'app devient le fichier**, sans fusion cachée ; **Fusionner = le fichier gagne sur les désaccords** et ne modifie jamais les types/profil de l'app. Toute évolution se vérifie d'abord contre `docs/notes-events.md` § 4.2.
 - Une période importée passe toujours par la chaîne `applySteamroller` → `snapAdjacentBorders` → `mergeAdjacentPeriods` → `reconstructHistory`, et un compte de périodes « après import » se fait sur les fragments coupés à minuit (`splitPeriodIntoDayFragments()`), pas sur le nombre de lignes du fichier.

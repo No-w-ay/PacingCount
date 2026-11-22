@@ -6,11 +6,15 @@
     timeline, navigation, init, swipe)
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
-    `daily-data.js`, `results.js`
+    `daily-data.js`, `results.js`, `push-client.js` (alertes serveur, POC : abonnement
+    Web Push + envoi des horaires au Worker ; voir `docs/alertes-serveur.md`)
     (`import-export.js` : exports CSV/JSON ; import CSV ; import JSON en deux écrans
     Remplacer / Fusionner ; **helpers de correspondance des types partagés** CSV et JSON :
     `normalizeTypeLabel`, `resolveTypeTarget`, `buildTypeMappingTableHTML`,
     `analyzeTypeMapping`. Règles : `docs/notes-events.md` § 4.2)
+  - `cf-worker/` : serveur d'alertes (Cloudflare Worker + Durable Object), déployé à part
+    avec `wrangler` (voir `docs/alertes-serveur.md`). Publié par Pages comme fichiers
+    statiques, jamais mis en cache par le SW ; aucun secret dedans.
   - Autres dossiers : `docs/` (cette note, `TODO.md`, `CONVENTIONS.md`, notes de chantier),
     `icons/` (sources des icônes + générateur ; `icon-192.png` et `icon-512.png`
     restent à la racine car référencés par le manifest et `sw.js`),
@@ -128,6 +132,12 @@
 
         Mode vagues croissantes: désactivé silencieusement(wave = false hardcodé), logique conservée dans le code
 
+        Alertes serveur (POC, mode développeur) : le flux ci-dessus reste le mode « local ». Un mode « serveur »
+        (Web Push depuis un Worker Cloudflare, fonctionne app fermée) est validé en POC sur Android mais pas encore
+        intégré aux vraies alertes. Les deux modes seront exclusifs (choix par appareil). Push vide, texte fixe
+        dans sw.js (`PUSH_TEXTS`), écouteur `notificationclick` commun aux notifications locales et serveur.
+        Protocole, décisions, limites et à-faire : `docs/alertes-serveur.md`.
+
 
         3. Mode développeur
 
@@ -136,6 +146,7 @@
         Éléments contrôlés par le mode dev :
 
         Bouton "Test Notif Immédiate"
+        Boutons "Test Push Serveur" (+ liste de délais) et "Annuler le test push", ligne de statut
         Bouton "Mode Plein Écran"
         Le toggle lui-même avec l'indicateur 🛠️ Mode développeur
 
@@ -192,6 +203,10 @@
         En dev branch :
         - Fond barre de navigation en gris vert sombre
         - Titre page mesure — indique dev branch en petit gris italique
+
+        Le Worker Cloudflare (cf-worker/) n'est pas déployé par la liaison GitHub → Pages : il se déploie
+        à la main (`npx wrangler deploy` depuis cf-worker/). Un seul Worker sert dev, main (Cloudflare)
+        et main (GitHub Pages) ; origines autorisées dans cf-worker/wrangler.toml.
 
 
         6. Système de messages JSON
