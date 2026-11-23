@@ -42,12 +42,9 @@ async function scheduleAlerts(typeId, startTime) {
     let programmedCount = 0;
     let maxDelayMs = 0; // NOUVEAU : Va mémoriser le moment de la toute dernière alerte
 
-    // Construit et lance les timers pour chaque vague
-    for (let i = 0; i < config.maxCount; i++) {
-        const fireAt = startTime
-            + config.threshold * 60000          // seuil initial
-            + i * config.interval * 60000;      // intervalle entre rappels
-
+    // Construit et lance les timers pour chaque vague (calcul du plan : voir alerts.js)
+    const plan = computeAlertPlan(config, getRunStart(config, typeId, startTime));
+    for (const { index: i, fireAt, mins, isLast } of plan) {
         const count = config.wave ? (i + 1) : 1;
         const delay = fireAt - now;
 
@@ -75,8 +72,6 @@ async function scheduleAlerts(typeId, startTime) {
                 }
                 //const timerId = setTimeout(async () => {
                 const bells = '🔔'.repeat(count);
-                const mins = config.threshold + i * config.interval;
-                const isLast = (i === config.maxCount - 1);
                 const title = isLast
                     ? `${bells} ${label} (${t('alertLastReminder')})`
                     : `${bells} ${label} (${t('alertReminderN', { n: i + 1 })})`;
@@ -246,12 +241,9 @@ async function catchUpAlertsOnVisible() {
         .reduce((max, s) => s.firedAt > max ? s.firedAt : max, 0);
 
     // 4. Compter les vagues manquées depuis le dernier catchup
+    const plan = computeAlertPlan(config, getRunStart(config, state.activeType, state.startTime));
     let missed = 0;
-    for (let i = 0; i < config.maxCount; i++) {
-        const fireAt = state.startTime
-            + config.threshold * 60000
-            + i * config.interval * 60000;
-
+    for (const { index: i, fireAt } of plan) {
         const alreadySent = state.sentAlerts.some(
             s => s.waveIndex === i && s.typeId === state.activeType
         );
@@ -264,9 +256,7 @@ async function catchUpAlertsOnVisible() {
         const label = getLabelForId(state.activeType);
         const mins = Math.floor((now - state.startTime) / 60000);
 
-        const hasMoreWaves = Array.from({ length: config.maxCount }, (_, i) =>
-            state.startTime + config.threshold * 60000 + i * config.interval * 60000
-        ).some(fireAt => fireAt > now);
+        const hasMoreWaves = plan.some(w => w.fireAt > now);
 
         const title = hasMoreWaves
             ? `🔔 ${label} (${t('alertCatchupN', { n: missed })})`

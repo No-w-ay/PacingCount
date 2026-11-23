@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-11-22 (après 0.9.30-beta.3). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-11-22 (après 0.9.30-beta.4). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation

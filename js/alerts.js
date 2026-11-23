@@ -303,3 +303,30 @@ function getNotifParenText() {
     if (isIOSDevice() && !isPWAInstalled()) return '';
     return ` (${getNotifStatusLabel()})`;
 }
+
+// ============================================================
+// PLAN D'ALERTES — calcul commun aux canaux local et serveur
+// ============================================================
+
+// Début de la séquence à partir de laquelle on compte le seuil d'une alerte.
+// Aujourd'hui : début de la période en cours (une alerte = un type). Point d'entrée prévu pour
+// les combinaisons de types (séquence continue de périodes accolées, calcul depuis l'historique).
+function getRunStart(config, activeType, startTime) {
+    return startTime;
+}
+
+// Liste des vagues d'une alerte : { index, fireAt (ms), mins (minutes depuis le début), isLast }.
+// Fonction pure : ne lit ni l'état, ni l'heure, ni le DOM. Les vagues déjà passées sont incluses,
+// c'est à l'appelant de les écarter (programmation) ou de les rattraper (retour au premier plan).
+function computeAlertPlan(config, runStart) {
+    const plan = [];
+    for (let i = 0; i < config.maxCount; i++) {
+        plan.push({
+            index: i,
+            fireAt: runStart + config.threshold * 60000 + i * config.interval * 60000,
+            mins: config.threshold + i * config.interval,
+            isLast: i === config.maxCount - 1
+        });
+    }
+    return plan;
+}
