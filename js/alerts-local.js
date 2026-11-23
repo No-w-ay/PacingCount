@@ -4,117 +4,100 @@
 // Partie commune (réglages, interface) : js/alerts.js.
 // Script classique : lit settings, state, t()… définis dans index.html, à l'exécution seulement.
 
-const LATE_ALERT_THRESHOLD = 15000; // 15s — au-delà, le setTimeout cède la main au visibilitychange
+// Tolérance de retard : au-delà, une vague n'est plus affichée comme un rappel normal mais
+// regroupée dans un rattrapage (voir catchUpAlertsOnVisible). 2 min couvre le ralentissement
+// des minuteries en arrière-plan (~1 min). Le retard réel est journalisé pour calibrer cette valeur.
+const ALERT_LATE_TOLERANCE_MS = 120000;
 
 // Tableau pour stocker les IDs des setTimeout() locaux
 let localAlertTimers = [];
-let autoReleaseWakeLockTimer = null; // NOUVEAU : Pour relâcher le Wake Lock
+let autoReleaseWakeLockTimer = null; // Pour relâcher le Wake Lock
 
-// Annule toutes les alertes en cours dans l'index (page locale)
-function cancelAlerts() {
+// Annule les minuteries locales (sans toucher au registre « déjà jouée »).
+function clearAlertTimers() {
     localAlertTimers.forEach(id => clearTimeout(id));
     localAlertTimers = [];
-    clearTimeout(autoReleaseWakeLockTimer); // NOUVEAU : On annule aussi le relâchement antérieurement programmé du Wake Lock
+    clearTimeout(autoReleaseWakeLockTimer); // On annule aussi le relâchement programmé du Wake Lock
+}
+
+// Annulation complète : minuteries ET registre « déjà jouée » (plus de période, historique reconstruit…).
+function cancelAlerts() {
+    clearAlertTimers();
     state.sentAlerts = [];
     saveState();
     console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
 }
 
-// Construit et programme les setTimeout en local.
+// Affiche un rappel à l'heure (appelée par la minuterie d'une vague).
+async function fireReminder(run, wave) {
+    const { config, runStart } = run;
+    if (isWavePlayed(config.id, runStart, wave.index)) return; // déjà couverte (rattrapage, autre canal)
+
+    const lateMs = Date.now() - wave.fireAt;
+    console.log(`[scheduleAlerts] ⏱️ ${getAlertName(config)} vague ${wave.index + 1} : retard réel ${lateMs} ms`);
+    // Trop tardif : le rattrapage (retour au premier plan) s'en charge.
+    if (lateMs > ALERT_LATE_TOLERANCE_MS) {
+        console.log(`[scheduleAlerts] ⚠️ Vague ${wave.index + 1} abandonnée (>${ALERT_LATE_TOLERANCE_MS / 1000}s de retard)`);
+        return;
+    }
+    const { title, body } = buildReminderText(config, wave);
+    const tag = `pacing-${config.id}-w${wave.index}`;
+
+    // On résout le Service Worker pile au moment du déclenchement
+    const registration = await navigator.serviceWorker.ready;
+    const worker = navigator.serviceWorker.controller || registration.active; // l'instance aux commandes
+    if (!worker) {
+        console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
+        return;
+    }
+    // Un rattrapage a pu couvrir cette vague pendant l'attente du SW
+    if (isWavePlayed(config.id, runStart, wave.index)) return;
+
+    worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag });
+    console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
+    markWavePlayed(config.id, runStart, wave.index, 'timer');
+    saveState();
+}
+
+// Construit et programme les setTimeout en local, pour TOUTES les alertes actives qui
+// concernent le type en cours (ensembles de types, éventuellement chevauchants).
 // Source de vérité unique pour le Wake Lock : c'est la seule fonction qui sait
 // réellement s'il reste des vagues futures à attendre, donc c'est elle qui décide en
 // dernier ressort de tenir ou relâcher l'écran (voir la fin de la fonction). Les appelants
 // n'ont plus besoin d'appeler requestWakeLock() eux-mêmes après scheduleAlerts().
+// Ne vide pas le registre « déjà jouée » : elle ne retire que les entrées des séquences
+// terminées. Les vagues déjà passées depuis moins de ALERT_LATE_TOLERANCE_MS sont affichées
+// tout de suite ; les plus anciennes sont laissées au rattrapage.
 async function scheduleAlerts(typeId, startTime) {
+    clearAlertTimers(); // anciens chronomètres, avant d'en créer de nouveaux
     if (!('serviceWorker' in navigator)) { releaseWakeLock(); return; }
     if (Notification.permission !== 'granted') { releaseWakeLock(); return; }
 
-    // Cherche la config d'alerte pour ce type (doit être enabled)
-    const config = settings.alerts.find(a => a.typeId === typeId && a.enabled);
-    if (!config) { releaseWakeLock(); return; }
-
-    const label = getLabelForId(typeId);
-
-    // Annule les potentiels anciens chronomètres avant d'en créer de nouveaux
-    cancelAlerts();
+    const runs = getAlertRuns(typeId, startTime);
+    if (pruneSentAlerts(runs)) saveState();
+    if (runs.length === 0) { releaseWakeLock(); return; }
 
     const now = Date.now();
     let programmedCount = 0;
-    let maxDelayMs = 0; // NOUVEAU : Va mémoriser le moment de la toute dernière alerte
+    let maxDelayMs = 0; // Va mémoriser le moment de la toute dernière alerte
 
-    // Construit et lance les timers pour chaque vague (calcul du plan : voir alerts.js)
-    const plan = computeAlertPlan(config, getRunStart(config, typeId, startTime));
-    for (const { index: i, fireAt, mins, isLast } of plan) {
-        const count = config.wave ? (i + 1) : 1;
-        const delay = fireAt - now;
-
-        // Si le moment est déjà passé (ex: reprise après fermeture), on ignore
-        if (delay <= 0) {
-            console.log(`[scheduleAlerts] ⏳ Vague ${i + 1} ignorée (délai déjà écoulé)`);
-            continue;
-        }
-
-        // Programme chaque notification de la vague avec 1 seconde d'écart
-        for (let j = 0; j < count; j++) {
-            const notifDelay = delay + (j * 1000);
-            const tag = `pacing-w${i}-n${j}`;
-
-            // On enregistre le délai le plus lointain
-            if (notifDelay > maxDelayMs) {
-                maxDelayMs = notifDelay;
+    for (const run of runs) {
+        for (const wave of run.plan) {
+            if (isWavePlayed(run.config.id, run.runStart, wave.index)) continue;
+            const delay = wave.fireAt - now;
+            if (delay < -ALERT_LATE_TOLERANCE_MS) {
+                console.log(`[scheduleAlerts] ⏳ Vague ${wave.index + 1} ignorée (trop ancienne : rattrapage)`);
+                continue;
             }
-
-            const timerId = setTimeout(async () => {
-                // Guard : si trop tardif, visibilitychange s'en charge
-                if (Date.now() - fireAt > LATE_ALERT_THRESHOLD) {
-                    console.log(`[scheduleAlerts] ⚠️ Vague ${i + 1} abandonnée (>${LATE_ALERT_THRESHOLD / 1000}s de retard)`);
-                    return;
-                }
-                //const timerId = setTimeout(async () => {
-                const bells = '🔔'.repeat(count);
-                const title = isLast
-                    ? `${bells} ${label} (${t('alertLastReminder')})`
-                    : `${bells} ${label} (${t('alertReminderN', { n: i + 1 })})`;
-                const body = t('alertNotifBody', { mins, label, n: i + 1 });
-
-                // 1. On résout le Service Worker pile au moment du déclenchement
-                const registration = await navigator.serviceWorker.ready;
-
-                // 2. On cible l'instance aux commandes
-                const worker = navigator.serviceWorker.controller || registration.active;
-
-                if (worker) {
-                    worker.postMessage({
-                        type: 'DISPLAY_NOW',
-                        title: title,
-                        body: body,
-                        tag: tag
-                    });
-                    console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
-
-                    // Enregistre la vague envoyée
-                    state.sentAlerts.push({
-                        waveIndex: i,
-                        typeId: typeId,
-                        firedAt: Date.now(),
-                        mode: 'presence',
-                        source: 'timer'
-                    });
-                    saveState();
-
-                } else {
-                    console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
-                }
-            }, notifDelay);
-
-            localAlertTimers.push(timerId);
+            const fireDelay = Math.max(delay, 0);
+            if (fireDelay > maxDelayMs) maxDelayMs = fireDelay; // délai le plus lointain
+            localAlertTimers.push(setTimeout(() => fireReminder(run, wave), fireDelay));
+            programmedCount++;
+            console.log(`[scheduleAlerts] ⏱️ ${getAlertName(run.config)} vague ${wave.index + 1} programmée dans ${Math.round(fireDelay / 60000)} min`);
         }
-
-        programmedCount++;
-        console.log(`[scheduleAlerts] ⏱️ Vague ${i + 1} (${count}x) programmée dans ${Math.round(delay / 60000)} min`);
     }
 
-    console.log(`[scheduleAlerts] ${programmedCount} vague(s) future(s) programmée(s) pour typeId=${typeId}`);
+    console.log(`[scheduleAlerts] ${programmedCount} vague(s) programmée(s) pour ${runs.length} alerte(s)`);
 
     if (maxDelayMs > 0) {
         // Il reste au moins une vague future à attendre — l'écran doit rester allumé.
@@ -142,7 +125,7 @@ const INACTIVITY_DELAY = 20000; // 20000 = 20 secondes
 // 1. Fonction pour demander le Wake Lock
 async function requestWakeLock() {
     // CORRECTION : On cherche correctement dans settings.alerts
-    const hasActiveAlarms = settings.alerts.some(a => a.typeId === state.activeType && a.enabled);
+    const hasActiveAlarms = settings.alerts.some(a => a.enabled && a.typeIds.includes(state.activeType));
 
     if (!hasActiveAlarms) {
         console.log("[WakeLock] Aucune alarme active, Wake Lock inutile.");
@@ -213,88 +196,71 @@ function stopInactivityDetection() {
     document.getElementById('sleep-overlay').classList.add('hidden');
 }
 
-// Rattrapage des alertes manquées + reprogrammation des futures, au retour au premier plan.
+// Rattrapage des alertes en retard + reprogrammation des futures, au retour au premier plan.
 // Appelée par l'écouteur visibilitychange d'index.html (qui gère aussi le changement de jour).
+// Un SEUL rattrapage pour toutes les alertes : une notification qui regroupe, pour chaque alerte,
+// le rang de son dernier rappel dépassé (voir buildCatchupText). Toutes les vagues couvertes
+// sont marquées « jouées », pour qu'un autre canal (serveur) ne les rejoue pas.
+async function catchUpAlertsOnVisible() {
     // Pas de réacquisition du Wake Lock ici, volontairement : se fier à l'état de la
     // variable wakeLock à ce stade était fragile (un vrai relâchement système, normal
     // après extinction d'écran, pouvait laisser un état ambigu selon le moment exact).
-    // scheduleAlerts(), plus bas (étape 6), est la seule source de vérité : elle sait
+    // scheduleAlerts() (étape finale) est la seule source de vérité : elle sait
     // réellement s'il reste des vagues futures et décide alors de tenir ou relâcher.
-async function catchUpAlertsOnVisible() {
-    // 2. Pas de période active → rien à faire, si ce n'est s'assurer que le Wake Lock
+
+    // Pas de période active → rien à faire, si ce n'est s'assurer que le Wake Lock
     // n'est pas resté tenu par erreur (ex. après suppression de la période en cours).
     if (state.activeType === null || state.startTime === null) {
         releaseWakeLock();
         return;
     }
-    const config = settings.alerts.find(a => a.typeId === state.activeType && a.enabled);
-    if (!config) {
+    const runs = getAlertRuns(state.activeType, state.startTime);
+    if (runs.length === 0) {
         scheduleAlerts(state.activeType, state.startTime);
         return;
     }
 
     const now = Date.now();
 
-    // 3. Timestamp du dernier catchup envoyé pour ce type (0 si aucun)
-    const lastCatchupAt = state.sentAlerts
-        .filter(s => s.source === 'catchup' && s.typeId === state.activeType)
-        .reduce((max, s) => s.firedAt > max ? s.firedAt : max, 0);
-
-    // 4. Compter les vagues manquées depuis le dernier catchup
-    const plan = computeAlertPlan(config, getRunStart(config, state.activeType, state.startTime));
-    let missed = 0;
-    for (const { index: i, fireAt } of plan) {
-        const alreadySent = state.sentAlerts.some(
-            s => s.waveIndex === i && s.typeId === state.activeType
-        );
-
-        if (fireAt < now && !alreadySent && fireAt > lastCatchupAt) missed++;
+    // Vagues dépassées de plus que la tolérance et jamais jouées (les plus récentes sont
+    // laissées à scheduleAlerts, qui les affiche tout de suite comme rappels normaux).
+    const overdue = [];
+    for (const run of runs) {
+        const waves = run.plan.filter(w =>
+            now - w.fireAt > ALERT_LATE_TOLERANCE_MS && !isWavePlayed(run.config.id, run.runStart, w.index));
+        if (waves.length > 0) overdue.push({ run, waves });
     }
 
-    // 5. Envoyer UN catchup si des vagues ont été manquées depuis le dernier catchup
-    if (missed > 0) {
-        const label = getLabelForId(state.activeType);
-        const mins = Math.floor((now - state.startTime) / 60000);
-
-        const hasMoreWaves = plan.some(w => w.fireAt > now);
-
-        const title = hasMoreWaves
-            ? `🔔 ${label} (${t('alertCatchupN', { n: missed })})`
-            : `🔔 ${label} (${t('alertLastCatchup')})`;
-        const body = missed === 1
-            ? t('alertCatchupBody1', { mins, label })
-            : t('alertCatchupBodyN', { mins, label, n: missed });
+    if (overdue.length > 0) {
+        const items = overdue.map(({ run, waves }) => ({
+            name: getAlertName(run.config),
+            mins: Math.floor((now - run.runStart) / 60000),
+            n: waves[waves.length - 1].index + 1,
+            total: run.config.maxCount
+        }));
+        const { title, body } = buildCatchupText(items);
 
         try {
             const registration = await navigator.serviceWorker.ready;
             const worker = navigator.serviceWorker.controller || registration.active;
             if (worker) {
                 worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                console.log(`[visibilitychange] 🔔 Catchup : ${missed} vague(s) manquée(s)`);
-
-                state.sentAlerts.push({
-                    waveIndex: -1,
-                    typeId: state.activeType,
-                    firedAt: now,
-                    mode: 'presence',
-                    source: 'catchup'
-                });
+                console.log(`[visibilitychange] 🔔 Rattrapage : ${overdue.length} alerte(s) en retard`);
+                overdue.forEach(({ run, waves }) =>
+                    waves.forEach(w => markWavePlayed(run.config.id, run.runStart, w.index, 'catchup')));
                 saveState();
 
-                if (!hasMoreWaves) releaseWakeLock();
+                if (!runs.some(run => run.plan.some(w => w.fireAt > now))) releaseWakeLock();
             }
         } catch (e) {
-            console.error('[visibilitychange] ❌ Erreur catchup :', e);
+            console.error('[visibilitychange] ❌ Erreur rattrapage :', e);
         }
     } else {
-        console.log(`[visibilitychange] ✅ Retour visible — aucune vague manquée`);
+        console.log(`[visibilitychange] ✅ Retour visible — aucune vague en retard`);
     }
 
-    // 6. Reprogrammer les vagues futures
-    const savedSentAlerts = [...state.sentAlerts]; // sauvegarde
+    // Reprogrammer les vagues futures (le registre « déjà jouée » est conservé)
     scheduleAlerts(state.activeType, state.startTime);
-    state.sentAlerts = savedSentAlerts; // restauration après le cancelAlerts interne
-    saveState();
 
     console.log(`[visibilitychange] ✅ Alertes futures reprogrammées`);
     console.log(`[visibilitychange] ⏱️ Fin séquence retour visible`);

@@ -105,25 +105,25 @@
 
         Flux d'une alerte normale :
 
-        startPeriod() → scheduleAlerts(typeId, startTime) → setTimeout pour chaque vague
-        Au déclenchement: guard LATE_ALERT_THRESHOLD = 15000ms — si retard > 15s, abandon(visibilitychange prend le relais)
-        Envoi via postMessage DISPLAY_NOW au SW → showNotification()
-        Enregistrement dans state.sentAlerts[] + saveState()
+        startPeriod() → scheduleAlerts(typeId, startTime) → pour CHAQUE alerte active dont l'ensemble de types contient le type en cours : getRunStart() (début de la séquence continue dans l'ensemble) puis computeAlertPlan() → un setTimeout par vague
+        Vague déjà passée : si retard ≤ ALERT_LATE_TOLERANCE_MS (120 s) → jouée tout de suite comme un rappel normal ; au-delà → laissée au rattrapage
+        Envoi via postMessage DISPLAY_NOW au SW → showNotification() (tag pacing-<alertId>-w<n>)
+        Enregistrement dans state.sentAlerts[] + saveState() (le registre survit aux changements de type dans l'ensemble, purgé à la fin de la séquence)
         Après dernière vague: autoReleaseWakeLockTimer relâche le Wake Lock 60s plus tard
 
-        Flux visibilitychange(retour au premier plan) :
+        Flux visibilitychange(retour au premier plan) → catchUpAlertsOnVisible() :
 
         Re - acquérir Wake Lock si besoin
-        Calculer lastCatchupAt(timestamp du dernier catchup pour ce type)
-        Compter vagues manquées: fireAt < now && !alreadySent && fireAt > lastCatchupAt
-        Si missed > 0 → UNE notification catchup, enregistrée dans sentAlerts avec source: 'catchup'
-        Si plus de vagues futures après catchup → releaseWakeLock()
-        scheduleAlerts() reprogramme les futures — sentAlerts sauvegardé / restauré autour de cet appel
+        Pour chaque alerte concernée : vagues passées de plus de ALERT_LATE_TOLERANCE_MS et pas encore dans sentAlerts
+        Si au moins une → UNE SEULE notification de rattrapage pour toutes les alertes (tag pacing-catchup) : une alerte = « Rattrapage : nom », plusieurs = « Rattrapage : N alertes » + une ligne par alerte (durée décroissante) ; vagues marquées source: 'catchup'
+        scheduleAlerts() reprogramme les vagues futures ; si plus rien à attendre → releaseWakeLock()
+
+        Modèle d'une alerte (settings.alerts[]) : { id, typeIds: [..], enabled, threshold, interval, maxCount } ; nom calculé (libellés des types joints par « + »). Migration automatique depuis l'ancien format (typeId unique) dans normalizeAlerts().
 
         Structure sentAlerts dans pacingState:
 
-        javascript{ waveIndex, typeId, firedAt, mode: 'presence', source: 'timer' | 'catchup' }
-        // waveIndex = -1 pour les catchups
+        javascript{ alertId, runStart, waveIndex, firedAt, source: 'timer' | 'catchup' }
+        // clé d'une vague = (alertId, runStart, waveIndex) ; les anciennes entrées (format ≤ beta.4) sont inertes
 
         Wake Lock:
 
@@ -137,11 +137,11 @@
         Déverrouillage: swipe vers le haut
         Timer principal synchronisé via MutationObserver
 
-        Mode vagues croissantes: désactivé silencieusement(wave = false hardcodé), logique conservée dans le code
+        Mode vagues croissantes: supprimé (beta.5)
 
         Alertes serveur (POC, mode développeur) : le flux ci-dessus reste le mode « local ». Un mode « serveur »
         (Web Push depuis un Worker Cloudflare, fonctionne app fermée) est validé en POC sur Android mais pas encore
-        intégré aux vraies alertes. Les deux modes seront exclusifs (choix par appareil). Push vide, texte fixe
+        intégré aux vraies alertes. Deux canaux indépendants (local / serveur), donc trois combinaisons local / serveur / mixte (voir `docs/alertes-serveur.md`). Push vide, texte fixe
         dans sw.js (`PUSH_TEXTS`), écouteur `notificationclick` commun aux notifications locales et serveur.
         Protocole, décisions, limites et à-faire : `docs/alertes-serveur.md`.
 

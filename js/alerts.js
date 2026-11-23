@@ -1,8 +1,9 @@
-// js/alerts.js — Alertes de périodes : partie commune aux deux modes (local / serveur).
+// js/alerts.js — Alertes de périodes : partie commune aux canaux local et serveur.
 // Réglages des alertes (settings.alerts[]), interface de la liste et de la fenêtre d'édition,
+// plan d'alertes (séquences, vagues), registre « déjà jouée », textes des notifications,
 // état des notifications (permission, iOS, installation).
-//   Mode local (minuteries, Wake Lock, pseudo-veille, rattrapage) : js/alerts-local.js
-//   Mode serveur (Web Push, Worker Cloudflare)                     : js/alerts-server.js
+//   Canal local (minuteries, Wake Lock, pseudo-veille, rattrapage) : js/alerts-local.js
+//   Canal serveur (Web Push, Worker Cloudflare)                     : js/alerts-server.js
 // Script classique, pas un module : les fonctions doivent rester globales (le HTML généré
 // utilise des onclick="toggleAlert(...)"). Elles lisent settings, state, t()… définis dans
 // index.html, mais seulement à l'exécution (jamais au chargement du fichier).
@@ -10,16 +11,60 @@
 // ============================================================
 // 7. GESTION DES ALERTES DE PÉRIODES (réglages)
 // Lecture/écriture dans settings.alerts[].
-// Le fonctionnement effectif (notifications SW) sera implémenté séparément.
 // Structure d'une alerte :
-//   { typeId, enabled, threshold, interval, maxCount, wave }
+//   { id, typeIds, enabled, threshold, interval, maxCount }
+//   id        : identifiant stable (clé du registre « déjà jouée », balise des notifications)
+//   typeIds   : ensemble de types ; le seuil se compte sur le temps CONTINU passé dans cet
+//               ensemble (voir getRunStart). Un seul type = comportement historique.
+//   threshold : minutes avant la 1re notification ; interval : minutes entre rappels ;
+//   maxCount  : nombre total de notifications (1 à 5).
+// Le nom d'une alerte n'est jamais stocké : il est calculé (getAlertName) et suit donc
+// les renommages de types.
 // ============================================================
+
+// Identifiant court et unique pour une nouvelle alerte (lettres et chiffres uniquement).
+function newAlertId() {
+    return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// Met les alertes au format courant : typeId → typeIds, id ajouté, ancien champ « wave »
+// (vagues croissantes, abandonné) retiré. Idempotent. Retourne true si quelque chose a changé
+// (l'appelant enregistre alors les réglages).
+function normalizeAlerts() {
+    if (!Array.isArray(settings.alerts)) return false;
+    let changed = false;
+    settings.alerts.forEach(a => {
+        if (!Array.isArray(a.typeIds)) {
+            a.typeIds = Number.isInteger(a.typeId) ? [a.typeId] : [];
+            changed = true;
+        }
+        if ('typeId' in a) { delete a.typeId; changed = true; }
+        if ('wave' in a) { delete a.wave; changed = true; }
+        if (!a.id) { a.id = newAlertId(); changed = true; }
+    });
+    return changed;
+}
+
+// Nom affiché d'une alerte : libellés des types joints par « + » (calculé, jamais stocké).
+function getAlertName(a) {
+    return a.typeIds.map(id => getLabelForId(id) || `#${id}`).join(' + ');
+}
+
+// Deux alertes portent-elles sur le même ensemble de types ?
+function sameTypeSet(a, b) {
+    const x = [...a].sort((p, q) => p - q), y = [...b].sort((p, q) => p - q);
+    return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
+function isTypeActiveId(id) {
+    const tp = settings.types.find(x => x.id === id);
+    return !!(tp && tp.active);
+}
 
 // Rendu de la liste des alertes dans l'onglet réglages
 function renderAlertsList() {
     const container = document.getElementById('alerts-list');
     if (!container) return;
-    const active = getActiveTypes();
 
     if (!settings.alerts || settings.alerts.length === 0) {
         container.innerHTML = `<p style="opacity:0.5; font-size:0.85rem; margin:0 0 6px 0;">
@@ -28,9 +73,9 @@ function renderAlertsList() {
     }
 
     container.innerHTML = settings.alerts.map((alert, idx) => {
-        const alertColor = getColorForId(alert.typeId);
-        const label = getLabelForId(alert.typeId);
-        const waveLabel = alert.wave ? t('alertModeWave') : t('alertModeSingle');
+        const dots = alert.typeIds
+            .map(id => `<span style="color: ${getColorForId(id)}; font-weight:bold;">●</span>`)
+            .join(' + ');
         const toggleBg = alert.enabled ? 'var(--green)' : '#555';
         const togglePos = alert.enabled ? '22px' : '2px';
 
@@ -38,12 +83,12 @@ function renderAlertsList() {
                 <div style="display:flex; align-items:center; justify-content:space-between;
                             padding:10px 0; border-bottom:1px solid var(--border);">
                     <div style="flex-grow:1;">
-                        <span style="color: ${alertColor}; font-weight:bold;">●</span>
-                        <span style="font-weight:bold; margin-left:4px;">${label}</span>
+                        ${dots}
+                        <span style="font-weight:bold; margin-left:4px;">${getAlertName(alert)}</span>
                         <br>
                         <span style="font-size:0.8rem; opacity:0.7;">
                             ${t('alertThreshold')} ${alert.threshold} min ·
-                            +${alert.interval} min · ${alert.maxCount}x · ${waveLabel}
+                            +${alert.interval} min · ${alert.maxCount}x
                         </span>
                     </div>
                     <!-- Toggle ON/OFF -->
@@ -69,13 +114,12 @@ function openAlertModal(idx) {
     if (idx === -1) {
         alert(t('alertDevWarning', { notifParen: getNotifParenText(), iosLine: getIosLineText() }));
     }
-    // Modifier l'alerte d'un type inactif est refusé (le menu ne listerait pas ce type, et
-    // l'enregistrement produirait une alerte sans type valide) — elle reste supprimable.
+    // Modifier une alerte dont tous les types sont inactifs est refusé (le menu ne les listerait
+    // pas, et l'enregistrement produirait une alerte sans type valide) — elle reste supprimable.
     if (idx !== -1) {
         const a0 = settings.alerts[idx];
-        const tp0 = settings.types.find(x => x.id === a0.typeId);
-        if (!tp0 || !tp0.active) {
-            alert(t('alertTypeInactiveEdit', { label: getLabelForId(a0.typeId) || `#${a0.typeId}` }));
+        if (!a0.typeIds.some(isTypeActiveId)) {
+            alert(t('alertTypeInactiveEdit', { label: getAlertName(a0) }));
             return;
         }
     }
@@ -96,21 +140,14 @@ function openAlertModal(idx) {
         document.getElementById('alert-threshold').value = 30;
         document.getElementById('alert-interval').value = 10;
         document.getElementById('alert-maxcount').value = 3;
-        // document.getElementById('alert-wave-single').checked = true;
     } else {
         const a = settings.alerts[idx];
         document.getElementById('alert-modal-title').innerText = t('alertEditTitle');
         document.getElementById('alert-edit-index').value = idx;
-        document.getElementById('alert-type').value = a.typeId;
+        document.getElementById('alert-type').value = a.typeIds[0];
         document.getElementById('alert-threshold').value = a.threshold;
         document.getElementById('alert-interval').value = a.interval;
         document.getElementById('alert-maxcount').value = a.maxCount;
-        /*  if (a.wave) {
-              document.getElementById('alert-wave-multi').checked = true;
-          } else {
-              document.getElementById('alert-wave-single').checked = true;
-          }
-              */
     }
 
     document.getElementById('alertModal').style.display = 'flex';
@@ -118,6 +155,14 @@ function openAlertModal(idx) {
 
 function closeAlertModal() {
     document.getElementById('alertModal').style.display = 'none';
+}
+
+// Reprogramme les alertes de la période en cours après un changement de réglages.
+// scheduleAlerts() conserve le registre « déjà jouée » et relâche lui-même le Wake Lock
+// s'il ne reste aucune alerte active.
+function rescheduleAlertsForActivePeriod() {
+    if (state.activeType === null || state.startTime === null) return;
+    scheduleAlerts(state.activeType, state.startTime);
 }
 
 // Sauvegarde une alerte (nouvelle ou éditée)
@@ -128,9 +173,6 @@ function saveAlert() {
     const threshold = parseInt(document.getElementById('alert-threshold').value);
     const interval = parseInt(document.getElementById('alert-interval').value);
     const maxCount = parseInt(document.getElementById('alert-maxcount').value);
-    //const wave = document.getElementById('alert-wave-multi').checked;
-    const wave = false; //désactivation du mode
-
 
     // Validation minimale
     if (isNaN(threshold) || threshold < 1) return alert(t('alertValidThreshold'));
@@ -146,12 +188,19 @@ function saveAlert() {
         return;
     }
 
-    const newAlert = { typeId, enabled: true, threshold, interval, maxCount, wave };
+    // Le menu ne propose qu'un type : une alerte à plusieurs types (créée autrement) garde son
+    // ensemble tant que le type affiché n'a pas été changé.
+    const prev = idx !== -1 ? settings.alerts[idx] : null;
+    const keepSet = prev && prev.typeIds.length > 1 && prev.typeIds[0] === typeId;
+    const typeIds = keepSet ? [...prev.typeIds] : [typeId];
+
+    const newAlert = { id: prev ? prev.id : newAlertId(), typeIds, enabled: true, threshold, interval, maxCount };
 
     if (idx === -1) {
-        // Ajout — vérifie si une alerte pour ce type existe déjà et la remplace
-        const existing = settings.alerts.findIndex(a => a.typeId === typeId);
+        // Ajout — si une alerte existe déjà pour ce même ensemble de types, elle est remplacée
+        const existing = settings.alerts.findIndex(a => sameTypeSet(a.typeIds, typeIds));
         if (existing !== -1) {
+            newAlert.id = settings.alerts[existing].id;
             settings.alerts[existing] = newAlert;
         } else {
             settings.alerts.push(newAlert);
@@ -164,61 +213,60 @@ function saveAlert() {
     localStorage.setItem('pacingSettings', JSON.stringify(settings));
     closeAlertModal();
     renderAlertsList();
-    console.log(`[saveAlert] Alerte sauvegardée pour typeId=${typeId}`);
+    console.log(`[saveAlert] Alerte sauvegardée : ${newAlert.id} (typeIds=${typeIds.join(',')})`);
 
-    // Si on modifie une alerte qui concerne la période EN COURS — scheduleAlerts()
-    // décide lui-même de tenir ou relâcher le Wake Lock selon les vagues restantes,
-    // pas besoin de requestWakeLock() séparé ici.
-    if (state.activeType === typeId) {
-        cancelAlerts();
-        scheduleAlerts(state.activeType, state.startTime); // Met à jour le programme des notifs
-    }
+    // Alerte redéfinie : ses vagues déjà jouées ne comptent plus. scheduleAlerts() décide
+    // lui-même de tenir ou relâcher le Wake Lock selon les vagues restantes.
+    forgetSentAlerts(newAlert.id);
+    rescheduleAlertsForActivePeriod();
 }
 
 // Supprime une alerte
 function deleteAlert(idx) {
     if (!confirm(t('alertDeleteConfirm'))) return;
 
-    const typeId = settings.alerts[idx].typeId; // On mémorise le type avant suppression
+    const id = settings.alerts[idx].id;
     settings.alerts.splice(idx, 1);
     localStorage.setItem('pacingSettings', JSON.stringify(settings));
     renderAlertsList();
     console.log(`[deleteAlert] Alerte supprimée (index ${idx})`);
 
-    // Réagir si on supprime l'alerte de la période en cours
-    if (state.activeType === typeId) {
-        cancelAlerts();
-        scheduleAlerts(state.activeType, state.startTime);
-    }
+    forgetSentAlerts(id);
+    rescheduleAlertsForActivePeriod();
 }
 
-// Règle : quand un type devient inactif (quel que soit le mécanisme : toggle, profil, import),
-// ses alertes passent automatiquement à inactif (même toggle que d'habitude — un seul
-// moyen d'avoir une alerte inactive) ; on ne les réactive pas seul quand le type revient.
-// Supprime aussi les alertes sans type valide (typeId null/NaN, hérité d'un ancien bug
-// d'édition d'alerte). persist=false : l'appelant écrit lui-même les réglages (import JSON,
-// toggle de type...). Retourne true si l'alerte de la période EN COURS vient d'être
-// désactivée (l'appelant doit alors appeler rescheduleAlertsForActivePeriod()).
+// Règle : quand TOUS les types d'une alerte sont inactifs (quel que soit le mécanisme : toggle,
+// profil, import), l'alerte passe automatiquement à inactive (même toggle que d'habitude — un
+// seul moyen d'avoir une alerte inactive) ; on ne la réactive pas seule quand un type revient.
+// Tant qu'un type de l'ensemble reste actif, la définition n'est pas modifiée.
+// Retire aussi les types qui n'existent plus (typeId null/NaN, hérité d'un ancien bug
+// d'édition d'alerte) ; une alerte sans aucun type valide est supprimée.
+// persist=false : l'appelant écrit lui-même les réglages (import JSON, toggle de type...).
+// Retourne true si une alerte de la période EN COURS vient d'être désactivée (l'appelant
+// doit alors appeler rescheduleAlertsForActivePeriod()).
 function syncAlertsWithTypes(persist = true) {
     if (!Array.isArray(settings.alerts)) return false;
     let changed = false;
     let activeTypeAffected = false;
 
+    settings.alerts.forEach(a => {
+        const valid = a.typeIds.filter(id => settings.types.some(tp => tp.id === id));
+        if (valid.length !== a.typeIds.length) { a.typeIds = valid; changed = true; }
+    });
     const before = settings.alerts.length;
-    settings.alerts = settings.alerts.filter(a => settings.types.some(tp => tp.id === a.typeId));
+    settings.alerts = settings.alerts.filter(a => a.typeIds.length > 0);
     if (settings.alerts.length !== before) changed = true;
 
     settings.alerts.forEach(a => {
-        const tp = settings.types.find(x => x.id === a.typeId);
-        if (a.enabled && tp && !tp.active) {
+        if (a.enabled && !a.typeIds.some(isTypeActiveId)) {
             a.enabled = false;
             changed = true;
-            if (a.typeId === state.activeType) activeTypeAffected = true;
+            if (a.typeIds.includes(state.activeType)) activeTypeAffected = true;
         }
     });
 
     if (changed) {
-        console.log('[syncAlertsWithTypes] Alertes ajustées (type inactif ou type invalide)');
+        console.log('[syncAlertsWithTypes] Alertes ajustées (types inactifs ou invalides)');
         if (persist) {
             safeSave('pacingSettings', JSON.stringify(settings));
             if (document.getElementById('page-settings').classList.contains('active')) renderAlertsList();
@@ -227,36 +275,20 @@ function syncAlertsWithTypes(persist = true) {
     return activeTypeAffected;
 }
 
-// Reprogramme les alertes de la période en cours après un changement de réglages (même
-// schéma que le retour au premier plan : sentAlerts conservé autour de scheduleAlerts()).
-// scheduleAlerts() relâche lui-même le Wake Lock s'il ne reste aucune alerte active.
-function rescheduleAlertsForActivePeriod() {
-    if (state.activeType === null || state.startTime === null) return;
-    const savedSent = [...(state.sentAlerts || [])];
-    scheduleAlerts(state.activeType, state.startTime);
-    state.sentAlerts = savedSent;
-    saveState();
-}
-
 // Active/désactive une alerte via le toggle
 function toggleAlert(idx) {
-    // Activer l'alerte d'un type inactif est refusé : le type doit d'abord être réactivé.
-    if (!settings.alerts[idx].enabled) {
-        const tp = settings.types.find(x => x.id === settings.alerts[idx].typeId);
-        if (!tp || !tp.active) {
-            alert(t('alertTypeInactiveToggle', { label: getLabelForId(settings.alerts[idx].typeId) || `#${settings.alerts[idx].typeId}` }));
-            return;
-        }
+    const a = settings.alerts[idx];
+    // Activer une alerte dont tous les types sont inactifs est refusé : un type doit d'abord être réactivé.
+    if (!a.enabled && !a.typeIds.some(isTypeActiveId)) {
+        alert(t('alertTypeInactiveToggle', { label: getAlertName(a) }));
+        return;
     }
-    settings.alerts[idx].enabled = !settings.alerts[idx].enabled;
+    a.enabled = !a.enabled;
     localStorage.setItem('pacingSettings', JSON.stringify(settings));
     renderAlertsList();
-    console.log(`[toggleAlert] Alerte ${idx} : enabled=${settings.alerts[idx].enabled}`);
-    // Réagir si on désactive/réactive l'alerte de la période en cours
-    if (state.activeType === settings.alerts[idx].typeId) {
-        cancelAlerts();
-        scheduleAlerts(state.activeType, state.startTime);
-    }
+    console.log(`[toggleAlert] Alerte ${a.id} : enabled=${a.enabled}`);
+    forgetSentAlerts(a.id);
+    rescheduleAlertsForActivePeriod();
 }
 
 // Demande la permission notifications — appelée depuis un geste utilisateur (ex: saveAlert())
@@ -304,18 +336,38 @@ function getNotifParenText() {
     return ` (${getNotifStatusLabel()})`;
 }
 
+
 // ============================================================
 // PLAN D'ALERTES — calcul commun aux canaux local et serveur
 // ============================================================
 
-// Début de la séquence à partir de laquelle on compte le seuil d'une alerte.
-// Aujourd'hui : début de la période en cours (une alerte = un type). Point d'entrée prévu pour
-// les combinaisons de types (séquence continue de périodes accolées, calcul depuis l'historique).
+const RUN_GAP_TOLERANCE_MS = 1; // closePeriod() coupe à 23:59:59.999 : la suite démarre 1 ms plus tard
+
+// Début de la séquence sur laquelle une alerte compte son seuil : temps CONTINU passé dans
+// l'ensemble de types de l'alerte. On remonte l'historique depuis le début de la période en
+// cours tant que les périodes sont accolées (fin = début de la suivante, à 1 ms près) et d'un
+// type de l'ensemble. Changer de type à l'intérieur de l'ensemble ne remet donc rien à zéro ;
+// arrêter l'enregistrement (ou passer par un type hors ensemble) coupe la séquence.
+// Retourne null si le type actif n'appartient pas à l'ensemble (pas d'alerte).
+// Ne dépend pas de l'ordre de state.history (suppressions, imports).
 function getRunStart(config, activeType, startTime) {
-    return startTime;
+    if (!config.typeIds.includes(activeType)) return null;
+    const hist = state.history;
+    let cursor = startTime;
+    for (let guard = 0; guard < 100000; guard++) {
+        let found = null;
+        for (let i = hist.length - 1; i >= 0; i--) {
+            const e = hist[i];
+            if (e.start < cursor && e.end <= cursor && cursor - e.end <= RUN_GAP_TOLERANCE_MS
+                && config.typeIds.includes(e.typeId)) { found = e; break; }
+        }
+        if (!found) break;
+        cursor = found.start;
+    }
+    return cursor;
 }
 
-// Liste des vagues d'une alerte : { index, fireAt (ms), mins (minutes depuis le début), isLast }.
+// Liste des vagues d'une alerte : { index, fireAt (ms), mins (minutes depuis le début) }.
 // Fonction pure : ne lit ni l'état, ni l'heure, ni le DOM. Les vagues déjà passées sont incluses,
 // c'est à l'appelant de les écarter (programmation) ou de les rattraper (retour au premier plan).
 function computeAlertPlan(config, runStart) {
@@ -324,9 +376,80 @@ function computeAlertPlan(config, runStart) {
         plan.push({
             index: i,
             fireAt: runStart + config.threshold * 60000 + i * config.interval * 60000,
-            mins: config.threshold + i * config.interval,
-            isLast: i === config.maxCount - 1
+            mins: config.threshold + i * config.interval
         });
     }
     return plan;
+}
+
+// Alertes actives qui concernent le type en cours : [{ config, runStart, plan }].
+// Plusieurs alertes peuvent s'appliquer en même temps (ensembles qui se chevauchent).
+function getAlertRuns(typeId, startTime) {
+    const runs = [];
+    (settings.alerts || []).forEach(config => {
+        if (!config.enabled) return;
+        const runStart = getRunStart(config, typeId, startTime);
+        if (runStart === null) return;
+        runs.push({ config, runStart, plan: computeAlertPlan(config, runStart) });
+    });
+    return runs;
+}
+
+// ============================================================
+// REGISTRE « DÉJÀ JOUÉE » — state.sentAlerts (partagé par les canaux)
+// Une entrée par vague jouée : { alertId, runStart, waveIndex, firedAt, source }
+// source : 'timer' (rappel à l'heure) ou 'catchup' (couvert par un rattrapage).
+// La clé (alertId, runStart, waveIndex) ne dépend pas du type en cours : elle survit aux
+// changements de type à l'intérieur d'une séquence.
+// ============================================================
+
+function isWavePlayed(alertId, runStart, waveIndex) {
+    return state.sentAlerts.some(s => s.alertId === alertId && s.runStart === runStart && s.waveIndex === waveIndex);
+}
+
+function markWavePlayed(alertId, runStart, waveIndex, source) {
+    state.sentAlerts.push({ alertId, runStart, waveIndex, firedAt: Date.now(), source });
+}
+
+// Ne garde que les entrées des séquences en cours (les autres ne servent plus).
+// Retourne true si le registre a changé (l'appelant fait saveState()).
+function pruneSentAlerts(runs) {
+    const before = state.sentAlerts.length;
+    state.sentAlerts = state.sentAlerts.filter(s =>
+        runs.some(r => r.config.id === s.alertId && r.runStart === s.runStart));
+    return state.sentAlerts.length !== before;
+}
+
+// Oublie les vagues jouées d'une alerte (redéfinie, activée/désactivée, supprimée).
+function forgetSentAlerts(alertId) {
+    state.sentAlerts = state.sentAlerts.filter(s => s.alertId !== alertId);
+    saveState();
+}
+
+// ============================================================
+// TEXTES DES NOTIFICATIONS
+// ============================================================
+
+// Rappel à l'heure : titre = nom de l'alerte, corps = « 30 min (rappel 1/3) ».
+function buildReminderText(config, wave) {
+    return {
+        title: getAlertName(config),
+        body: t('alertNotifBody', { mins: wave.mins, n: wave.index + 1, total: config.maxCount })
+    };
+}
+
+// Rattrapage commun à toutes les alertes en retard.
+// items : [{ name, mins, n, total }], une entrée par alerte (n = rang du dernier rappel dépassé).
+// Une alerte : « Rattrapage : {nom} » / « 53 min (rappel 2/3) ».
+// Plusieurs : « Rattrapage : N alertes » / une ligne par alerte, la séquence la plus longue
+// d'abord (à durée égale, ordre des alertes dans les réglages : le tri est stable).
+function buildCatchupText(items) {
+    const sorted = [...items].sort((a, b) => b.mins - a.mins);
+    if (sorted.length === 1) {
+        return { title: t('alertCatchupTitle1', { name: sorted[0].name }), body: t('alertNotifBody', sorted[0]) };
+    }
+    return {
+        title: t('alertCatchupTitleN', { n: sorted.length }),
+        body: sorted.map(it => t('alertCatchupLine', it)).join('\n')
+    };
 }

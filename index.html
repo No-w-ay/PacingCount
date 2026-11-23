@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.4"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.5"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -533,25 +533,6 @@
             </label>
             <input type="number" id="alert-maxcount" min="1" max="5" step="1" value="3">
 
-            <!-- Désactivation silencieuse du mode vague croissante 1,2,3 ...
-
-            POUR MEMOIRE : à terme, une idée serait de remplacer les 2 modes de lancement d'alerte actuel (désactivés) par les 2 modes suivants :
-            1) mode alerte de présence dans un type de période (depuis le début de la période en cours) - permet de savoir depuis combien de temps on est actif (par ex)
-            2) mode alerte d'absence dans un type de période (depuis la fin de la dernière période de ce type) - permet de savoir depuis combien de temps on ne s'est pas reposé
-
-                      <label style="display:block; margin-top:15px;">Mode</label>
-            <div style="display:flex; gap:10px; margin-top:6px;">
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="radio" name="alert-wave" id="alert-wave-single" value="true" checked>
-                    <span>1 notification par rappel</span>
-                </label>
-                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                    <input type="radio" name="alert-wave" id="alert-wave-multi" value="false">
-                    <span>Vagues croissantes (1, 2, 3…)</span>
-                </label>
-            </div>
- -->
-
             <div style="display:flex; gap:10px; margin-top:25px;">
                 <button id="btn-alert-cancel" class="export-btn" style="background:#444; margin:0;"
                     onclick="closeAlertModal()">Annuler</button>
@@ -949,7 +930,7 @@
 
 
         // SNAP_THRESHOLD : déplacé près de snapAdjacentBorders() (section 17b).
-        // LATE_ALERT_THRESHOLD : voir js/alerts-local.js (près de scheduleAlerts()).
+        // ALERT_LATE_TOLERANCE_MS : voir js/alerts-local.js (près de scheduleAlerts()).
 
         // ============================================================
         // 2b. DÉTECTION DE LANGUE AU PREMIER LANCEMENT
@@ -1240,6 +1221,8 @@
 
         // Garantit que settings.alerts existe (sécurité si chargé depuis ancien localStorage)
         if (!settings.alerts) settings.alerts = [];
+        // Format courant des alertes (typeIds + id, sans l'ancien champ wave) — voir js/alerts.js
+        if (normalizeAlerts()) localStorage.setItem('pacingSettings', JSON.stringify(settings));
 
         // Garantit que settings.resultsExpandedTypes existe — état persisté des types "dépliés"
         // dans les détails chiffrés (Résultats, Chantier 1B). Défaut : type 4 (actif) seul,
@@ -2110,7 +2093,7 @@
         // Permission et état des notifications (requestNotificationPermission, getNotifStatusLabel,
         // isIOSDevice, isPWAInstalled, getIosLineText, getNotifParenText) → voir js/alerts.js
 
-        // ALERTES LOCALES (cancelAlerts, scheduleAlerts, LATE_ALERT_THRESHOLD) → voir js/alerts-local.js
+        // ALERTES LOCALES (cancelAlerts, scheduleAlerts, ALERT_LATE_TOLERANCE_MS) → voir js/alerts-local.js
 
         // ============================================================
         // 8. LOGIQUE MÉTIER : démarrage, arrêt, coupure des périodes
@@ -2127,8 +2110,9 @@
             state.startTime = now;
             saveState();
 
-            // Annule les alertes du type précédent, programme celles du nouveau
-            cancelAlerts();
+            // Reprogramme les alertes pour le nouveau type. Pas de cancelAlerts() ici : scheduleAlerts()
+            // remplace les minuteries, et le registre « déjà jouée » doit survivre à un changement de
+            // type à l'intérieur d'une même séquence (sinon les rappels déjà joués se rejoueraient).
             scheduleAlerts(typeId, now);
 
             // Correction affichage transitoire : on remet le timer à 00:00:00 et on
@@ -2934,6 +2918,8 @@
                 } else {
                     // Suppression normale dans l'historique
                     state.history.splice(i, 1);
+                    // Supprimer une période passée peut changer le début de la séquence en cours
+                    rescheduleAlertsForActivePeriod();
                 }
 
                 saveState();
