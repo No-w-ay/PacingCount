@@ -4,10 +4,14 @@
 // Partie commune (réglages, interface) : js/alerts.js.
 // Script classique : lit settings, state, t()… définis dans index.html, à l'exécution seulement.
 
-// Tolérance de retard : au-delà, une vague n'est plus affichée comme un rappel normal mais
-// regroupée dans un rattrapage (voir catchUpAlertsOnVisible). 2 min couvre le ralentissement
-// des minuteries en arrière-plan (~1 min). Le retard réel est journalisé pour calibrer cette valeur.
-const ALERT_LATE_TOLERANCE_MS = 120000;
+// Tolérance de retard : une vague seule d'une alerte, en retard d'au plus cette durée, est affichée
+// comme un rappel normal ; au-delà (ou si plusieurs vagues sont dues), elle est regroupée dans un
+// rattrapage (voir playDueWaves). 60 s = intervalle minimum entre deux rappels, donc une alerte
+// n'a jamais deux vagues « dans la tolérance ». Le retard réel est journalisé pour calibrer cette valeur.
+const ALERT_LATE_TOLERANCE_MS = 60000;
+// Avance acceptée : une minuterie qui se déclenche quelques instants avant l'heure exacte
+// (écart d'horloge) joue quand même sa vague.
+const ALERT_EARLY_MARGIN_MS = 1000;
 
 // Tableau pour stocker les IDs des setTimeout() locaux
 let localAlertTimers = [];
@@ -28,35 +32,64 @@ function cancelAlerts() {
     console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
 }
 
-// Affiche un rappel à l'heure (appelée par la minuterie d'une vague).
-async function fireReminder(run, wave) {
-    const { config, runStart } = run;
-    if (isWavePlayed(config.id, runStart, wave.index)) return; // déjà couverte (rattrapage, autre canal)
+// RÈGLE UNIQUE d'affichage, appelée par chaque minuterie ET au retour au premier plan : joue toutes
+// les vagues dues et pas encore jouées, de toutes les alertes concernées par la période en cours.
+// - Alerte dont une seule vague est due, en retard d'au plus ALERT_LATE_TOLERANCE_MS : rappel normal.
+// - Autres cas (plusieurs vagues dues, ou retard plus grand) : UN SEUL rattrapage pour toutes les
+//   alertes, avec le rang de la dernière vague due de chacune (voir buildCatchupText).
+// Les vagues sont marquées « jouées » AVANT toute attente (le SW peut être lent à répondre) : deux appels
+// simultanés (plusieurs minuteries qui se réveillent ensemble, retour visible) ne peuvent donc pas jouer
+// deux fois la même vague, ni afficher les vagues dans le désordre.
+async function playDueWaves() {
+    if (state.activeType === null || state.startTime === null) return;
+    const now = Date.now();
+    const runs = getAlertRuns(state.activeType, state.startTime);
 
-    const lateMs = Date.now() - wave.fireAt;
-    console.log(`[scheduleAlerts] ⏱️ ${getAlertName(config)} vague ${wave.index + 1} : retard réel ${lateMs} ms`);
-    // Trop tardif : le rattrapage (retour au premier plan) s'en charge.
-    if (lateMs > ALERT_LATE_TOLERANCE_MS) {
-        console.log(`[scheduleAlerts] ⚠️ Vague ${wave.index + 1} abandonnée (>${ALERT_LATE_TOLERANCE_MS / 1000}s de retard)`);
-        return;
+    const reminders = []; // rappels normaux : { run, wave }
+    const catchups = [];  // rattrapage : { run, waves }
+    for (const run of runs) {
+        const due = run.plan.filter(w =>
+            w.fireAt <= now + ALERT_EARLY_MARGIN_MS && !isWavePlayed(run.config.id, run.runStart, w.index));
+        if (due.length === 0) continue;
+        console.log(`[playDueWaves] ⏱️ ${getAlertName(run.config)} : ${due.length} vague(s) due(s), retard réel de la dernière ${now - due[due.length - 1].fireAt} ms`);
+        if (due.length === 1 && now - due[0].fireAt <= ALERT_LATE_TOLERANCE_MS) reminders.push({ run, wave: due[0] });
+        else catchups.push({ run, waves: due });
     }
-    const { title, body } = buildReminderText(config, wave);
-    const tag = `pacing-${config.id}-w${wave.index}`;
+    if (reminders.length === 0 && catchups.length === 0) return;
 
-    // On résout le Service Worker pile au moment du déclenchement
-    const registration = await navigator.serviceWorker.ready;
-    const worker = navigator.serviceWorker.controller || registration.active; // l'instance aux commandes
-    if (!worker) {
-        console.error("[scheduleAlerts] ❌ Impossible de trouver un SW actif pour la notif.");
-        return;
-    }
-    // Un rattrapage a pu couvrir cette vague pendant l'attente du SW
-    if (isWavePlayed(config.id, runStart, wave.index)) return;
-
-    worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag });
-    console.log(`[scheduleAlerts] 🔔 Message envoyé au SW actif : ${tag}`);
-    markWavePlayed(config.id, runStart, wave.index, 'timer');
+    // Marquage immédiat (synchrone), avant le premier await
+    const marked = [];
+    reminders.forEach(({ run, wave }) => marked.push(markWavePlayed(run.config.id, run.runStart, wave.index, 'timer')));
+    catchups.forEach(({ run, waves }) =>
+        waves.forEach(w => marked.push(markWavePlayed(run.config.id, run.runStart, w.index, 'catchup'))));
     saveState();
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const worker = navigator.serviceWorker.controller || registration.active; // l'instance aux commandes
+        if (!worker) throw new Error('aucun SW actif');
+
+        if (catchups.length > 0) {
+            const { title, body } = buildCatchupText(catchups.map(({ run, waves }) => ({
+                name: getAlertName(run.config),
+                mins: Math.floor((now - run.runStart) / 60000),
+                n: waves[waves.length - 1].index + 1,
+                total: run.config.maxCount
+            })));
+            worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
+            console.log(`[playDueWaves] 🔔 Rattrapage : ${catchups.length} alerte(s)`);
+        }
+        for (const { run, wave } of reminders) {
+            const { title, body } = buildReminderText(run.config, wave);
+            const tag = `pacing-${run.config.id}-w${wave.index}`;
+            worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag });
+            console.log(`[playDueWaves] 🔔 Message envoyé au SW actif : ${tag}`);
+        }
+    } catch (e) {
+        console.error('[playDueWaves] ❌ Notification impossible, vagues remises en attente :', e);
+        unmarkWavePlayed(marked);
+        saveState();
+    }
 }
 
 // Construit et programme les setTimeout en local, pour TOUTES les alertes actives qui
@@ -67,7 +100,7 @@ async function fireReminder(run, wave) {
 // n'ont plus besoin d'appeler requestWakeLock() eux-mêmes après scheduleAlerts().
 // Ne vide pas le registre « déjà jouée » : elle ne retire que les entrées des séquences
 // terminées. Les vagues déjà passées depuis moins de ALERT_LATE_TOLERANCE_MS sont affichées
-// tout de suite ; les plus anciennes sont laissées au rattrapage.
+// tout de suite (playDueWaves) ; les plus anciennes sont laissées au rattrapage du retour au premier plan.
 async function scheduleAlerts(typeId, startTime) {
     clearAlertTimers(); // anciens chronomètres, avant d'en créer de nouveaux
     if (!('serviceWorker' in navigator)) { releaseWakeLock(); return; }
@@ -91,7 +124,7 @@ async function scheduleAlerts(typeId, startTime) {
             }
             const fireDelay = Math.max(delay, 0);
             if (fireDelay > maxDelayMs) maxDelayMs = fireDelay; // délai le plus lointain
-            localAlertTimers.push(setTimeout(() => fireReminder(run, wave), fireDelay));
+            localAlertTimers.push(setTimeout(playDueWaves, fireDelay));
             programmedCount++;
             console.log(`[scheduleAlerts] ⏱️ ${getAlertName(run.config)} vague ${wave.index + 1} programmée dans ${Math.round(fireDelay / 60000)} min`);
         }
@@ -198,9 +231,9 @@ function stopInactivityDetection() {
 
 // Rattrapage des alertes en retard + reprogrammation des futures, au retour au premier plan.
 // Appelée par l'écouteur visibilitychange d'index.html (qui gère aussi le changement de jour).
-// Un SEUL rattrapage pour toutes les alertes : une notification qui regroupe, pour chaque alerte,
-// le rang de son dernier rappel dépassé (voir buildCatchupText). Toutes les vagues couvertes
-// sont marquées « jouées », pour qu'un autre canal (serveur) ne les rejoue pas.
+// Le rattrapage lui-même est playDueWaves() (règle unique, voir plus haut) ; ici on la lance puis
+// on reprogramme les vagues futures. Les vagues couvertes sont marquées « jouées », pour qu'un autre
+// canal (serveur) ne les rejoue pas.
 async function catchUpAlertsOnVisible() {
     // Pas de réacquisition du Wake Lock ici, volontairement : se fier à l'état de la
     // variable wakeLock à ce stade était fragile (un vrai relâchement système, normal
@@ -214,50 +247,8 @@ async function catchUpAlertsOnVisible() {
         releaseWakeLock();
         return;
     }
-    const runs = getAlertRuns(state.activeType, state.startTime);
-    if (runs.length === 0) {
-        scheduleAlerts(state.activeType, state.startTime);
-        return;
-    }
 
-    const now = Date.now();
-
-    // Vagues dépassées de plus que la tolérance et jamais jouées (les plus récentes sont
-    // laissées à scheduleAlerts, qui les affiche tout de suite comme rappels normaux).
-    const overdue = [];
-    for (const run of runs) {
-        const waves = run.plan.filter(w =>
-            now - w.fireAt > ALERT_LATE_TOLERANCE_MS && !isWavePlayed(run.config.id, run.runStart, w.index));
-        if (waves.length > 0) overdue.push({ run, waves });
-    }
-
-    if (overdue.length > 0) {
-        const items = overdue.map(({ run, waves }) => ({
-            name: getAlertName(run.config),
-            mins: Math.floor((now - run.runStart) / 60000),
-            n: waves[waves.length - 1].index + 1,
-            total: run.config.maxCount
-        }));
-        const { title, body } = buildCatchupText(items);
-
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const worker = navigator.serviceWorker.controller || registration.active;
-            if (worker) {
-                worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
-                console.log(`[visibilitychange] 🔔 Rattrapage : ${overdue.length} alerte(s) en retard`);
-                overdue.forEach(({ run, waves }) =>
-                    waves.forEach(w => markWavePlayed(run.config.id, run.runStart, w.index, 'catchup')));
-                saveState();
-
-                if (!runs.some(run => run.plan.some(w => w.fireAt > now))) releaseWakeLock();
-            }
-        } catch (e) {
-            console.error('[visibilitychange] ❌ Erreur rattrapage :', e);
-        }
-    } else {
-        console.log(`[visibilitychange] ✅ Retour visible — aucune vague en retard`);
-    }
+    await playDueWaves();
 
     // Reprogrammer les vagues futures (le registre « déjà jouée » est conservé)
     scheduleAlerts(state.activeType, state.startTime);

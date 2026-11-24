@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-11-23 (après 0.9.30-beta.5). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-11-24 (après 0.9.30-beta.6). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -25,8 +25,8 @@
 - **Revoir la section « détails chiffrés »** (`js/results.js`) pour une meilleure présentation : vue Résultats (couleurs pour les totaux…), durée moyenne et durée max d'une période active, petit graphe empilé du temps passé dans les périodes selon leur durée (0-20 % ; 20-40 % ; … > 100 %, 5 zones, Tmax à définir).
 - **Alertes de périodes** :
   - **alertes serveur (Web Push, Cloudflare)** : POC validée sur Android en beta.2 (voir `docs/alertes-serveur.md`). Reste : tests longs (30 min, 1 h, téléphone verrouillé, app fermée) et iOS ; bilan ; ~~extraction `js/alerts*.js`~~ (fait, beta.3) ; réglage de mode local / serveur ; intégration aux vraies alertes ; texte et langue des notifications ; période démarrée hors ligne ; limitation des abus ; `pushsubscriptionchange` ; confidentialité ; confirmer les hôtes push Apple / Microsoft ; sauvegarder la clé privée VAPID (gestionnaire de mots de passe) ;
-  - **beta.6 : interface des ensembles de types** (sélection multiple, un type coché par défaut, récapitulatif en ronds colorés reliés par « + », rendu de la liste sur petit écran). La logique (ensembles, rattrapage commun, tolérance 120 s, textes) est faite en beta.5 ; l'ancien « mode absence » est remplacé par les ensembles (cocher tous les autres types) ;
-  - calibrer la tolérance de 120 s d'après les retards réels journalisés ;
+  - **beta.7 : interface des ensembles de types** (sélection multiple, un type coché par défaut, récapitulatif en ronds colorés reliés par « + », rendu de la liste sur petit écran). La logique (ensembles, textes) est faite en beta.5 ; la règle d'affichage unique `playDueWaves()` et la tolérance de 60 s en beta.6 ; l'ancien « mode absence » est remplacé par les ensembles (cocher tous les autres types) ;
+  - calibrer la tolérance de 60 s d'après les retards réels journalisés ;
   - intégration serveur : plan et registre dans IndexedDB, push vide « trop tôt » / périmé (le SW décide d'après le plan local, ne joue rien d'avance, remet le serveur à jour, indicateur de synchronisation en attente), voir `docs/alertes-serveur.md` §7 ;
   - accompagnement pas-à-pas pour configurer les notifications (détection auto OS / version iOS, guide d'installation, test guidé) en remplacement du message d'avertissement actuel à la création d'une alerte.
   - *Bon moment pour extraire `js/alerts.js`* (voir « Architecture du code »).

@@ -408,7 +408,14 @@ function isWavePlayed(alertId, runStart, waveIndex) {
 }
 
 function markWavePlayed(alertId, runStart, waveIndex, source) {
-    state.sentAlerts.push({ alertId, runStart, waveIndex, firedAt: Date.now(), source });
+    const entry = { alertId, runStart, waveIndex, firedAt: Date.now(), source };
+    state.sentAlerts.push(entry);
+    return entry;
+}
+
+// Retire du registre des entrées (retournées par markWavePlayed) : la notification n'a pas pu être envoyée.
+function unmarkWavePlayed(entries) {
+    state.sentAlerts = state.sentAlerts.filter(s => !entries.includes(s));
 }
 
 // Ne garde que les entrées des séquences en cours (les autres ne servent plus).

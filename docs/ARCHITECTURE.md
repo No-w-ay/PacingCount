@@ -105,18 +105,17 @@
 
         Flux d'une alerte normale :
 
-        startPeriod() → scheduleAlerts(typeId, startTime) → pour CHAQUE alerte active dont l'ensemble de types contient le type en cours : getRunStart() (début de la séquence continue dans l'ensemble) puis computeAlertPlan() → un setTimeout par vague
-        Vague déjà passée : si retard ≤ ALERT_LATE_TOLERANCE_MS (120 s) → jouée tout de suite comme un rappel normal ; au-delà → laissée au rattrapage
-        Envoi via postMessage DISPLAY_NOW au SW → showNotification() (tag pacing-<alertId>-w<n>)
-        Enregistrement dans state.sentAlerts[] + saveState() (le registre survit aux changements de type dans l'ensemble, purgé à la fin de la séquence)
+        startPeriod() → scheduleAlerts(typeId, startTime) → pour CHAQUE alerte active dont l'ensemble de types contient le type en cours : getRunStart() (début de la séquence continue dans l'ensemble) puis computeAlertPlan() → un setTimeout par vague future
+        Chaque minuterie appelle playDueWaves() : RÈGLE UNIQUE, aussi appelée au retour visible (catchUpAlertsOnVisible). Elle prend toutes les vagues dues et non jouées de toutes les alertes ; une alerte avec UNE seule vague due, en retard d'au plus ALERT_LATE_TOLERANCE_MS (60 s) → rappel normal (tag pacing-<alertId>-w<n>) ; tous les autres cas → UN SEUL rattrapage (tag pacing-catchup) : une alerte = « Rattrapage : nom », plusieurs = « Rattrapage : N alertes » + une ligne par alerte (durée décroissante), rang = dernière vague due
+        Les vagues sont marquées dans state.sentAlerts[] (+ saveState()) AVANT l'attente du SW (pas de doublon ni de désordre si plusieurs minuteries se réveillent ensemble) ; si le SW est introuvable, le marquage est annulé (unmarkWavePlayed)
+        Envoi via postMessage DISPLAY_NOW au SW → showNotification()
+        Le registre survit aux changements de type dans l'ensemble, purgé à la fin de la séquence
         Après dernière vague: autoReleaseWakeLockTimer relâche le Wake Lock 60s plus tard
 
         Flux visibilitychange(retour au premier plan) → catchUpAlertsOnVisible() :
 
-        Re - acquérir Wake Lock si besoin
-        Pour chaque alerte concernée : vagues passées de plus de ALERT_LATE_TOLERANCE_MS et pas encore dans sentAlerts
-        Si au moins une → UNE SEULE notification de rattrapage pour toutes les alertes (tag pacing-catchup) : une alerte = « Rattrapage : nom », plusieurs = « Rattrapage : N alertes » + une ligne par alerte (durée décroissante) ; vagues marquées source: 'catchup'
-        scheduleAlerts() reprogramme les vagues futures ; si plus rien à attendre → releaseWakeLock()
+        playDueWaves() (rattrapage éventuel, voir ci-dessus), puis scheduleAlerts() reprogramme les vagues futures ; si plus rien à attendre → releaseWakeLock()
+        Pas de rattrapage au démarrage de l'app (seulement au retour visible et par les minuteries)
 
         Modèle d'une alerte (settings.alerts[]) : { id, typeIds: [..], enabled, threshold, interval, maxCount } ; nom calculé (libellés des types joints par « + »). Migration automatique depuis l'ancien format (typeId unique) dans normalizeAlerts().
 
