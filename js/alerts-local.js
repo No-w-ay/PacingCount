@@ -4,14 +4,8 @@
 // Partie commune (réglages, interface) : js/alerts.js.
 // Script classique : lit settings, state, t()… définis dans index.html, à l'exécution seulement.
 
-// Tolérance de retard : une vague seule d'une alerte, en retard d'au plus cette durée, est affichée
-// comme un rappel normal ; au-delà (ou si plusieurs vagues sont dues), elle est regroupée dans un
-// rattrapage (voir playDueWaves). 60 s = intervalle minimum entre deux rappels, donc une alerte
-// n'a jamais deux vagues « dans la tolérance ». Le retard réel est journalisé pour calibrer cette valeur.
-const ALERT_LATE_TOLERANCE_MS = 60000;
-// Avance acceptée : une minuterie qui se déclenche quelques instants avant l'heure exacte
-// (écart d'horloge) joue quand même sa vague.
-const ALERT_EARLY_MARGIN_MS = 1000;
+// Tolérances de retard (ALERT_LATE_TOLERANCE_MS, ALERT_EARLY_MARGIN_MS) et règle commune d'affichage :
+// voir js/alerts-shared-sw.js (partagé avec le service worker).
 
 // Tableau pour stocker les IDs des setTimeout() locaux
 let localAlertTimers = [];
@@ -28,6 +22,7 @@ function clearAlertTimers() {
 function cancelAlerts() {
     clearAlertTimers();
     state.sentAlerts = [];
+    mirrorPlayedFilter(() => false); // vide aussi la copie IndexedDB
     saveState();
     refreshAlertPlanStore(null, null); // plan vide : plus de période, plus de vagues
     console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
@@ -35,35 +30,35 @@ function cancelAlerts() {
 
 // RÈGLE UNIQUE d'affichage, appelée par chaque minuterie ET au retour au premier plan : joue toutes
 // les vagues dues et pas encore jouées, de toutes les alertes concernées par la période en cours.
+// La règle elle-même (alertsSelectDue / alertsBuildCatchup, js/alerts-shared-sw.js) est la même que
+// celle du service worker :
 // - Alerte dont une seule vague est due, en retard d'au plus ALERT_LATE_TOLERANCE_MS : rappel normal.
 // - Autres cas (plusieurs vagues dues, ou retard plus grand) : UN SEUL rattrapage pour toutes les
-//   alertes, avec le rang de la dernière vague due de chacune (voir buildCatchupText).
-// Les vagues sont marquées « jouées » AVANT toute attente (le SW peut être lent à répondre) : deux appels
-// simultanés (plusieurs minuteries qui se réveillent ensemble, retour visible) ne peuvent donc pas jouer
-// deux fois la même vague, ni afficher les vagues dans le désordre.
+//   alertes, avec le rang de la dernière vague due de chacune.
+// Les vagues sont marquées « jouées » AVANT toute attente d'affichage (le SW peut être lent à répondre) :
+// deux appels simultanés (plusieurs minuteries qui se réveillent ensemble, retour visible) ne peuvent donc
+// pas jouer deux fois la même vague, ni afficher les vagues dans le désordre. Seule la fusion préalable avec
+// le registre d'IndexedDB (mergePlayedFromStore) précède le choix : choix et marquage restent d'un seul tenant.
 async function playDueWaves() {
     if (state.activeType === null || state.startTime === null) return;
-    const now = Date.now();
-    const runs = getAlertRuns(state.activeType, state.startTime);
+    await mergePlayedFromStore(); // vagues déjà jouées par le service worker
 
-    const reminders = []; // rappels normaux : { run, wave }
-    const catchups = [];  // rattrapage : { run, waves }
-    for (const run of runs) {
-        const due = run.plan.filter(w =>
-            w.fireAt <= now + ALERT_EARLY_MARGIN_MS && !isWavePlayed(run.config.id, run.runStart, w.index));
-        if (due.length === 0) continue;
-        console.log(`[playDueWaves] ⏱️ ${getAlertName(run.config)} : ${due.length} vague(s) due(s), retard réel de la dernière ${now - due[due.length - 1].fireAt} ms`);
-        if (due.length === 1 && now - due[0].fireAt <= ALERT_LATE_TOLERANCE_MS) reminders.push({ run, wave: due[0] });
-        else catchups.push({ run, waves: due });
-    }
+    // Rien ci-dessous n'attend avant le marquage : choix et marquage forment un bloc synchrone.
+    if (state.activeType === null || state.startTime === null) return; // la période a pu s'arrêter pendant l'attente
+    const now = Date.now();
+    const plan = buildServerPlan(state.activeType, state.startTime);
+    const { reminders, catchups } = alertsSelectDue(plan.waves, state.sentAlerts, now);
     if (reminders.length === 0 && catchups.length === 0) return;
+
+    reminders.forEach(w => console.log(`[playDueWaves] ⏱️ ${w.name} : 1 vague due, retard réel ${now - w.fireAt} ms`));
+    catchups.forEach(c => console.log(`[playDueWaves] ⏱️ ${c.name} : ${c.waves.length} vague(s) due(s), retard réel de la dernière ${now - c.waves[c.waves.length - 1].fireAt} ms`));
 
     // Marquage immédiat (synchrone), avant le premier await
     const marked = [];
-    reminders.forEach(({ run, wave }) => marked.push(markWavePlayed(run.config.id, run.runStart, wave.index, 'timer')));
-    catchups.forEach(({ run, waves }) =>
-        waves.forEach(w => marked.push(markWavePlayed(run.config.id, run.runStart, w.index, 'catchup'))));
+    reminders.forEach(w => marked.push(markWavePlayed(w.alertId, w.runStart, w.index, 'timer')));
+    catchups.forEach(c => c.waves.forEach(w => marked.push(markWavePlayed(w.alertId, w.runStart, w.index, 'catchup'))));
     saveState();
+    mirrorPlayedAdd(marked);
 
     try {
         const registration = await navigator.serviceWorker.ready;
@@ -71,20 +66,13 @@ async function playDueWaves() {
         if (!worker) throw new Error('aucun SW actif');
 
         if (catchups.length > 0) {
-            const { title, body } = buildCatchupText(catchups.map(({ run, waves }) => ({
-                name: getAlertName(run.config),
-                mins: Math.floor((now - run.runStart) / 60000),
-                n: waves[waves.length - 1].index + 1,
-                total: run.config.maxCount
-            })));
+            const { title, body } = alertsBuildCatchup(catchups, plan.texts, now);
             worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag: 'pacing-catchup' });
             console.log(`[playDueWaves] 🔔 Rattrapage : ${catchups.length} alerte(s)`);
         }
-        for (const { run, wave } of reminders) {
-            const { title, body } = buildReminderText(run.config, wave);
-            const tag = `pacing-${run.config.id}-w${wave.index}`;
-            worker.postMessage({ type: 'DISPLAY_NOW', title, body, tag });
-            console.log(`[playDueWaves] 🔔 Message envoyé au SW actif : ${tag}`);
+        for (const w of reminders) {
+            worker.postMessage({ type: 'DISPLAY_NOW', title: w.title, body: w.body, tag: w.tag });
+            console.log(`[playDueWaves] 🔔 Message envoyé au SW actif : ${w.tag}`);
         }
     } catch (e) {
         console.error('[playDueWaves] ❌ Notification impossible, vagues remises en attente :', e);

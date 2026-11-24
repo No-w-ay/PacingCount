@@ -451,6 +451,10 @@ function isWavePlayed(alertId, runStart, waveIndex) {
     return state.sentAlerts.some(s => s.alertId === alertId && s.runStart === runStart && s.waveIndex === waveIndex);
 }
 
+// Le registre existe en deux copies : state.sentAlerts (celle de la page, synchrone : une vague est
+// marquée avant l'attente du service worker) et IndexedDB, clé 'played' (lisible par le service
+// worker). Chaque changement de la page est recopié dans IndexedDB ; mergePlayedFromStore() ajoute à
+// la copie de la page ce que le service worker a joué. Voir js/alerts-shared-sw.js.
 function markWavePlayed(alertId, runStart, waveIndex, source) {
     const entry = { alertId, runStart, waveIndex, firedAt: Date.now(), source };
     state.sentAlerts.push(entry);
@@ -460,20 +464,58 @@ function markWavePlayed(alertId, runStart, waveIndex, source) {
 // Retire du registre des entrées (retournées par markWavePlayed) : la notification n'a pas pu être envoyée.
 function unmarkWavePlayed(entries) {
     state.sentAlerts = state.sentAlerts.filter(s => !entries.includes(s));
+    const keys = new Set(entries.map(e => alertsWaveKey(e.alertId, e.runStart, e.waveIndex)));
+    mirrorPlayedFilter(s => !keys.has(alertsWaveKey(s.alertId, s.runStart, s.waveIndex)));
+}
+
+// Recopie dans IndexedDB (sans attendre ; une erreur n'empêche pas l'app de fonctionner).
+function mirrorPlayedAdd(entries) {
+    alertsPlayedAdd(entries).catch(e => console.warn('[registre] ⚠️ Copie IndexedDB (ajout) impossible :', e));
+}
+
+function mirrorPlayedFilter(keep) {
+    alertsPlayedFilter(keep).catch(e => console.warn('[registre] ⚠️ Copie IndexedDB (nettoyage) impossible :', e));
+}
+
+// Ajoute à la copie de la page les vagues jouées par un autre acteur (service worker). Appelée au début de
+// playDueWaves, donc avant toute décision d'affichage. Attente limitée : une IndexedDB qui ne répond pas
+// ne doit jamais empêcher une notification.
+async function mergePlayedFromStore() {
+    let timer = null;
+    try {
+        const stored = await Promise.race([
+            alertsPlayedRead(),
+            new Promise(resolve => { timer = setTimeout(() => resolve(null), 800); })
+        ]);
+        if (!stored) return;
+        const merged = alertsMergePlayed(state.sentAlerts, stored);
+        if (merged.length !== state.sentAlerts.length) {
+            console.log(`[registre] 🔄 ${merged.length - state.sentAlerts.length} vague(s) jouée(s) ailleurs ajoutée(s)`);
+            state.sentAlerts = merged;
+            saveState();
+        }
+    } catch (e) {
+        console.warn('[registre] ⚠️ Lecture IndexedDB impossible :', e);
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 // Ne garde que les entrées des séquences en cours (les autres ne servent plus).
 // Retourne true si le registre a changé (l'appelant fait saveState()).
 function pruneSentAlerts(runs) {
     const before = state.sentAlerts.length;
-    state.sentAlerts = state.sentAlerts.filter(s =>
-        runs.some(r => r.config.id === s.alertId && r.runStart === s.runStart));
-    return state.sentAlerts.length !== before;
+    const keep = s => runs.some(r => r.config.id === s.alertId && r.runStart === s.runStart);
+    state.sentAlerts = state.sentAlerts.filter(keep);
+    if (state.sentAlerts.length === before) return false;
+    mirrorPlayedFilter(keep);
+    return true;
 }
 
 // Oublie les vagues jouées d'une alerte (redéfinie, activée/désactivée, supprimée).
 function forgetSentAlerts(alertId) {
     state.sentAlerts = state.sentAlerts.filter(s => s.alertId !== alertId);
+    mirrorPlayedFilter(s => s.alertId !== alertId);
     saveState();
 }
 
@@ -489,28 +531,13 @@ function buildReminderText(config, wave) {
     };
 }
 
-// Rattrapage commun à toutes les alertes en retard.
-// items : [{ name, mins, n, total }], une entrée par alerte (n = rang du dernier rappel dépassé).
-// Une alerte : « Rattrapage : {nom} » / « 53 min (rappel 2/3) ».
-// Plusieurs : « Rattrapage : N alertes » / une ligne par alerte, la séquence la plus longue
-// d'abord (à durée égale, ordre des alertes dans les réglages : le tri est stable).
-function buildCatchupText(items) {
-    const sorted = [...items].sort((a, b) => b.mins - a.mins);
-    if (sorted.length === 1) {
-        return { title: t('alertCatchupTitle1', { name: sorted[0].name }), body: t('alertNotifBody', sorted[0]) };
-    }
-    return {
-        title: t('alertCatchupTitleN', { n: sorted.length }),
-        body: sorted.map(it => t('alertCatchupLine', it)).join('\n')
-    };
-}
-
 // ============================================================
 // PLAN DES ALERTES POUR LE SERVICE WORKER (stocké dans IndexedDB, clé 'plan')
 // Toutes les vagues (passées et futures) de la séquence en cours, avec leur texte déjà traduit :
 // le service worker n'a ni translations.js ni les réglages. Les modèles du rattrapage sont
 // stockés tels quels (avec leurs {variables}) : seuls le nom, la durée et le rang sont connus
-// au moment de l'affichage. Aucun horodatage de construction : deux plans identiques donnent
+// au moment de l'affichage. alertOrder = position de l'alerte dans les réglages (ordre des lignes
+// du rattrapage à durée égale). Le plan est lu par la page (playDueWaves) comme par le service worker. Aucun horodatage de construction : deux plans identiques donnent
 // le même JSON, ce qui permet de ne pas réécrire inutilement.
 // ============================================================
 
@@ -519,10 +546,11 @@ function buildServerPlan(typeId, startTime) {
     if (typeId !== null && startTime !== null) {
         getAlertRuns(typeId, startTime).forEach(run => {
             const name = getAlertName(run.config);
+            const alertOrder = settings.alerts.indexOf(run.config);
             run.plan.forEach(wave => {
                 const text = buildReminderText(run.config, wave);
                 waves.push({
-                    alertId: run.config.id, name, runStart: run.runStart,
+                    alertId: run.config.id, alertOrder, name, runStart: run.runStart,
                     index: wave.index, total: run.config.maxCount, mins: wave.mins, fireAt: wave.fireAt,
                     tag: `pacing-${run.config.id}-w${wave.index}`, title: text.title, body: text.body
                 });
@@ -545,8 +573,9 @@ let alertPlanLastJson = null; // dernier plan écrit (ou en cours d'écriture) :
 // Enregistre le plan courant s'il a changé. Appelée à chaque (re)programmation des alertes,
 // quand la page passe en arrière-plan et au changement de langue. Sans effet bloquant :
 // si IndexedDB est indisponible, l'app continue normalement (canal local).
-async function refreshAlertPlanStore(typeId = state.activeType, startTime = state.startTime) {
+async function refreshAlertPlanStore(typeId, startTime) {
     try {
+        if (typeId === undefined) { typeId = state.activeType; startTime = state.startTime; } // sans argument : période en cours
         const plan = buildServerPlan(typeId, startTime);
         const json = JSON.stringify(plan);
         if (json === alertPlanLastJson) return;

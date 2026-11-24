@@ -7,14 +7,19 @@
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
     `daily-data.js`, `results.js`, et les quatre fichiers des alertes :
-    `alerts-store.js` (stockage IndexedDB clé → valeur, sans `window` ni `document` pour pouvoir être chargé par
-    le service worker ; contient le plan des alertes, clé `plan`),
-    `alerts.js` (partie commune : réglages `settings.alerts[]`, interface, état des notifications,
+    `alerts-shared-sw.js` (**code partagé entre la page et le service worker** : stockage IndexedDB, registre
+    « déjà jouée » partagé, règle commune `alertsSelectDue` / `alertsBuildCatchup`, constantes de tolérance ;
+    aucune référence à `window`, `document`, `settings`, `state`, `t()` : chargé par `<script src>` dans index.html
+    et, à partir de la beta.10, par `importScripts()` dans `sw.js`),
+    `alerts.js` (partie commune de la page : réglages `settings.alerts[]`, interface, état des notifications,
     plan d'alertes : `getRunStart()` et `computeAlertPlan()`, fonction pure partagée par les canaux ;
     `buildServerPlan()` / `refreshAlertPlanStore()` : plan avec textes pré-traduits, enregistré dans IndexedDB
-    à chaque `scheduleAlerts()` / `cancelAlerts()`, au passage en arrière-plan ; aucun consommateur avant beta.9),
-    `alerts-local.js` (mode local : minuteries, Wake Lock, pseudo-veille, rattrapage,
-    `catchUpAlertsOnVisible()` appelée par l'écouteur `visibilitychange` d'index.html) et
+    à chaque `scheduleAlerts()` / `cancelAlerts()`, au passage en arrière-plan, au changement de langue et à
+    l'enregistrement des réglages ; copie du registre « déjà jouée » dans IndexedDB : `mirrorPlayed*`,
+    `mergePlayedFromStore()`),
+    `alerts-local.js` (mode local : minuteries, Wake Lock, pseudo-veille, `playDueWaves()` (règle unique
+    d'affichage, appelée par les minuteries et au retour visible), `catchUpAlertsOnVisible()` appelée par
+    l'écouteur `visibilitychange` d'index.html) et
     `alerts-server.js` (mode serveur, POC : abonnement Web Push + envoi des horaires au Worker ;
     voir `docs/alertes-serveur.md`). `scheduleAlerts`, `cancelAlerts` et `releaseWakeLock`
     sont pour l'instant dans `alerts-local.js` ; ils deviendront les points d'entrée communs
