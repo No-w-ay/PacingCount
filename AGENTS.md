@@ -6,3 +6,8 @@
 - Préserve mes changements préexistants. Fais des changements ciblés et vérifie le diff avant de terminer.
 - Après une modification autorisée, indique les fichiers changés, les vérifications effectuées et les éventuelles limites.
 - Si le besoin, le comportement attendu ou le risque d'une action n'est pas clair, arrête-toi et demande-moi.
+
+## Usage de Copilot dans VS Code
+
+- L'exécution d'une commande proposée par Copilot peut afficher une demande de confirmation dans VS Code; l'utilisateur confirme ou refuse son exécution.
+- Ne contourne pas cette confirmation et ne considère pas l'accord pour une commande comme une autorisation générale pour des commandes ou actions distinctes.
