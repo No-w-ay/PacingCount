@@ -6,9 +6,13 @@
     timeline, navigation, init, swipe)
   - `style.css` ; `sw.js`, `manifest.json`, `messages.json`, `chart.js`, `inapp-spy.js`
   - `js/` : `translations.js`, `install.js`, `evolution.js`, `import-export.js`,
-    `daily-data.js`, `results.js`, et les trois fichiers des alertes :
+    `daily-data.js`, `results.js`, et les quatre fichiers des alertes :
+    `alerts-store.js` (stockage IndexedDB clé → valeur, sans `window` ni `document` pour pouvoir être chargé par
+    le service worker ; contient le plan des alertes, clé `plan`),
     `alerts.js` (partie commune : réglages `settings.alerts[]`, interface, état des notifications,
-    plan d'alertes : `getRunStart()` et `computeAlertPlan()`, fonction pure partagée par les canaux),
+    plan d'alertes : `getRunStart()` et `computeAlertPlan()`, fonction pure partagée par les canaux ;
+    `buildServerPlan()` / `refreshAlertPlanStore()` : plan avec textes pré-traduits, enregistré dans IndexedDB
+    à chaque `scheduleAlerts()` / `cancelAlerts()`, au passage en arrière-plan ; aucun consommateur avant beta.9),
     `alerts-local.js` (mode local : minuteries, Wake Lock, pseudo-veille, rattrapage,
     `catchUpAlertsOnVisible()` appelée par l'écouteur `visibilitychange` d'index.html) et
     `alerts-server.js` (mode serveur, POC : abonnement Web Push + envoi des horaires au Worker ;

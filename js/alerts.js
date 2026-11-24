@@ -504,3 +504,57 @@ function buildCatchupText(items) {
         body: sorted.map(it => t('alertCatchupLine', it)).join('\n')
     };
 }
+
+// ============================================================
+// PLAN DES ALERTES POUR LE SERVICE WORKER (stocké dans IndexedDB, clé 'plan')
+// Toutes les vagues (passées et futures) de la séquence en cours, avec leur texte déjà traduit :
+// le service worker n'a ni translations.js ni les réglages. Les modèles du rattrapage sont
+// stockés tels quels (avec leurs {variables}) : seuls le nom, la durée et le rang sont connus
+// au moment de l'affichage. Aucun horodatage de construction : deux plans identiques donnent
+// le même JSON, ce qui permet de ne pas réécrire inutilement.
+// ============================================================
+
+function buildServerPlan(typeId, startTime) {
+    const waves = [];
+    if (typeId !== null && startTime !== null) {
+        getAlertRuns(typeId, startTime).forEach(run => {
+            const name = getAlertName(run.config);
+            run.plan.forEach(wave => {
+                const text = buildReminderText(run.config, wave);
+                waves.push({
+                    alertId: run.config.id, name, runStart: run.runStart,
+                    index: wave.index, total: run.config.maxCount, mins: wave.mins, fireAt: wave.fireAt,
+                    tag: `pacing-${run.config.id}-w${wave.index}`, title: text.title, body: text.body
+                });
+            });
+        });
+        waves.sort((a, b) => a.fireAt - b.fireAt);
+    }
+    return {
+        v: 1, lang: settings.lang,
+        texts: {
+            notifBody: t('alertNotifBody'), catchupTitle1: t('alertCatchupTitle1'),
+            catchupTitleN: t('alertCatchupTitleN'), catchupLine: t('alertCatchupLine')
+        },
+        waves
+    };
+}
+
+let alertPlanLastJson = null; // dernier plan écrit (ou en cours d'écriture) : évite les écritures inutiles
+
+// Enregistre le plan courant s'il a changé. Appelée à chaque (re)programmation des alertes,
+// quand la page passe en arrière-plan et au changement de langue. Sans effet bloquant :
+// si IndexedDB est indisponible, l'app continue normalement (canal local).
+async function refreshAlertPlanStore(typeId = state.activeType, startTime = state.startTime) {
+    try {
+        const plan = buildServerPlan(typeId, startTime);
+        const json = JSON.stringify(plan);
+        if (json === alertPlanLastJson) return;
+        alertPlanLastJson = json; // avant l'attente : deux appels rapprochés ne doublent pas l'écriture
+        await alertsStoreSet('plan', plan);
+        console.log(`[plan] 💾 Plan des alertes enregistré (${plan.waves.length} vague(s))`);
+    } catch (e) {
+        alertPlanLastJson = null; // prochain appel : nouvel essai
+        console.warn('[plan] ⚠️ Plan des alertes non enregistré :', e);
+    }
+}

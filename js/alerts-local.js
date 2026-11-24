@@ -29,6 +29,7 @@ function cancelAlerts() {
     clearAlertTimers();
     state.sentAlerts = [];
     saveState();
+    refreshAlertPlanStore(null, null); // plan vide : plus de période, plus de vagues
     console.log('[cancelAlerts] 🛑 Toutes les alertes locales annulées.');
 }
 
@@ -103,6 +104,7 @@ async function playDueWaves() {
 // tout de suite (playDueWaves) ; les plus anciennes sont laissées au rattrapage du retour au premier plan.
 async function scheduleAlerts(typeId, startTime) {
     clearAlertTimers(); // anciens chronomètres, avant d'en créer de nouveaux
+    refreshAlertPlanStore(typeId, startTime); // plan stocké pour le service worker (voir alerts.js)
     if (!('serviceWorker' in navigator)) { releaseWakeLock(); return; }
     if (Notification.permission !== 'granted') { releaseWakeLock(); return; }
 

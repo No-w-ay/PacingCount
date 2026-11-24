@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-11-24 (après 0.9.30-beta.7). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-11-24 (après 0.9.30-beta.8). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -27,7 +27,7 @@
   - **alertes serveur (Web Push, Cloudflare)** : POC validée sur Android en beta.2 (voir `docs/alertes-serveur.md`). Reste : tests longs (30 min, 1 h, téléphone verrouillé, app fermée) et iOS ; bilan ; ~~extraction `js/alerts*.js`~~ (fait, beta.3) ; réglage de mode local / serveur ; intégration aux vraies alertes ; texte et langue des notifications ; période démarrée hors ligne ; limitation des abus ; `pushsubscriptionchange` ; confidentialité ; confirmer les hôtes push Apple / Microsoft ; sauvegarder la clé privée VAPID (gestionnaire de mots de passe) ;
   - ~~interface des ensembles de types~~ **faite en 0.9.30-beta.7** (pastilles, récapitulatif sur deux lignes, confirmation de doublon) ; à valider sur appareil ; troncature des noms longs : à revoir seulement si nécessaire. Logique des ensembles et textes : beta.5 ; règle d'affichage `playDueWaves()` et tolérance 60 s : beta.6 ;
   - calibrer la tolérance de 60 s d'après les retards réels journalisés ;
-  - intégration serveur : plan et registre dans IndexedDB, push vide « trop tôt » / périmé (le SW décide d'après le plan local, ne joue rien d'avance, remet le serveur à jour, indicateur de synchronisation en attente), voir `docs/alertes-serveur.md` §7 ;
+  - intégration serveur (plan dans IndexedDB : fait en beta.8, sans consommateur ; reste : registre dans IndexedDB, push vide « trop tôt » / périmé (le SW décide d'après le plan local, ne joue rien d'avance, remet le serveur à jour, indicateur de synchronisation en attente)), voir `docs/alertes-serveur.md` §7 ;
   - accompagnement pas-à-pas pour configurer les notifications (détection auto OS / version iOS, guide d'installation, test guidé) en remplacement du message d'avertissement actuel à la création d'une alerte.
   - *Bon moment pour extraire `js/alerts.js`* (voir « Architecture du code »).
 - **Questions d'export** : export XLSX (écrit directement depuis les structures internes) ; `removeAccents()` dans `exportCSV()`.

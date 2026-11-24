@@ -49,7 +49,7 @@
 - **Écouteur `push` du SW** : toujours afficher une notification (`userVisibleOnly: true`). Le push est vide ; le texte est fixe dans `sw.js`, jamais déduit d'une donnée reçue.
 - **`deviceId`** (`pushDeviceId`) : clé locale à part, jamais dans l'export ; il sert d'accès côté serveur.
 - **Worker** : se déploie séparément (`npx wrangler deploy` depuis `cf-worker/`), pas par `git push`. Aucun secret dans le dépôt (`.dev.vars` ignoré). Une origine autorisée = schéma + domaine, sans chemin.
-- **Fichiers d'alertes** : `js/alerts.js`, `js/alerts-local.js`, `js/alerts-server.js` sont des scripts classiques ; les fonctions appelées par un `onclick="…"` du HTML généré (ex. `toggleAlert`) doivent rester globales, et aucun code de ces fichiers ne doit lire le DOM au chargement (ils sont dans le `<head>`).
+- **Fichiers d'alertes** : `js/alerts-store.js`, `js/alerts.js`, `js/alerts-local.js`, `js/alerts-server.js` sont des scripts classiques ; les fonctions appelées par un `onclick="…"` du HTML généré (ex. `toggleAlert`) doivent rester globales, et aucun code de ces fichiers ne doit lire le DOM au chargement (ils sont dans le `<head>`).
 - Détails : `docs/alertes-serveur.md`.
 
 ## Import / export

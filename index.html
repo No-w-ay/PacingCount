@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.8"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -51,6 +51,7 @@
     <script src="js/import-export.js"></script>
     <script src="js/daily-data.js"></script>
     <script src="js/results.js"></script>
+    <script src="js/alerts-store.js"></script>
     <script src="js/alerts.js"></script>
     <script src="js/alerts-local.js"></script>
     <script src="js/alerts-server.js"></script>
@@ -4519,7 +4520,12 @@
         // Au retour en visible : rattrapage des alertes manquées + reprogrammation des futures.
         // NOUVEAU : AVEC enregistrement des alertes déjà jouées, pour ne pas en perdre la mémoire si nouvelle veille
         document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState !== 'visible') return;
+            if (document.visibilityState !== 'visible') {
+                // Dernier instantané du plan des alertes avant de quitter le premier plan
+                // (couvre les changements sans reprogrammation : renommage d'un type, langue…)
+                refreshAlertPlanStore();
+                return;
+            }
             console.log(`[visibilitychange] ⏱️ Début séquence retour visible`);
 
             // 1b. Nouveau jour détecté pendant la veille → avancer historyEndDate à aujourd'hui,
