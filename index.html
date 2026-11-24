@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.6"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.7"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -514,9 +514,10 @@
             <h3 id="alert-modal-title" style="margin-top:0;">Nouvelle alerte</h3>
             <input type="hidden" id="alert-edit-index">
 
-            <label id="label-alert-type" for="alert-type" style="display:block; margin-top:10px;">Type de
-                période</label>
-            <select id="alert-type"></select>
+            <label id="label-alert-type" style="display:block; margin-top:10px;">Périodes concernées</label>
+            <div id="alert-types-picker" class="alert-chips"></div>
+            <div id="alert-types-recap" class="alert-set alert-set-recap"></div>
+            <p id="alert-types-hint" class="alert-hint"></p>
 
             <label id="label-alert-threshold" for="alert-threshold" style="display:block; margin-top:15px;">
                 1re alerte après (min)
@@ -2721,6 +2722,7 @@
 
             // Modal alertes de période
             document.getElementById('label-alert-type').innerText = t('alertType');
+            document.getElementById('alert-types-hint').innerText = t('alertTypesHint');
             document.getElementById('label-alert-threshold').innerText = t('alertThresholdModalLabel');
             document.getElementById('label-alert-interval').innerText = t('alertInterval');
             document.getElementById('label-alert-maxcount').innerText = t('alertMaxCount');

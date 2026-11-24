@@ -452,6 +452,67 @@
          padding: 8px 12px;
      }
 
+     /* Alertes : sélection des types (pastilles) et affichage d'un ensemble de types */
+     .alert-chips {
+         display: flex;
+         flex-wrap: wrap;
+         gap: 8px;
+         margin-top: 8px;
+     }
+
+     .alert-chip {
+         display: inline-flex;
+         align-items: center;
+         gap: 6px;
+         min-height: 44px;
+         padding: 6px 12px;
+         border: 2px solid var(--chip-color, var(--border));
+         border-radius: 22px;
+         background: transparent;
+         color: var(--text-color);
+         font-size: 0.95rem;
+         cursor: pointer;
+         opacity: 0.6;
+     }
+
+     .alert-chip.on {
+         opacity: 1;
+         font-weight: bold;
+         background: color-mix(in srgb, var(--chip-color, var(--border)) 25%, transparent);
+     }
+
+     .alert-chip.inactive {
+         border-style: dashed;
+     }
+
+     .alert-chip-check {
+         display: none;
+     }
+
+     .alert-chip.on .alert-chip-check {
+         display: inline;
+     }
+
+     .alert-set-dots {
+         font-weight: bold;
+     }
+
+     .alert-set-labels {
+         font-size: 0.9rem;
+         opacity: 0.85;
+     }
+
+     .alert-set-recap {
+         margin-top: 10px;
+         min-height: 2.6em;
+     }
+
+     .alert-hint {
+         font-size: 0.8rem;
+         opacity: 0.6;
+         margin: 4px 0 0 0;
+     }
+
      .add-btn {
          background: var(--green);
          color: white;

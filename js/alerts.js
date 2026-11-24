@@ -61,6 +61,22 @@ function isTypeActiveId(id) {
     return !!(tp && tp.active);
 }
 
+// Affichage d'un ensemble de types (liste des alertes et récapitulatif du modal) :
+// un seul type = une ligne « ● Libellé » ; plusieurs = ligne 1 les ronds reliés par « + »,
+// ligne 2 les libellés reliés par « + » (retour à la ligne si trop long, sans troncature).
+function renderAlertSetHtml(typeIds) {
+    const dot = id => `<span style="color: ${getColorForId(id)};">●</span>`;
+    if (typeIds.length === 1) {
+        return `<div class="alert-set"><span class="alert-set-dots">${dot(typeIds[0])}</span>
+                <span style="font-weight:bold; margin-left:4px;">${escapeHtml(getLabelForId(typeIds[0]))}</span></div>`;
+    }
+    if (typeIds.length === 0) return '';
+    return `<div class="alert-set">
+                <div class="alert-set-dots">${typeIds.map(dot).join(' + ')}</div>
+                <div class="alert-set-labels">${typeIds.map(id => escapeHtml(getLabelForId(id))).join(' + ')}</div>
+            </div>`;
+}
+
 // Rendu de la liste des alertes dans l'onglet réglages
 function renderAlertsList() {
     const container = document.getElementById('alerts-list');
@@ -73,40 +89,62 @@ function renderAlertsList() {
     }
 
     container.innerHTML = settings.alerts.map((alert, idx) => {
-        const dots = alert.typeIds
-            .map(id => `<span style="color: ${getColorForId(id)}; font-weight:bold;">●</span>`)
-            .join(' + ');
         const toggleBg = alert.enabled ? 'var(--green)' : '#555';
         const togglePos = alert.enabled ? '22px' : '2px';
 
         return `
-                <div style="display:flex; align-items:center; justify-content:space-between;
-                            padding:10px 0; border-bottom:1px solid var(--border);">
-                    <div style="flex-grow:1;">
-                        ${dots}
-                        <span style="font-weight:bold; margin-left:4px;">${getAlertName(alert)}</span>
-                        <br>
+                <div style="padding:10px 0; border-bottom:1px solid var(--border);">
+                    ${renderAlertSetHtml(alert.typeIds)}
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px;">
                         <span style="font-size:0.8rem; opacity:0.7;">
-                            ${t('alertThreshold')} ${alert.threshold} min ·
-                            +${alert.interval} min · ${alert.maxCount}x
+                            <span style="white-space:nowrap;">${t('alertThreshold')} ${alert.threshold} min</span> ·
+                            <span style="white-space:nowrap;">+${alert.interval} min</span> ·
+                            <span style="white-space:nowrap;">${alert.maxCount}x</span>
                         </span>
-                    </div>
-                    <!-- Toggle ON/OFF -->
-                    <div onclick="toggleAlert(${idx})"
-                         style="position:relative; width:44px; height:24px; border-radius:12px;
-                                background:${toggleBg}; cursor:pointer; flex-shrink:0;
-                                margin:0 8px; transition:background 0.2s;">
-                        <div style="position:absolute; top:2px; left:${togglePos}; width:20px; height:20px;
-                                    border-radius:50%; background:white;
-                                    transition:left 0.2s;"></div>
-                    </div>
-                    <!-- Boutons édition / suppression -->
-                    <div style="display:flex; gap:4px;">
-                        <button class="btn-icon" onclick="openAlertModal(${idx})">✏️</button>
-                        <button class="btn-icon" onclick="deleteAlert(${idx})">🗑️</button>
+                        <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                            <!-- Toggle ON/OFF -->
+                            <div onclick="toggleAlert(${idx})"
+                                 style="position:relative; width:44px; height:24px; border-radius:12px;
+                                        background:${toggleBg}; cursor:pointer; flex-shrink:0;
+                                        margin:0 8px; transition:background 0.2s;">
+                                <div style="position:absolute; top:2px; left:${togglePos}; width:20px; height:20px;
+                                            border-radius:50%; background:white;
+                                            transition:left 0.2s;"></div>
+                            </div>
+                            <!-- Boutons édition / suppression -->
+                            <button class="btn-icon" onclick="openAlertModal(${idx})">✏️</button>
+                            <button class="btn-icon" onclick="deleteAlert(${idx})">🗑️</button>
+                        </div>
                     </div>
                 </div>`;
     }).join('');
+}
+
+// Fenêtre d'édition : types proposés ({ id, label, active }) et types cochés.
+// Les types inactifs ne sont proposés que s'ils font déjà partie de l'alerte éditée.
+let alertModalTypes = [];
+let alertModalSelected = new Set();
+
+function renderAlertModalTypes() {
+    document.getElementById('alert-types-picker').innerHTML = alertModalTypes.map(tp => {
+        const on = alertModalSelected.has(tp.id);
+        const tag = tp.active ? '' : ` (${t('alertInactiveTag')})`;
+        return `<button type="button" class="alert-chip${on ? ' on' : ''}${tp.active ? '' : ' inactive'}"
+                    style="--chip-color: ${getColorForId(tp.id)};" data-chip="${tp.id}" aria-pressed="${on}"
+                    onclick="toggleAlertModalType(${tp.id})">
+                    <span class="alert-chip-check">✓</span><span style="color: ${getColorForId(tp.id)};">●</span>
+                    ${escapeHtml(tp.label)}${tag}</button>`;
+    }).join('');
+    // Récapitulatif en direct, dans l'ordre des pastilles
+    document.getElementById('alert-types-recap').innerHTML =
+        renderAlertSetHtml(alertModalTypes.filter(tp => alertModalSelected.has(tp.id)).map(tp => tp.id));
+}
+
+function toggleAlertModalType(id) {
+    if (alertModalSelected.has(id)) alertModalSelected.delete(id); else alertModalSelected.add(id);
+    renderAlertModalTypes();
+    const chip = document.querySelector(`#alert-types-picker [data-chip="${id}"]`);
+    if (chip) chip.focus(); // garde le focus clavier après le rendu
 }
 
 // Ouvre le modal pour ajouter (idx=-1) ou éditer (idx≥0) une alerte
@@ -124,19 +162,23 @@ function openAlertModal(idx) {
         }
     }
     const active = getActiveTypes();
+    const prevIds = idx !== -1 ? settings.alerts[idx].typeIds : [];
 
-    // Rempli le select des types
-    const sel = document.getElementById('alert-type');
-    sel.innerHTML = active.map(tp => {
-        return `<option value="${tp.id}">${tp.label}</option>`;
-    }).join('');
+    // Types proposés : les types actifs, plus ceux (même inactifs) déjà présents dans l'alerte éditée
+    alertModalTypes = settings.types
+        .filter(tp => tp.active || prevIds.includes(tp.id))
+        .sort((a, b) => a.id - b.id)
+        .map(tp => ({ id: tp.id, label: tp.label, active: !!tp.active }));
 
     // Valeurs par défaut ou existantes
     if (idx === -1) {
         document.getElementById('alert-modal-title').innerText = t('alertNewTitle');
         document.getElementById('alert-edit-index').value = -1;
-        // Préremplissage : type 4 (à défaut, le premier type actif), 30 min, rappel 10 min, 3 alertes
-        document.getElementById('alert-type').value = active.some(tp => tp.id === 4) ? 4 : (active[0]?.id || 1);
+        // Préremplissage : type de la période en cours (à défaut le type 4, puis le premier type actif),
+        // 30 min, rappel 10 min, 3 alertes
+        const preId = active.some(tp => tp.id === state.activeType) ? state.activeType
+            : (active.some(tp => tp.id === 4) ? 4 : active[0]?.id);
+        alertModalSelected = new Set(preId !== undefined ? [preId] : []);
         document.getElementById('alert-threshold').value = 30;
         document.getElementById('alert-interval').value = 10;
         document.getElementById('alert-maxcount').value = 3;
@@ -144,12 +186,13 @@ function openAlertModal(idx) {
         const a = settings.alerts[idx];
         document.getElementById('alert-modal-title').innerText = t('alertEditTitle');
         document.getElementById('alert-edit-index').value = idx;
-        document.getElementById('alert-type').value = a.typeIds[0];
+        alertModalSelected = new Set(a.typeIds);
         document.getElementById('alert-threshold').value = a.threshold;
         document.getElementById('alert-interval').value = a.interval;
         document.getElementById('alert-maxcount').value = a.maxCount;
     }
 
+    renderAlertModalTypes();
     document.getElementById('alertModal').style.display = 'flex';
 }
 
@@ -169,10 +212,14 @@ function rescheduleAlertsForActivePeriod() {
 function saveAlert() {
     requestNotificationPermission(); // Demande liée au geste "Enregistrer" — requis par iOS/Safari
     const idx = parseInt(document.getElementById('alert-edit-index').value);
-    const typeId = parseInt(document.getElementById('alert-type').value);
     const threshold = parseInt(document.getElementById('alert-threshold').value);
     const interval = parseInt(document.getElementById('alert-interval').value);
     const maxCount = parseInt(document.getElementById('alert-maxcount').value);
+
+    // Types cochés, dans l'ordre des pastilles. Au moins un doit être actif : une alerte
+    // dont tous les types sont inactifs ne se déclencherait jamais.
+    const typeIds = alertModalTypes.filter(tp => alertModalSelected.has(tp.id)).map(tp => tp.id);
+    if (!typeIds.some(isTypeActiveId)) return alert(t('alertValidTypes'));
 
     // Validation minimale
     if (isNaN(threshold) || threshold < 1) return alert(t('alertValidThreshold'));
@@ -180,34 +227,31 @@ function saveAlert() {
     if (isNaN(maxCount) || maxCount < 1 || maxCount > 5)
         return alert(t('alertValidMaxCount'));
 
-    // Type invalide ou inactif : ne devrait pas arriver (le menu ne liste que les types actifs),
-    // mais ne jamais enregistrer une alerte sans type valide.
-    if (!settings.types.some(tp => tp.id === typeId && tp.active)) {
-        console.warn('[saveAlert] typeId invalide ou inactif :', typeId);
-        closeAlertModal();
-        return;
+    // Une autre alerte porte déjà sur exactement le même ensemble de types : confirmation avant de la remplacer
+    const dup = settings.alerts.findIndex((a, i) => i !== idx && sameTypeSet(a.typeIds, typeIds));
+    if (dup !== -1) {
+        const d = settings.alerts[dup];
+        const details = `${d.threshold} min · +${d.interval} min · ${d.maxCount}x`;
+        if (!confirm(t('alertReplaceConfirm', { details }))) return; // le modal reste ouvert
     }
 
-    // Le menu ne propose qu'un type : une alerte à plusieurs types (créée autrement) garde son
-    // ensemble tant que le type affiché n'a pas été changé.
     const prev = idx !== -1 ? settings.alerts[idx] : null;
-    const keepSet = prev && prev.typeIds.length > 1 && prev.typeIds[0] === typeId;
-    const typeIds = keepSet ? [...prev.typeIds] : [typeId];
-
     const newAlert = { id: prev ? prev.id : newAlertId(), typeIds, enabled: true, threshold, interval, maxCount };
 
     if (idx === -1) {
-        // Ajout — si une alerte existe déjà pour ce même ensemble de types, elle est remplacée
-        const existing = settings.alerts.findIndex(a => sameTypeSet(a.typeIds, typeIds));
-        if (existing !== -1) {
-            newAlert.id = settings.alerts[existing].id;
-            settings.alerts[existing] = newAlert;
+        if (dup !== -1) {
+            newAlert.id = settings.alerts[dup].id;
+            settings.alerts[dup] = newAlert;
         } else {
             settings.alerts.push(newAlert);
         }
     } else {
-        // Édition
         settings.alerts[idx] = newAlert;
+        if (dup !== -1) {
+            const removedId = settings.alerts[dup].id;
+            settings.alerts.splice(dup, 1);
+            forgetSentAlerts(removedId);
+        }
     }
 
     localStorage.setItem('pacingSettings', JSON.stringify(settings));
