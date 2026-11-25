@@ -46,7 +46,8 @@
 
 ## Alertes serveur / Web Push
 - **`Notification.requestPermission()`** : à appeler en tout premier, de façon synchrone, dans le gestionnaire de clic (aucun `await` ni `alert()` avant). Sur iOS, sinon la demande est ignorée ; une fois `denied`, on ne peut plus redemander.
-- **Écouteur `push` du SW** : toujours afficher une notification (`userVisibleOnly: true`). Le push est vide ; le texte est fixe dans `sw.js`, jamais déduit d'une donnée reçue.
+- **Écouteur `push` du SW** : toujours afficher une notification (`userVisibleOnly: true`), même si rien n'est dû (notification silencieuse fermée aussitôt, ou rien si une fenêtre de l'app est visible). Le push est vide ; le texte vient du plan stocké par la page dans IndexedDB (pré-traduit), jamais d'une donnée reçue ; seule la notification de repli (`PUSH_FALLBACK_TEXTS`) est fixe dans `sw.js`.
+- **Mode des alertes** : tout code qui programme, joue ou synchronise des alertes passe par `getAlertMode()` (`js/alerts.js`) ; en mode `local`, **aucune requête vers le Worker** (sauf l'annulation d'horaires déjà envoyés). `scheduleAlerts()` reste la seule source de vérité du Wake Lock.
 - **`deviceId`** (`pushDeviceId`) : clé locale à part, jamais dans l'export ; il sert d'accès côté serveur.
 - **Worker** : se déploie séparément (`npx wrangler deploy` depuis `cf-worker/`), pas par `git push`. Aucun secret dans le dépôt (`.dev.vars` ignoré). Une origine autorisée = schéma + domaine, sans chemin.
 - **Fichiers d'alertes** : `js/alerts-shared-sw.js`, `js/alerts.js`, `js/alerts-local.js`, `js/alerts-server.js` sont des scripts classiques ; les fonctions appelées par un `onclick="…"` du HTML généré (ex. `toggleAlert`) doivent rester globales, et aucun code de ces fichiers ne doit lire le DOM au chargement (ils sont dans le `<head>`).

@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.30-beta.9'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.30-beta.10'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -14,11 +14,11 @@ const ASSETS_TO_CACHE = [
   './js/alerts-shared-sw.js', // nouveau 0.9.30-beta.9 (alertes : code partagé page / service worker)
   './js/alerts.js',         // nouveau 0.9.30-beta.3 (alertes : partie commune)
   './js/alerts-local.js',   // nouveau 0.9.30-beta.3 (alertes : mode local)
-  './js/alerts-server.js',  // nouveau 0.9.30-beta.3 (alertes : mode serveur ; ex push-client.js)
+  './js/alerts-server.js',  // nouveau 0.9.30-beta.3 (alertes : mode serveur)
   './manifest.json',
-  './chart.js',  // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
+  './chart.js',     // Ajout bibliotheque pour graphiques (nécessaire pour le mode hors-ligne)
   './inapp-spy.js', // Ajout pour détection webview de réseaux sociaux
-  './icon-192.png', // Ajout indispensable idem
+  './icon-192.png', // Ajout indispensable
   './icon-512.png'  // Ajout indispensable
 ];
 
@@ -36,6 +36,15 @@ function sendLogToPage(message) {
 
 // Utilisation :
 sendLogToPage(`[SW-SLTP] Premier SLTP pour SW ${CACHE_NAME}`);
+
+// Code partagé avec la page (stockage IndexedDB, registre « déjà jouée », règle d'affichage des alertes).
+// try/catch : si le chargement échoue, le service worker doit continuer à fonctionner (cache, messages) ;
+// le push affichera alors une notification de repli (voir handlePush).
+try {
+  importScripts('js/alerts-shared-sw.js');
+} catch (e) {
+  console.error('[SW] importScripts(alerts-shared-sw.js) a échoué :', e);
+}
 
 
 // Installation du service worker et mise en cache
@@ -94,23 +103,30 @@ self.addEventListener('activate', event => {
 // et affiche immédiatement la notification.
 // ============================================================
 
+// Affichage d'une notification d'alerte, commun au message DISPLAY_NOW (page) et au push (serveur).
+// Même tag pour une même vague : si la page et le serveur la jouent toutes les deux, la seconde remplace la première.
+function showAlertNotification(title, body, tag) {
+  return self.registration.showNotification(title, {
+    body: body,
+    tag: tag,
+    //requireInteraction: true, // reste visible jusqu'au tap
+    //actions: [{ action: 'dismiss', title: "J'ai compris" }] // Bouton "j'ai compris"
+    // 1. Ajoute un pattern de vibration (ça force Android à monter l'importance)
+    vibrate: [150, 200, 150], // pattern : vibre 150 ms, silence 200 ms, vibre 150 ms
+    // 3. Demande au téléphone de réveiller l'écran
+    renotify: true,
+    // 4. Catégorie (Expérimental mais aidé par certains navigateurs)
+    silent: false,
+    icon: './icon-192.png'
+  });
+}
+
 self.addEventListener('message', event => {
   const data = event.data;
   if (!data || !data.type) return;
 
   if (data.type === 'DISPLAY_NOW') {
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      tag: data.tag,
-      //requireInteraction: true, // reste visible jusqu'au tap
-      //actions: [{ action: 'dismiss', title: "J'ai compris" }] // Bouton "j'ai compris"
-      // 1. Ajoute un pattern de vibration (ça force Android à monter l'importance)
-      vibrate: [150, 200, 150], // pattern : vibre 150 ms, silence 200 ms, vibre 150 ms
-      // 3. Demande au téléphone de réveiller l'écran
-      renotify: true,
-      // 4. Catégorie (Expérimental mais aidé par certains navigateurs)
-      silent: false
-    });
+    showAlertNotification(data.title, data.body, data.tag);
 
     console.log(`[SW] ${CACHE_NAME} - Notification affichée immédiatement : ${data.tag}`);
 
@@ -135,33 +151,77 @@ self.addEventListener('message', event => {
 
 
 // ============================================================
-// ALERTES SERVEUR (POC) — push reçu depuis le Worker Cloudflare
-// Le push est VIDE (aucune donnée reçue) : le texte est fixe, défini ici. Personne ne peut donc
-// faire afficher un message arbitraire. Langue : celle du navigateur (le SW ne lit pas les réglages
-// de l'app) — à revoir à l'intégration réelle.
+// ALERTES SERVEUR — push reçu depuis le Worker Cloudflare
+// Le push est VIDE (aucune donnée reçue) : il signifie seulement « regarde ton plan ». Le service worker
+// décide lui-même, d'après le plan et le registre « déjà jouée » stockés dans IndexedDB par la page, avec
+// la même règle que la page (alertsSelectDue, js/alerts-shared-sw.js) : les textes affichés viennent donc
+// de l'appareil, personne ne peut faire afficher un message arbitraire.
 // ============================================================
-const PUSH_TEXTS = {
-  fr: { title: 'PacingCount', body: "Test serveur : si tu vois ceci, le push fonctionne même app fermée." },
-  en: { title: 'PacingCount', body: 'Server test: if you see this, push works even with the app closed.' },
-  nl: { title: 'PacingCount', body: 'Servertest: als je dit ziet, werkt push ook met de app gesloten.' }
+
+// Dernier recours (code partagé non chargé, IndexedDB illisible) : une notification est obligatoire
+// (userVisibleOnly), on affiche un texte neutre. Langue : celle du navigateur (le SW ne lit pas les réglages).
+const PUSH_FALLBACK_TEXTS = {
+  fr: "Une alerte PacingCount est arrivée. Ouvrez l'application.",
+  en: 'A PacingCount alert has arrived. Open the app.',
+  nl: 'Er is een PacingCount-alert aangekomen. Open de app.'
 };
 
 self.addEventListener('push', function (event) {
-  const lang = (self.navigator.language || 'fr').slice(0, 2);
-  const text = PUSH_TEXTS[lang] || PUSH_TEXTS.fr;
-  // Toujours afficher une notification (obligatoire avec userVisibleOnly:true).
-  event.waitUntil(
-    self.registration.showNotification(text.title, {
-      body: text.body,
-      tag: 'pacing-push',
-      renotify: true,
-      vibrate: [150, 200, 150],
-      icon: './icon-192.png'
-    })
-  );
   console.log(`[SW] ${CACHE_NAME} - Push reçu !`);
   sendLogToPage(`[SW-SLTP] ${CACHE_NAME} - Push reçu !`);
+  event.waitUntil(handlePush());
 });
+
+async function handlePush() {
+  try {
+    const plan = await alertsStoreGet('plan');
+    const now = Date.now();
+    // Hors mode serveur / mixte (ou plan absent) : le push est périmé, on ne joue rien
+    const selection = plan && plan.mode && plan.mode !== 'local'
+      ? alertsSelectDue(plan.waves, await alertsPlayedRead(), now)
+      : { reminders: [], catchups: [] };
+
+    if (selection.reminders.length === 0 && selection.catchups.length === 0) {
+      sendLogToPage(`[SW-SLTP] Push sans vague due (en avance, périmé ou déjà jouée)`);
+      await showNothingDue();
+      return;
+    }
+
+    // Marquage AVANT l'affichage (source 'sw') : la page, au retour, ne rejouera pas ces vagues
+    const entries = [];
+    selection.reminders.forEach(w => entries.push({ alertId: w.alertId, runStart: w.runStart, waveIndex: w.index, firedAt: now, source: 'sw' }));
+    selection.catchups.forEach(c => c.waves.forEach(w => entries.push({ alertId: w.alertId, runStart: w.runStart, waveIndex: w.index, firedAt: now, source: 'sw' })));
+    await alertsPlayedAdd(entries);
+
+    if (selection.catchups.length > 0) {
+      const text = alertsBuildCatchup(selection.catchups, plan.texts, now);
+      await showAlertNotification(text.title, text.body, 'pacing-catchup');
+    }
+    for (const w of selection.reminders) {
+      await showAlertNotification(w.title, w.body, w.tag);
+    }
+    sendLogToPage(`[SW-SLTP] Push : ${selection.reminders.length} rappel(s), ${selection.catchups.length} rattrapage(s)`);
+  } catch (e) {
+    console.error('[SW] handlePush a échoué :', e);
+    const lang = (self.navigator.language || 'fr').slice(0, 2);
+    await self.registration.showNotification('PacingCount', {
+      body: PUSH_FALLBACK_TEXTS[lang] || PUSH_FALLBACK_TEXTS.fr,
+      tag: 'pacing-push-fallback',
+      icon: './icon-192.png'
+    });
+  }
+}
+
+// Push sans rien à jouer. Le navigateur exige d'afficher quelque chose à chaque push (userVisibleOnly).
+// Une fenêtre de l'app visible : Chrome n'exige rien, on n'affiche rien (la page gère ses alertes).
+// Sinon : notification sans son, fermée aussitôt (à valider sur appareils, iOS compris).
+async function showNothingDue() {
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  if (windows.some(c => c.visibilityState === 'visible')) return;
+  await self.registration.showNotification('PacingCount', { tag: 'pacing-idle', silent: true, icon: './icon-192.png' });
+  const shown = await self.registration.getNotifications({ tag: 'pacing-idle' });
+  shown.forEach(n => n.close());
+}
 
 // Au toucher de la notification : ramène l'app au premier plan (ou l'ouvre si elle est fermée).
 self.addEventListener('notificationclick', function (event) {

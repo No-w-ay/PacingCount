@@ -1,6 +1,8 @@
 // js/alerts-local.js — Alertes de périodes, mode LOCAL (hors ligne) : minuteries dans la page,
 // Wake Lock, pseudo-veille et rattrapage au retour au premier plan.
 // Ne fonctionne que si l'app reste ouverte ; le mode serveur (js/alerts-server.js) couvre l'app fermée.
+// Selon le mode des alertes (getAlertMode, js/alerts.js) : « local » = tout ce fichier ; « mixed » = idem, mais
+// le Wake Lock n'est tenu que tant que le serveur n'a pas confirmé ; « server » = page passive, rien n'est joué ici.
 // Partie commune (réglages, interface) : js/alerts.js.
 // Script classique : lit settings, state, t()… définis dans index.html, à l'exécution seulement.
 
@@ -93,6 +95,8 @@ async function playDueWaves() {
 async function scheduleAlerts(typeId, startTime) {
     clearAlertTimers(); // anciens chronomètres, avant d'en créer de nouveaux
     refreshAlertPlanStore(typeId, startTime); // plan stocké pour le service worker (voir alerts.js)
+    const mode = getAlertMode();
+    if (mode === 'server') { releaseWakeLock(); return; } // c'est le serveur qui réveille l'appareil : ni minuterie ni écran retenu
     if (!('serviceWorker' in navigator)) { releaseWakeLock(); return; }
     if (Notification.permission !== 'granted') { releaseWakeLock(); return; }
 
@@ -122,7 +126,10 @@ async function scheduleAlerts(typeId, startTime) {
 
     console.log(`[scheduleAlerts] ${programmedCount} vague(s) programmée(s) pour ${runs.length} alerte(s)`);
 
-    if (maxDelayMs > 0) {
+    // Mode mixte : une fois les horaires confirmés par le serveur, l'écran n'a plus besoin d'être retenu
+    // (pushSyncStatus, js/alerts-server.js, rappelle scheduleAlerts quand cet état change).
+    const keepAwake = maxDelayMs > 0 && (mode === 'local' || pushSyncStatus !== 'ok');
+    if (keepAwake) {
         // Il reste au moins une vague future à attendre — l'écran doit rester allumé.
         requestWakeLock();
         // Relâchement automatique du Wake Lock après la dernière alerte
@@ -131,8 +138,8 @@ async function scheduleAlerts(typeId, startTime) {
             releaseWakeLock(); // Cette fonction s'occupe aussi d'éteindre la pseudo-veille
         }, maxDelayMs + 60000); // Se déclenche 60 secondes après la toute dernière notification
     } else {
-        // Aucune vague future (toutes déjà passées, ex. rattrapage qui vide tout d'un
-        // coup) — plus rien à attendre, l'écran n'a plus besoin d'être retenu.
+        // Aucune vague future (toutes déjà passées, ex. rattrapage qui vide tout d'un coup)
+        // ou serveur à jour (mode mixte) — plus rien à attendre ici, l'écran n'a plus besoin d'être retenu.
         releaseWakeLock();
     }
 }
@@ -225,6 +232,8 @@ function stopInactivityDetection() {
 // on reprogramme les vagues futures. Les vagues couvertes sont marquées « jouées », pour qu'un autre
 // canal (serveur) ne les rejoue pas.
 async function catchUpAlertsOnVisible() {
+    syncServerPlan(); // horaires du serveur remis à jour au retour (sans effet en mode hors ligne)
+
     // Pas de réacquisition du Wake Lock ici, volontairement : se fier à l'état de la
     // variable wakeLock à ce stade était fragile (un vrai relâchement système, normal
     // après extinction d'écran, pouvait laisser un état ambigu selon le moment exact).
@@ -234,6 +243,12 @@ async function catchUpAlertsOnVisible() {
     // Pas de période active → rien à faire, si ce n'est s'assurer que le Wake Lock
     // n'est pas resté tenu par erreur (ex. après suppression de la période en cours).
     if (state.activeType === null || state.startTime === null) {
+        releaseWakeLock();
+        return;
+    }
+
+    // Mode serveur : la page ne joue rien, le serveur s'en charge (voir alerts-server.js)
+    if (getAlertMode() === 'server') {
         releaseWakeLock();
         return;
     }

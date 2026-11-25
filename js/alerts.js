@@ -532,6 +532,92 @@ function buildReminderText(config, wave) {
 }
 
 // ============================================================
+// MODE DES ALERTES : 'local' (hors ligne, défaut) | 'server' (réveil via serveur) | 'mixed' (les deux)
+// Réglage settings.alertMode. Comportement de la page selon le mode :
+// - local : minuteries + Wake Lock + rattrapage, aucun contact avec le serveur.
+// - mixed : comme local, plus synchronisation des horaires avec le serveur ; le Wake Lock n'est tenu que
+//   tant que le serveur n'a pas confirmé (voir scheduleAlerts).
+// - server : ni minuterie ni Wake Lock, la page ne joue rien ; seul le serveur réveille l'appareil.
+// Synchronisation avec le serveur et état (pushSyncStatus) : js/alerts-server.js.
+// ============================================================
+
+const ALERT_MODES = ['local', 'server', 'mixed'];
+
+function getAlertMode() {
+    return settings && ALERT_MODES.includes(settings.alertMode) ? settings.alertMode : 'local';
+}
+
+// Message d'indisponibilité du serveur (clé de traduction) ou null si le mode serveur est possible ici.
+function alertModeUnavailableKey() {
+    if (!pushIsSupported()) return 'pushStatusUnsupported';
+    if (Notification.permission === 'denied') return 'pushStatusDenied';
+    return null;
+}
+
+// Met à jour la zone « Mode des alertes » des réglages (textes, choix, état, mention de confidentialité).
+// Appelée au changement de langue et à chaque changement de mode ou d'état de synchronisation.
+function renderAlertModeUI() {
+    const box = document.getElementById('alert-mode-box');
+    if (!box) return;
+    const mode = getAlertMode();
+    const unavailableKey = alertModeUnavailableKey();
+    document.getElementById('alert-mode-title').textContent = t('alertModeTitle');
+    [['local', 'Local'], ['server', 'Server'], ['mixed', 'Mixed']].forEach(([value, key]) => {
+        document.getElementById('alert-mode-name-' + value).textContent = t('alertModeName' + key);
+        document.getElementById('alert-mode-desc-' + value).textContent = t('alertModeDesc' + key);
+        const option = document.getElementById('alert-mode-opt-' + value);
+        const radio = option.querySelector('input');
+        radio.checked = value === mode;
+        radio.disabled = value !== 'local' && unavailableKey !== null;
+        option.classList.toggle('disabled', radio.disabled);
+    });
+
+    // Ligne d'état : raison d'indisponibilité, sinon état de la synchronisation avec le serveur
+    let status = '';
+    if (mode !== 'local') {
+        if (pushSyncStatus === 'ok') status = t('alertModeSyncOk');
+        else if (pushSyncStatus === 'pending') status = t(mode === 'server' ? 'alertModeSyncPendingServer' : 'alertModeSyncPendingMixed');
+        else if (pushSyncStatus === 'unavailable') status = t(unavailableKey || 'pushStatusError', { detail: 'unavailable' });
+    } else if (unavailableKey) {
+        status = t(unavailableKey); // pourquoi « Réveil via serveur » et « Mixte » sont grisés
+    }
+    document.getElementById('alert-mode-status').textContent = status;
+    const privacy = document.getElementById('alert-mode-privacy');
+    privacy.textContent = t('alertModePrivacy');
+    privacy.style.display = mode === 'local' ? 'none' : '';
+}
+
+// Clic sur un mode. Choisir « serveur » ou « mixte » demande d'abord l'autorisation de notification et
+// l'abonnement push : appelé tel quel dans le geste de l'utilisateur (sur iOS, pas d'await avant).
+// En cas d'échec, le mode précédent est conservé.
+async function onAlertModeChange(newMode) {
+    if (!ALERT_MODES.includes(newMode) || newMode === getAlertMode()) { renderAlertModeUI(); return; }
+    if (pushBusy) { renderAlertModeUI(); return; }
+    if (newMode !== 'local') {
+        pushBusy = true;
+        try {
+            await pushEnsureSubscription();
+        } catch (e) {
+            console.error('[alertMode]', e);
+            alert(pushErrorText(e));
+            renderAlertModeUI(); // remet la case du mode précédent
+            return;
+        } finally {
+            pushBusy = false;
+        }
+    }
+    settings.alertMode = newMode;
+    localStorage.setItem('pacingSettings', JSON.stringify(settings));
+    console.log(`[alertMode] Mode des alertes : ${newMode}`);
+    pushSyncStatus = 'unknown';
+    renderAlertModeUI();
+    // Minuteries et Wake Lock selon le nouveau mode, plan (champ mode) réécrit pour le service worker
+    if (state.activeType !== null && state.startTime !== null) scheduleAlerts(state.activeType, state.startTime);
+    else refreshAlertPlanStore(null, null);
+    syncServerPlan();
+}
+
+// ============================================================
 // PLAN DES ALERTES POUR LE SERVICE WORKER (stocké dans IndexedDB, clé 'plan')
 // Toutes les vagues (passées et futures) de la séquence en cours, avec leur texte déjà traduit :
 // le service worker n'a ni translations.js ni les réglages. Les modèles du rattrapage sont
@@ -560,6 +646,7 @@ function buildServerPlan(typeId, startTime) {
     }
     return {
         v: 1, lang: settings.lang,
+        mode: getAlertMode(), // lu par le service worker : hors mode serveur / mixte, un push reçu est ignoré
         texts: {
             notifBody: t('alertNotifBody'), catchupTitle1: t('alertCatchupTitle1'),
             catchupTitleN: t('alertCatchupTitleN'), catchupLine: t('alertCatchupLine')
@@ -582,6 +669,7 @@ async function refreshAlertPlanStore(typeId, startTime) {
         alertPlanLastJson = json; // avant l'attente : deux appels rapprochés ne doublent pas l'écriture
         await alertsStoreSet('plan', plan);
         console.log(`[plan] 💾 Plan des alertes enregistré (${plan.waves.length} vague(s))`);
+        syncServerPlan(); // horaires envoyés au serveur si besoin (js/alerts-server.js ; sans effet en mode hors ligne)
     } catch (e) {
         alertPlanLastJson = null; // prochain appel : nouvel essai
         console.warn('[plan] ⚠️ Plan des alertes non enregistré :', e);

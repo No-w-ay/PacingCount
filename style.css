@@ -1789,3 +1789,43 @@
 
      /* (Ancien cadre beige par ligne .de-row-editing retiré en beta.25, remplacé par
            #daily-events-frame : dernière version avec = commit d305079.) */
+
+     /* ===== Mode des alertes (réglages) ===== */
+     .alert-mode-box {
+         margin-bottom: 14px;
+         padding: 10px;
+         border: 1px solid var(--border-color, rgba(128,128,128,0.35));
+         border-radius: 8px;
+     }
+     .alert-mode-title {
+         font-weight: bold;
+         margin-bottom: 6px;
+     }
+     .alert-mode-option {
+         display: flex;
+         align-items: flex-start;
+         gap: 10px;
+         min-height: 44px;
+         padding: 8px 4px;
+         cursor: pointer;
+     }
+     .alert-mode-option input {
+         margin-top: 4px;
+         flex: 0 0 auto;
+     }
+     .alert-mode-option.disabled {
+         opacity: 0.55;
+         cursor: default;
+     }
+     .alert-mode-option small {
+         display: block;
+         font-size: 0.82rem;
+         opacity: 0.8;
+         margin-top: 2px;
+     }
+     .alert-mode-status,
+     .alert-mode-privacy {
+         font-size: 0.82rem;
+         margin-top: 6px;
+         opacity: 0.85;
+     }

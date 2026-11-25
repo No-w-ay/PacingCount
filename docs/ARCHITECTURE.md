@@ -20,10 +20,10 @@
     `alerts-local.js` (mode local : minuteries, Wake Lock, pseudo-veille, `playDueWaves()` (règle unique
     d'affichage, appelée par les minuteries et au retour visible), `catchUpAlertsOnVisible()` appelée par
     l'écouteur `visibilitychange` d'index.html) et
-    `alerts-server.js` (mode serveur, POC : abonnement Web Push + envoi des horaires au Worker ;
-    voir `docs/alertes-serveur.md`). `scheduleAlerts`, `cancelAlerts` et `releaseWakeLock`
-    sont pour l'instant dans `alerts-local.js` ; ils deviendront les points d'entrée communs
-    (choix local / serveur) à l'intégration.
+    `alerts-server.js` (modes serveur et mixte : abonnement Web Push, synchronisation des horaires avec le
+    Worker `syncServerPlan()` et état `pushSyncStatus` ; voir `docs/alertes-serveur.md`).
+    Le choix du mode (`getAlertMode()`, `onAlertModeChange()`, `renderAlertModeUI()`) est dans `alerts.js` ;
+    `scheduleAlerts`, `cancelAlerts` et `releaseWakeLock` restent dans `alerts-local.js` et tiennent compte du mode.
     (`import-export.js` : exports CSV/JSON ; import CSV ; import JSON en deux écrans
     Remplacer / Fusionner ; **helpers de correspondance des types partagés** CSV et JSON :
     `normalizeTypeLabel`, `resolveTypeTarget`, `buildTypeMappingTableHTML`,
@@ -147,10 +147,11 @@
 
         Mode vagues croissantes: supprimé (beta.5)
 
-        Alertes serveur (POC, mode développeur) : le flux ci-dessus reste le mode « local ». Un mode « serveur »
-        (Web Push depuis un Worker Cloudflare, fonctionne app fermée) est validé en POC sur Android mais pas encore
-        intégré aux vraies alertes. Deux canaux indépendants (local / serveur), donc trois combinaisons local / serveur / mixte (voir `docs/alertes-serveur.md`). Push vide, texte fixe
-        dans sw.js (`PUSH_TEXTS`), écouteur `notificationclick` commun aux notifications locales et serveur.
+        Trois modes des alertes (beta.10), réglage settings.alertMode ('local' par défaut | 'server' | 'mixed'), choisi dans Réglages > Alertes de périodes :
+        local : le flux ci-dessus, aucun contact avec le serveur.
+        mixed : le flux ci-dessus + syncServerPlan() envoie au Worker Cloudflare les horaires des vagues futures non jouées ; le Wake Lock n'est tenu que tant que le serveur n'a pas confirmé (pushSyncStatus !== 'ok', scheduleAlerts() rappelée à chaque changement d'état).
+        server : scheduleAlerts() ne programme rien (ni minuterie ni Wake Lock), catchUpAlertsOnVisible() ne joue rien ; seul le serveur réveille l'appareil.
+        Flux serveur : refreshAlertPlanStore() écrit le plan (avec plan.mode) dans IndexedDB puis appelle syncServerPlan() (aussi au démarrage, au retour visible, à 'online', toutes les 2 min si en attente) → /schedule ou /cancel. Push VIDE reçu par sw.js → handlePush() : lit plan + registre dans IndexedDB, alertsSelectDue() (même règle que la page), marque les vagues (source 'sw') puis affiche les textes pré-traduits ; rien de dû → notification silencieuse fermée aussitôt (ou rien si une fenêtre est visible) ; échec → notification de repli fixe. Écouteur notificationclick commun aux notifications locales et serveur.
         Protocole, décisions, limites et à-faire : `docs/alertes-serveur.md`.
 
 
@@ -161,7 +162,6 @@
         Éléments contrôlés par le mode dev :
 
         Bouton "Test Notif Immédiate"
-        Boutons "Test Push Serveur" (+ liste de délais) et "Annuler le test push", ligne de statut
         Bouton "Mode Plein Écran"
         Le toggle lui-même avec l'indicateur 🛠️ Mode développeur
 

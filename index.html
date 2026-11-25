@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.9"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.10"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -99,23 +99,6 @@
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
             🛠️ Test Notif Immédiate</button>
 
-        <!-- boutons test push serveur (Cloudflare, POC) — mode développeur uniquement -->
-        <button id="test-push" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
-            🛠️ Test Push Serveur</button>
-        <!-- délai du test : liste native du système ; valeurs en secondes (voir PUSH_TEST_DELAYS_S) -->
-        <select id="test-push-delay" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; margin-top: 10px; padding: 10px;">
-            <option value="30">30 s</option>
-            <option value="300">5 min</option>
-            <option value="1800">30 min</option>
-            <option value="3600">1 h</option>
-        </select>
-        <button id="test-push-cancel" class="dev-only"
-            style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
-            🛠️ Annuler le test push</button>
-        <div id="push-test-status" class="dev-only" style="font-size: 0.85rem; margin-top: 8px; opacity: 0.8;"></div>
-
         <!-- bouton test fullscreen — mode développeur uniquement -->
         <button id="toggle-fullscreen" class="dev-only"
             style="background-color: transparent; color: var(--teal); border: 1px solid var(--teal); border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 10px; padding: 10px;">
@@ -183,6 +166,24 @@
         <div class="settings-group">
             <label id="label-alerts" style="display:block; margin-bottom:10px; font-weight:bold;">Alertes de
                 périodes</label>
+            <!-- Mode des alertes : textes et état remplis par renderAlertModeUI() (js/alerts.js) -->
+            <div id="alert-mode-box" class="alert-mode-box">
+                <div id="alert-mode-title" class="alert-mode-title"></div>
+                <label class="alert-mode-option" id="alert-mode-opt-local">
+                    <input type="radio" name="alert-mode" value="local" onchange="onAlertModeChange('local')">
+                    <span><b id="alert-mode-name-local"></b><small id="alert-mode-desc-local"></small></span>
+                </label>
+                <label class="alert-mode-option" id="alert-mode-opt-server">
+                    <input type="radio" name="alert-mode" value="server" onchange="onAlertModeChange('server')">
+                    <span><b id="alert-mode-name-server"></b><small id="alert-mode-desc-server"></small></span>
+                </label>
+                <label class="alert-mode-option" id="alert-mode-opt-mixed">
+                    <input type="radio" name="alert-mode" value="mixed" onchange="onAlertModeChange('mixed')">
+                    <span><b id="alert-mode-name-mixed"></b><small id="alert-mode-desc-mixed"></small></span>
+                </label>
+                <div id="alert-mode-status" class="alert-mode-status" aria-live="polite"></div>
+                <div id="alert-mode-privacy" class="alert-mode-privacy" style="display:none;"></div>
+            </div>
             <div id="alerts-list"></div>
             <button id="btn-add-alert" onclick="openAlertModal(-1)" style="width:100%; padding:10px; margin-top:8px; background:var(--green); color:white;
                    border:none; border-radius:6px; font-weight:bold; font-size:0.95rem; cursor:pointer;">
@@ -1445,10 +1446,6 @@
             }
         });
 
-        // Test push serveur (POC) : logique dans js/alerts-server.js
-        document.getElementById('test-push').addEventListener('click', pushTestSchedule);
-        document.getElementById('test-push-cancel').addEventListener('click', pushTestCancel);
-
         // Pour le mode plein écran
         const btnFullscreen = document.getElementById('toggle-fullscreen');
 
@@ -2659,8 +2656,6 @@
             // Page mesure
             document.getElementById('btn-stop').innerText = t('stop');
             document.getElementById('test-notif').innerText = t('testNotifBtn');
-            document.getElementById('test-push').innerText = t('testPushBtn');
-            document.getElementById('test-push-cancel').innerText = t('testPushCancelBtn');
             document.getElementById('toggle-fullscreen').innerText = t('fullscreenBtn');
 
             // Page résultats
@@ -2679,6 +2674,7 @@
             document.getElementById('label-profiles').innerText = t('titleProfiles');
             document.getElementById('label-alerts').innerText = t('alertsTitle');
             document.getElementById('btn-add-alert').innerText = t('alertAdd');
+            renderAlertModeUI(); // mode des alertes (js/alerts.js)
             document.getElementById('label-csv-format').innerText = t('titleCsvFormat');
             document.getElementById('csv-format-note').innerHTML = t('csvFormatNote'); // HTML : partie en gras (texte interne, jamais saisi)
             document.getElementById('btn-export-csv-settings').innerText = t('exportCsvPartial');
@@ -4423,6 +4419,8 @@
         if (state.activeType !== null && state.startTime !== null) {
             scheduleAlerts(state.activeType, state.startTime);
         }
+        // Synchronisation avec le serveur d'alertes (sans effet en mode hors ligne : js/alerts-server.js)
+        syncServerPlan();
 
         // ============================================================
         // 24. GESTION DU SWIPE (glissement horizontal entre pages)
