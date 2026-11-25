@@ -1,9 +1,9 @@
-// PacingCount — serveur d'alertes push (POC) : Worker + Durable Object.
+// PacingCount — serveur d'alertes push : Worker + Durable Object.
 //
 // Le téléphone envoie des horaires absolus. Ce serveur les mémorise (un Durable Object par
 // appareil), se réveille à chaque horaire et envoie un push SANS contenu au service push du
-// navigateur. Le texte de la notification est fixe et vit dans sw.js : ni ce serveur ni un
-// tiers ne peut donc faire afficher un message arbitraire.
+// navigateur. Le texte de la notification vit sur l'appareil (plan stocké par l'app, lu par sw.js) :
+// ni ce serveur ni un tiers ne peut donc faire afficher un message arbitraire.
 //
 // Secrets à définir (jamais dans le dépôt) :
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (ex. "mailto:...")
@@ -13,7 +13,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 
-// Plafonds et délais : valeurs prudentes pour la POC, à ajuster après les tests.
+// Plafonds et délais : valeurs prudentes, à ajuster après les tests.
 const MAX_BODY_BYTES = 4096;
 const MAX_FIRE_COUNT = 50;
 const MAX_AHEAD_MS = 24 * 3600 * 1000;   // durée maximale entre « maintenant » et un horaire
@@ -21,6 +21,11 @@ const PAST_TOLERANCE_MS = 60 * 1000;     // horaire légèrement passé accepté
 const PUSH_TTL_SECONDS = 300;            // au-delà, un rappel tardif n'a plus de sens
 const STALE_AFTER_MS = PUSH_TTL_SECONDS * 1000;
 const MAX_RETRIES = 3;
+// Limite par appareil : au plus 30 envois d'horaires (/schedule) ou annulations (/cancel) par heure.
+// Un usage normal en fait quelques-uns ; protège le quota gratuit contre un client en boucle.
+// Compteur en mémoire du Durable Object (il ne coûte aucune écriture ; il repart de zéro si l'objet est évincé).
+const MAX_CALLS_PER_HOUR = 30;
+const RATE_WINDOW_MS = 3600 * 1000;
 const RETRY_DELAY_MS = 15 * 1000;
 
 const DEVICE_ID_RE = /^[A-Za-z0-9_-]{22,64}$/;
@@ -110,13 +115,22 @@ function isShortString(v) {
   return typeof v === "string" && v.length > 0 && v.length <= 128;
 }
 
-// Retourne { deviceId, subscription, fireAt } ou null si la requête est invalide.
+// Numéro de séquence facultatif (entier positif) : les anciennes versions de l'app n'en envoient pas.
+function parseSeq(v) {
+  if (v === undefined) return { ok: true, seq: undefined };
+  if (!Number.isSafeInteger(v) || v < 1) return { ok: false };
+  return { ok: true, seq: v };
+}
+
+// Retourne { deviceId, subscription, fireAt, seq } ou null si la requête est invalide.
 // Le téléphone envoie aussi son heure (clientNow) : le serveur corrige l'écart d'horloge,
 // ce qui rend les horaires fiables même si l'horloge du téléphone est décalée.
 function parseSchedule(body, now) {
   if (!body || typeof body !== "object") return null;
   const { deviceId, subscription, clientNow, fireAt } = body;
   if (typeof deviceId !== "string" || !DEVICE_ID_RE.test(deviceId)) return null;
+  const seq = parseSeq(body.seq);
+  if (!seq.ok) return null;
   if (!Number.isFinite(clientNow)) return null;
   if (!subscription || typeof subscription !== "object" || !isAllowedEndpoint(subscription.endpoint)) return null;
 
@@ -139,6 +153,7 @@ function parseSchedule(body, now) {
     deviceId,
     subscription: { endpoint: subscription.endpoint, keys },
     fireAt: [...new Set(times)].sort((a, b) => a - b),
+    seq: seq.seq,
   };
 }
 
@@ -197,16 +212,57 @@ async function sendPush(env, endpoint) {
 // ---------- Durable Object : un par appareil ----------
 
 export class DeviceAlarm extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.calls = []; // horodatages des appels récents (limite par heure)
+  }
+
+  // Limite par appareil. Retourne true si l'appel est refusé.
+  isRateLimited() {
+    const now = Date.now();
+    this.calls = this.calls.filter((t) => now - t < RATE_WINDOW_MS);
+    if (this.calls.length >= MAX_CALLS_PER_HOUR) return true;
+    this.calls.push(now);
+    return false;
+  }
+
+  // Numéro de séquence : chaque envoi de l'app porte un numéro croissant. Un envoi dont le numéro n'est pas
+  // plus grand que le dernier accepté est périmé (un ancien envoi retardé par le réseau ne doit pas écraser un
+  // envoi plus récent). Le numéro est conservé séparément de l'état : il survit à une annulation.
+  // Sans numéro (ancienne version de l'app) : toujours accepté, numéro inchangé.
+  // Retourne null si l'envoi est accepté, sinon { stale: true, seq } (dernier numéro accepté).
+  async checkSeq(seq) {
+    if (seq === undefined) return null;
+    const last = (await this.ctx.storage.get("seq")) ?? 0;
+    if (seq <= last) return { stale: true, seq: last };
+    await this.ctx.storage.put("seq", seq);
+    return null;
+  }
+
   // Remplace entièrement le programme de l'appareil (même logique que cancelAlerts() + scheduleAlerts()).
-  async schedule(subscription, fireAt) {
+  // Retourne { ok: true } ou { limited: true } ou { stale: true, seq }.
+  async schedule(subscription, fireAt, seq) {
+    if (this.isRateLimited()) return { limited: true };
+    const stale = await this.checkSeq(seq);
+    if (stale) return stale;
     const state = { version: crypto.randomUUID(), endpoint: subscription.endpoint, keys: subscription.keys, pending: fireAt, attempt: 0 };
     await this.ctx.storage.put("state", state);
     await this.ctx.storage.setAlarm(fireAt[0]);
+    return { ok: true };
   }
 
-  async cancel() {
+  async cancel(seq) {
+    if (this.isRateLimited()) return { limited: true };
+    const stale = await this.checkSeq(seq);
+    if (stale) return stale;
+    await this.clear();
+    return { ok: true };
+  }
+
+  // Efface le programme de l'appareil (adresse push comprise), en gardant le numéro de séquence.
+  async clear() {
     await this.ctx.storage.deleteAlarm();
-    await this.ctx.storage.deleteAll();
+    await this.ctx.storage.delete("state");
   }
 
   // Cloudflare n'autorise qu'une alarme à la fois : on garde la liste des horaires et on
@@ -232,7 +288,7 @@ export class DeviceAlarm extends DurableObject {
     if (!current || current.version !== state.version) return;
 
     if (outcome === "gone") {
-      await this.cancel();
+      await this.clear();
       return;
     }
 
@@ -245,7 +301,7 @@ export class DeviceAlarm extends DurableObject {
     }
 
     if (state.pending.length === 0) {
-      await this.cancel();
+      await this.clear();
       return;
     }
     await storage.put("state", state);
@@ -254,6 +310,14 @@ export class DeviceAlarm extends DurableObject {
 }
 
 // ---------- Worker : la « réceptionniste » ----------
+
+// Traduit la réponse du Durable Object : 429 (trop d'appels), 409 (numéro périmé, avec le dernier numéro
+// accepté : l'app s'y recale), sinon 200.
+function outcome(result, extra, cors) {
+  if (result.limited) return json({ error: "rate_limited" }, 429, { ...cors, "Retry-After": "600" });
+  if (result.stale) return json({ error: "stale", seq: result.seq }, 409, cors);
+  return json({ ok: true, ...extra }, 200, cors);
+}
 
 export default {
   async fetch(request, env) {
@@ -280,14 +344,15 @@ export default {
       if (url.pathname === "/schedule") {
         const parsed = parseSchedule(read.value, Date.now());
         if (!parsed) return json({ error: "bad_request" }, 400, cors);
-        await env.DEVICE_ALARM.getByName(parsed.deviceId).schedule(parsed.subscription, parsed.fireAt);
-        return json({ ok: true, count: parsed.fireAt.length }, 200, cors);
+        const result = await env.DEVICE_ALARM.getByName(parsed.deviceId).schedule(parsed.subscription, parsed.fireAt, parsed.seq);
+        return outcome(result, { count: parsed.fireAt.length }, cors);
       }
 
       const deviceId = read.value?.deviceId;
       if (typeof deviceId !== "string" || !DEVICE_ID_RE.test(deviceId)) return json({ error: "bad_request" }, 400, cors);
-      await env.DEVICE_ALARM.getByName(deviceId).cancel();
-      return json({ ok: true }, 200, cors);
+      const seq = parseSeq(read.value?.seq);
+      if (!seq.ok) return json({ error: "bad_request" }, 400, cors);
+      return outcome(await env.DEVICE_ALARM.getByName(deviceId).cancel(seq.seq), {}, cors);
     } catch (e) {
       console.error("[push] erreur serveur :", e.message);
       return json({ error: "server_error" }, 500, cors);

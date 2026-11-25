@@ -1831,9 +1831,18 @@
          opacity: 0.8;
          margin-top: 2px;
      }
-     .alert-mode-status,
-     .alert-mode-privacy {
+     .alert-mode-status {
          font-size: 0.82rem;
          margin-top: 6px;
          opacity: 0.85;
      }
+
+
+     /* Icône d'état de la synchronisation (à côté du nom du mode serveur / mixte) */
+     .alert-mode-icon {
+         font-weight: bold;
+         margin-left: 4px;
+     }
+     .alert-mode-icon.ok { color: #4caf50; }
+     .alert-mode-icon.pending { color: #ffb300; }
+     .alert-mode-icon.unavailable { color: #f44336; }

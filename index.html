@@ -11,7 +11,7 @@
     <!-- APP INFORMATION -->
     <title>PacingCount</title>
     <script>
-        const APP_VERSION = "0.9.30-beta.11"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
+        const APP_VERSION = "0.9.30-beta.12"; // MANUELLEMENT : synchroniser avec CACHE_NAME dans sw.js
         const APP_NAME = "PacingCount";
         const APP_AUTHOR = "No-w-ay";
         const APP_COPYRIGHT = `© 2026 ${APP_AUTHOR}`;
@@ -171,18 +171,17 @@
                 <div id="alert-mode-title" class="alert-mode-title"></div>
                 <label class="alert-mode-option" id="alert-mode-opt-local">
                     <input type="radio" name="alert-mode" value="local" onchange="onAlertModeChange('local')">
-                    <span><b id="alert-mode-name-local"></b><small id="alert-mode-desc-local"></small></span>
+                    <span><b id="alert-mode-name-local"></b><small><span id="alert-mode-desc-local"></span> <b id="alert-mode-cond-local"></b></small></span>
                 </label>
                 <label class="alert-mode-option" id="alert-mode-opt-server">
                     <input type="radio" name="alert-mode" value="server" onchange="onAlertModeChange('server')">
-                    <span><b id="alert-mode-name-server"></b><small id="alert-mode-desc-server"></small></span>
+                    <span><b id="alert-mode-name-server"></b> <span id="alert-mode-icon-server" class="alert-mode-icon" role="img"></span><small><span id="alert-mode-desc-server"></span> <b id="alert-mode-cond-server"></b></small></span>
                 </label>
                 <label class="alert-mode-option" id="alert-mode-opt-mixed">
                     <input type="radio" name="alert-mode" value="mixed" onchange="onAlertModeChange('mixed')">
-                    <span><b id="alert-mode-name-mixed"></b><small id="alert-mode-desc-mixed"></small></span>
+                    <span><b id="alert-mode-name-mixed"></b> <span id="alert-mode-icon-mixed" class="alert-mode-icon" role="img"></span><small><span id="alert-mode-desc-mixed"></span> <b id="alert-mode-cond-mixed"></b></small></span>
                 </label>
                 <div id="alert-mode-status" class="alert-mode-status" aria-live="polite"></div>
-                <div id="alert-mode-privacy" class="alert-mode-privacy" style="display:none;"></div>
             </div>
             <div id="alerts-list"></div>
             <button id="btn-add-alert" onclick="openAlertModal(-1)" style="width:100%; padding:10px; margin-top:8px; background:var(--green); color:white;

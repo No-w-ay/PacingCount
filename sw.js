@@ -1,6 +1,6 @@
 //sw.js v0.3 alertes (à partir de index_v0.9.21-x)
 
-const CACHE_NAME = 'PacingCount-v0.9.30-beta.11'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
+const CACHE_NAME = 'PacingCount-v0.9.30-beta.12'; // MANUELLEMENT : synchroniser le numéro qui suit PacingCount-v avec APP_VERSION dans index.html
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -173,6 +173,12 @@ self.addEventListener('push', function (event) {
 });
 
 async function handlePush() {
+  await handlePushDisplay();
+  // Remise à jour du serveur, après l'affichage (jamais avant : l'alerte passe en premier)
+  await resyncServerAfterPush();
+}
+
+async function handlePushDisplay() {
   try {
     const plan = await alertsStoreGet('plan');
     const now = Date.now();
@@ -209,6 +215,57 @@ async function handlePush() {
       tag: 'pacing-push-fallback',
       icon: './icon-192.png'
     });
+  }
+}
+
+// Après un push, le service worker recalcule les horaires restants d'après le plan et le registre, et les
+// renvoie au serveur s'ils diffèrent de ce qu'il connaît (vagues entrées dans la fenêtre de 24 h, envoi
+// précédent resté sans réseau…). La chaîne d'alertes continue ainsi, app fermée. Au mieux : une erreur
+// (réseau…) est ignorée, la page reprendra la main à sa prochaine ouverture. Sans identifiant d'appareil
+// copié dans IndexedDB par la page, on ne fait rien.
+async function resyncServerAfterPush() {
+  try {
+    const plan = await alertsStoreGet('plan');
+    if (!plan || !plan.mode || plan.mode === 'local') return;
+    const state = await alertsPushStateGet();
+    if (!state.deviceId) return;
+    const sub = await self.registration.pushManager.getSubscription();
+    if (!sub) return;
+    const playedKeys = new Set((await alertsPlayedRead()).map(p => alertsWaveKey(p.alertId, p.runStart, p.waveIndex)));
+    const desired = alertsPushDesiredTimes(plan.waves, (a, r, i) => playedKeys.has(alertsWaveKey(a, r, i)), Date.now());
+    const syncedFuture = state.times === null ? null : state.times.filter(x => x > Date.now() + 1000);
+    if (syncedFuture !== null && alertsPushSameTimes(syncedFuture, desired) && state.endpoint === sub.endpoint) return;
+    await alertsPushSync(sub, desired);
+    sendLogToPage(`[SW-SLTP] Serveur remis à jour après le push (${desired.length} horaire(s))`);
+  } catch (e) {
+    console.warn('[SW] Remise à jour du serveur impossible :', e);
+  }
+}
+
+// Le navigateur a renouvelé (ou perdu) l'abonnement push : le serveur garde l'ancienne adresse et ses push
+// partiraient dans le vide. On se réabonne avec la même clé et on envoie la nouvelle adresse (support inégal
+// selon les navigateurs : la page fait la même vérification à chaque synchronisation).
+self.addEventListener('pushsubscriptionchange', function (event) {
+  event.waitUntil(handleSubscriptionChange());
+});
+
+async function handleSubscriptionChange() {
+  try {
+    const plan = await alertsStoreGet('plan');
+    const state = await alertsPushStateGet();
+    if (!plan || !plan.mode || plan.mode === 'local' || !state.deviceId) return;
+    let sub = await self.registration.pushManager.getSubscription();
+    if (!sub) sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushUrlBase64ToBytes(PUSH_VAPID_PUBLIC_KEY) });
+    const playedKeys = new Set((await alertsPlayedRead()).map(p => alertsWaveKey(p.alertId, p.runStart, p.waveIndex)));
+    const desired = alertsPushDesiredTimes(plan.waves, (a, r, i) => playedKeys.has(alertsWaveKey(a, r, i)), Date.now());
+    if (desired.length === 0) {
+      await alertsPushStateUpdate(() => ({ endpoint: sub.endpoint })); // rien à envoyer : on retient seulement la nouvelle adresse
+      return;
+    }
+    await alertsPushSync(sub, desired);
+    sendLogToPage('[SW-SLTP] Abonnement push renouvelé : nouvelle adresse envoyée au serveur');
+  } catch (e) {
+    console.warn('[SW] pushsubscriptionchange : échec', e);
   }
 }
 

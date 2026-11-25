@@ -4,21 +4,13 @@
 // Serveur : dossier cf-worker/. Le push est envoyé VIDE : à sa réception, sw.js joue les vagues dues d'après
 // le plan stocké dans IndexedDB (textes déjà traduits par la page).
 // Le serveur ne reçoit que des horaires (ms) et l'adresse d'abonnement push : jamais de noms ni de données de santé.
+// L'envoi lui-même (alertsPushSync), l'état de synchronisation (identifiant d'appareil, numéro de séquence,
+// adresse d'abonnement, horaires confirmés : clé 'push' d'IndexedDB) et les constantes du serveur sont dans
+// js/alerts-shared-sw.js, partagés avec le service worker qui remet le serveur à jour après un push.
 
-const PUSH_WORKER_URL = 'https://pacingcount-push.pacingcount.workers.dev';
-// Clé publique VAPID (publique par nature). La clé privée n'est que dans les secrets Cloudflare.
-const PUSH_VAPID_PUBLIC_KEY = 'BLElc13cOdK7B3ophZ0svDndalSZ-sx8NTx1Nmahbjw0Vl7KWYgFUlHg7zrPJwYFol3BelWymrKEbIyqy-PFHns';
 // Clé locale séparée : jamais incluse dans l'export des données (l'identifiant sert d'accès côté serveur).
 const PUSH_DEVICE_ID_KEY = 'pushDeviceId';
-// Horaires déjà confirmés par le serveur (liste de ms ; [] = tout annulé ; absent = jamais synchronisé).
-// Clé locale, jamais incluse dans l'export des données.
-const PUSH_SYNCED_KEY = 'pushSyncedTimes';
-// Le Worker refuse un horaire au-delà de 24 h : on s'arrête un peu avant. Les vagues plus lointaines
-// sont envoyées à la prochaine ouverture de l'app. Il accepte au plus 50 horaires.
-const PUSH_MAX_AHEAD_MS = 23 * 3600 * 1000 + 50 * 60 * 1000;
-const PUSH_MAX_TIMES = 50;
 const PUSH_RETRY_MS = 2 * 60 * 1000; // nouvel essai automatique tant que la synchronisation est en attente
-const PUSH_FETCH_TIMEOUT_MS = 10 * 1000;
 const PUSH_SW_TIMEOUT_MS = 8 * 1000;
 
 let pushBusy = false; // évite les doubles clics pendant la demande d'autorisation / d'abonnement
@@ -33,11 +25,6 @@ class PushError extends Error {
 
 function pushIsSupported() {
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
-}
-
-function pushUrlBase64ToBytes(b64url) {
-    const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '=');
-    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 }
 
 // Identifiant aléatoire de l'appareil (16 octets = 22 caractères), créé une fois puis conservé.
@@ -80,40 +67,6 @@ async function pushEnsureSubscription() {
     return sub;
 }
 
-async function pushPost(path, body) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), PUSH_FETCH_TIMEOUT_MS);
-    let res;
-    try {
-        res = await fetch(PUSH_WORKER_URL + path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            credentials: 'omit',
-            cache: 'no-store',
-            signal: controller.signal
-        });
-    } catch (e) {
-        throw new PushError('network', e.name);
-    } finally {
-        clearTimeout(timer);
-    }
-    if (!res.ok) throw new PushError('http', res.status);
-    return res;
-}
-
-// Envoie au serveur la liste des horaires absolus (ms) pour cet appareil. Remplace les précédents.
-async function pushSchedule(sub, fireAt) {
-    const { endpoint, keys } = sub.toJSON();
-    const subscription = { endpoint };
-    if (keys && keys.p256dh && keys.auth) subscription.keys = { p256dh: keys.p256dh, auth: keys.auth };
-    await pushPost('/schedule', { deviceId: pushGetDeviceId(), subscription, clientNow: Date.now(), fireAt });
-}
-
-async function pushCancel() {
-    await pushPost('/cancel', { deviceId: pushGetDeviceId() });
-}
-
 // Texte d'erreur (traduit) pour l'utilisateur.
 function pushErrorText(e) {
     if (e instanceof PushError && e.code === 'unsupported') return t('pushStatusUnsupported');
@@ -132,33 +85,12 @@ let pushSyncRunning = false;
 let pushSyncAgain = false;
 let pushRetryTimer = null;
 
-function pushLoadSynced() {
-    try {
-        const list = JSON.parse(localStorage.getItem(PUSH_SYNCED_KEY));
-        return Array.isArray(list) ? list.filter(Number.isFinite) : null;
-    } catch (e) { return null; }
-}
-
-function pushSaveSynced(list) {
-    try { localStorage.setItem(PUSH_SYNCED_KEY, JSON.stringify(list)); } catch (e) { /* stockage indisponible : on resynchronisera */ }
-}
-
-// Horaires à confirmer au serveur : vagues futures pas encore jouées de la période en cours (sans doublon,
-// triés). Liste vide en mode hors ligne ou sans période active.
+// Horaires à confirmer au serveur : vagues futures pas encore jouées de la période en cours (voir
+// alertsPushDesiredTimes). Liste vide en mode hors ligne ou sans période active.
 function pushGetDesiredTimes() {
     if (getAlertMode() === 'local') return [];
     if (state.activeType === null || state.startTime === null) return [];
-    const now = Date.now();
-    const times = new Set();
-    buildServerPlan(state.activeType, state.startTime).waves.forEach(w => {
-        if (isWavePlayed(w.alertId, w.runStart, w.index)) return;
-        if (w.fireAt > now + 1000 && w.fireAt <= now + PUSH_MAX_AHEAD_MS) times.add(w.fireAt);
-    });
-    return [...times].sort((a, b) => a - b).slice(0, PUSH_MAX_TIMES);
-}
-
-function pushSameTimes(a, b) {
-    return a.length === b.length && a.every((v, i) => v === b[i]);
+    return alertsPushDesiredTimes(buildServerPlan(state.activeType, state.startTime).waves, isWavePlayed, Date.now());
 }
 
 // Change l'état, met à jour l'interface et le minuteur de nouvel essai ; en mode mixte, le Wake Lock dépend
@@ -177,8 +109,9 @@ function pushSetSyncStatus(status) {
     }
 }
 
-// Une passe : compare les horaires voulus à ceux déjà confirmés et n'écrit au serveur qu'en cas de différence.
-// Jamais de contact avec le serveur tant que l'utilisateur n'a pas choisi le mode serveur ou mixte.
+// Une passe : compare les horaires voulus à ceux déjà confirmés (et l'adresse d'abonnement à celle connue du
+// serveur) et n'écrit au serveur qu'en cas de différence. L'état confirmé est dans IndexedDB, partagé avec le
+// service worker. Jamais de contact avec le serveur tant que l'utilisateur n'a pas choisi le mode serveur ou mixte.
 async function pushSyncOnce() {
     const mode = getAlertMode();
     const settled = mode === 'local' ? 'idle' : 'ok';
@@ -186,28 +119,37 @@ async function pushSyncOnce() {
         pushSetSyncStatus('unavailable');
         return;
     }
-    const desired = pushGetDesiredTimes();
-    const synced = pushLoadSynced();
-    if (synced === null && desired.length === 0) { // jamais synchronisé et rien à envoyer : rien à annuler non plus
-        pushSaveSynced([]);
-        pushSetSyncStatus(settled);
-        return;
-    }
-    // Les horaires déjà passés ont été joués par le serveur : on ne les compare pas
-    const syncedFuture = synced === null ? null : synced.filter(x => x > Date.now() + 1000);
-    if (syncedFuture !== null && pushSameTimes(syncedFuture, desired)) {
-        pushSetSyncStatus(settled);
-        return;
-    }
-    if (navigator.onLine === false) { pushSetSyncStatus('pending'); return; }
     try {
-        if (desired.length === 0) {
-            await pushCancel();
-        } else {
-            const sub = await pushEnsureSubscription();
-            await pushSchedule(sub, desired);
+        const desired = pushGetDesiredTimes();
+        let saved;
+        try {
+            saved = await alertsPushStateGet();
+        } catch (e) {
+            // IndexedDB illisible : en mode hors ligne rien n'a jamais été envoyé au serveur, rien à faire (et rien
+            // à réessayer) ; en mode serveur / mixte, la synchronisation est impossible pour l'instant.
+            if (mode === 'local') { pushSetSyncStatus('idle'); return; }
+            throw e;
         }
-        pushSaveSynced(desired);
+        // Le service worker ne lit pas localStorage : l'identifiant d'appareil est copié dans IndexedDB
+        const deviceId = pushGetDeviceId();
+        if (saved.deviceId !== deviceId) await alertsPushStateUpdate(() => ({ deviceId }));
+        try { localStorage.removeItem('pushSyncedTimes'); } catch (e) { /* ancienne clé des beta.10-11, remplacée par l'état IndexedDB */ }
+        if (saved.times === null && desired.length === 0) { // jamais synchronisé et rien à envoyer : rien à annuler non plus
+            await alertsPushStateUpdate(() => ({ times: [] }));
+            pushSetSyncStatus(settled);
+            return;
+        }
+        const sub = mode === 'local' ? null : await pushEnsureSubscription();
+        // Horaires déjà passés : joués par le serveur, on ne les compare pas. Adresse renouvelée par le
+        // navigateur : le serveur garde l'ancienne, il faut la lui renvoyer même si les horaires n'ont pas changé.
+        const syncedFuture = saved.times === null ? null : saved.times.filter(x => x > Date.now() + 1000);
+        const endpointChanged = sub !== null && saved.endpoint !== null && saved.endpoint !== sub.endpoint;
+        if (syncedFuture !== null && alertsPushSameTimes(syncedFuture, desired) && !endpointChanged) {
+            pushSetSyncStatus(settled);
+            return;
+        }
+        if (navigator.onLine === false) { pushSetSyncStatus('pending'); return; }
+        await alertsPushSync(sub, desired);
         pushSetSyncStatus(settled);
     } catch (e) {
         console.warn('[push] Synchronisation impossible :', e);

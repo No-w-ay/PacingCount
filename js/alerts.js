@@ -565,6 +565,7 @@ function renderAlertModeUI() {
     [['local', 'Local'], ['server', 'Server'], ['mixed', 'Mixed']].forEach(([value, key]) => {
         document.getElementById('alert-mode-name-' + value).textContent = t('alertModeName' + key);
         document.getElementById('alert-mode-desc-' + value).textContent = t('alertModeDesc' + key);
+        document.getElementById('alert-mode-cond-' + value).textContent = t('alertModeCond' + key); // condition en gras
         const option = document.getElementById('alert-mode-opt-' + value);
         const radio = option.querySelector('input');
         radio.checked = value === mode;
@@ -572,19 +573,23 @@ function renderAlertModeUI() {
         option.classList.toggle('disabled', radio.disabled);
     });
 
-    // Ligne d'état : raison d'indisponibilité, sinon état de la synchronisation avec le serveur
-    let status = '';
-    if (mode !== 'local') {
-        if (pushSyncStatus === 'ok') status = t('alertModeSyncOk');
-        else if (pushSyncStatus === 'pending') status = t(mode === 'server' ? 'alertModeSyncPendingServer' : 'alertModeSyncPendingMixed');
-        else if (pushSyncStatus === 'unavailable') status = t(unavailableKey || 'pushStatusError', { detail: 'unavailable' });
-    } else if (unavailableKey) {
-        status = t(unavailableKey); // pourquoi « Réveil via serveur » et « Mixte » sont grisés
-    }
-    document.getElementById('alert-mode-status').textContent = status;
-    const privacy = document.getElementById('alert-mode-privacy');
-    privacy.textContent = t('alertModePrivacy');
-    privacy.style.display = mode === 'local' ? 'none' : '';
+    // Icône d'état de la synchronisation, à côté du mode serveur ou mixte choisi (texte dans l'info-bulle et
+    // pour les lecteurs d'écran) : ✔ serveur à jour, 📶? connexion à vérifier (nouvel essai automatique),
+    // ✖ indisponible (action de l'utilisateur nécessaire : voir la raison ci-dessous).
+    const icon = { ok: ['✔', 'ok'], pending: ['📶?', 'pending'], unavailable: ['✖', 'unavailable'] }[pushSyncStatus];
+    const reason = unavailableKey ? t(unavailableKey) : (pushSyncStatus === 'unavailable' ? t('pushStatusError', { detail: 'unavailable' }) : '');
+    ['server', 'mixed'].forEach(value => {
+        const el = document.getElementById('alert-mode-icon-' + value);
+        const show = value === mode && icon !== undefined;
+        el.textContent = show ? icon[0] : '';
+        el.className = 'alert-mode-icon' + (show ? ' ' + icon[1] : '');
+        const label = !show ? '' : pushSyncStatus === 'ok' ? t('alertModeSyncOk')
+            : pushSyncStatus === 'pending' ? t(mode === 'server' ? 'alertModeSyncPendingServer' : 'alertModeSyncPendingMixed') : reason;
+        el.title = label;
+        el.setAttribute('aria-label', label);
+    });
+    // Ligne sous les choix : raison d'indisponibilité (pourquoi « Réveil via serveur » et « Mixte » sont grisés)
+    document.getElementById('alert-mode-status').textContent = reason;
 }
 
 // Clic sur un mode. Choisir « serveur » ou « mixte » demande d'abord l'autorisation de notification et
