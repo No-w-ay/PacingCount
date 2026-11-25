@@ -1809,9 +1809,17 @@
          padding: 8px 4px;
          cursor: pointer;
      }
+     /* La règle globale « input, select { width: 100% … } » étirait le radio sur toute la ligne : on la neutralise ici */
      .alert-mode-option input {
-         margin-top: 4px;
+         width: 22px;
+         height: 22px;
+         padding: 0;
+         margin: 2px 0 0 0;
          flex: 0 0 auto;
+     }
+     .alert-mode-option > span {
+         flex: 1;
+         min-width: 0;
      }
      .alert-mode-option.disabled {
          opacity: 0.55;
