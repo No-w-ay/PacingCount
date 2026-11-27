@@ -43,6 +43,15 @@
 - **Commits depuis VS Code connecté à GitHub (sans copie locale)** : il n'y a pas de zone *Stage*, tous les changements en attente partent dans le même commit. Beaucoup de **déplacements/renommages** d'un coup (seuil indicatif, non mesuré : au-delà d'une dizaine) font échouer le commit avec `No working content for created or changed commit operation` : l'extension relit le contenu de chaque fichier déplacé et lance le commit avant la fin des lectures (échec en ≈ 30 ms). Procéder par lots d'une dizaine de fichiers, un commit par lot. Une suppression ne demande aucune relecture : plus légère qu'un déplacement. Pour lire l'erreur : palette de commandes → `Developer: Show Logs…` → canal GitHub / Remote Repositories.
 - **Fins de ligne** : le dépôt mélange LF et CRLF selon les fichiers (constat au 2026-10-05 : CRLF pour `style.css`, `js/*.js` et `docs/ARCHITECTURE.md` ; LF pour `index.html`, `sw.js`, `manifest.json`, `messages.json` et les autres notes). Sans conséquence pour l'app, mais un fichier remplacé par une copie aux fins de ligne différentes apparaît entièrement modifié dans le diff. Règle : **conserver les fins de ligne existantes du fichier** quand on en remplace un (Claude les préserve) ; les nouveaux fichiers sont en LF. Vérification : `grep -c $'\r$' fichier` (nombre de lignes CRLF).
 - Bug de continuité entre un état attendu et un fichier réel : repartir du fichier réel (dépôt, branche `dev`), jamais d'un document collé plus haut dans une conversation.
+- **Appliquer un patch (PowerShell, copie locale dans `$HOME\PacingCount`, patch téléchargé dans `Downloads`)** : toujours cette séquence, avec le chemin complet du patch. `--check` d'abord, sans rien modifier ; si une étape échoue, s'arrêter et ne rien forcer. Le patch reste dans `Downloads` (hors dépôt) : il n'y a rien à retirer avant le commit.
+  ```powershell
+  cd $HOME\PacingCount
+  git status
+  git apply --check --ignore-whitespace "$HOME\Downloads\<nom-du-patch>.patch"
+  git apply --ignore-whitespace "$HOME\Downloads\<nom-du-patch>.patch"
+  git --no-pager diff --stat
+  git status --short
+  ```
 
 ## Alertes serveur / Web Push
 - **`Notification.requestPermission()`** : à appeler en tout premier, de façon synchrone, dans le gestionnaire de clic (aucun `await` ni `alert()` avant). Sur iOS, sinon la demande est ignorée ; une fois `denied`, on ne peut plus redemander.

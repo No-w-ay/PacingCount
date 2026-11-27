@@ -1,6 +1,6 @@
 # TODO — PacingCount
 
-> Liste unique et à jour. Mise à jour : 2026-11-25 (0.9.30-beta.12). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
+> Liste unique et à jour. Mise à jour : 2026-11-27 (0.9.30-beta.12). Les détails d'un chantier sont dans sa note (`docs/evolution.md`, `docs/notes-events.md`, `docs/installation.md`, `docs/optimisation-stockage-performance.md`, `docs/alertes-serveur.md`). Les conventions techniques sont dans `docs/CONVENTIONS.md`.
 > Le dépôt est public : n'y écrire rien de personnel.
 
 ## En investigation
@@ -35,6 +35,7 @@
 - **Questions d'export** : export XLSX (écrit directement depuis les structures internes) ; `removeAccents()` dans `exportCSV()`.
 - **Export rapport PDF : graphes et données par jours et graphe évolution** (voir aussi « Long terme », rapport pour partage médical).
 - **Sauvegarde auto proposée chaque semaine** (rappel/proposition d'export JSON ; à cadrer : déclencheur, discrétion du message, lien avec les toasts de stockage).
+- **Durcissement sécurité** (sans urgence ; le détail n'est pas dans le dépôt) : charger Eruda en version épinglée avec SRI (ou en copie locale) ; avertissement FR/EN/NL à l'activation du mode dev ; courte phrase de confiance pour les utilisateurs (l'app ne demande jamais de mot de passe, d'argent ni d'installer autre chose) ; terminer R9 (voir plus bas) ; CSP d'abord en `Report-Only` via un fichier `_headers` (Cloudflare Pages), testée sur `dev` ; vérifier le 2FA et la protection de `main` côté GitHub / Cloudflare.
 
 ## Import / export : points reportés (décidés « plus tard », beta.37)
 
